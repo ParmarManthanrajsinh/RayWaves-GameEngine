@@ -108,7 +108,7 @@ private:
     // Performance Overlay
     bool m_bShowPerformanceStats = false;
     std::array<float, 120> m_FrameTimes{};
-    int m_FrameOffset = 0;
+    size_t m_FrameOffset;
 
     void DrawPerformanceOverlay();
     void UpdatePerformanceMetrics();

@@ -2009,7 +2009,11 @@ void GameEditor::DrawMapSelectionUI()
 
 void GameEditor::UpdatePerformanceMetrics()
 {
-	// Store frame time in ms
+	if (m_FrameTimes.empty())
+	{
+		return;
+	}
+
 	m_FrameTimes[m_FrameOffset] = GetFrameTime() * 1000.0f; 
 	m_FrameOffset = (m_FrameOffset + 1) % m_FrameTimes.size();
 }
