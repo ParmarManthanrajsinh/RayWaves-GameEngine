@@ -1,6 +1,6 @@
 
 <div align="center">
-  <img src="Assets/EngineContent/logo.png" alt="RayWaves Logo" width="120" style="margin-bottom: 20px;"/>
+  <img src="Assets/EngineContent/logo.png" alt="RayWaves Logo" width="240" style="margin-bottom: 20px;"/>
   <h1>RayWaves Game Engine</h1>
   <p><i><b>Where your code changes flow like waves 🌊</b></i></p>
   <p>
