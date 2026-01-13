@@ -384,24 +384,24 @@ void GameEditor::DrawSceneWindow()
 	ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 12);
 
     // Status Text
-	const bool isPlaying = b_IsPlaying;
+	const bool is_playing = b_IsPlaying;
 
-	const ImVec4 color = isPlaying
+	const ImVec4 color = is_playing
 		? ImVec4(0.2f, 0.8f, 0.2f, 1.0f)
 		: ImVec4(0.8f, 0.2f, 0.2f, 1.0f);
 
-	const char* icon = isPlaying ? ICON_FA_PLAY : ICON_FA_STOP;
-	const char* label = isPlaying ? " PLAYING" : " STOPPED";
+	const char* icon = is_playing ? ICON_FA_PLAY : ICON_FA_STOP;
+	const char* label = is_playing ? " PLAYING" : " STOPPED";
 
-	float textYOffset = ((toolbar_height - ImGui::GetTextLineHeight()) * 0.5f) - vertical_offset - 2.0f;
-	float baseCursorY = ImGui::GetCursorPosY();
+	float text_y_offset = ((toolbar_height - ImGui::GetTextLineHeight()) * 0.5f) - vertical_offset - 2.0f;
+	float base_cursor_y = ImGui::GetCursorPosY();
 
 	// Icon
-	ImGui::SetCursorPosY(baseCursorY + textYOffset);
+	ImGui::SetCursorPosY(base_cursor_y + text_y_offset);
 	ImGui::TextColored(color, "%s", icon);
 	ImGui::SameLine();
 
-	ImGui::SetCursorPosY(baseCursorY + textYOffset - 1.0f);
+	ImGui::SetCursorPosY(base_cursor_y + text_y_offset - 1.0f);
 	ImGui::TextColored(color, "%s", label);
 
 	ImGui::SameLine();
