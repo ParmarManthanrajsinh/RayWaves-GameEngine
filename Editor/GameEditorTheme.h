@@ -1,9 +1,8 @@
 ﻿#pragma once
 #include <string>
 #include <imgui.h>
+#include "../Editor/rlImGui/extras/IconsFontAwesome6.h"
 #include <rlImGui.h>
-
-#include "FontAwesome.h"
 
 inline void SetEngineTheme
 (

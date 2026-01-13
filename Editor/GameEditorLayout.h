@@ -41,6 +41,11 @@ Size=972,720
 Collapsed=0
 DockId=0x00000001,1
 
+[Window][Performance Overlay]
+Pos=10,140
+Size=220,182
+Collapsed=0
+
 [Docking][Data]
 DockSpace     ID=0x08BD597D Window=0x1BBC0F80 Pos=0,0 Size=1280,720 Split=Y Selected=0xE601B12F
   DockNode    ID=0x00000003 Parent=0x08BD597D SizeRef=1280,520 Split=X Selected=0xE601B12F

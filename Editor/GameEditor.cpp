@@ -29,7 +29,10 @@ GameEditor::GameEditor()
 	  m_GameLogicDll{},
 	  m_CreateGameMap(nullptr),
 	  m_OpaqueShader({ 0 }),
-	  m_MapManager(nullptr)
+	  m_MapManager(nullptr),
+	  m_bShowPerformanceStats(false),
+	  m_FrameTimes{},
+	  m_FrameOffset(0)
 {
 }
 
@@ -161,6 +164,8 @@ void GameEditor::Run()
 			}
 		}
 
+		UpdatePerformanceMetrics();
+
 		float delta_time = GetFrameTime();
 		if (b_IsPlaying)
 		{
@@ -203,6 +208,7 @@ void GameEditor::Run()
         DrawExportPanel();
 		DrawSceneSettingsPanel();
 		DrawSceneWindow();
+		DrawPerformanceOverlay();
 
 		rlImGuiEnd();
 		EndDrawing();
@@ -354,6 +360,7 @@ void GameEditor::DrawSceneWindow()
 	float button_height = 32.0f;
 	float vertical_offset = (toolbar_height - button_height) / 2.0f;
 	ImGui::SetCursorPosY(ImGui::GetCursorPosY() + vertical_offset);
+	ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 5.0f);
 
     // Play/Pause
     if (b_IsPlaying)
@@ -374,7 +381,7 @@ void GameEditor::DrawSceneWindow()
 	ImGui::SameLine();
 	
 	// Restart
-	if (IconButton("restart_btn", ICON_FA_REDO_ALT, ImVec2(32, 32), "Restart") || IsWindowResized())
+	if (IconButton("restart_btn", ICON_FA_ARROW_ROTATE_RIGHT, ImVec2(32, 32), "Restart") || IsWindowResized())
 	{
 		b_IsPlaying = false;
 		m_MapManager->b_ReloadCurrentMap();
@@ -400,7 +407,7 @@ void GameEditor::DrawSceneWindow()
 	ImGui::SetCursorPosY(base_cursor_y + text_y_offset);
 	ImGui::TextColored(color, "%s", icon);
 	ImGui::SameLine();
-
+	
 	ImGui::SetCursorPosY(base_cursor_y + text_y_offset - 1.0f);
 	ImGui::TextColored(color, "%s", label);
 
@@ -409,7 +416,7 @@ void GameEditor::DrawSceneWindow()
 
     
     // Restore
-	if (IconButton("restore_btn", ICON_FA_UNDO_ALT, ImVec2(32, 32), "Reset Game"))
+	if (IconButton("restore_btn", ICON_FA_ARROW_ROTATE_LEFT, ImVec2(32, 32), "Reset Game"))
 	{
 		b_IsPlaying = false;
 		if (!b_ReloadGameLogic())
@@ -419,10 +426,10 @@ void GameEditor::DrawSceneWindow()
 	}
 
 	ImGui::SameLine();
-	ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 12);
+	ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 5);
 
     // Clean
-	if (IconButton("clean_btn", ICON_FA_TRASH_ALT, ImVec2(32, 32), "Delete Build Folder"))
+	if (IconButton("clean_btn", ICON_FA_TRASH_CAN, ImVec2(32, 32), "Delete Build Folder"))
 	{
 		if (fs::exists("build"))
 		{
@@ -431,10 +438,25 @@ void GameEditor::DrawSceneWindow()
 	}
 
 	ImGui::SameLine();
+	ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 5);
+
+	// Performance Toggle
+	const bool show_stats = m_bShowPerformanceStats;
+	const ImVec4 stats_color = show_stats ? ImVec4(1.0f, 1.0f, 1.0f, 1.0f) : ImVec4(0.5f, 0.5f, 0.5f, 1.0f);
+	ImGui::PushStyleColor(ImGuiCol_Text, stats_color);
+
+	if (IconButton("perf_btn", ICON_FA_CHART_LINE, ImVec2(32, 32), "Performance Overlay"))
+	{
+		m_bShowPerformanceStats = !m_bShowPerformanceStats;
+	}
+
+	ImGui::PopStyleColor();
+	ImGui::SameLine();	
 
 	// Compile
 	float button_sz = 32.0f + ImGui::GetStyle().FramePadding.x * 2.0f;
 	float status_sz = 0.0f;
+
 	if (b_IsCompiling)
 	{
 		status_sz = 20.0f + ImGui::GetStyle().ItemSpacing.x + ImGui::CalcTextSize("Compiling...").x + ImGui::GetStyle().ItemSpacing.x;
@@ -442,6 +464,7 @@ void GameEditor::DrawSceneWindow()
 
 	float avail = ImGui::GetContentRegionAvail().x;
 	float pos_x = ImGui::GetCursorPosX() + avail - button_sz - status_sz;
+
 	if (pos_x > ImGui::GetCursorPosX())
 	{
 		ImGui::SetCursorPosX(pos_x);
@@ -616,7 +639,7 @@ void GameEditor::DrawExportPanel()
         ImGui::EndCombo();
     }
     ImGui::PopItemWidth();
-
+    
     ImGui::Spacing();
 
     // Window Options
@@ -1983,3 +2006,74 @@ void GameEditor::DrawMapSelectionUI()
 
 	ImGui::End();
 }
+
+void GameEditor::UpdatePerformanceMetrics()
+{
+	// Store frame time in ms
+	m_FrameTimes[m_FrameOffset] = GetFrameTime() * 1000.0f; 
+	m_FrameOffset = (m_FrameOffset + 1) % m_FrameTimes.size();
+}
+
+void GameEditor::DrawPerformanceOverlay()
+{
+	if (!m_bShowPerformanceStats)
+	{
+		return;
+	}
+
+	// Semi-Transparent background
+	ImGui::SetNextWindowBgAlpha(0.7f);
+
+	ImGuiWindowFlags window_flags =
+		ImGuiWindowFlags_NoDecoration |
+		ImGuiWindowFlags_AlwaysAutoResize |
+		ImGuiWindowFlags_NoFocusOnAppearing |
+		ImGuiWindowFlags_NoDocking |
+		ImGuiWindowFlags_NoNav;
+
+
+
+	if (ImGui::Begin("Performance Overlay", &m_bShowPerformanceStats, window_flags))
+	{
+		// Calculate stats
+		float avg_frame_time = 0.0f;
+		float max_frame_time = 0.0f;
+
+		for (float t : m_FrameTimes)
+		{
+			avg_frame_time += t;
+			if (t > max_frame_time) max_frame_time = t;
+		}
+		avg_frame_time /= m_FrameTimes.size();
+
+		// Avoid division by zero
+		float fps = 1000.0f / (avg_frame_time > 0.001f ? avg_frame_time : 16.66f);
+
+		// Header Text
+		ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[ImGui::GetIO().Fonts->Fonts.size() > 1 ? 1 : 0]); // Bigger font if available
+		ImGui::TextColored(ImVec4(0.4f, 1.0f, 0.4f, 1.0f), "%.0f FPS", fps);
+		ImGui::PopFont();
+
+		ImGui::Separator();
+		ImGui::Text("Avg: %.2f ms", avg_frame_time);
+		ImGui::Text("Max: %.2f ms", max_frame_time);
+
+		ImGui::Spacing();
+
+		// Plot lines
+		// Use the offset to make the graph look like a rolling buffer
+		ImGui::PlotLines
+		(
+			"##FrameTimes",
+			m_FrameTimes.data(),
+			static_cast<int>(m_FrameTimes.size()),
+			m_FrameOffset,
+			"Frame Time (ms)",
+			0.0f,
+			33.0f, // 0-33ms range covers up to 30fps dips
+			ImVec2(200, 60)
+		);
+	}
+	ImGui::End();
+}
+

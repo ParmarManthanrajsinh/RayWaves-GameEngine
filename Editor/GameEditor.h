@@ -104,4 +104,12 @@ private:
         std::thread m_ExportThread;
         bool m_bExportSuccess = false;
     } m_ExportState;
+
+    // Performance Overlay
+    bool m_bShowPerformanceStats = false;
+    std::array<float, 120> m_FrameTimes{};
+    int m_FrameOffset = 0;
+
+    void DrawPerformanceOverlay();
+    void UpdatePerformanceMetrics();
 };
