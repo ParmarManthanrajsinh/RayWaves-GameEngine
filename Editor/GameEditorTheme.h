@@ -3,6 +3,8 @@
 #include <imgui.h>
 #include <rlImGui.h>
 
+#include "FontAwesome.h"
+
 inline void SetEngineTheme
 (
     std::string_view path = "Assets/EngineContent/Roboto-Regular.ttf"
@@ -19,7 +21,28 @@ inline void SetEngineTheme
     font_config.PixelSnapH = true;
     font_config.RasterizerMultiply = 1.15f;
 
+    // Load base font (size 20)
     io.Fonts->AddFontFromFileTTF(path.data(), 20.0f, &font_config);
+
+    // Merge FontAwesome icons
+    ImFontConfig icons_config;
+    icons_config.MergeMode = true;
+    icons_config.PixelSnapH = true;
+    icons_config.OversampleH = 2;
+    icons_config.OversampleV = 1;
+    icons_config.RasterizerMultiply = 1.15f;
+    
+    static const ImWchar icons_ranges[] = { ICON_MIN_FA, ICON_MAX_FA, 0 };
+    
+    // Try to load FontAwesome Solid from the same directory structure
+    // We assume the file is in Assets/EngineContent/
+    std::string icon_path = "Assets/EngineContent/" FONT_ICON_FILE_NAME_FAS;
+    
+    io.Fonts->AddFontFromFileTTF(icon_path.c_str(), 22.0f, &icons_config, icons_ranges);
+
+    // Load larger size (26)
+    // Note: We are not merging icons for the large font here for simplicity, 
+    // but if needed we would repeat the merge process.
     io.Fonts->AddFontFromFileTTF(path.data(), 26.0f, &font_config);
 
     rlImGuiReloadFonts();

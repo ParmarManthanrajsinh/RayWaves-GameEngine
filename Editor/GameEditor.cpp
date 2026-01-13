@@ -26,13 +26,6 @@ GameEditor::GameEditor()
 	  m_SourceTexture({ 0 , 0 }),
 	  b_IsPlaying(false),
 	  b_IsCompiling(false),
-	  m_PlayIcon({ 0 }),
-	  m_PauseIcon({ 0 }),
-	  m_RestartIcon({ 0 }),
-	  m_RestoreIcon({ 0 }),
-	  m_CompileIcon({ 0 }),
-	  m_CleanIcon({ 0 }),
-	  m_bIconsLoaded(false),
 	  m_GameLogicDll{},
 	  m_CreateGameMap(nullptr),
 	  m_OpaqueShader({ 0 }),
@@ -67,17 +60,6 @@ GameEditor::~GameEditor()
 	{
 		UnloadShader(m_OpaqueShader);
 		m_OpaqueShader.id = 0;
-	}
-
-	if (m_bIconsLoaded)
-	{
-		if (m_PlayIcon.id    != 0)	UnloadTexture(m_PlayIcon);
-		if (m_PauseIcon.id   != 0)	UnloadTexture(m_PauseIcon);
-		if (m_RestartIcon.id != 0)	UnloadTexture(m_RestartIcon);
-		if (m_RestoreIcon.id != 0)	UnloadTexture(m_RestoreIcon);
-		if (m_CompileIcon.id != 0)	UnloadTexture(m_CompileIcon);
-		if (m_CleanIcon.id   != 0)	UnloadTexture(m_CleanIcon);
-		m_bIconsLoaded = false;
 	}
 
 	if (m_GameLogicDll.handle)
@@ -144,106 +126,6 @@ void GameEditor::Init(int width, int height, std::string_view title)
 	);
 
 	m_OpaqueShader = LoadOpaqueShader();
-
-	LoadIconTextures();
-}
-
-void GameEditor::LoadIconTextures()
-{
-	// Load PNG icons (replace paths with your actual icon files)
-	Image play_img = LoadImage("Assets/EngineContent/icons/play.png");
-	Image pause_img = LoadImage("Assets/EngineContent/icons/pause.png");
-	Image restart_img = LoadImage("Assets/EngineContent/icons/restart.png");
-	Image restore_img = LoadImage("Assets/EngineContent/icons/restore.png");
-	Image compile_img = LoadImage("Assets/EngineContent/icons/compile.png");
-	Image clean_img = LoadImage("Assets/EngineContent/icons/clean.png");
-
-	// Create fallback icons if files don't exist
-	if (play_img.data == nullptr)
-	{
-		play_img = GenImageColor(28, 28, GREEN); // Updated size
-
-		// Draw a simple play triangle
-		ImageDrawRectangle(&play_img, 8, 6, 3, 16, DARKGREEN);
-		ImageDrawRectangle(&play_img, 11, 9, 3, 10, DARKGREEN);
-		ImageDrawRectangle(&play_img, 14, 12, 3, 4, DARKGREEN);
-	}
-
-	if (pause_img.data == nullptr)
-	{
-		pause_img = GenImageColor(28, 28, ORANGE); // Updated size
-
-		// Draw pause bars
-		ImageDrawRectangle(&pause_img, 8, 6, 4, 16, MAROON);
-		ImageDrawRectangle(&pause_img, 16, 6, 4, 16, MAROON);
-	}
-
-	if (restart_img.data == nullptr)
-	{
-		restart_img = GenImageColor(28, 28, RED); // Updated size
-
-		// Draw a simple restart symbol (circle with arrow)
-		ImageDrawCircle(&restart_img, 14, 14, 10, BLANK);
-		ImageDrawCircle(&restart_img, 14, 14, 8, RED);
-		ImageDrawRectangle(&restart_img, 16, 8, 6, 3, BLANK);
-		ImageDrawRectangle(&restart_img, 18, 11, 3, 3, BLANK);
-	}
-
-	if (restore_img.data == nullptr)
-	{
-		restore_img = GenImageColor(28, 28, BLUE); // Updated size
-
-		// Draw a simple restart symbol (circle with arrow)
-		ImageDrawCircle(&restore_img, 14, 14, 10, DARKBLUE);
-		ImageDrawCircle(&restore_img, 14, 14, 8, BLUE);
-		ImageDrawRectangle(&restore_img, 16, 8, 6, 3, DARKBLUE);
-		ImageDrawRectangle(&restore_img, 18, 11, 3, 3, DARKBLUE);
-	}
-
-	if (compile_img.data == nullptr)
-	{
-		compile_img = GenImageColor(28, 28, LIME); // Updated size
-
-		// Draw a simple compile symbol
-		ImageDrawRectangle(&compile_img, 10, 6, 6, 16, DARKGREEN);
-		ImageDrawRectangle(&compile_img, 6, 10, 14, 6, DARKGREEN);
-		ImageDrawRectangle(&compile_img, 8, 8, 10, 10, LIME);
-	}
-
-	if (clean_img.data == nullptr)
-	{
-		clean_img = GenImageColor(28, 28, DARKGRAY);
-
-		ImageDrawRectangle(&clean_img, 10, 10, 8, 12, GRAY);
-		ImageDrawRectangle(&clean_img, 8, 7, 12, 3, BLACK);
-		ImageDrawRectangle(&clean_img, 12, 5, 4, 2, BLACK);
-	}
-
-	// Resize to consistent size
-	ImageResize(&play_img, 28, 28);
-	ImageResize(&pause_img, 28, 28);
-	ImageResize(&restart_img, 28, 28);
-	ImageResize(&restore_img, 28, 28);
-	ImageResize(&compile_img, 28, 28);
-	ImageResize(&clean_img, 28, 28);
-
-	// Convert to textures
-	m_PlayIcon = LoadTextureFromImage(play_img);
-	m_PauseIcon = LoadTextureFromImage(pause_img);
-	m_RestartIcon = LoadTextureFromImage(restart_img);
-	m_RestoreIcon = LoadTextureFromImage(restore_img);
-	m_CompileIcon = LoadTextureFromImage(compile_img);
-	m_CleanIcon = LoadTextureFromImage(clean_img);
-
-	// Cleanup temporary images
-	UnloadImage(play_img);
-	UnloadImage(pause_img);
-	UnloadImage(restart_img);
-	UnloadImage(restore_img);
-	UnloadImage(compile_img);
-	UnloadImage(clean_img);
-
-	m_bIconsLoaded = true;
 }
 
 void GameEditor::Run()
@@ -336,16 +218,6 @@ void GameEditor::Close() const
 	config.scene_height = m_SceneSettings.m_SceneHeight;
 	config.scene_fps = m_SceneSettings.m_TargetFPS;
 	GameConfig::GetInstance().m_bSaveToFile("config.ini");
-
-	if (m_bIconsLoaded)
-	{
-		UnloadTexture(m_PlayIcon);
-		UnloadTexture(m_PauseIcon);
-		UnloadTexture(m_RestartIcon);
-		UnloadTexture(m_RestoreIcon);
-		UnloadTexture(m_CompileIcon);
-		UnloadTexture(m_CleanIcon);
-	}
 
 	UnloadRenderTexture(m_RaylibTexture);
 
@@ -451,134 +323,106 @@ static void s_fDrawSpinner
 	DrawList->PathStroke(color, false, thickness);
 }
 
+static bool IconButton(const char* label, const char* icon, const ImVec2& size, const char* tooltip)
+{
+    ImGui::PushID(label);
+    
+    // Use FontAwesome font for the button
+    // It should have been merged into the default font
+    
+    bool clicked = ImGui::Button(icon, size);
+    
+    if (ImGui::IsItemHovered())
+    {
+        ImGui::SetTooltip("%s", tooltip);
+    }
+
+    ImGui::PopID();
+    return clicked;
+}
+
 void GameEditor::DrawSceneWindow()
 {
 	ImGui::Begin("Scene");
 	DrawToolbarBackground();
 
-	// Compact button styling
 	ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(4, 4));
 	ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4, 2));
 	ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 3.0f);
 
-	// Calculate vertical centering for toolbar (40px tall)
-	// Button with padding = 28 + 4*2 = 36px
 	float toolbar_height = 40.0f;
-	float button_height = 28.0f + ImGui::GetStyle().FramePadding.y * 2.0f;
+	float button_height = 32.0f;
 	float vertical_offset = (toolbar_height - button_height) / 2.0f;
 	ImGui::SetCursorPosY(ImGui::GetCursorPosY() + vertical_offset);
 
-	// Play/Pause button with PNG icon
-	if (b_IsPlaying)
+    // Play/Pause
+    if (b_IsPlaying)
 	{
-		if
-		(
-			ImGui::ImageButton
-			(
-				"pause_btn",
-				(ImTextureID)(intptr_t)m_PauseIcon.id,
-				ImVec2(28, 28)
-			)
-		)
+		if (IconButton("pause_btn", ICON_FA_PAUSE, ImVec2(32, 32), "Pause"))
 		{
 			b_IsPlaying = false;
 		}
 	}
 	else
 	{
-		if
-		(
-			ImGui::ImageButton
-			(
-				"play_btn",
-				(ImTextureID)(intptr_t)m_PlayIcon.id,
-				ImVec2(28, 28)
-			)
-		)
+		if (IconButton("play_btn", ICON_FA_PLAY, ImVec2(32, 32), "Play"))
 		{
 			b_IsPlaying = true;
 		}
 	}
-
-	if (ImGui::IsItemHovered()) ImGui::SetTooltip("Play");
-
-	// Restart button with PNG icon
+	
 	ImGui::SameLine();
-	if
-	(
-		ImGui::ImageButton
-		(
-			"restart_btn",
-			(ImTextureID)(intptr_t)m_RestartIcon.id,
-			ImVec2(28, 28)
-		) || IsWindowResized()
-	)
+	
+	// Restart
+	if (IconButton("restart_btn", ICON_FA_REDO_ALT, ImVec2(32, 32), "Restart") || IsWindowResized())
 	{
 		b_IsPlaying = false;
 		m_MapManager->b_ReloadCurrentMap();
 	}
 
-	if (ImGui::IsItemHovered()) ImGui::SetTooltip("Restart");
-
-	// Status indicator
 	ImGui::SameLine();
 	ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 12);
 
-	// Center text vertically in toolbar
-	float text_y_offset = 
-	(
-		toolbar_height - ImGui::GetTextLineHeight()
-	) / 2.0f;
+    // Status Text
+	const bool isPlaying = b_IsPlaying;
 
-	ImGui::SetCursorPosY
-	(
-		ImGui::GetCursorPosY() - vertical_offset + text_y_offset
-	);
+	const ImVec4 color = isPlaying
+		? ImVec4(0.2f, 0.8f, 0.2f, 1.0f)
+		: ImVec4(0.8f, 0.2f, 0.2f, 1.0f);
 
-	if (b_IsPlaying)
-	{
-		ImGui::TextColored(ImVec4(0.2f, 0.8f, 0.2f, 1.0f), "PLAYING");
-	}
-	else
-	{
-		ImGui::TextColored(ImVec4(0.8f, 0.2f, 0.2f, 1.0f), "STOPPED");
-	}
+	const char* icon = isPlaying ? ICON_FA_PLAY : ICON_FA_STOP;
+	const char* label = isPlaying ? " PLAYING" : " STOPPED";
 
-	// Restore button with PNG icon
+	float textYOffset = ((toolbar_height - ImGui::GetTextLineHeight()) * 0.5f) - vertical_offset - 2.0f;
+	float baseCursorY = ImGui::GetCursorPosY();
+
+	// Icon
+	ImGui::SetCursorPosY(baseCursorY + textYOffset);
+	ImGui::TextColored(color, "%s", icon);
 	ImGui::SameLine();
-	ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 12);
-	if
-	(
-		ImGui::ImageButton
-		(
-			"restore_btn",
-			(ImTextureID)(intptr_t)m_RestoreIcon.id,
-			ImVec2(28, 28)
-		)
-	)
+
+	ImGui::SetCursorPosY(baseCursorY + textYOffset - 1.0f);
+	ImGui::TextColored(color, "%s", label);
+
+	ImGui::SameLine();
+	ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 12.0f);
+
+    
+    // Restore
+	if (IconButton("restore_btn", ICON_FA_UNDO_ALT, ImVec2(32, 32), "Reset Game"))
 	{
 		b_IsPlaying = false;
-		// Attempt hot reload of GameLogic.dll, 
-		// fallback to reset if it fails
 		if (!b_ReloadGameLogic())
 		{
 			m_GameEngine.ResetMap();
 		}
 	}
 
-	if (ImGui::IsItemHovered()) ImGui::SetTooltip("Reset Game");
-
 	ImGui::SameLine();
 	ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 12);
-	if
-	(
-		ImGui::ImageButton
-		(
-			"clean_btn",
-			(ImTextureID)(intptr_t)m_CleanIcon.id,
-			ImVec2(28, 28)
-		)
-	)
+
+    // Clean
+	if (IconButton("clean_btn", ICON_FA_TRASH_ALT, ImVec2(32, 32), "Delete Build Folder"))
 	{
 		if (fs::exists("build"))
 		{
@@ -586,22 +430,14 @@ void GameEditor::DrawSceneWindow()
 		}
 	}
 
-	if (ImGui::IsItemHovered())
-	{
-		ImGui::SetTooltip("Delete Build Folder");
-	}
-
 	ImGui::SameLine();
 
-	// Compile Button & Status
-	float button_sz = 28.0f + ImGui::GetStyle().FramePadding.x * 2.0f;
+	// Compile
+	float button_sz = 32.0f + ImGui::GetStyle().FramePadding.x * 2.0f;
 	float status_sz = 0.0f;
 	if (b_IsCompiling)
 	{
-		status_sz = 20.0f + 
-			ImGui::GetStyle().ItemSpacing.x +			   
-			ImGui::CalcTextSize("Compiling...").x + 
-			ImGui::GetStyle().ItemSpacing.x;
+		status_sz = 20.0f + ImGui::GetStyle().ItemSpacing.x + ImGui::CalcTextSize("Compiling...").x + ImGui::GetStyle().ItemSpacing.x;
 	}
 
 	float avail = ImGui::GetContentRegionAvail().x;
@@ -613,31 +449,15 @@ void GameEditor::DrawSceneWindow()
 
 	if (b_IsCompiling)
 	{
-		// Center spinner and text vertically in toolbar
 		float spinner_height = 20.0f;
 		float spinner_y_offset = (toolbar_height - spinner_height) / 2.0f;
-		ImGui::SetCursorPosY
-		(
-			ImGui::GetCursorPosY() - vertical_offset + spinner_y_offset
-		);
+		ImGui::SetCursorPosY(ImGui::GetCursorPosY() - vertical_offset + spinner_y_offset);
 
-		s_fDrawSpinner
-		(
-			10.0f, 
-			2.0f, 
-			ImGui::GetColorU32(ImVec4(0.2f, 0.8f, 0.2f, 1.0f))
-		);
+		s_fDrawSpinner(10.0f, 2.0f, ImGui::GetColorU32(ImVec4(0.2f, 0.8f, 0.2f, 1.0f)));
 		
 		ImGui::SameLine();
-		// Center text vertically in toolbar
-		float text_compile_y_offset = 
-		(
-			toolbar_height - ImGui::GetTextLineHeight()
-		) / 2.0f;
-		ImGui::SetCursorPosY
-		(
-			ImGui::GetCursorPosY() - vertical_offset + text_compile_y_offset
-		);
+		float text_compile_y_offset = (toolbar_height - ImGui::GetTextLineHeight()) / 2.0f;
+		ImGui::SetCursorPosY(ImGui::GetCursorPosY() - vertical_offset + text_compile_y_offset);
 		ImGui::TextColored(ImVec4(0.2f, 0.8f, 0.2f, 1.0f), "Compiling...");
 		ImGui::SameLine();
 	}
@@ -648,21 +468,13 @@ void GameEditor::DrawSceneWindow()
 		ImGui::PushStyleVar(ImGuiStyleVar_Alpha, 0.5f);
 	}
 
-	if
-	(
-		ImGui::ImageButton
-		(
-			"compile_btn",
-			(ImTextureID)(intptr_t)m_CompileIcon.id,
-			ImVec2(28, 28)
-		)
-	)
+	if (IconButton("compile_btn", ICON_FA_HAMMER, ImVec2(32, 32), "Recompile"))
 	{
 		if (!b_Disabled)
 		{
 			b_IsCompiling = true;
 			b_IsPlaying = false;
-			if (!b_ReloadGameLogic()) m_GameEngine.ResetMap(); // Restore
+			if (!b_ReloadGameLogic()) m_GameEngine.ResetMap();
 
 			std::thread
 			(
@@ -675,13 +487,6 @@ void GameEditor::DrawSceneWindow()
 		}
 	}
 
-	if (ImGui::IsItemHovered())
-	{
-		ImGui::BeginTooltip(); 
-		ImGui::TextColored(ImVec4(0, 1, 0, 1), "Recompile"); 
-		ImGui::EndTooltip();
-	}
-
 	if (b_Disabled)
 	{
 		ImGui::PopStyleVar();
@@ -691,8 +496,8 @@ void GameEditor::DrawSceneWindow()
 
 	rlImGuiImageRenderTextureFit
 	(
-		m_bUseOpaquePass ? 
-		&m_DisplayTexture : &m_RaylibTexture, true
+		m_bUseOpaquePass ? &m_DisplayTexture : &m_RaylibTexture, 
+		true
 	);
 
 	ImGui::End();

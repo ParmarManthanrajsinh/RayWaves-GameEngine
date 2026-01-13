@@ -55,17 +55,6 @@ private:
     void DrawMapSelectionUI();
     void DrawExportPanel();
     void DrawSceneSettingsPanel();
-
-    // New icon texture members
-    Texture2D m_PlayIcon;
-    Texture2D m_PauseIcon;
-    Texture2D m_RestartIcon;
-    Texture2D m_RestoreIcon;
-    Texture2D m_CompileIcon;
-    Texture2D m_CleanIcon;
-
-    bool m_bIconsLoaded;
-    void LoadIconTextures();
     void DrawToolbarBackground();
 
     // Hot-reload state
