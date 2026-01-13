@@ -1,305 +1,159 @@
 
-*Where code changes flow like waves* 🌊
-
-A simple Raylib-based game engine with **hot-reloading** support. Edit your game code and see changes flow through instantly without restarting!
-
-<br>
-<br>
 <div align="center">
-  <img src="Assets/EngineContent/logo.png" alt="RayWaves Game Engine Logo" width="300"/>
+  <img src="Assets/EngineContent/logo.png" alt="RayWaves Logo" width="120" style="margin-bottom: 20px;"/>
+  <h1>RayWaves Game Engine</h1>
+  <p><i><b>Where your code changes flow like waves 🌊</b></i></p>
+  <p>
+    <a href="#-quick-start">🚀 Quick Start</a> •
+    <a href="#-features">✨ Features</a> •
+    <a href="#-development-workflow">🎮 Workflow</a> •
+    <a href="#-documentation">📚 Docs</a>
+  </p>
 </div>
+
 <br>
-<br>
+
+**RayWaves** is a lightweight, **code-first game engine** built on **Raylib**. It's designed for developers who love writing code but hate restarting their game to see changes. 
+
+With our **hot-reloading magic**, you can tweak movement speeds, adjust physics, or even add new gameplay mechanics—all while the game is still running! 
+
+---
 
 ## ✨ Features
 
-- 🔥 **Hot-Reload** - Edit code and see changes in ~0.5 seconds
-- 🎮 **Pure Raylib** - Write normal Raylib code, no complex abstractions
-- 🖼️ **Visual Editor** - ImGui-based editor with file browser
-- 🗺️ **Map System** - Easy scene/level switching with MapManager
-- 📦 **Distribution System** - Package your engine for others to use
+- **🔥 Limitless Hot-Reloading**  
+  Edit your C++ code and see the results in **~0.5 seconds**. No restarting. No lost state. Just flow.
 
-## 🖼️ Screenshots
+- **🎮 Pure Raylib Power**  
+  No proprietary scripting languages or complex ECS layers. It's just you and standard C++ Raylib code.
 
-### Game Editor with Live Development
-![RayWaves Game Engine](Documentation/output1.png)
-*The visual editor showing a platformer level with fire particle effects and real-time map switching capabilities*
+- **🎨 Visual Editor**  
+  A sleek, ImGui-based editor with a file browser, asset management, and performance tools built right in.
 
-### Export System for Standalone Games
-![Export Configuration](Documentation/output2.png)
-*Built-in export system to create standalone game executables with customizable settings*
+- **🗺️ Smart Map System**  
+  Effortlessly switch between levels or scenes using our intuitive `MapManager`.
 
-## 🎮 Download
+- **📦 One-Click Distribution**  
+  Pack up your entire engine and game into a standalone zip file ready for your team or players.
 
-Download RayWaves game engine:
-[RayWaves Game Engine](https://parmarmanthanrajsinh.itch.io/raywaves)
+---
 
-## 📋 Requirements
+## 🖼️ See It In Action
 
-**Windows Only**
-- Windows 10/11
-- **Visual Studio** (Community, Professional, or Enterprise) with C++ development tools
-- **CMake 3.10+** 
-- **Raylib** (automatically downloaded by CMake)
+### 🛠️ Live Development
+![Level Editor](Documentation/output1.png)
+*Design levels, tweak particles, and switch maps instantly in the visual editor.*
+
+### 📤 Easy Exporting
+![Export Panel](Documentation/output2.png)
+*Generate standalone game executables with your custom naming and resolution settings.*
+
+---
 
 ## 🚀 Quick Start
 
-### Build and Run
+### 🔧 For Engine Developers
+*Use these instructions if you want to **modify the engine source code itself** (e.g. `main.exe`).*
 
-1. **Open Developer Command Prompt for VS** (or use Visual Studio's terminal)
-
-2. **Build the project:**
+1. **Open your terminal** (Developer Command Prompt for VS recommended).
+2. **Build the engine:**
    ```powershell
    cmake --preset x64-debug
    cmake --build out/build/x64-debug --config Debug --target main
    ```
-
-3. **Run the editor:**
+3. **Launch the editor:**
    ```powershell
    out/build/x64-debug/main.exe
    ```
 
-> ⚠️ **Important Note for Visual Studio Users:**  
-> When running the source code directly in Visual Studio, the **export** and **hot reload** features will **not work as intended**. These features are designed to work properly in the **distribution build** only. For full functionality, use the command-line build process above or create a distribution package.
+> **Note:** If you are just making games, you don't need to rebuild `main.exe`.
 
-## 🎯 How It Works
+### 🎮 For Game Developers
+*Use these instructions if you want to **make games** using RayWaves.*
 
-### Hot-Reloading System
-Your game code lives in `GameLogic.dll`, which the editor loads at runtime. When you rebuild the DLL, the editor automatically detects the change and reloads it.
+👉 **[Read the Game Developer Guide](Documentation/README_DISTRIBUTION.md)**
 
-**Why this works:**
-- Windows locks DLLs when loaded
-- Our loader creates a shadow copy of the DLL
-- The original file stays unlocked for rebuilding
-- Editor watches for file changes and reloads automatically
+Start here to learn how to:
+- Run the engine (`editor.exe`)
+- Create levels and write game logic
+- Use hot-reloading for gameplay code
+- Export your game
 
-### Rebuild GameLogic While Running
+---
 
-```powershell
-cmake --build out/build/x64-debug --config Debug --target GameLogic
-```
+## 🎮 Development Workflow
 
-The editor will auto-reload within ~0.5 seconds, or click the **Restart** button.
+### 🔧 Engine Development
+1. **Launch the Editor** (`main.exe`).
+2. **Modify engine internals** in `Game/`, `Editor/`, or `Engine/`.
+3. **Rebuild the engine** using CMake.
+---
 
-> **Note:** To rebuild `main.exe`, close the app first (otherwise you'll get LNK1168 error).
+## 🗺️ Adding Your Own Maps
 
-## 📁 Project Structure
+Creating a new level is as simple as inheriting from `GameMap`.
 
-```
-RayWaves/
-├── Distribution/    # Distribution and packaging files
-│   ├── build_gamelogic.bat    # Quick build script for GameLogic.dll
-│   ├── create_distribution.bat # Main distribution creation script
-│   ├── dist_CMakeLists.txt    # CMake config for distributed environment
-│   ├── distribute.ps1         # PowerShell packaging script
-│   └── config.ini             # Default game configuration
-├── Engine/          # Core engine (GameEngine, GameMap, MapManager, GameConfig)
-├── Editor/          # ImGui editor and UI components
-│   ├── imgui/               # ImGui library
-│   ├── rlImGui/            # Raylib-ImGui integration
-│   └── tinyfiledialogs/    # File dialog library
-├── Game/            # Program entry points and DLL loader
-│   ├── main.cpp            # Editor entry point
-│   ├── game.cpp            # Runtime-only entry point
-│   └── DllLoader.cpp       # Hot-reload DLL management
-├── GameLogic/       # Your game code (built as GameLogic.dll)
-│   ├── RootManager.cpp     # DLL entry point and map registration
-│   ├── Level1.cpp/h        # Example game level
-│   ├── Level2.cpp/h        # Another example level
-│   └── FireParticle.h      # Example particle system
-├── Assets/          # Game assets
-│   └── EngineContent/      # Built-in engine assets (icons, etc.)
-└── Documentation/   # Complete documentation and guides
-```
-
-## 🗺️ Map System
-
-The engine includes a **MapManager** for easy scene/level management:
-
-### Creating Maps
-
+**1. Create a class (`MyLevel.h`):**
 ```cpp
-// YourMap.h
-#pragma once
-#include "../Engine/GameMap.h"
-#include <raylib.h>
-
-class YourMap : public GameMap
-{
-private:
-    Vector2 m_PlayerPos;
-    const float MOVE_SPEED = 300.0f;
-    
-public:
-    YourMap();
-    ~YourMap() override = default;
-
-    void Initialize() override;
-    void Update(float delta_time) override;
-    void Draw() override;
+class MyLevel : public GameMap {
+    void Update(float deltaTime) override {
+        if (IsKeyDown(KEY_SPACE)) Jump();
+    }
+    void Draw() override {
+        DrawText("Hello World!", 100, 100, 20, WHITE);
+    }
 };
-
-// YourMap.cpp
-#include "YourMap.h"
-
-YourMap::YourMap() : m_PlayerPos{400.0f, 300.0f} {}
-
-void YourMap::Initialize()
-{
-    // Initialize your map here
-}
-
-void YourMap::Update(float delta_time)
-{
-    if (IsKeyDown(KEY_RIGHT)) m_PlayerPos.x += MOVE_SPEED * delta_time;
-    if (IsKeyDown(KEY_LEFT)) m_PlayerPos.x -= MOVE_SPEED * delta_time;
-    if (IsKeyDown(KEY_UP)) m_PlayerPos.y -= MOVE_SPEED * delta_time;
-    if (IsKeyDown(KEY_DOWN)) m_PlayerPos.y += MOVE_SPEED * delta_time;
-}
-
-void YourMap::Draw()
-{
-    DrawCircleV(m_PlayerPos, 25.0f, RED);
-}
 ```
 
-### Registering Maps
-
+**2. Register it (`RootManager.cpp`):**
 ```cpp
-// GameLogic/RootManager.cpp
-#include "../Engine/MapManager.h"
-#include "Level1.h"
-#include "Level2.h"
-#include "YourMap.h" // Your custom map
-
-// Global static instance to ensure consistency across editor and runtime
-static MapManager* s_GameMapManager = nullptr;
-
-extern "C" __declspec(dllexport) GameMap* CreateGameMap()
-{
-    // If we already have a manager, reuse it to maintain map registrations
-    if (s_GameMapManager == nullptr)
-    {
-        s_GameMapManager = new MapManager();
-
-        // Register your game maps - this happens only once
-        s_GameMapManager->RegisterMap<Level1>("Level1");
-        s_GameMapManager->RegisterMap<Level2>("Level2");
-        s_GameMapManager->RegisterMap<YourMap>("YourMap"); // Add your custom maps
-    }
-
-    // Automatically load the first registered map
-    auto available_maps = s_GameMapManager->GetAvailableMaps();
-    if (!available_maps.empty())
-    {
-        s_GameMapManager->b_GotoMap(available_maps.at(0));
-    }
-
-    return s_GameMapManager;
-}
+s_GameMapManager->RegisterMap<MyLevel>("Level_1");
 ```
 
-### Switching Maps
-
+**3. Switch to it:**
 ```cpp
-// From within a map (e.g., in your Update() method)
-void YourMap::Update(float delta_time)
-{
-    // Switch to another map when player reaches finish zone
-    if (CheckCollisionRecs(player_rect, finish_zone))
-    {
-        RequestGotoMap("Level2");  // Safe transition via callback
-    }
-    
-    // Reload current map (e.g., when player dies)
-    if (IsKeyPressed(KEY_R))
-    {
-        RequestGotoMap(GetMapName(), true);  // force_reload = true
-    }
-}
-
-// From the MapManager directly (e.g., in editor or external code)
-manager->b_GotoMap("Level1");
-
-// Check current map
-if (manager->b_IsCurrentMap("Level2"))
-{
-    // Level 2 specific logic
-}
-
-// Get current map ID
-std::string current_map = manager->GetCurrentMapId();
-
-// Get all available maps
-auto available_maps = manager->GetAvailableMaps();
-for (const auto& map_name : available_maps)
-{
-    std::cout << "Available map: " << map_name << std::endl;
-}
+// From anywhere in your code
+RequestGotoMap("Level_1");
 ```
 
-## 🛠️ Troubleshooting
+---
 
-### LNK1168: cannot open main.exe for writing
-**Solution:** Close the app before rebuilding `main.exe`. Rebuilding `GameLogic.dll` is safe while running.
+## 📦 Sharing Your Game
 
-### DLL not reloading
-**Solution:** 
-- Check that the build completed successfully
-- Verify `GameLogic.dll` timestamp changed
-- Click the **Restart** button in the editor
+Want to send your game to a friend? Or maybe distribute the engine to your team?
 
-### Compiler not found
-**Solution:** Use **Developer Command Prompt for VS** so `cl.exe` is on PATH.
-
-### Access violation on exit
-**Solution:** This has been fixed. The editor now properly destroys the map before unloading the DLL.
-
-## 📦 Distribution
-
-Create a complete package that others can use to develop games with your engine.
-
-**Quick distribution:**
+Simply run:
 ```cmd
 Distribution\create_distribution.bat
 ```
 
-This creates a `dist/` folder containing:
-- `app.exe` - Combined editor and game runtime
-- `GameLogic.dll` - Hot-reloadable game logic
-- Complete development environment with headers and build scripts
-- All necessary assets and documentation
-
-See [Distribution Guide](Documentation/DISTRIBUTION_GUIDE.md) for detailed instructions.
-
-## 📚 Documentation
-
-- **[API Reference](Documentation/API_REFERENCE.md)** - Essential classes and methods
-- **[Developer Guide](Documentation/DEVELOPER_GUIDE.md)** - Development patterns and best practices  
-- **[Distribution Guide](Documentation/DISTRIBUTION_GUIDE.md)** - How to package for sharing
-- **[Particle System Guide](Documentation/PARTICLE_SYSTEM_GUIDE.md)** - Simple particle effects
-- **[Troubleshooting](Documentation/TROUBLESHOOTING.md)** - Common issues and solutions
-
-## 🎮 Development Workflow
-
-1. **Run the editor** - `out/build/x64-debug/main.exe`
-2. **Edit your game code** - Modify files in `GameLogic/`
-3. **Rebuild GameLogic** - `cmake --build out/build/x64-debug --config Debug --target GameLogic`
-4. **See changes instantly** - Editor auto-reloads your code
-
-## 🎯 Two Build Targets
-
-- **`main.exe`** - Editor with hot-reload and development tools
-- **`game.exe`** - Runtime-only executable for final games (no editor UI)
-
-## 💡 Tips
-
-- Use the **File Explorer** in the editor to browse assets
-- The **Restart** button forces a reload if auto-reload doesn't trigger
-- Game state resets on reload (this is intentional for consistent testing)
-- Write pure Raylib code - no complex abstractions needed
-- For release builds, use `--config Release` instead of `--config Debug`
+This generates a `dist/` folder with everything they need:
+- `app.exe` (The game/editor)
+- `GameLogic.dll` (The moddable code)
+- All headers, scripts, and assets.
 
 ---
 
-**Happy Game Development! 🎮**
+## 📚 Learn More
+
+- **[API Reference](Documentation/API_REFERENCE.md)** - Detailed class documentation.
+- **[Developer Guide](Documentation/DEVELOPER_GUIDE.md)** - Best practices and patterns.
+- **[Particle System](Documentation/PARTICLE_SYSTEM_GUIDE.md)** - Creating cool visual effects.
+- **[Troubleshooting](Documentation/TROUBLESHOOTING.md)** - Fix common issues.
+
+---
+
+## 💡 Top Tips
+
+- **Files:** Use the built-in File Explorer to browse assets.
+- **Reset:** Hit the **Restart** button in the toolbar if you want to force a full reload.
+- **Performance:** Toggle the **Performance Overlay** (sales chart icon) to check your FPS and frame times.
+- **Modes:** 
+  - `main.exe` = Editor & Hot-Reloading
+  - `game.exe` = Standalone Runtime (Pure Gameplay)
+
+---
+
+<div align="center">
+  <b>Happy Coding! 💜</b>
+</div>

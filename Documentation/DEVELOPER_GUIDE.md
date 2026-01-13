@@ -1,156 +1,128 @@
 # RayWaves Engine - Developer Guide
 
-*Where code changes flow like waves* 🌊
+*Where code changes flow like waves 🌊*
 
-Development patterns and best practices for the RayWaves Game Engine.
+This guide helps you understand how RayWaves is structured and how to get the most out of its features. Whether you're hacking on the engine core or building the next big platformer, start here.
 
-## Development Workflow
+---
 
-### Source Development
-1. **Run the editor**: `out/build/x64-debug/main.exe`
-2. **Edit game code**: Modify files in `GameLogic/`
-3. **Rebuild**: `cmake --build out/build/x64-debug --config Debug --target GameLogic`
-4. **See changes instantly**: Editor auto-reloads your code
+## 🏗️ Architecture Overview
 
-### Distribution Development (End Users)
-1. **Open VS Code** in engine folder
-2. **Open terminal** (`Ctrl + backtick`)
-3. **Launch engine**: `./app.exe`
-4. **Edit GameLogic files** and save
-5. **Run build script**: `./build_gamelogic.bat`
-6. **See changes flow** automatically!
+The engine is split into two distinct parts that work together:
 
-## Project Structure
+`main.exe` (The Host) | `GameLogic.dll` (The Brains)
+---|---
+Handles window creation & input | Contains all gameplay code
+Manages the editor UI (ImGui) | Defines levels (`GameMaps`)
+Loads/unloads the DLL | Executes `Update()` and `Draw()`
+**Requires restart to change** | **Hot-reloads instantly**
 
-```
-RayWaves/
-├── Distribution/    # Distribution and packaging files
-│   ├── build_gamelogic.bat    # Quick build script for GameLogic.dll
-│   ├── create_distribution.bat # Main distribution creation script
-│   ├── dist_CMakeLists.txt    # CMake config for distributed environment
-│   ├── distribute.ps1         # PowerShell packaging script
-│   └── config.ini             # Default game configuration
-├── Engine/          # Core engine (GameEngine, GameMap, MapManager, GameConfig)
-├── Editor/          # ImGui editor and UI components
-│   ├── imgui/               # ImGui library
-│   ├── rlImGui/            # Raylib-ImGui integration
-│   └── tinyfiledialogs/    # File dialog library
-├── Game/            # Program entry points and DLL loader
-│   ├── main.cpp            # Editor entry point
-│   ├── game.cpp            # Runtime-only entry point
-│   └── DllLoader.cpp       # Hot-reload DLL management
-├── GameLogic/       # Your game code (built as GameLogic.dll)
-│   ├── RootManager.cpp     # DLL entry point and map registration
-│   ├── Level1.cpp/h        # Example game level
-│   ├── Level2.cpp/h        # Another example level
-│   └── FireParticle.h      # Example particle system
-├── Assets/          # Game assets
-│   └── EngineContent/      # Built-in engine assets (icons, etc.)
-└── Documentation/   # Complete documentation and guides
-```
+---
 
-## Hot-Reload System
+## 🔥 The Hot-Reload Workflow
 
-**How it works:**
-- **GameLogic.dll** contains your game code
-- Windows locks DLLs when loaded, so our loader creates a shadow copy
-- The original file stays unlocked for rebuilding
-- Editor watches for file changes and triggers automatic reload
-- Game state resets on reload (intentional for consistent testing)
+Why restart when you can just keep coding?
 
-**Why this works:**
-- Engine automatically detects DLL changes within ~0.5 seconds
-- No need to restart the editor or lose your current state
-- Write pure Raylib code - no complex abstractions needed
-- Perfect for rapid iteration and testing
+1.  **Run the Editor** (`main.exe` or `editor.exe`).
+2.  **Modify** any C++ file in `GameLogic/` (e.g. change jump height).
+3.  **Compiling...** (The editor waits).
+4.  **Reload!** The DLL is swapped, the map resets, and your changes are live.
 
-## Map Development
+### How it works under the hood
+- Windows locks running DLLs, so we can't just overwrite it.
+- **Solution:** We copy `GameLogic.dll` to a temp file (e.g., `GameLogic_temp.dll`) and load *that*.
+- The original file stays unlocked, ready for your compiler to overwrite it.
+- A file watcher detects the change and triggers the reload sequence.
 
-### Basic Pattern
+> **Pro Tip:** Press the **Restart** button in the editor toolbar if you ever get stuck or want to manually force a clean slate.
+
+---
+
+## 🎨 Map Development
+
+Levels in RayWaves are simple C++ classes. No messy JSON files or proprietary editors—just code.
+
+### The Basic Pattern
+
+Inherit from `GameMap` and override the big three:
+
 ```cpp
-class YourMap : public GameMap {
-private:
-    Vector2 m_PlayerPos{400.0f, 300.0f};
-    
-public:
-    YourMap() : GameMap("YourMap") {}
-    
-    void Update(float delta_time) override {
-        // Game logic here
+class MyLevel : public GameMap {
+    void Initialize() override {
+        // Load textures, sounds, setup variables
     }
-    
+
+    void Update(float delta_time) override {
+        // Move things, check collisions, handle input
+    }
+
     void Draw() override {
-        // Rendering here
+        // Draw things to the screen
     }
 };
 ```
 
-### Common Patterns
+### Best Practices
 
-**Player Input:**
-```cpp
-void Update(float delta_time) override {
-    if (IsKeyDown(KEY_RIGHT)) m_PlayerPos.x += SPEED * delta_time;
-    if (IsKeyPressed(KEY_SPACE)) Jump();
-}
-```
+- **Use `delta_time`:** Multipling movement by `delta_time` makes your game run smoothly on any framerate.
+  ```cpp
+  position.x += SPEED * delta_time; // Good!
+  position.x += SPEED;              // Bad (runs faster on high FPS)
+  ```
 
-**Collision Detection:**
-```cpp
-Rectangle playerRect = {m_PlayerPos.x, m_PlayerPos.y, 32, 32};
-if (CheckCollisionRecs(playerRect, wallRect)) {
-    // Handle collision
-}
-```
+- **Keep it Clean:**
+  - Logic goes in `Update()`.
+  - Rendering goes in `Draw()`.
+  - Heavy loading goes in `Initialize()`.
 
-**Level Transitions:**
-```cpp
-if (CheckCollisionRecs(playerRect, exitRect)) {
-    RequestGotoMap("NextLevel");
-}
-```
-
-## Performance Tips
-
-1. **Use delta_time** for frame-rate independent movement
-2. **Limit particles** - keep counts reasonable
-3. **Batch draw calls** - group similar rendering
-4. **Clean up resources** when changing maps
-
-## Best Practices
-
-### Code Organization
-- Keep game logic in `Update()`
-- Keep rendering in `Draw()`
-- Use descriptive map names
-- Handle edge cases (player falling off screen, etc.)
-
-### Hot-Reload Friendly Code
-- Initialize variables in constructor or `Initialize()`
-- Don't rely on global state between reloads
-- Test frequently with restart button
-
-### Distribution
-- Test exported games on clean systems
-- Include all required assets
-- Provide reasonable default settings
-
-## Common Issues
-
-**Hot-reload not working:**
-- Check build completed successfully
-- Verify GameLogic.dll timestamp changed
-- Click Restart button in editor
-
-**LNK1168 error:**
-- Close editor before rebuilding main.exe
-- GameLogic.dll rebuilds are safe while running
-
-**Export issues:**
-- Ensure config.ini is next to executable
-- Check all assets are included
-- Test on system without dev tools
+- **State Management:**
+  - Remember that static variables persist across reloads (mostly).
+  - Member variables reset every reload (giving you a fresh start).
 
 ---
 
-See `API_REFERENCE.md` for class details and `TROUBLESHOOTING.md` for specific problems.
+## 📂 Project Structure
+
+Where does everything live?
+
+```
+RayWaves/
+├── Assets/             # Your images, audio, and fonts
+├── GameLogic/          # 👈 YOUR CODE LIVES HERE
+│   ├── RootManager.cpp # Registers your maps
+│   ├── Level1.cpp      # Example level
+│   └── Player.cpp      # Example class
+├── Engine/             # Core engine headers (GameMap, Config)
+├── Editor/             # Editor code (main.exe source)
+└── Distribution/       # Scripts for packaging your game
+```
+
+---
+
+## 📦 Distribution Logic
+
+When you export your game, here's what happens:
+
+1.  **Bundling:** The engine copies `GameLogic.dll`, `raylib.dll`, and `assets/`.
+2.  **Configuring:** It generates a production `config.ini`.
+3.  **Stripping:** It removes development files (like cpp sources) to keep the download small.
+4.  **Result:** You get a clean folder ready to ZIP and upload to Itch.io or Steam.
+
+---
+
+## 🧠 Advanced Tips
+
+### Customizing the Editor
+Want to add a new tool to the editor toolbar?
+1. Open `Editor/GameEditor.cpp`.
+2. Find `DrawSceneWindow()`.
+3. Add your standard ImGui code there.
+4. Rebuild `main.exe` (requires stopping the app).
+
+### Debugging
+- **Console Logs:** The engine prints useful info to the attached console. Keep it open!
+- **Visual Studio:** You can attach the VS debugger to `main.exe` to debug your DLL code. breakpoints *usually* work even after reloading!
+
+---
+
+*Happy Coding! 💜*

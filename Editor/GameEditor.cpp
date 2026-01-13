@@ -480,7 +480,7 @@ void GameEditor::DrawSceneWindow()
 		
 		ImGui::SameLine();
 		float text_compile_y_offset = (toolbar_height - ImGui::GetTextLineHeight()) / 2.0f;
-		ImGui::SetCursorPosY(ImGui::GetCursorPosY() - vertical_offset + text_compile_y_offset);
+		ImGui::SetCursorPosY(ImGui::GetCursorPosY() - vertical_offset - 5 + text_compile_y_offset);
 		ImGui::TextColored(ImVec4(0.2f, 0.8f, 0.2f, 1.0f), "Compiling...");
 		ImGui::SameLine();
 	}
@@ -2071,7 +2071,7 @@ void GameEditor::DrawPerformanceOverlay()
 			"##FrameTimes",
 			m_FrameTimes.data(),
 			static_cast<int>(m_FrameTimes.size()),
-			m_FrameOffset,
+			static_cast<int>(m_FrameOffset),
 			"Frame Time (ms)",
 			0.0f,
 			33.0f, // 0-33ms range covers up to 30fps dips

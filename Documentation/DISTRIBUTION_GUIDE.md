@@ -1,148 +1,77 @@
 # RayWaves Distribution Guide
 
-*Where code changes flow like waves* 🌊
+*Where code changes flow like waves 🌊*
 
-How to package RayWaves for sharing with other developers and end users.
+This guide explains how to package the RayWaves engine so OTHER developers can make games with it.
 
-## Quick Distribution
-
-**Step 1:** Open Developer Command Prompt for VS
-
-**Step 2:** Navigate to your RayWaves project root
-
-**Step 3:** Run the distribution script:
-```cmd
-Distribution\create_distribution.bat
-```
-
-This creates a complete package in the `dist/` folder that others can use for game development.
-
-## What's Included in Distribution
-
-```
-dist/
-├── app.exe              # RayWaves engine/editor executable
-├── raylib.dll          # Graphics library dependency
-├── GameLogic.dll       # Hot-reloadable game logic
-├── game_config.ini     # Game configuration template
-├── build_gamelogic.bat # Quick build script for users
-├── CMakeLists.txt      # Build configuration for GameLogic
-├── GameLogic/          # Complete source code for game logic
-│   ├── RootManager.cpp # DLL entry point
-│   ├── Level1.cpp/h    # Example levels
-│   ├── Level2.cpp/h    # More examples
-│   └── FireParticle.h  # Particle system example
-├── Engine/             # Engine headers for development
-│   ├── GameEngine.h    # Core engine interface
-│   ├── GameMap.h       # Map base class
-│   ├── MapManager.h    # Level management
-│   └── GameConfig.h    # Configuration system
-├── raylib/             # Raylib development files
-│   ├── include/        # Raylib headers
-│   └── lib/           # Raylib libraries for linking
-├── Assets/             # Game assets (excluding EngineContent)
-└── Documentation/      # Complete user guides and API reference
-```
-
-## Distribution Features
-
-**For End Users:**
-- **Complete Development Environment** - Everything needed to create games
-- **Hot-Reload Support** - Edit code and see changes instantly
-- **Build Scripts** - Simple `build_gamelogic.bat` for compilation
-- **Example Code** - Working levels and particle systems
-- **Documentation** - User guides, API reference, troubleshooting
-
-**Self-Contained:**
-- No need for original source project
-- All development headers included
-- Raylib dependencies bundled
-- Works on systems without development tools installed
-
-## How Users Work with Distribution
-
-### User Workflow
-1. **Open VS Code** in the distributed folder
-2. **Launch engine** via terminal: `./app.exe`
-3. **Edit GameLogic files** using VS Code
-4. **Build changes**: `./build_gamelogic.bat`
-5. **See changes instantly** in the running engine
-
-### What Users Can Do
-- **Create new levels** by copying existing ones
-- **Modify game logic** with hot-reload support
-- **Add assets** (textures, sounds, fonts)
-- **Use particle systems** and built-in features
-- **Export finished games** as standalone executables
-- **Switch between levels** using the editor
-
-## Advanced Distribution Options
-
-### Custom Distribution Script
-Modify `Distribution/distribute.ps1` for custom packaging:
-- Change output directory
-- Filter specific assets
-- Include additional files
-- Set custom build configurations
-
-### Distribution Types
-- **Debug Distribution** - Includes debug symbols and detailed logging
-- **Release Distribution** - Optimized for performance and smaller size
-- **Custom Builds** - Modified configurations for specific needs
-
-## Testing Your Distribution
-
-### Verification Steps
-1. **Copy `dist/` folder** to another location (or different computer)
-2. **Run `app.exe`** - should start with sample levels
-3. **Test hot-reload**: 
-   - Edit `GameLogic/Level1.cpp`
-   - Run `build_gamelogic.bat`
-   - Verify changes appear in running engine
-4. **Test asset loading** - ensure textures and sounds work
-5. **Test export system** - create standalone game
-6. **Verify on clean system** - test without development tools
-
-### Common Distribution Issues
-
-**Missing DLL errors:**
-- Install Visual C++ Redistributable
-- Include additional runtime libraries if needed
-
-**Build script failures:**
-- Ensure CMake is available or provide portable version
-- Test on systems without Visual Studio installed
-- Include build tools if targeting non-developer users
-
-**Asset loading problems:**
-- Verify all asset paths are relative
-- Check that required assets are included
-- Test asset loading on different systems
-
-**Export functionality issues:**
-- Ensure config.ini is properly formatted
-- Test export on clean systems
-- Verify all dependencies are included
-
-## Distribution Best Practices
-
-### Before Distribution
-- **Test thoroughly** on multiple systems
-- **Clean build** everything from scratch
-- **Verify documentation** is up to date
-- **Check asset organization** and paths
-- **Test hot-reload functionality**
-
-### Documentation for Users
-- Include **README_DISTRIBUTION.md** with clear instructions
-- Provide **example code** and tutorials
-- Document **troubleshooting** steps
-- Explain **workflow** clearly
-
-### Support Considerations
-- **Version tracking** - include version info
-- **Update mechanism** - plan for updates
-- **User feedback** - channels for bug reports
-- **Documentation maintenance** - keep guides current
+> **Note:** If you just want to *export your game* to play on another computer, check the [Developer Guide](DEVELOPER_GUIDE.md). This guide is for distributing the *engine tools* themselves.
 
 ---
+
+## 🚀 The "Two-Click" Distribution
+
+Want to give a friend the entire engine so they can start coding?
+
+1.  **Run the Script:**
+    ```cmd
+    Distribution\create_distribution.bat
+    ```
+2.  **Wait:** The script will build the engine, gather assets, and clean up headers.
+3.  **Done!** Check the newly created `dist/` folder.
+
+You can now zip up `dist/` and send it to anyone!
+
+---
+
+## 📦 What's Inside the Box?
+
+When you create a distribution, here is what your users get:
+
+| File/Folder | Purpose |
+|-------------|---------|
+| `editor.exe` | The visual game editor (renamed `app.exe` in some versions). |
+| `GameLogic.dll` | The compiled game code. |
+| `game_config.ini` | Default settings (resolution, VSync, etc). |
+| `build_gamelogic.bat` | **The Magic Button.** Users click this to recompile their code. |
+| `GameLogic/` | **User Code.** Contains `Level1.cpp`, `Player.cpp`, etc. |
+| `Engine/` | **Header Files.** So users can define classes inheriting `GameMap`. |
+| `Assets/` | **Resources.** Textures, sounds, and fonts. |
+
+---
+
+## 🎮 The End-User Experience
+
+Imagine you send this to a friend. Here is their workflow:
+
+1.  **Unzip** the folder.
+2.  **Open `GameLogic/Level1.cpp`** in VS Code (or Notepad++).
+3.  **Run `editor.exe`**. They see the game running.
+4.  **Edit `Level1.cpp`** (e.g., change `speed = 100` to `speed = 500`).
+5.  **Run `build_gamelogic.bat`**.
+6.  **BOOM!** The editor hot-reloads the new speed instantly.
+
+They **do not** need Visual Studio installed. They just need the build tools (which `build_gamelogic.bat` finds automatically).
+
+---
+
+## 🛠️ Customizing the Distro
+
+You can tweak how the distribution is built by editing `Distribution/distribute.ps1`.
+
+### Common Customizations
+
+*   **Change Default Config:** Modify `Distribution/config.ini` to set different starting resolutions or flags.
+*   **Include Extra Assets:** Add files to `GameLogic/` before building if you want to include starter scripts.
+*   **Branding:** Change the icon or name of `editor.exe` in the script.
+
+---
+
+## ✅ Checklist Before Shipping
+
+1.  **Test on a generic PC:** Try running the requested `dist/` folder on a computer that *doesn't* have your full dev environment.
+2.  **Check Hot-Reload:** Ensure `build_gamelogic.bat` actually triggers a reload in the editor.
+3.  **Docs:** Make sure `README_DISTRIBUTION.md` (which becomes the user's `README.md`) covers the basics.
+
+---
+
+*Now go share your engine with the world! 🌍*
