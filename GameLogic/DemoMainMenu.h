@@ -7,7 +7,6 @@ class DemoMainMenu : public GameMap
 {
 private:
     Font m_TitleFont;
-    Texture2D m_Background;
     Sound m_SelectSound;
     
     // UI State

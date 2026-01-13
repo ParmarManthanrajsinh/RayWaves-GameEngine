@@ -107,10 +107,6 @@ void GameEditor::Init(int width, int height, std::string_view title)
 	}
 	
 	rlImGuiSetup(true);
-
-	ImGuiIO& io = ImGui::GetIO();
-	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
-
 	rlImGuiReloadFonts();
 
 	SetEngineTheme();

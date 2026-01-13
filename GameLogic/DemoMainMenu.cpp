@@ -11,7 +11,6 @@ DemoMainMenu::DemoMainMenu()
 void DemoMainMenu::Initialize()
 {
     m_TitleFont = LoadFontEx("Assets/EngineContent/Roboto-Regular.ttf", 64, 0, 0);
-    m_Background = LoadTexture("Assets/menu_background.png");
     m_SelectSound = LoadSound("Assets/Sounds/menu_select.wav");
     
     std::cout << "[DemoMainMenu] Initialized" << std::endl;
@@ -54,26 +53,6 @@ void DemoMainMenu::Draw()
     // Draw Background with proper scaling (cover mode - fills screen while maintaining aspect ratio)
     float ScreenWidth = static_cast<float>(GetScreenWidth());
     float ScreenHeight = static_cast<float>(GetScreenHeight());
-    float BgWidth = static_cast<float>(m_Background.width);
-    float BgHeight = static_cast<float>(m_Background.height);
-    
-    float ScaleX = ScreenWidth / BgWidth;
-    float ScaleY = ScreenHeight / BgHeight;
-    float Scale = (ScaleX > ScaleY) ? ScaleX : ScaleY;
-    
-    float ScaledWidth = BgWidth * Scale;
-    float ScaledHeight = BgHeight * Scale;
-    float OffsetX = (ScreenWidth - ScaledWidth) / 2.0f;
-    float OffsetY = (ScreenHeight - ScaledHeight) / 2.0f;
-    
-    DrawTexturePro(
-        m_Background, 
-        Rectangle{ 0, 0, BgWidth, BgHeight },
-        Rectangle{ OffsetX, OffsetY, ScaledWidth, ScaledHeight },
-        Vector2{ 0, 0 },
-        0.0f,
-        WHITE
-    );
 
     // Draw Title
     const char* Title = "Shadow Woods";
@@ -84,6 +63,9 @@ void DemoMainMenu::Draw()
         250.0f
     };
     
+	// Draw Background
+    ClearBackground(BLACK);
+
     // Draw Shadow
     DrawTextEx(m_TitleFont, Title, Vector2{ TitlePos.x + 4, TitlePos.y + 4 }, 80, 2, Color{ 0, 0, 0, 180 });
     // Draw Text

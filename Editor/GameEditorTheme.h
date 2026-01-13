@@ -9,6 +9,8 @@ inline void SetEngineTheme
 )
 {
     ImGuiIO& io = ImGui::GetIO();
+    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+
     io.Fonts->Clear();
 
     ImFontConfig font_config;
