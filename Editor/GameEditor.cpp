@@ -99,10 +99,10 @@ void GameEditor::Init(int width, int height, std::string_view title)
 
 	if (GameConfig::GetInstance().m_bLoadFromFile("config.ini"))
 	{
-		const auto& config = GameConfig::GetInstance().GetWindowConfig();
-		m_SceneSettings.m_SceneWidth = config.scene_width;
-		m_SceneSettings.m_SceneHeight = config.scene_height;
-		m_SceneSettings.m_TargetFPS = config.scene_fps;
+		const auto& CONFIG = GameConfig::GetInstance().GetWindowConfig();
+		m_SceneSettings.m_SceneWidth = CONFIG.scene_width;
+		m_SceneSettings.m_SceneHeight = CONFIG.scene_height;
+		m_SceneSettings.m_TargetFPS = CONFIG.scene_fps;
 	}
 
 	SetTargetFPS(60);
@@ -329,22 +329,33 @@ static void s_fDrawSpinner
 	DrawList->PathStroke(color, false, thickness);
 }
 
-static bool IconButton(const char* label, const char* icon, const ImVec2& size, const char* tooltip)
+static bool s_bIconButton
+(
+	std::string_view label, 
+	std::string_view icon, 
+	const ImVec2& size, 
+	std::string_view tooltip
+)
 {
-    ImGui::PushID(label);
+    ImGui::PushID(label.data());
     
     // Use FontAwesome font for the button
     // It should have been merged into the default font
     
-    bool clicked = ImGui::Button(icon, size);
+    bool b_Clicked = ImGui::Button(icon.data(), size);
     
     if (ImGui::IsItemHovered())
     {
-        ImGui::SetTooltip("%s", tooltip);
+		ImGui::SetTooltip
+		(
+			"%.*s",
+			static_cast<int>(tooltip.size()),
+			tooltip.data()
+		);
     }
 
     ImGui::PopID();
-    return clicked;
+    return b_Clicked;
 }
 
 void GameEditor::DrawSceneWindow()
@@ -365,14 +376,14 @@ void GameEditor::DrawSceneWindow()
     // Play/Pause
     if (b_IsPlaying)
 	{
-		if (IconButton("pause_btn", ICON_FA_PAUSE, ImVec2(32, 32), "Pause"))
+		if (s_bIconButton("pause_btn", ICON_FA_PAUSE, ImVec2(32, 32), "Pause"))
 		{
 			b_IsPlaying = false;
 		}
 	}
 	else
 	{
-		if (IconButton("play_btn", ICON_FA_PLAY, ImVec2(32, 32), "Play"))
+		if (s_bIconButton("play_btn", ICON_FA_PLAY, ImVec2(32, 32), "Play"))
 		{
 			b_IsPlaying = true;
 		}
@@ -381,7 +392,16 @@ void GameEditor::DrawSceneWindow()
 	ImGui::SameLine();
 	
 	// Restart
-	if (IconButton("restart_btn", ICON_FA_ARROW_ROTATE_RIGHT, ImVec2(32, 32), "Restart") || IsWindowResized())
+	if 
+	(
+		s_bIconButton
+		(
+			"restart_btn", 
+			ICON_FA_ARROW_ROTATE_RIGHT, 
+			ImVec2(32, 32), 
+			"Restart"
+		) || IsWindowResized()
+	)
 	{
 		b_IsPlaying = false;
 		m_MapManager->b_ReloadCurrentMap();
@@ -391,32 +411,44 @@ void GameEditor::DrawSceneWindow()
 	ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 12);
 
     // Status Text
-	const bool is_playing = b_IsPlaying;
+	const bool b_IS_PLAYING = b_IsPlaying;
 
-	const ImVec4 color = is_playing
+	const ImVec4 COLOR = b_IsPlaying
 		? ImVec4(0.2f, 0.8f, 0.2f, 1.0f)
 		: ImVec4(0.8f, 0.2f, 0.2f, 1.0f);
 
-	const char* icon = is_playing ? ICON_FA_PLAY : ICON_FA_STOP;
-	const char* label = is_playing ? " PLAYING" : " STOPPED";
+	const std::string &ICON = b_IsPlaying ? ICON_FA_PLAY : ICON_FA_STOP;
+	const std::string &LABEL = b_IsPlaying ? " PLAYING" : " STOPPED";
 
-	float text_y_offset = ((toolbar_height - ImGui::GetTextLineHeight()) * 0.5f) - vertical_offset - 2.0f;
+	float text_y_offset = 
+	(
+		(toolbar_height - ImGui::GetTextLineHeight()) * 0.5f
+	) - vertical_offset - 2.0f;
 	float base_cursor_y = ImGui::GetCursorPosY();
 
 	// Icon
 	ImGui::SetCursorPosY(base_cursor_y + text_y_offset);
-	ImGui::TextColored(color, "%s", icon);
+	ImGui::TextColored(COLOR, "%s", ICON.c_str());
 	ImGui::SameLine();
 	
 	ImGui::SetCursorPosY(base_cursor_y + text_y_offset - 1.0f);
-	ImGui::TextColored(color, "%s", label);
+	ImGui::TextColored(COLOR, "%s", LABEL.c_str());
 
 	ImGui::SameLine();
 	ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 12.0f);
 
     
     // Restore
-	if (IconButton("restore_btn", ICON_FA_ARROW_ROTATE_LEFT, ImVec2(32, 32), "Reset Game"))
+	if 
+	(
+		s_bIconButton
+		(
+			"restore_btn", 
+			ICON_FA_ARROW_ROTATE_LEFT, 
+			ImVec2(32, 32), 
+			"Reset Game"
+		)
+	)
 	{
 		b_IsPlaying = false;
 		if (!b_ReloadGameLogic())
@@ -429,7 +461,16 @@ void GameEditor::DrawSceneWindow()
 	ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 5);
 
     // Clean
-	if (IconButton("clean_btn", ICON_FA_TRASH_CAN, ImVec2(32, 32), "Delete Build Folder"))
+	if 
+	(
+		s_bIconButton
+		(
+			"clean_btn", 
+			ICON_FA_TRASH_CAN, 
+			ImVec2(32, 32), 
+			"Delete Build Folder"
+		)
+	)
 	{
 		if (fs::exists("build"))
 		{
@@ -441,11 +482,20 @@ void GameEditor::DrawSceneWindow()
 	ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 5);
 
 	// Performance Toggle
-	const bool show_stats = m_bShowPerformanceStats;
-	const ImVec4 stats_color = show_stats ? ImVec4(1.0f, 1.0f, 1.0f, 1.0f) : ImVec4(0.5f, 0.5f, 0.5f, 1.0f);
-	ImGui::PushStyleColor(ImGuiCol_Text, stats_color);
+	const bool b_SHOW_STATS = m_bShowPerformanceStats;
+	const ImVec4 STATS_COLOR = b_SHOW_STATS ? ImVec4(1.0f, 1.0f, 1.0f, 1.0f) : ImVec4(0.5f, 0.5f, 0.5f, 1.0f);
+	ImGui::PushStyleColor(ImGuiCol_Text, STATS_COLOR);
 
-	if (IconButton("perf_btn", ICON_FA_CHART_LINE, ImVec2(32, 32), "Performance Overlay"))
+	if 
+	(
+		s_bIconButton
+		(
+			"perf_btn", 
+			ICON_FA_CHART_LINE, 
+			ImVec2(32, 32), 
+			"Performance Overlay"
+		)
+	)
 	{
 		m_bShowPerformanceStats = !m_bShowPerformanceStats;
 	}
@@ -480,7 +530,10 @@ void GameEditor::DrawSceneWindow()
 		
 		ImGui::SameLine();
 		float text_compile_y_offset = (toolbar_height - ImGui::GetTextLineHeight()) / 2.0f;
-		ImGui::SetCursorPosY(ImGui::GetCursorPosY() - vertical_offset - 5 + text_compile_y_offset);
+		ImGui::SetCursorPosY
+		(
+			ImGui::GetCursorPosY() - vertical_offset - 5 + text_compile_y_offset
+		);
 		ImGui::TextColored(ImVec4(0.2f, 0.8f, 0.2f, 1.0f), "Compiling...");
 		ImGui::SameLine();
 	}
@@ -491,7 +544,7 @@ void GameEditor::DrawSceneWindow()
 		ImGui::PushStyleVar(ImGuiStyleVar_Alpha, 0.5f);
 	}
 
-	if (IconButton("compile_btn", ICON_FA_HAMMER, ImVec2(32, 32), "Recompile"))
+	if (s_bIconButton("compile_btn", ICON_FA_HAMMER, ImVec2(32, 32), "Recompile"))
 	{
 		if (!b_Disabled)
 		{
@@ -1023,16 +1076,16 @@ void GameEditor::DrawExportPanel()
                             
                             for 
 							(
-								const auto& entry : fs::directory_iterator(assets_dir)
+								const auto& ENTRY : fs::directory_iterator(assets_dir)
 							)
                             {
-                                if (entry.is_directory() && 
-									entry.path().filename()!="EngineContent")
+                                if (ENTRY.is_directory() && 
+									ENTRY.path().filename()!="EngineContent")
                                 {
-                                    fs::path dest = export_assets_dir / entry.path().filename();
+                                    fs::path dest = export_assets_dir / ENTRY.path().filename();
                                     fs::copy
 									(
-										entry.path(), 
+										ENTRY.path(), 
 										dest, 
                                         fs::copy_options::recursive | 
                                         fs::copy_options::overwrite_existing
@@ -1043,13 +1096,13 @@ void GameEditor::DrawExportPanel()
                                         m_ExportState.m_ExportLogs,
                                         m_ExportState.m_ExportLogMutex, 
                                         "Copied asset folder: " + 
-										entry.path().filename().string()
+										ENTRY.path().filename().string()
                                     );
                                 }
-                                else if (entry.is_regular_file())
+                                else if (ENTRY.is_regular_file())
                                 {
-                                    fs::path dest = export_assets_dir / entry.path().filename();
-                                    fs::copy_file(entry.path(), dest, 
+                                    fs::path dest = export_assets_dir / ENTRY.path().filename();
+                                    fs::copy_file(ENTRY.path(), dest, 
                                         fs::copy_options::overwrite_existing);
                                     
                                     s_fAppendLogLine
@@ -1057,7 +1110,7 @@ void GameEditor::DrawExportPanel()
                                         m_ExportState.m_ExportLogs,
                                         m_ExportState.m_ExportLogMutex, 
                                         "Copied asset file: " + 
-										entry.path().filename().string()
+										ENTRY.path().filename().string()
                                     );
                                 }
                             }
@@ -1227,7 +1280,6 @@ void GameEditor::DrawExportPanel()
         
         if (ImGui::Button("Cancel", ImVec2(cancel_width, 30.0f)))
         {
-			// best-effort; powershell won't be killed here
             m_ExportState.m_bCancelExport = true; 
         }
         ImGui::PopStyleColor(3);
@@ -1760,12 +1812,12 @@ static bool s_bfValidateExportFolder
 	std::error_code ec;
 	if (fs::exists(out_dir, ec) && !ec) 
 	{
-		for (const auto& entry : fs::directory_iterator(out_dir, ec)) 
+		for (const auto& ENTRY : fs::directory_iterator(out_dir, ec)) 
 		{
 			if 
 			(
-				!ec && entry.is_regular_file() && 
-				entry.path().extension() == ".exe"
+				!ec && ENTRY.is_regular_file() && 
+				ENTRY.path().extension() == ".exe"
 			) 
 			{
 				b_FoundGameExe = true;
@@ -1776,7 +1828,7 @@ static bool s_bfValidateExportFolder
 					std::string
 					(
 						"Found game executable: "
-					) + entry.path().filename().string()
+					) + ENTRY.path().filename().string()
 				);
 				break;
 			}
