@@ -16,6 +16,7 @@
 #include <sstream>
 #include <fstream>
 #include <string>
+#include <print>
 
 #include "DllLoader.h"
 #include "GameEditorLayout.h"

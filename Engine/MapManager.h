@@ -5,6 +5,7 @@
 #include <unordered_map>
 #include <vector>
 #include <sstream>
+#include <print>
 
 /**
  * @brief Developer-friendly MapManager for easy game map management
@@ -24,7 +25,8 @@
  * manager.b_GotoMap("map_id");
  * 
  * // Check current map:
- * if (manager.b_IsCurrentMap("map_id")) {
+ * if (manager.b_IsCurrentMap("map_id")) 
+ * {
  *     // Do something specific to that map
  * }
  * @endcode
@@ -32,7 +34,6 @@
 class MapManager : public GameMap
 {
 private:
-    // Current active map
     std::unique_ptr<GameMap> m_CurrentMap;
     
     // Registry of available maps with their factory functions
@@ -122,12 +123,8 @@ void MapManager::RegisterMap
     { 
         description.empty() ? "No description" : description, false 
     };
-    
-    std::cout << "[MapManager] Registered map: '" 
-              << map_id 
-              << "' - " 
-              << description 
-              << std::endl;
+
+    std::println("[MapManager] Registered map: {} - {}", map_id, description);
 }
 /*
 +----------------------------------------------------------------+

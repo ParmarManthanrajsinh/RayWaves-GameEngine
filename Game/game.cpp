@@ -11,7 +11,12 @@ static std::unique_ptr<GameMap> s_fLoadGameLogic
     out_handle = LoadDll(dll_path.data());
     if (!out_handle.handle)
     {
-        std::cerr << "Failed to load GameLogic DLL: " << dll_path << "\n";
+        std::println
+        (
+            std::cerr, 
+            "Fatal error: failed to load GameLogic DLL: {}", 
+            dll_path
+        );
         return nullptr;
     }
 
@@ -21,7 +26,11 @@ static std::unique_ptr<GameMap> s_fLoadGameLogic
     );
     if (!CreateFn)
     {
-        std::cerr << "Failed to find symbol CreateGameMap in GameLogic DLL\n";
+        std::println
+        (
+            std::cerr, 
+            "Failed to find symbol CreateGameMap in GameLogic DLL"
+        );
         UnloadDll(out_handle);
         out_handle = {nullptr, {}};
         return nullptr;
@@ -30,7 +39,7 @@ static std::unique_ptr<GameMap> s_fLoadGameLogic
     GameMap* raw = CreateFn();
     if (!raw)
     {
-        std::cerr << "CreateGameMap returned null\n";
+        std::println("CreateGameMap returned null");
         UnloadDll(out_handle);
         out_handle = {nullptr, {}};
         return nullptr;
@@ -41,7 +50,7 @@ static std::unique_ptr<GameMap> s_fLoadGameLogic
 
 int main()
 {
-    std::cout << "Starting game runtime..." << std::endl;
+    std::println("Starting game runtime...");
 
     // Load configuration
     GameConfig& config = GameConfig::GetInstance();
@@ -68,8 +77,7 @@ int main()
     }
     else
     {
-        std::cerr << "Running without GameLogic (no map loaded)." 
-                  << std::endl;
+        std::println(std::cerr, "Running without GameLogic ( no map Loaded ).");
     }
 
     while (!WindowShouldClose())

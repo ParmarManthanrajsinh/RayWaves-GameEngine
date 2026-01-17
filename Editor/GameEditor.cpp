@@ -84,11 +84,11 @@ void GameEditor::Init(int width, int height, std::string_view title)
 	{
 		SetWindowIcon(icon);
 		UnloadImage(icon);
-		printf("Window icon loaded successfully from Assets / icon.png\n");
+		std::println("Window icon loaded successfully from Assets / icon.png");
 	} 
 	else
 	{
-		printf("Failed to load icon from Assets/icon.png\n");
+		std::println("Failed to load icon from Assets/icon.png");
 	}
 	
 	rlImGuiSetup(true);

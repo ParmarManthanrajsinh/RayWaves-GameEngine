@@ -23,15 +23,7 @@ void GameEngine::LaunchWindow(int width, int height, std::string_view title)
 	m_WindowWidth = width;
 	m_WindowHeight = height;
 	m_WindowTitle = title;
-
-	std::cout << "Window initialized: "
-		<< title
-		<< " ("
-		<< width
-		<< "x"
-		<< height
-		<< ")"
-		<< std::endl;
+	std::println("Window initialized: {} ({}x{})", title, width, height);
 
 	InitWindow(width, height, title.data());
 
@@ -57,15 +49,14 @@ void GameEngine::LaunchWindow(const t_WindowConfig& config)
 	m_WindowHeight = config.height;
 	m_WindowTitle = config.title;
 
-	std::cout << "Window initialized from config: "
-		<< config.title
-		<< " ("
-		<< config.width
-		<< "x"
-		<< config.height
-		<< ") "
-		<< (config.b_Fullscreen ? "Fullscreen" : "Windowed")
-		<< std::endl;
+	std::println
+	(
+		"Window initialized from config: {} ({}x{}) {}",
+		config.title,
+		config.width,
+		config.height,
+		config.b_Fullscreen ? "Fullscreen" : "Windowed"
+	);
 
 	// Set window flags before initialization
 	unsigned int flags = 0;
@@ -91,11 +82,11 @@ void GameEngine::ToggleFullscreen()
 	::ToggleFullscreen();
 	if (IsWindowFullscreen())
 	{
-		std::cout << "Switched to fullscreen mode" << std::endl;
+		std::println("Switched to fullscreen mode");
 	}
 	else
 	{
-		std::cout << "Switched to windowed mode" << std::endl;
+		std::println("Switched to windowed mode");
 	}
 }
 
@@ -105,12 +96,12 @@ void GameEngine::SetWindowMode(bool fullscreen)
 	if (fullscreen && !b_IsCurrentlyFullscreen)
 	{
 		::ToggleFullscreen();
-		std::cout << "Switched to fullscreen mode" << std::endl;
+		std::println("Switched to fullscreen mode");
 	}
 	else if (!fullscreen && b_IsCurrentlyFullscreen)
 	{
 		::ToggleFullscreen();
-		std::cout << "Switched to windowed mode" << std::endl;
+		std::println("Switched to windowed mode");
 	}
 }
 

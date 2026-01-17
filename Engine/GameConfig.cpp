@@ -12,8 +12,7 @@ bool GameConfig::m_bLoadFromFile(const std::string& config_path)
     std::ifstream file(config_path);
     if (!file.is_open()) 
     {
-        std::cout << "Config file not found: " 
-                  << config_path << ". Using defaults." << "\n";
+        std::println("Config file not found: {}. Using defaults. ",config_path);
         return false;
     }
     
@@ -86,7 +85,7 @@ bool GameConfig::m_bLoadFromFile(const std::string& config_path)
     }
     
     file.close();
-    std::cout << "Loaded configuration from: " << config_path << "\n";
+    std::println("Loaded configuration from: {}", config_path);
     return true;
 }
 
@@ -95,8 +94,7 @@ bool GameConfig::m_bSaveToFile(const std::string& config_path) const
     std::ofstream file(config_path);
     if (!file.is_open()) 
     {
-        std::cout << "Failed to create config file: " 
-                  << config_path << "\n";
+        std::println(std::cerr, "Failed to create config file: {}", config_path);
         return false;
     }
     
@@ -117,7 +115,7 @@ bool GameConfig::m_bSaveToFile(const std::string& config_path) const
     file << "scene_fps=" << m_WindowConfig.scene_fps << "\n";
     
     file.close();
-    std::cout << "Saved configuration to: " << config_path << "\n";
+    std::println("Saved configuration to: {}", config_path);
     return true;
 }
 

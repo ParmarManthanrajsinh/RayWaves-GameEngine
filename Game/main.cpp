@@ -5,7 +5,7 @@
 // DLL loading now handled by GameEditor for hot-reload
 int main()
 {
-    printf("Game Engine Starting...\n");
+    std::println("Game Engine Starting...");
     GameEditor editor;
     editor.Init(1280,720,"RayWaves");
 
