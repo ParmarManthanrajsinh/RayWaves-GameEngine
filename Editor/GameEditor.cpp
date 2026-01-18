@@ -3,6 +3,7 @@
 #include "GameEditor.h"
 #include "ProcessRunner.h"
 #include <imgui/imgui_stdlib.h>
+
 using Clock = std::chrono::steady_clock;
 
 // Export Utility functions
@@ -19,6 +20,31 @@ static bool s_bfValidateExportFolder
 	std::vector<std::string>& logs, 
 	std::mutex& mtx
 );
+
+static bool b_IsProcessRunning(std::wstring_view exe_name)
+{
+	const auto snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+	if (snapshot == INVALID_HANDLE_VALUE) return false;
+
+	PROCESSENTRY32W entry{};
+	entry.dwSize = sizeof(entry);
+
+	bool b_Found = false;
+	if (Process32FirstW(snapshot, &entry))
+	{
+		do
+		{
+			if (exe_name == entry.szExeFile)
+			{
+				b_Found = true;
+				break;
+			}
+		} while (Process32NextW(snapshot, &entry));
+	}
+
+	CloseHandle(snapshot);
+	return b_Found;
+}
 
 GameEditor::GameEditor()
 	: m_Viewport(nullptr),
@@ -841,8 +867,7 @@ void GameEditor::DrawExportPanel()
 	ImGui::InputText
 	(
 		"##export_path",
-		current_path.data(),
-		current_path.capacity() + 1,
+		&current_path,
 		ImGuiInputTextFlags_ReadOnly
 	);
 	ImGui::PopItemWidth();
@@ -1165,49 +1190,34 @@ void GameEditor::DrawExportPanel()
 				);
                 
                 // Check for running main.exe process
-                std::stringstream check_cmd;
-                check_cmd << "powershell -Command \"Get-Process -Name 'main' -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Path\"";
-                
-                FILE* check_pipe = _popen(check_cmd.str().c_str(), "r");
-                if (check_pipe) 
+                /*std::stringstream check_cmd;
+                check_cmd << "powershell -Command \"Get-Process -Name 'main' -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Path\"";*/
+				const bool b_FoundRunningProcess = b_IsProcessRunning(L"main.exe");
+				if (b_FoundRunningProcess)
 				{
-					std::array<char, 1024> buffer{};
-                    bool b_FoundRunningProcess = false;
-                    while 
+					s_fAppendLogLine
 					(
-						fgets(buffer.data(), sizeof(buffer), check_pipe) != nullptr
-					) 
-					{
-                        if(std::string_view{ buffer.data() }.contains("main.exe"))
-						{
-                            b_FoundRunningProcess = true;
-                            s_fAppendLogLine
-							(
-								m_ExportState.m_ExportLogs, 
-								m_ExportState.m_ExportLogMutex, 
-								"WARNING: main.exe is currently m_bIsExporting. Export may fail."
-							);
-                            s_fAppendLogLine
-							(
-								m_ExportState.m_ExportLogs, 
-								m_ExportState.m_ExportLogMutex, 
-								"Please close the game editor before exporting for best results."
-							);
-                            break;
-                        }
-                    }
+						m_ExportState.m_ExportLogs,
+						m_ExportState.m_ExportLogMutex,
+						"WARNING: main.exe is currently running. Export may fail."
+					);
 
-                    _pclose(check_pipe);
-                    if (!b_FoundRunningProcess) 
-					{
-                        s_fAppendLogLine
-						(
-							m_ExportState.m_ExportLogs, 
-							m_ExportState.m_ExportLogMutex, 
-							"No conflicting processes found. Proceeding with build..."
-						);
-                    }
-                }
+					s_fAppendLogLine
+					(
+						m_ExportState.m_ExportLogs, 
+						m_ExportState.m_ExportLogMutex,
+						"Please close the game editor before exporting for best results."
+					);
+				}
+				else
+				{
+					s_fAppendLogLine
+					(
+						m_ExportState.m_ExportLogs, 
+						m_ExportState.m_ExportLogMutex,
+						"No conflicting processes found. Proceeding with build..."
+					);
+				}
                 
                 // Use simple export script that builds from source
                 s_fAppendLogLine
