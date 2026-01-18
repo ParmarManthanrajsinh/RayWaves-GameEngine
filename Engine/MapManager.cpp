@@ -321,10 +321,10 @@ std::string MapManager::GetDebugInfo() const
 
     ss << "Registered Maps (" << m_MapRegistry.size() << "):";
     
-    for (const auto& pair : m_MapInfo)
+    for (const auto& PAIR : m_MapInfo)
     {
-        const std::string& MAP_ID = pair.first;
-        const t_MapInfo& INFO = pair.second;
+        const std::string& MAP_ID = PAIR.first;
+        const t_MapInfo& INFO = PAIR.second;
         ss << "\n  - '" << MAP_ID << "': " << INFO.description;
         ss << " [" << (INFO.b_IsLoaded ? "LOADED" : "NOT LOADED") << "]";
     }
