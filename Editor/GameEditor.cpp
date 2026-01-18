@@ -487,7 +487,9 @@ void GameEditor::DrawSceneWindow()
 
 	// Performance Toggle
 	const bool b_SHOW_STATS = m_bShowPerformanceStats;
-	const ImVec4 STATS_COLOR = b_SHOW_STATS ? ImVec4(1.0f, 1.0f, 1.0f, 1.0f) : ImVec4(0.5f, 0.5f, 0.5f, 1.0f);
+	const ImVec4 STATS_COLOR = b_SHOW_STATS 
+		? ImVec4(1.0f, 1.0f, 1.0f, 1.0f) 
+		: ImVec4(0.5f, 0.5f, 0.5f, 1.0f);
 	ImGui::PushStyleColor(ImGuiCol_Text, STATS_COLOR);
 
 	if 
@@ -509,10 +511,22 @@ void GameEditor::DrawSceneWindow()
     
     // Terminal Toggle
     const bool b_SHOW_TERM = m_bShowTerminal;
-    const ImVec4 TERM_COLOR = b_SHOW_TERM ? ImVec4(1.0f, 1.0f, 1.0f, 1.0f) : ImVec4(0.5f, 0.5f, 0.5f, 1.0f);
+    const ImVec4 TERM_COLOR = b_SHOW_TERM 
+		? ImVec4(1.0f, 1.0f, 1.0f, 1.0f) 
+		: ImVec4(0.5f, 0.5f, 0.5f, 1.0f);
     ImGui::PushStyleColor(ImGuiCol_Text, TERM_COLOR);
     
-    if(s_bIconButton("term_btn", ICON_FA_TERMINAL, ImVec2(32, 32), "Debug Console")) {
+    if
+	(
+		s_bIconButton
+		(
+			"term_btn", 
+			ICON_FA_TERMINAL, 
+			ImVec2(32, 32), 
+			"Debug Console"
+		)
+	) 
+	{
         m_bShowTerminal = !m_bShowTerminal;
     }
     ImGui::PopStyleColor();
@@ -1164,8 +1178,7 @@ void GameEditor::DrawExportPanel()
 						fgets(buffer.data(), sizeof(buffer), check_pipe) != nullptr
 					) 
 					{
-                        std::string output(buffer.data());
-                        if (output.find("main.exe") != std::string::npos) 
+                        if(std::string_view{ buffer.data() }.contains("main.exe"))
 						{
                             b_FoundRunningProcess = true;
                             s_fAppendLogLine
@@ -1352,26 +1365,26 @@ void GameEditor::DrawExportPanel()
                 // Color code log messages ( Default white )
                 ImVec4 text_color = ImVec4(1.0f, 1.0f, 1.0f, 1.0f); 
                 
-                if (LINE.find("ERROR:") != std::string::npos)
+                if (LINE.contains("ERROR:"))
                 {	
 					// Red
                     text_color = ImVec4(1.0f, 0.3f, 0.3f, 1.0f); 
                 }
-                else if (LINE.find("WARNING:") != std::string::npos)
+                else if (LINE.contains("WARNING:"))
                 {
 					// Yellow
                     text_color = ImVec4(1.0f, 0.8f, 0.3f, 1.0f); 
                 }
-                else if (LINE.find("Completed") != std::string::npos || 
-                         LINE.find("SUCCESS") != std::string::npos   ||
-                         LINE.find("Copied") != std::string::npos)
+                else if (LINE.contains("Completed") || 
+                         LINE.contains("SUCCESS")	||
+                         LINE.contains("Copied"))
                 {
 					// Green
                     text_color = ImVec4(0.3f, 1.0f, 0.3f, 1.0f); 
                 }
-                else if (LINE.find("Building") != std::string::npos ||
-                         LINE.find("Creating") != std::string::npos ||
-                         LINE.find("Starting") != std::string::npos)
+                else if (LINE.contains("Building")  ||
+                         LINE.contains("Creating")  ||
+                         LINE.contains("Starting"))
                 {
 					// Blue
                     text_color = ImVec4(0.3f, 0.8f, 1.0f, 1.0f); 
