@@ -1,8 +1,11 @@
 ﻿#include "../Engine/MapManager.h"
 #include "../Game/DllLoader.h"
 #include "GameEditor.h"
+#include "ProcessRunner.h"
 
 using Clock = std::chrono::steady_clock;
+
+
 
 // Export Utility functions
 static void s_fAppendLogLine
@@ -566,14 +569,36 @@ void GameEditor::DrawSceneWindow()
 			b_IsPlaying = false;
 			if (!b_ReloadGameLogic()) m_GameEngine.ResetMap();
 
-			std::thread
+			m_bShowTerminal = true;
+			m_Terminal.add_text("Starting build process...", tterm::Severity::Info);
+
+			m_bShowTerminal = true;
+			m_Terminal.add_text("Starting build process...", tterm::Severity::Info);
+
+			ProcessRunner::RunBuildCommand
 			(
-				[this]()
+				"build_gamelogic.bat nopause",
+				[this](const std::string& line, bool isError)
 				{
-					std::system("build_gamelogic.bat nopause");
+					m_Terminal.add_text
+					(
+						line, 
+						isError ? tterm::Severity::Error : tterm::Severity::Info
+					);
+				},
+				[this](bool success)
+				{
+					if (success)
+					{
+						m_Terminal.add_text("Build Successful.", tterm::Severity::Info);
+					}
+					else
+					{
+						m_Terminal.add_text("Build Failed.", tterm::Severity::Error);
+					}
 					b_IsCompiling = false;
 				}
-			).detach();
+			);
 		}
 	}
 
