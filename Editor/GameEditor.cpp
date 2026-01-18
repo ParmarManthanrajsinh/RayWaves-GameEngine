@@ -1,4 +1,4 @@
-#include "../Engine/MapManager.h"
+﻿#include "../Engine/MapManager.h"
 #include "../Game/DllLoader.h"
 #include "GameEditor.h"
 
@@ -34,6 +34,8 @@ GameEditor::GameEditor()
 	  m_FrameTimes{},
 	  m_FrameOffset(0)
 {
+    // Initialize standard output capture
+    m_Terminal.InitCapture();
 }
 
 GameEditor::~GameEditor()
@@ -208,6 +210,7 @@ void GameEditor::Run()
         DrawExportPanel();
 		DrawSceneSettingsPanel();
 		DrawSceneWindow();
+        DrawTerminal();
 		DrawPerformanceOverlay();
 
 		rlImGuiEnd();
@@ -502,6 +505,17 @@ void GameEditor::DrawSceneWindow()
 
 	ImGui::PopStyleColor();
 	ImGui::SameLine();	
+    
+    // Terminal Toggle
+    const bool b_SHOW_TERM = m_bShowTerminal;
+    const ImVec4 TERM_COLOR = b_SHOW_TERM ? ImVec4(1.0f, 1.0f, 1.0f, 1.0f) : ImVec4(0.5f, 0.5f, 0.5f, 1.0f);
+    ImGui::PushStyleColor(ImGuiCol_Text, TERM_COLOR);
+    
+    if(s_bIconButton("term_btn", ICON_FA_TERMINAL, ImVec2(32, 32), "Debug Console")) {
+        m_bShowTerminal = !m_bShowTerminal;
+    }
+    ImGui::PopStyleColor();
+    ImGui::SameLine();
 
 	// Compile
 	float button_sz = 32.0f + ImGui::GetStyle().FramePadding.x * 2.0f;
@@ -653,7 +667,7 @@ void GameEditor::DrawExportPanel()
     ImGui::PopItemWidth();
     
     ImGui::SameLine();
-    ImGui::Text("×");
+    ImGui::Text("Ã—");
     ImGui::SameLine();
     
     ImGui::PushItemWidth(80.0f);
@@ -664,27 +678,27 @@ void GameEditor::DrawExportPanel()
     ImGui::PushItemWidth(150.0f);
     if (ImGui::BeginCombo("##resolution_presets", "Presets"))
     {
-        if (ImGui::Selectable("1920×1080 (Full HD)")) 
+        if (ImGui::Selectable("1920Ã—1080 (Full HD)")) 
 		{
             m_ExportState.m_WindowWidth = 1920;
             m_ExportState.m_WindowHeight = 1080;
         }
-        if (ImGui::Selectable("1600×900 (HD+)")) 
+        if (ImGui::Selectable("1600Ã—900 (HD+)")) 
 		{
             m_ExportState.m_WindowWidth = 1600;
             m_ExportState.m_WindowHeight = 900;
         }
-        if (ImGui::Selectable("1280×720 (HD)")) 
+        if (ImGui::Selectable("1280Ã—720 (HD)")) 
 		{
             m_ExportState.m_WindowWidth = 1280;
             m_ExportState.m_WindowHeight = 720;
         }
-        if (ImGui::Selectable("1024×768 (4:3)")) 
+        if (ImGui::Selectable("1024Ã—768 (4:3)")) 
 		{
             m_ExportState.m_WindowWidth = 1024;
             m_ExportState.m_WindowHeight = 768;
         }
-        if (ImGui::Selectable("800×600 (SVGA)")) 
+        if (ImGui::Selectable("800Ã—600 (SVGA)")) 
 		{
             m_ExportState.m_WindowWidth = 800;
             m_ExportState.m_WindowHeight = 600;
@@ -1434,7 +1448,7 @@ void GameEditor::DrawSceneSettingsPanel()
     ImGui::PopItemWidth();
     
     ImGui::SameLine();
-    ImGui::Text("×");
+    ImGui::Text("Ã—");
     ImGui::SameLine();
     
     ImGui::PushItemWidth(80.0f);
@@ -1445,27 +1459,27 @@ void GameEditor::DrawSceneSettingsPanel()
     ImGui::PushItemWidth(150.0f);
     if (ImGui::BeginCombo("##scene_resolution_presets", "Presets"))
     {
-        if (ImGui::Selectable("1920×1080 (Full HD)")) 
+        if (ImGui::Selectable("1920Ã—1080 (Full HD)")) 
         {
             m_SceneSettings.m_SceneWidth = 1920;
             m_SceneSettings.m_SceneHeight = 1080;
         }
-        if (ImGui::Selectable("1600×900 (HD+)")) 
+        if (ImGui::Selectable("1600Ã—900 (HD+)")) 
         {
             m_SceneSettings.m_SceneWidth = 1600;
             m_SceneSettings.m_SceneHeight = 900;
         }
-        if (ImGui::Selectable("1280×720 (HD)")) 
+        if (ImGui::Selectable("1280Ã—720 (HD)")) 
         {
             m_SceneSettings.m_SceneWidth = 1280;
             m_SceneSettings.m_SceneHeight = 720;
         }
-        if (ImGui::Selectable("1024×768 (4:3)")) 
+        if (ImGui::Selectable("1024Ã—768 (4:3)")) 
         {
             m_SceneSettings.m_SceneWidth = 1024;
             m_SceneSettings.m_SceneHeight = 768;
         }
-        if (ImGui::Selectable("800×600 (SVGA)")) 
+        if (ImGui::Selectable("800Ã—600 (SVGA)")) 
         {
             m_SceneSettings.m_SceneWidth = 800;
             m_SceneSettings.m_SceneHeight = 600;
@@ -2131,5 +2145,13 @@ void GameEditor::DrawPerformanceOverlay()
 		);
 	}
 	ImGui::End();
+}
+
+void GameEditor::DrawTerminal()
+{
+    if (m_bShowTerminal) 
+    {
+        m_Terminal.show("Debug Console", &m_bShowTerminal);
+    }
 }
 

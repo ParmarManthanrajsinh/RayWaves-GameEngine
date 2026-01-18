@@ -22,7 +22,7 @@ set(GAME_SRC_CPP
     Game/DllLoader.cpp
 )
 file(GLOB ENGINE_SRC_CPP  CONFIGURE_DEPENDS "Engine/*.cpp")
-file(GLOB EDITOR_SRC_CPP  CONFIGURE_DEPENDS "Editor/*.cpp")
+file(GLOB EDITOR_SRC_CPP  CONFIGURE_DEPENDS "Editor/*.cpp" "Editor/terminal/*.cpp")
 
 # rlImGui and ImGui sources
 set(RLIMGUI_SRC Editor/rlImGui/rlImGui.cpp)
@@ -55,7 +55,7 @@ target_include_directories(GameLogic PRIVATE
 target_link_libraries(GameLogic PRIVATE Engine)
 
 # Create main executable (Game Editor) without Engine sources; link against Engine
-add_executable(main 
+add_executable(main WIN32
     ${GAME_SRC_CPP} 
     ${EDITOR_SRC_CPP} 
     ${RLIMGUI_SRC} 
@@ -77,6 +77,9 @@ target_include_directories(main PRIVATE
 # Link libraries
 # Link Engine (which brings raylib transitively)
 target_link_libraries(main PRIVATE Engine)
+if(MSVC)
+    set_target_properties(main PROPERTIES LINK_FLAGS "/ENTRY:mainCRTStartup")
+endif()
 
 # Copy GameLogic DLL beside main executable after building 'main'.
 add_custom_command(TARGET main POST_BUILD

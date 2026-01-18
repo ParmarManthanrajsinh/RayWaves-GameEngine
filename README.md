@@ -118,9 +118,9 @@ RequestGotoMap("Level_1");
 
 ---
 
-## 📦 Sharing Your Game
+## 📦 Distribution Game Engine
 
-Want to send your game to a friend? Or maybe distribute the engine to your team?
+Want to distribute the engine to your team?
 
 Simply run:
 ```cmd

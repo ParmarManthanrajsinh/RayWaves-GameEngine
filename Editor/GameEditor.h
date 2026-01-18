@@ -22,6 +22,7 @@
 #include "GameEditorLayout.h"
 #include "GameEditorTheme.h"
 #include "GameEngine.h"
+#include "terminal/terminal.h"
 namespace fs = std::filesystem;
 
 class GameEditor
@@ -113,4 +114,9 @@ private:
 
     void DrawPerformanceOverlay();
     void UpdatePerformanceMetrics();
+
+    // Terminal
+    tterm::Terminal m_Terminal;
+    bool m_bShowTerminal = true;
+    void DrawTerminal();
 };
