@@ -8,7 +8,8 @@
 #include <imgui_internal.h>
 #include "terminal.h"
 
-namespace tterm {
+namespace tterm 
+{
 
     // Output Streams
     static LogStreamBuf* s_cout_buf = nullptr;
@@ -16,11 +17,13 @@ namespace tterm {
 
     Terminal* Terminal::s_Instance = nullptr;
 
-    Terminal::Terminal() {
+    Terminal::Terminal() 
+    {
         s_Instance = this;
     }
 
-    Terminal::~Terminal() {
+    Terminal::~Terminal() 
+    {
         if (s_Instance == this) s_Instance = nullptr;
         
         // Restore streams
@@ -30,7 +33,8 @@ namespace tterm {
         delete s_cerr_buf;
     }
 
-    void Terminal::InitCapture() {
+    void Terminal::InitCapture() 
+    {
         // 1. Raylib Capture
         SetTraceLogCallback(RaylibLogCallback);
 
@@ -44,7 +48,8 @@ namespace tterm {
         std::cerr.rdbuf(s_cerr_buf);
     }
 
-    void Terminal::RaylibLogCallback(int logLevel, const char* text, va_list args) {
+    void Terminal::RaylibLogCallback(int logLevel, const char* text, va_list args) 
+    {
         if (!s_Instance) return;
 
         // Fix 1: Thread-safe buffer (on stack), no static
@@ -52,7 +57,8 @@ namespace tterm {
         vsnprintf(buffer, sizeof(buffer), text, args);
 
         Severity s = Severity::Info;
-        switch (logLevel) {
+        switch (logLevel) 
+        {
             case LOG_TRACE: s = Severity::Trace; break;
             case LOG_DEBUG: s = Severity::Debug; break;
             case LOG_INFO: s = Severity::Info; break;
@@ -65,17 +71,20 @@ namespace tterm {
         s_Instance->add_text(buffer, s);
     }
 
-    void Terminal::add_text(std::string_view text, Severity severity) {
+    void Terminal::add_text(std::string_view text, Severity severity) 
+    {
         Message msg(text, severity);
         add_message(msg);
     }
 
-    void Terminal::add_message(const Message& msg) {
+    void Terminal::add_message(const Message& msg) 
+    {
         // Fix 2: Mutex lock
         std::lock_guard<std::mutex> lock(m_mutex);
         
         // Limit log size
-        if (m_messages.size() >= m_max_log_size) {
+        if (m_messages.size() >= m_max_log_size) 
+        {
             m_messages.pop_front();
         }
         m_messages.push_back(msg);
@@ -88,7 +97,8 @@ namespace tterm {
         m_messages.clear();
     }
 
-    void Terminal::show(const char* window_title, bool* p_open) {
+    void Terminal::show(const char* window_title, bool* p_open) 
+    {
         ImGui::SetNextWindowSize(ImVec2(600, 400), ImGuiCond_FirstUseEver);
 
         ImGui::PushStyleColor(ImGuiCol_WindowBg, m_theme.window_bg);
@@ -97,7 +107,8 @@ namespace tterm {
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(m_theme.item_spacing, m_theme.item_spacing));
 
         // Use a generic window so it can be docked
-        if (!ImGui::Begin(window_title, p_open)) {
+        if (!ImGui::Begin(window_title, p_open)) 
+        {
             ImGui::PopStyleVar(2);
             ImGui::PopStyleColor(2);
             ImGui::End();
@@ -123,7 +134,8 @@ namespace tterm {
         ImGui::PopStyleColor(2);
     }
 
-    void Terminal::render_settings_bar(const ImVec2& size) {
+    void Terminal::render_settings_bar(const ImVec2& size) 
+    {
         ImGui::BeginGroup();
         
         ImGui::PushStyleColor(ImGuiCol_Button, m_theme.button_bg);
@@ -148,7 +160,8 @@ namespace tterm {
         ImGui::SetNextItemWidth(100.0f);
         const char* levels[] = { "Trace", "Debug", "Info", "Warn", "Error", "Critical", "None" };
         int current_level = static_cast<int>(m_min_log_level);
-        if (ImGui::Combo("##LogLevel", &current_level, levels, IM_ARRAYSIZE(levels))) {
+        if (ImGui::Combo("##LogLevel", &current_level, levels, IM_ARRAYSIZE(levels))) 
+        {
             m_min_log_level = static_cast<Severity>(current_level);
         }
 
@@ -156,7 +169,8 @@ namespace tterm {
         ImGui::EndGroup();
     }
 
-    void Terminal::render_log_window(const ImVec2& size) {
+    void Terminal::render_log_window(const ImVec2& size) 
+    {
         ImGui::PushStyleColor(ImGuiCol_ChildBg, m_theme.window_bg);
         
         ImGuiWindowFlags flags = ImGuiWindowFlags_HorizontalScrollbar;
@@ -175,11 +189,14 @@ namespace tterm {
         // If sorting or filtering is active, clipping is harder.
         // For complexity simplicity: if has_filter, draw normally. If no filter, use Clipper.
         
-        if (!has_filter) {
+        if (!has_filter) 
+        {
             ImGuiListClipper clipper;
             clipper.Begin((int)m_messages.size());
-            while (clipper.Step()) {
-                for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; i++) {
+            while (clipper.Step()) 
+            {
+                for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; i++) 
+                {
                     const auto& msg = m_messages[i];
                     
                     if (msg.severity < m_min_log_level) continue; // Note: Clipper + variable height skip is slightly visible glitching if many skipped.
@@ -187,7 +204,8 @@ namespace tterm {
                     // For now, this is "good enough" optimization basics.
                     
                     ImVec4 color = m_theme.text_default;
-                    switch (msg.severity) {
+                    switch (msg.severity) 
+                    {
                         case Severity::Trace: color = m_theme.log_trace; break;
                         case Severity::Debug: color = m_theme.log_debug; break;
                         case Severity::Info: color = m_theme.log_info; break;
@@ -198,7 +216,10 @@ namespace tterm {
                     }
 
                     ImGui::PushStyleColor(ImGuiCol_Text, color);
-                    if (m_auto_wrap) ImGui::PushTextWrapPos(ImGui::GetContentRegionAvail().x);
+                    if (m_auto_wrap)
+                    {
+                        ImGui::PushTextWrapPos(ImGui::GetContentRegionAvail().x);
+                    }
                     ImGui::TextUnformatted(msg.text.c_str());
                     if (m_auto_wrap) ImGui::PopTextWrapPos();
                     ImGui::PopStyleColor();
@@ -207,11 +228,13 @@ namespace tterm {
         } 
         else {
             // Unoptimized path for filtered results
-             for (const auto& msg : m_messages) {
+             for (const auto& msg : m_messages) 
+             {
                 if (!pass_filter(msg)) continue;
 
                 ImVec4 color = m_theme.text_default;
-                switch (msg.severity) {
+                switch (msg.severity)
+                {
                     case Severity::Trace: color = m_theme.log_trace; break;
                     case Severity::Debug: color = m_theme.log_debug; break;
                     case Severity::Info: color = m_theme.log_info; break;
@@ -229,7 +252,8 @@ namespace tterm {
             }
         }
 
-        if (m_scroll_to_bottom) {
+        if (m_scroll_to_bottom)
+        {
             ImGui::SetScrollHereY(1.0f);
             m_scroll_to_bottom = false;
         }
@@ -239,35 +263,47 @@ namespace tterm {
         ImGui::PopStyleColor();
     }
 
-    bool Terminal::pass_filter(const Message& msg) {
+    bool Terminal::pass_filter(const Message& msg) 
+    {
         if (msg.severity < m_min_log_level) return false;
         if (m_filter_buf[0] == '\0') return true;
         // Simple case insensitive? No, case sensitive for now
         return msg.text.find(m_filter_buf) != std::string::npos;
     }
 
-    void Terminal::render_input_bar(const ImVec2& size) {
+    void Terminal::render_input_bar(const ImVec2& size) 
+    {
         ImGui::Separator();
         ImGui::PushStyleColor(ImGuiCol_FrameBg, m_theme.input_bg);
         ImGui::PushStyleColor(ImGuiCol_Text, m_theme.input_text);
 
         ImGuiInputTextFlags flags = ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_CallbackHistory;
         
-        auto callback = [](ImGuiInputTextCallbackData* data) -> int {
+        auto callback = [](ImGuiInputTextCallbackData* data) -> int 
+            {
             Terminal* term = (Terminal*)data->UserData;
             
-            if (data->EventFlag == ImGuiInputTextFlags_CallbackHistory) {
-                if (data->EventKey == ImGuiKey_UpArrow) {
-                    if (!term->m_history.empty()) {
+            if (data->EventFlag == ImGuiInputTextFlags_CallbackHistory) 
+            {
+                if (data->EventKey == ImGuiKey_UpArrow) 
+                {
+                    if (!term->m_history.empty()) 
+                    {
                         term->m_history_pos++;
                          if (term->m_history_pos >= (int)term->m_history.size()) term->m_history_pos = (int)term->m_history.size() - 1;
                     }
-                } else if (data->EventKey == ImGuiKey_DownArrow) {
+                } else if (data->EventKey == ImGuiKey_DownArrow) 
+                {
                      term->m_history_pos--;
                      if (term->m_history_pos < -1) term->m_history_pos = -1;
                 }
                 
-                if (term->m_history_pos >= 0 && term->m_history_pos < term->m_history.size()) {
+                if 
+                (
+                    term->m_history_pos >= 0 && 
+                    term->m_history_pos < term->m_history.size()
+                ) 
+                {
                     int idx = (int)term->m_history.size() - 1 - term->m_history_pos;
                     data->DeleteChars(0, data->BufTextLen);
                     data->InsertChars(0, term->m_history[idx].c_str());
@@ -278,9 +314,22 @@ namespace tterm {
         
         ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
         
-        if (ImGui::InputText("##Input", m_input_buf, sizeof(m_input_buf), flags, callback, this)) {
+        if 
+        (
+            ImGui::InputText
+            (
+                "##Input", 
+                m_input_buf, 
+                sizeof(m_input_buf), 
+                flags, 
+                callback, 
+                this
+            )
+        ) 
+        {
             std::string cmd = m_input_buf;
-            if (!cmd.empty()) {
+            if (!cmd.empty()) 
+            {
                 execute_command(cmd);
                 m_input_buf[0] = '\0';
                 m_history_pos = -1;
@@ -290,59 +339,76 @@ namespace tterm {
         ImGui::PopStyleColor(2);
     }
 
-    void Terminal::execute_command(std::string_view cmd) {
+    void Terminal::execute_command(std::string_view cmd) 
+    {
         m_history.push_back(std::string(cmd));
         add_text(std::string("> ") + std::string(cmd), Severity::Info);
         
         std::string command_str(cmd);
 
-        if (command_str == "clear") {
+        if (command_str == "clear") 
+        {
             clear();
             return;
         } 
         
-        if (command_str == "help") {
+        if (command_str == "help") 
+        {
             add_text("Available commands: clear, help, [system commands]", Severity::Info);
             return;
         }
 
         // Fix 4: Async execution for system commands
         // Prevent UI blocking by running popen in a detached thread
-        std::thread([this, command_str]() {
-            #ifdef _WIN32
-            #define popen _popen
-            #define pclose _pclose
-            #endif
+        std::thread
+        (
+            [this, command_str]() 
+            {
+                #ifdef _WIN32
+                #define popen _popen
+                #define pclose _pclose
+                #endif
 
-            // Note: popen combines stdout/stderr usually? No, "r" only stdout.
-            // To get stderr, need "2>&1" in command.
-            std::string full_cmd = command_str + " 2>&1";
+                // Note: popen combines stdout/stderr usually? No, "r" only stdout.
+                // To get stderr, need "2>&1" in command.
+                std::string full_cmd = command_str + " 2>&1";
 
-            FILE* pipe = popen(full_cmd.c_str(), "r");
-            if (!pipe) {
-                this->add_text("Failed to start command.", Severity::Error);
-                return;
-            }
-
-            char buffer[128];
-            while (fgets(buffer, sizeof(buffer), pipe)) {
-                // Remove newline
-                std::string res(buffer);
-                while (!res.empty() && (res.back() == '\n' || res.back() == '\r')) {
-                    res.pop_back();
+                FILE* pipe = popen(full_cmd.c_str(), "r");
+                if (!pipe)
+                {
+                    this->add_text("Failed to start command.", Severity::Error);
+                    return;
                 }
-                // Log from background thread (add_text is thread-safe now)
-                this->add_text(res, Severity::Info);
-            }
-            
-            int return_code = pclose(pipe);
-            if (return_code != 0) {
-                 this->add_text("Command exited with code " + std::to_string(return_code), Severity::Warn);
-            } else {
-                 this->add_text("Command finished.", Severity::Trace);
-            }
 
-        }).detach();
+                char buffer[128];
+                while (fgets(buffer, sizeof(buffer), pipe)) 
+                {
+                    // Remove newline
+                    std::string res(buffer);
+                    while (!res.empty() && (res.back() == '\n' || res.back() == '\r')) 
+                    {
+                        res.pop_back();
+                    }
+                    // Log from background thread (add_text is thread-safe now)
+                    this->add_text(res, Severity::Info);
+                }
+                
+                int return_code = pclose(pipe);
+                if (return_code != 0) 
+                {
+                     this->add_text
+                     (
+                         "Command exited with code " + 
+                         std::to_string(return_code), 
+                         Severity::Warn
+                     );
+                } else 
+                {
+                     this->add_text("Command finished.", Severity::Trace);
+                }
+
+            }
+        ).detach();
     }
 
-} // namespace tterm
+}
