@@ -2,6 +2,7 @@
 #include "../Game/DllLoader.h"
 #include "GameEditor.h"
 #include "ProcessRunner.h"
+#include <imgui/imgui_stdlib.h>
 using Clock = std::chrono::steady_clock;
 
 // Export Utility functions
@@ -222,7 +223,7 @@ void GameEditor::Run()
 
 void GameEditor::Close() const
 {
-	auto& config = GameConfig::GetInstance().GetWindowConfig();
+	t_WindowConfig& config = GameConfig::GetInstance().GetWindowConfig();
 	config.scene_width = m_SceneSettings.m_SceneWidth;
 	config.scene_height = m_SceneSettings.m_SceneHeight;
 	config.scene_fps = m_SceneSettings.m_TargetFPS;
@@ -638,35 +639,10 @@ void GameEditor::DrawExportPanel()
     ImGui::Text("Game Name:");
     ImGui::SameLine();
     ImGui::SetCursorPosX(120.0f);
-    
-    //char game_name_buffer[256];
-	std::array<char, 256> game_name_buffer{};
-	std::snprintf
-	(
-		game_name_buffer.data(),
-		game_name_buffer.size(),
-		"%s",
-		m_ExportState.m_GameName.c_str()
-	);
-	game_name_buffer[game_name_buffer.size() - 1] = '\0';
-
-    ImGui::PushItemWidth(250.0f);
-    if 
-	(
-		ImGui::InputText
-		(
-			"##game_name", 
-			game_name_buffer.data(), 
-			game_name_buffer.size()
-		)
-	)
-    {
-        m_ExportState.m_GameName = game_name_buffer.data();
-    }
-    ImGui::PopItemWidth();
+	ImGui::InputText("##game_name", &m_ExportState.m_GameName);
     
     ImGui::SameLine();
-    ImGui::TextDisabled("%s.exe", game_name_buffer.data());
+    ImGui::TextDisabled("%s.exe", m_ExportState.m_GameName.c_str());
 
     ImGui::Spacing();
     ImGui::Spacing();

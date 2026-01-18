@@ -26,7 +26,13 @@ file(GLOB EDITOR_SRC_CPP  CONFIGURE_DEPENDS "Editor/*.cpp" "Editor/terminal/*.cp
 
 # rlImGui and ImGui sources
 set(RLIMGUI_SRC Editor/rlImGui/rlImGui.cpp)
-set(IMGUI_SRC Editor/imgui/imgui.cpp Editor/imgui/imgui_draw.cpp Editor/imgui/imgui_tables.cpp Editor/imgui/imgui_widgets.cpp)
+set(
+    IMGUI_SRC Editor/imgui/imgui.cpp 
+    Editor/imgui/imgui_draw.cpp 
+    Editor/imgui/imgui_tables.cpp 
+    Editor/imgui/imgui_widgets.cpp
+    Editor/imgui/imgui_stdlib.cpp
+)
 set(TINYFILEDIALOGS Editor/tinyfiledialogs/tinyfiledialogs.c)
 
 # Copy assets to the build directory
