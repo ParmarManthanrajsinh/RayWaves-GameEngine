@@ -58,14 +58,14 @@ namespace ProcessRunner
             si.wShowWindow = SW_HIDE;
 
             PROCESS_INFORMATION pi{};
-            std::string cmdMutable = "cmd.exe /C " + cmd;
+            std::string cmd_mutable = "cmd.exe /C " + cmd;
 
             if
             (
                 !CreateProcessA
                 (
                     nullptr,
-                    cmdMutable.data(),
+                    cmd_mutable.data(),
                     nullptr,
                     nullptr,
                     TRUE,

@@ -2,10 +2,7 @@
 #include "../Game/DllLoader.h"
 #include "GameEditor.h"
 #include "ProcessRunner.h"
-
 using Clock = std::chrono::steady_clock;
-
-
 
 // Export Utility functions
 static void s_fAppendLogLine
@@ -844,36 +841,21 @@ void GameEditor::DrawExportPanel()
     ImGui::SameLine();
     ImGui::SetCursorPosX(120.0f);
 
-    /*char export_path_buffer[512];*/
-	std::array<char, 512> export_path_buffer{};
-    std::string current_path = 
-		m_ExportState.m_ExportPath.empty() ? 
-		"export" : m_ExportState.m_ExportPath;
+	std::string& current_path = m_ExportState.m_ExportPath;
+	if (current_path.empty())
+	{
+		current_path = "export";
+	}
 
-	strncpy_s
+	ImGui::PushItemWidth(300.0f);
+	ImGui::InputText
 	(
-		export_path_buffer.data(),        // destination
-		export_path_buffer.size(),        // buffer size
-		current_path.c_str(),             // source
-		_TRUNCATE                         // auto null-terminate
+		"##export_path",
+		current_path.data(),
+		current_path.size() + 1,
+		ImGuiInputTextFlags_ReadOnly
 	);
-    export_path_buffer[export_path_buffer.size() - 1] = '\0';
-
-    ImGui::PushItemWidth(300.0f);
-    if 
-	(
-		ImGui::InputText
-		(
-			"##export_path", 
-			export_path_buffer.data(),
-			export_path_buffer.size(),
-			ImGuiInputTextFlags_ReadOnly
-		)
-	)
-    {
-        m_ExportState.m_ExportPath = export_path_buffer.data();
-    }
-    ImGui::PopItemWidth();
+	ImGui::PopItemWidth();
 
     ImGui::SameLine();
     if (ImGui::Button("Browse", ImVec2(80.0f, 0)))
@@ -2142,7 +2124,10 @@ void GameEditor::DrawPerformanceOverlay()
 		float fps = 1000.0f / (avg_frame_time > 0.001f ? avg_frame_time : 16.66f);
 
 		// Header Text
-		ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[ImGui::GetIO().Fonts->Fonts.size() > 1 ? 1 : 0]); // Bigger font if available
+		ImGui::PushFont
+		(
+			ImGui::GetIO().Fonts->Fonts[ImGui::GetIO().Fonts->Fonts.size() > 1 ? 1 : 0]
+		); // Bigger font if available
 		ImGui::TextColored(ImVec4(0.4f, 1.0f, 0.4f, 1.0f), "%.0f FPS", fps);
 		ImGui::PopFont();
 
@@ -2176,4 +2161,3 @@ void GameEditor::DrawTerminal()
         m_Terminal.show("Debug Console", &m_bShowTerminal);
     }
 }
-
