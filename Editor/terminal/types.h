@@ -6,9 +6,10 @@
 #include <string_view>
 #include <imgui.h>
 
-namespace tterm {
-
-    enum class Severity {
+namespace tterm 
+{
+    enum class Severity 
+    {
         Trace,
         Debug,
         Info,
@@ -18,29 +19,40 @@ namespace tterm {
         None
     };
 
-    enum class AutocompletePos {
+    enum class AutocompletePos 
+    {
         Above,
         Below,
         Hidden
     };
 
-    struct ColorRange {
+    struct ColorRange 
+    {
         size_t start;
         size_t end;
         ImVec4 color;
     };
 
-    struct Message {
+    struct Message 
+    {
         std::string text;
         Severity severity;
         std::vector<ColorRange> color_ranges;
 
         Message(std::string_view txt, Severity sev) : text(txt), severity(sev) {}
-        Message(std::string_view txt, Severity sev, const std::vector<ColorRange>& ranges) 
-            : text(txt), severity(sev), color_ranges(ranges) {}
+        Message
+        (
+            std::string_view txt, 
+            Severity sev, 
+            const std::vector<ColorRange>& ranges
+        ) 
+            : text(txt), 
+              severity(sev), 
+              color_ranges(ranges) {}
     };
 
-    struct Theme {
+    struct Theme 
+    {
         // Window & Layout
         ImVec4 window_bg = ImVec4(0.08f, 0.08f, 0.08f, 1.0f);
         ImVec4 border_color = ImVec4(0.25f, 0.25f, 0.25f, 1.0f);

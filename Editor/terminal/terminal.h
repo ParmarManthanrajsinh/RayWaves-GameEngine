@@ -19,9 +19,11 @@
 #include <regex>
 #endif
 
-namespace tterm {
+namespace tterm 
+{
 
-    class Terminal {
+    class Terminal 
+    {
     public:
         Terminal();
         ~Terminal();
@@ -81,13 +83,16 @@ namespace tterm {
     };
 
     // Custom stream buffer to capture std::cout/cerr
-    class LogStreamBuf : public std::stringbuf {
+    class LogStreamBuf : public std::stringbuf 
+    {
     public:
         LogStreamBuf(Terminal* term, Severity severity) : m_term(term), m_severity(severity) {}
         
-        virtual int sync() override {
+        virtual int sync() override 
+        {
             std::string text = this->str();
-            if (!text.empty()) {
+            if (!text.empty()) 
+            {
                 // Remove trailing newlines often sent by endl
                 if (text.back() == '\n') text.pop_back();
                 if (!text.empty()) m_term->add_text(text, m_severity);
@@ -101,5 +106,4 @@ namespace tterm {
         Severity m_severity;
     };
 
-} // namespace tterm
-
+} 

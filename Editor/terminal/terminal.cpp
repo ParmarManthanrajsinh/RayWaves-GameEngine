@@ -92,7 +92,8 @@ namespace tterm
         if (m_auto_scroll) m_scroll_to_bottom = true;
     }
 
-    void Terminal::clear() {
+    void Terminal::clear() 
+    {
         std::lock_guard<std::mutex> lock(m_mutex);
         m_messages.clear();
     }
@@ -103,8 +104,24 @@ namespace tterm
 
         ImGui::PushStyleColor(ImGuiCol_WindowBg, m_theme.window_bg);
         ImGui::PushStyleColor(ImGuiCol_Border, m_theme.border_color);
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(m_theme.window_padding, m_theme.window_padding));
-        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(m_theme.item_spacing, m_theme.item_spacing));
+        ImGui::PushStyleVar
+        (
+            ImGuiStyleVar_WindowPadding, 
+            ImVec2
+            (
+                m_theme.window_padding, 
+                m_theme.window_padding
+            )
+        );
+        ImGui::PushStyleVar
+        (
+            ImGuiStyleVar_ItemSpacing, 
+            ImVec2
+            (
+                m_theme.item_spacing,
+                m_theme.item_spacing
+            )
+        );
 
         // Use a generic window so it can be docked
         if (!ImGui::Begin(window_title, p_open)) 
@@ -153,12 +170,21 @@ namespace tterm
 
         ImGui::SetNextItemWidth(150.0f);
         ImGui::PushStyleColor(ImGuiCol_FrameBg, m_theme.input_bg);
-        ImGui::InputTextWithHint("##Filter", "Filter...", m_filter_buf, sizeof(m_filter_buf));
+        ImGui::InputTextWithHint
+        (
+            "##Filter", 
+            "Filter...", 
+            m_filter_buf, 
+            sizeof(m_filter_buf)
+        );
         ImGui::PopStyleColor(); // InputBg
         
         ImGui::SameLine();
         ImGui::SetNextItemWidth(100.0f);
-        const char* levels[] = { "Trace", "Debug", "Info", "Warn", "Error", "Critical", "None" };
+        const char* levels[] = 
+        {
+            "Trace", "Debug", "Info", "Warn", "Error", "Critical", "None" 
+        };
         int current_level = static_cast<int>(m_min_log_level);
         if (ImGui::Combo("##LogLevel", &current_level, levels, IM_ARRAYSIZE(levels))) 
         {
