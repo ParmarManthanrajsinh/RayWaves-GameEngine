@@ -32,7 +32,7 @@ namespace tterm
         void show(std::string_view window_title = "Terminal", bool* p_open = nullptr);
 
         // API
-        void add_text(std::string_view text, Severity severity = Severity::Info);
+        void add_text(std::string_view text, Severity severity = Severity::Debug);
         void add_message(const Message& msg);
         void clear();
 
@@ -60,7 +60,6 @@ namespace tterm
         bool m_auto_scroll = true;
         bool m_auto_wrap = true;
         bool m_scroll_to_bottom = false;
-        Severity m_min_log_level = Severity::Trace;
 
         // History
         std::vector<std::string> m_history;
@@ -72,7 +71,6 @@ namespace tterm
         // Capture State
         std::streambuf* m_old_cout = nullptr;
         std::streambuf* m_old_cerr = nullptr;
-        std::stringstream m_cout_buffer;
 
         // Helper Methods
         void render_settings_bar(const ImVec2& size);
@@ -80,6 +78,10 @@ namespace tterm
         void render_input_bar(const ImVec2& size);
         void execute_command(std::string_view cmd);
         bool pass_filter(const Message& msg);
+        
+        // Validation helpers
+        static bool is_valid_severity(int severity_value);
+        static ImVec4 get_severity_color(Severity severity, const Theme& theme);
     };
 
     // Custom stream buffer to capture std::cout/cerr

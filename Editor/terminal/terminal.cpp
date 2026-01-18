@@ -26,11 +26,29 @@ namespace tterm
     {
         if (s_Instance == this) s_Instance = nullptr;
         
-        // Restore streams
-        if (m_old_cout) std::cout.rdbuf(m_old_cout);
-        if (m_old_cerr) std::cerr.rdbuf(m_old_cerr);
-        delete s_cout_buf;
-        delete s_cerr_buf;
+        // Restore streams before deleting buffers
+        if (m_old_cout) 
+        {
+            std::cout.rdbuf(m_old_cout);
+            m_old_cout = nullptr;
+        }
+        if (m_old_cerr) 
+        {
+            std::cerr.rdbuf(m_old_cerr);
+            m_old_cerr = nullptr;
+        }
+        
+        // Now safe to delete
+        if (s_cout_buf) 
+        {
+            delete s_cout_buf;
+            s_cout_buf = nullptr;
+        }
+        if (s_cerr_buf) 
+        {
+            delete s_cerr_buf;
+            s_cerr_buf = nullptr;
+        }
     }
 
     void Terminal::InitCapture() 
@@ -40,7 +58,7 @@ namespace tterm
 
         // 2. Std Output Capture
         m_old_cout = std::cout.rdbuf();
-        s_cout_buf = new LogStreamBuf(this, Severity::Info);
+        s_cout_buf = new LogStreamBuf(this, Severity::Debug);
         std::cout.rdbuf(s_cout_buf);
 
         m_old_cerr = std::cerr.rdbuf();
@@ -56,19 +74,36 @@ namespace tterm
         char buffer[1024];
         vsnprintf(buffer, sizeof(buffer), text, args);
 
-        Severity s = Severity::Info;
+        Severity s = Severity::Debug;
         switch (logLevel) 
         {
-            case LOG_TRACE: s = Severity::Trace; break;
+            case LOG_TRACE: s = Severity::Debug; break;
             case LOG_DEBUG: s = Severity::Debug; break;
-            case LOG_INFO: s = Severity::Info; break;
+            case LOG_INFO: s = Severity::Debug; break;
             case LOG_WARNING: s = Severity::Warn; break;
             case LOG_ERROR: s = Severity::Error; break;
-            case LOG_FATAL: s = Severity::Critical; break;
+            case LOG_FATAL: s = Severity::Error; break;
             default: break;
         }
         
         s_Instance->add_text(buffer, s);
+    }
+
+    bool Terminal::is_valid_severity(int severity_value)
+    {
+        return severity_value >= static_cast<int>(Severity::Debug) && 
+               severity_value <= static_cast<int>(Severity::Error);
+    }
+
+    ImVec4 Terminal::get_severity_color(Severity severity, const Theme& theme)
+    {
+        switch (severity) 
+        {
+            case Severity::Debug: return theme.log_debug;
+            case Severity::Warn:  return theme.log_warn;
+            case Severity::Error: return theme.log_error;
+            default:              return theme.text_default;
+        }
     }
 
     void Terminal::add_text(std::string_view text, Severity severity) 
@@ -163,12 +198,23 @@ namespace tterm
         if (ImGui::Button("Clear")) clear();
         
         ImGui::SameLine();
-        ImGui::Checkbox("Auto-scroll", &m_auto_scroll);
-        ImGui::SameLine();
-        ImGui::Checkbox("Wrap", &m_auto_wrap);
+        
+        // Options Menu
+        if (ImGui::BeginCombo("##Options", "Options", ImGuiComboFlags_NoPreview))
+        {
+            ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(2, 2));
+
+            ImGui::Checkbox("Auto-scroll", &m_auto_scroll);
+            ImGui::Checkbox("Wrap", &m_auto_wrap);
+            
+            ImGui::PopStyleVar();
+            ImGui::EndCombo();
+        }
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("Terminal Options");
+
         ImGui::SameLine();
 
-        ImGui::SetNextItemWidth(150.0f);
+        ImGui::SetNextItemWidth(200.0f);
         ImGui::PushStyleColor(ImGuiCol_FrameBg, m_theme.input_bg);
         ImGui::InputTextWithHint
         (
@@ -178,18 +224,6 @@ namespace tterm
             sizeof(m_filter_buf)
         );
         ImGui::PopStyleColor(); // InputBg
-        
-        ImGui::SameLine();
-        ImGui::SetNextItemWidth(100.0f);
-        const char* levels[] = 
-        {
-            "Trace", "Debug", "Info", "Warn", "Error", "Critical", "None" 
-        };
-        int current_level = static_cast<int>(m_min_log_level);
-        if (ImGui::Combo("##LogLevel", &current_level, levels, IM_ARRAYSIZE(levels))) 
-        {
-            m_min_log_level = static_cast<Severity>(current_level);
-        }
 
         ImGui::PopStyleColor(4); // Buttons + Text
         ImGui::EndGroup();
@@ -210,11 +244,6 @@ namespace tterm
 
         bool has_filter = (m_filter_buf[0] != '\0');
 
-        // Fix 3: ImGuiListClipper integration
-        // Only use clipper if NOT filtering (or if we had a filtered list cache)
-        // If sorting or filtering is active, clipping is harder.
-        // For complexity simplicity: if has_filter, draw normally. If no filter, use Clipper.
-        
         if (!has_filter) 
         {
             ImGuiListClipper clipper;
@@ -225,21 +254,13 @@ namespace tterm
                 {
                     const auto& msg = m_messages[i];
                     
-                    if (msg.severity < m_min_log_level) continue; // Note: Clipper + variable height skip is slightly visible glitching if many skipped.
-                    // Ideally we should have a `std::vector<Message*> visible_msgs` but that requires recomputing on change.
-                    // For now, this is "good enough" optimization basics.
-                    
-                    ImVec4 color = m_theme.text_default;
-                    switch (msg.severity) 
+                    // Skip messages with invalid severity
+                    if (!is_valid_severity(static_cast<int>(msg.severity)))
                     {
-                        case Severity::Trace: color = m_theme.log_trace; break;
-                        case Severity::Debug: color = m_theme.log_debug; break;
-                        case Severity::Info: color = m_theme.log_info; break;
-                        case Severity::Warn: color = m_theme.log_warn; break;
-                        case Severity::Error: color = m_theme.log_error; break;
-                        case Severity::Critical: color = m_theme.log_critical; break;
-                        default: break;
+                        continue;
                     }
+                    
+                    ImVec4 color = get_severity_color(msg.severity, m_theme);
 
                     ImGui::PushStyleColor(ImGuiCol_Text, color);
                     if (m_auto_wrap)
@@ -253,22 +274,17 @@ namespace tterm
             }
         } 
         else {
-            // Unoptimized path for filtered results
              for (const auto& msg : m_messages) 
              {
+                // Skip messages with invalid severity
+                if (!is_valid_severity(static_cast<int>(msg.severity)))
+                {
+                    continue;
+                }
+                
                 if (!pass_filter(msg)) continue;
 
-                ImVec4 color = m_theme.text_default;
-                switch (msg.severity)
-                {
-                    case Severity::Trace: color = m_theme.log_trace; break;
-                    case Severity::Debug: color = m_theme.log_debug; break;
-                    case Severity::Info: color = m_theme.log_info; break;
-                    case Severity::Warn: color = m_theme.log_warn; break;
-                    case Severity::Error: color = m_theme.log_error; break;
-                    case Severity::Critical: color = m_theme.log_critical; break;
-                    default: break;
-                }
+                ImVec4 color = get_severity_color(msg.severity, m_theme);
 
                 ImGui::PushStyleColor(ImGuiCol_Text, color);
                 if (m_auto_wrap) ImGui::PushTextWrapPos(ImGui::GetContentRegionAvail().x);
@@ -291,9 +307,14 @@ namespace tterm
 
     bool Terminal::pass_filter(const Message& msg) 
     {
-        if (msg.severity < m_min_log_level) return false;
+        // Skip invalid severity messages
+        if (!is_valid_severity(static_cast<int>(msg.severity)))
+        {
+            return false;
+        }
+        
+        // Text filtering only
         if (m_filter_buf[0] == '\0') return true;
-        // Simple case insensitive? No, case sensitive for now
         return msg.text.find(m_filter_buf) != std::string::npos;
     }
 
@@ -368,7 +389,7 @@ namespace tterm
     void Terminal::execute_command(std::string_view cmd) 
     {
         m_history.push_back(std::string(cmd));
-        add_text(std::string("> ") + std::string(cmd), Severity::Info);
+        add_text(std::string("> ") + std::string(cmd), Severity::Debug);
         
         std::string command_str(cmd);
 
@@ -380,29 +401,30 @@ namespace tterm
         
         if (command_str == "help") 
         {
-            add_text("Available commands: clear, help, [system commands]", Severity::Info);
+            add_text("Available commands: clear, help, [system commands]", Severity::Debug);
             return;
         }
 
-        // Fix 4: Async execution for system commands
-        // Prevent UI blocking by running popen in a detached thread
+        // Async execution for system commands
         std::thread
         (
             [this, command_str]() 
             {
                 #ifdef _WIN32
-                #define popen _popen
-                #define pclose _pclose
+                FILE* pipe = _popen((command_str + " 2>&1").c_str(), "r");
+                #else
+                FILE* pipe = popen((command_str + " 2>&1").c_str(), "r");
                 #endif
 
-                // Note: popen combines stdout/stderr usually? No, "r" only stdout.
-                // To get stderr, need "2>&1" in command.
-                std::string full_cmd = command_str + " 2>&1";
-
-                FILE* pipe = popen(full_cmd.c_str(), "r");
                 if (!pipe)
                 {
-                    this->add_text("Failed to start command.", Severity::Error);
+                    #ifdef _WIN32
+                    char error_msg[256];
+                    strerror_s(error_msg, sizeof(error_msg), errno);
+                    this->add_text(std::string("Failed to start command: ") + error_msg, Severity::Error);
+                    #else
+                    this->add_text(std::string("Failed to start command: ") + strerror(errno), Severity::Error);
+                    #endif
                     return;
                 }
 
@@ -415,11 +437,15 @@ namespace tterm
                     {
                         res.pop_back();
                     }
-                    // Log from background thread (add_text is thread-safe now)
-                    this->add_text(res, Severity::Info);
+                    this->add_text(res, Severity::Debug);
                 }
                 
+                #ifdef _WIN32
+                int return_code = _pclose(pipe);
+                #else
                 int return_code = pclose(pipe);
+                #endif
+
                 if (return_code != 0) 
                 {
                      this->add_text
@@ -430,7 +456,7 @@ namespace tterm
                      );
                 } else 
                 {
-                     this->add_text("Command finished.", Severity::Trace);
+                     this->add_text("Command finished.", Severity::Debug);
                 }
 
             }
