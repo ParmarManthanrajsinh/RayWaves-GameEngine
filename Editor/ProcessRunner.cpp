@@ -2,89 +2,148 @@
 #include <string>
 #include <thread>
 #include <vector>
+#include <array>
+#include <functional>
 
-// Isolate Windows.h here
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
-namespace ProcessRunner 
+namespace ProcessRunner
 {
-    void RunBuildCommand(const std::string& cmd, std::function<void(const std::string&, bool)> onOutput, std::function<void(bool)> onComplete)
+    namespace
     {
-        std::thread([cmd, onOutput, onComplete]() 
+        struct Handle
         {
-            SECURITY_ATTRIBUTES sa;
+            HANDLE h{ nullptr };
+            ~Handle() { if (h) CloseHandle(h); }
+            operator HANDLE() const { return h; }
+            HANDLE* operator&() { return &h; }
+        };
+    }
+
+    void RunBuildCommand
+    (
+        const std::string& cmd,
+        std::function<void(const std::string&, bool)> on_output,
+        std::function<void(bool)> on_complete
+    )
+    {
+        std::thread([cmd, on_output, on_complete]()
+        {
+            SECURITY_ATTRIBUTES sa{};
             sa.nLength = sizeof(SECURITY_ATTRIBUTES);
             sa.bInheritHandle = TRUE;
-            sa.lpSecurityDescriptor = NULL;
 
-            HANDLE hRead, hWrite;
+            Handle hRead;
+            Handle hWrite;
+
             if (!CreatePipe(&hRead, &hWrite, &sa, 0))
             {
-                if (onOutput) onOutput("Failed to create pipe.", true);
-                if (onComplete) onComplete(false);
+                if (on_output)
+                {
+                    on_output("Failed to create pipe.", true);
+                }
+                if (on_complete)
+                {
+                    on_complete(false);
+                }
                 return;
             }
 
-            STARTUPINFOA si;
-            ZeroMemory(&si, sizeof(STARTUPINFO));
-            si.cb = sizeof(STARTUPINFO);
+            STARTUPINFOA si{};
+            si.cb = sizeof(STARTUPINFOA);
             si.hStdError = hWrite;
             si.hStdOutput = hWrite;
-            si.dwFlags |= STARTF_USESTDHANDLES | STARTF_USESHOWWINDOW;
+            si.dwFlags = STARTF_USESTDHANDLES | STARTF_USESHOWWINDOW;
             si.wShowWindow = SW_HIDE;
 
-            PROCESS_INFORMATION pi;
-            ZeroMemory(&pi, sizeof(PROCESS_INFORMATION));
-
+            PROCESS_INFORMATION pi{};
             std::string cmdMutable = "cmd.exe /C " + cmd;
 
-            if (!CreateProcessA(NULL, cmdMutable.data(), NULL, NULL, TRUE, CREATE_NO_WINDOW, NULL, NULL, &si, &pi))
+            if
+            (
+                !CreateProcessA
+                (
+                    nullptr,
+                    cmdMutable.data(),
+                    nullptr,
+                    nullptr,
+                    TRUE,
+                    CREATE_NO_WINDOW,
+                    nullptr,
+                    nullptr,
+                    &si,
+                    &pi
+                )
+            )
             {
-                if (onOutput) onOutput("Failed to create process.", true);
-                CloseHandle(hRead);
-                CloseHandle(hWrite);
-                if (onComplete) onComplete(false);
+                if (on_output)
+                {
+                    on_output("Failed to create process.", true);
+                }
+                if (on_complete)
+                {
+                    on_complete(false);
+                }
                 return;
             }
 
-            CloseHandle(hWrite);
+            Handle hProcess{ pi.hProcess };
+            Handle hThread{ pi.hThread };
 
-            DWORD bytesRead;
-            char buffer[128];
-            std::string currentLine;
-            
-            while (ReadFile(hRead, buffer, sizeof(buffer) - 1, &bytesRead, NULL) && bytesRead > 0)
+            hWrite = {}; // close write end
+
+            DWORD bytes_read = 0;
+            std::array<char, 128> buffer{};
+            std::string current_line;
+
+            while
+            (
+                ReadFile
+                (
+                    hRead,
+                    buffer.data(),
+                    static_cast<DWORD>(buffer.size()),
+                    &bytes_read,
+                    nullptr
+                ) && bytes_read > 0
+            )
             {
-                buffer[bytesRead] = '\0';
-                currentLine += buffer;
+                current_line.append(buffer.data(), bytes_read);
 
                 size_t pos;
-                while ((pos = currentLine.find('\n')) != std::string::npos)
+                while ((pos = current_line.find('\n')) != std::string::npos)
                 {
-                    std::string line = currentLine.substr(0, pos);
-                    if (!line.empty() && line.back() == '\r') line.pop_back();
-                    
-                    if (onOutput) onOutput(line, false);
-                    currentLine.erase(0, pos + 1);
+                    std::string line = current_line.substr(0, pos);
+                    if (!line.empty() && line.back() == '\r')
+                    {
+                        line.pop_back();
+                    }
+                    if (on_output)
+                    {
+                        on_output(line, false);
+                    }
+                    current_line.erase(0, pos + 1);
                 }
             }
 
-            if (!currentLine.empty())
+            if (!current_line.empty())
             {
-                if (onOutput) onOutput(currentLine, false);
+                if (on_output)
+                {
+                    on_output(current_line, false);
+                }
             }
 
-            WaitForSingleObject(pi.hProcess, INFINITE);
-            
-            DWORD exitCode = 0;
-            GetExitCodeProcess(pi.hProcess, &exitCode);
+            WaitForSingleObject(hProcess, INFINITE);
 
-            CloseHandle(pi.hProcess);
-            CloseHandle(pi.hThread);
-            CloseHandle(hRead);
+            DWORD exit_code = 0;
+            GetExitCodeProcess(hProcess, &exit_code);
 
-            if (onComplete) onComplete(exitCode == 0);
+            if (on_complete)
+            {
+                on_complete(exit_code == 0);
+            }
 
         }).detach();
     }

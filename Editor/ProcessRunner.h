@@ -6,5 +6,10 @@ namespace ProcessRunner
 {
     // Runs a command asynchronously and streams output to callback
     // Returns void immediately (detached thread)
-    void RunBuildCommand(const std::string& cmd, std::function<void(const std::string&, bool)> onOutput, std::function<void(bool)> onComplete);
+    void RunBuildCommand
+    (
+        const std::string& cmd, 
+        std::function<void(const std::string&, bool)> on_output, 
+        std::function<void(bool)> on_complete
+    );
 }
