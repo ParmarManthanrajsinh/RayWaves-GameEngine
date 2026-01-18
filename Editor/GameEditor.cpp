@@ -852,7 +852,7 @@ void GameEditor::DrawExportPanel()
 	(
 		"##export_path",
 		current_path.data(),
-		current_path.size() + 1,
+		current_path.capacity() + 1,
 		ImGuiInputTextFlags_ReadOnly
 	);
 	ImGui::PopItemWidth();
