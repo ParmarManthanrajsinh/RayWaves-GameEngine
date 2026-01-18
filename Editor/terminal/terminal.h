@@ -29,7 +29,7 @@ namespace tterm
         ~Terminal();
 
         // Main render function
-        void show(const char* window_title = "Terminal", bool* p_open = nullptr);
+        void show(std::string_view window_title = "Terminal", bool* p_open = nullptr);
 
         // API
         void add_text(std::string_view text, Severity severity = Severity::Info);
@@ -86,7 +86,9 @@ namespace tterm
     class LogStreamBuf : public std::stringbuf 
     {
     public:
-        LogStreamBuf(Terminal* term, Severity severity) : m_term(term), m_severity(severity) {}
+        LogStreamBuf(Terminal* term, Severity severity) 
+            : m_term(term), 
+              m_severity(severity) {}
         
         virtual int sync() override 
         {
@@ -94,7 +96,10 @@ namespace tterm
             if (!text.empty()) 
             {
                 // Remove trailing newlines often sent by endl
-                if (text.back() == '\n') text.pop_back();
+                if (text.back() == '\n')
+                {
+                    text.pop_back();
+                }
                 if (!text.empty()) m_term->add_text(text, m_severity);
                 
                 this->str(""); // Clear buffer

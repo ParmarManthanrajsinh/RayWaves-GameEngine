@@ -98,7 +98,7 @@ namespace tterm
         m_messages.clear();
     }
 
-    void Terminal::show(const char* window_title, bool* p_open) 
+    void Terminal::show(std::string_view window_title, bool* p_open) 
     {
         ImGui::SetNextWindowSize(ImVec2(600, 400), ImGuiCond_FirstUseEver);
 
@@ -124,7 +124,7 @@ namespace tterm
         );
 
         // Use a generic window so it can be docked
-        if (!ImGui::Begin(window_title, p_open)) 
+        if (!ImGui::Begin(window_title.data(), p_open))
         {
             ImGui::PopStyleVar(2);
             ImGui::PopStyleColor(2);
