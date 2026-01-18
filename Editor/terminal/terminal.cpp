@@ -8,23 +8,43 @@
 #include <imgui_internal.h>
 #include "terminal.h"
 
-namespace tterm 
+namespace term 
 {
 
-    // Output Streams
-    static LogStreamBuf* s_cout_buf = nullptr;
-    static LogStreamBuf* s_cerr_buf = nullptr;
+    // Output Streams - unique_ptr for automatic cleanup
+    static std::unique_ptr<LogStreamBuf> s_cout_buf;
+    static std::unique_ptr<LogStreamBuf> s_cerr_buf;
 
-    Terminal* Terminal::s_Instance = nullptr;
+    // Thread-safe callback instance
+    std::mutex Terminal::s_callback_mutex;
+    Terminal* Terminal::s_callback_instance = nullptr;
 
     Terminal::Terminal() 
     {
-        s_Instance = this;
+        // Register this instance for Raylib callbacks
+        std::lock_guard<std::mutex> lock(s_callback_mutex);
+        s_callback_instance = this;
     }
 
     Terminal::~Terminal() 
     {
-        if (s_Instance == this) s_Instance = nullptr;
+        // Ensure proper cleanup
+        Shutdown();
+    }
+    
+    void Terminal::Shutdown()
+    {
+        // Signal shutdown to all threads
+        m_is_shutting_down = true;
+        
+        // Unregister from callbacks
+        {
+            std::lock_guard<std::mutex> lock(s_callback_mutex);
+            if (s_callback_instance == this) 
+            {
+                s_callback_instance = nullptr;
+            }
+        }
         
         // Restore streams before deleting buffers
         if (m_old_cout) 
@@ -38,17 +58,11 @@ namespace tterm
             m_old_cerr = nullptr;
         }
         
-        // Now safe to delete
-        if (s_cout_buf) 
-        {
-            delete s_cout_buf;
-            s_cout_buf = nullptr;
-        }
-        if (s_cerr_buf) 
-        {
-            delete s_cerr_buf;
-            s_cerr_buf = nullptr;
-        }
+        // unique_ptr automatically deletes - just reset
+        s_cout_buf.reset();
+        s_cerr_buf.reset();
+        
+        // Note: Detached threads check m_is_shutting_down before accessing Terminal
     }
 
     void Terminal::InitCapture() 
@@ -56,21 +70,26 @@ namespace tterm
         // 1. Raylib Capture
         SetTraceLogCallback(RaylibLogCallback);
 
-        // 2. Std Output Capture
+        // 2. Std Output Capture - reset old buffers first to prevent leak
+        s_cout_buf.reset();
+        s_cerr_buf.reset();
+        
         m_old_cout = std::cout.rdbuf();
-        s_cout_buf = new LogStreamBuf(this, Severity::Debug);
-        std::cout.rdbuf(s_cout_buf);
+        s_cout_buf = std::make_unique<LogStreamBuf>(this, Severity::Debug);
+        std::cout.rdbuf(s_cout_buf.get());
 
         m_old_cerr = std::cerr.rdbuf();
-        s_cerr_buf = new LogStreamBuf(this, Severity::Error);
-        std::cerr.rdbuf(s_cerr_buf);
+        s_cerr_buf = std::make_unique<LogStreamBuf>(this, Severity::Error);
+        std::cerr.rdbuf(s_cerr_buf.get());
     }
 
     void Terminal::RaylibLogCallback(int logLevel, const char* text, va_list args) 
     {
-        if (!s_Instance) return;
+        // Thread-safe access to terminal instance
+        std::lock_guard<std::mutex> lock(s_callback_mutex);
+        if (!s_callback_instance) return;
 
-        // Fix 1: Thread-safe buffer (on stack), no static
+        // Thread-safe buffer (on stack)
         char buffer[1024];
         vsnprintf(buffer, sizeof(buffer), text, args);
 
@@ -86,7 +105,7 @@ namespace tterm
             default: break;
         }
         
-        s_Instance->add_text(buffer, s);
+        s_callback_instance->add_text(buffer, s);
     }
 
     bool Terminal::is_valid_severity(int severity_value)
@@ -108,13 +127,15 @@ namespace tterm
 
     void Terminal::add_text(std::string_view text, Severity severity) 
     {
+        if (is_shutting_down()) return;
         Message msg(text, severity);
         add_message(msg);
     }
 
     void Terminal::add_message(const Message& msg) 
     {
-        // Fix 2: Mutex lock
+        if (is_shutting_down()) return;
+        
         std::lock_guard<std::mutex> lock(m_mutex);
         
         // Limit log size
@@ -406,10 +427,14 @@ namespace tterm
         }
 
         // Async execution for system commands
+        // Use shared_from_this pattern by capturing 'this' and checking shutdown flag
         std::thread
         (
             [this, command_str]() 
             {
+                // Early exit if terminal is shutting down
+                if (is_shutting_down()) return;
+                
                 #ifdef _WIN32
                 FILE* pipe = _popen((command_str + " 2>&1").c_str(), "r");
                 #else
@@ -418,26 +443,44 @@ namespace tterm
 
                 if (!pipe)
                 {
-                    #ifdef _WIN32
-                    char error_msg[256];
-                    strerror_s(error_msg, sizeof(error_msg), errno);
-                    this->add_text(std::string("Failed to start command: ") + error_msg, Severity::Error);
-                    #else
-                    this->add_text(std::string("Failed to start command: ") + strerror(errno), Severity::Error);
-                    #endif
+                    if (!is_shutting_down())
+                    {
+                        #ifdef _WIN32
+                        char error_msg[256];
+                        strerror_s(error_msg, sizeof(error_msg), errno);
+                        this->add_text(std::string("Failed to start command: ") + error_msg, Severity::Error);
+                        #else
+                        this->add_text(std::string("Failed to start command: ") + strerror(errno), Severity::Error);
+                        #endif
+                    }
                     return;
                 }
 
                 char buffer[128];
                 while (fgets(buffer, sizeof(buffer), pipe)) 
                 {
+                    // Check if terminal is shutting down
+                    if (is_shutting_down()) 
+                    {
+                        #ifdef _WIN32
+                        _pclose(pipe);
+                        #else
+                        pclose(pipe);
+                        #endif
+                        return;
+                    }
+                    
                     // Remove newline
                     std::string res(buffer);
                     while (!res.empty() && (res.back() == '\n' || res.back() == '\r')) 
                     {
                         res.pop_back();
                     }
-                    this->add_text(res, Severity::Debug);
+                    
+                    if (!is_shutting_down())
+                    {
+                        this->add_text(res, Severity::Debug);
+                    }
                 }
                 
                 #ifdef _WIN32
@@ -446,19 +489,21 @@ namespace tterm
                 int return_code = pclose(pipe);
                 #endif
 
-                if (return_code != 0) 
+                if (!is_shutting_down())
                 {
-                     this->add_text
-                     (
-                         "Command exited with code " + 
-                         std::to_string(return_code), 
-                         Severity::Warn
-                     );
-                } else 
-                {
-                     this->add_text("Command finished.", Severity::Debug);
+                    if (return_code != 0) 
+                    {
+                         this->add_text
+                         (
+                             "Command exited with code " + 
+                             std::to_string(return_code), 
+                             Severity::Warn
+                         );
+                    } else 
+                    {
+                         this->add_text("Command finished.", Severity::Debug);
+                    }
                 }
-
             }
         ).detach();
     }

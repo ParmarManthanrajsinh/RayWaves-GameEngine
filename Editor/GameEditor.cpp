@@ -570,7 +570,7 @@ void GameEditor::DrawSceneWindow()
 			if (!b_ReloadGameLogic()) m_GameEngine.ResetMap();
 
 			m_bShowTerminal = true;
-			m_Terminal.add_text("Starting build process...", tterm::Severity::Debug);
+			m_Terminal.add_text("Starting build process...", term::Severity::Debug);
 
 			ProcessRunner::RunBuildCommand
 			(
@@ -580,18 +580,18 @@ void GameEditor::DrawSceneWindow()
 					m_Terminal.add_text
 					(
 						line, 
-						isError ? tterm::Severity::Error : tterm::Severity::Debug
+						isError ? term::Severity::Error : term::Severity::Debug
 					);
 				},
 				[this](bool success)
 				{
 					if (success)
 					{
-						m_Terminal.add_text("Build Successful.", tterm::Severity::Debug);
+						m_Terminal.add_text("Build Successful.", term::Severity::Debug);
 					}
 					else
 					{
-						m_Terminal.add_text("Build Failed.", tterm::Severity::Error);
+						m_Terminal.add_text("Build Failed.", term::Severity::Error);
 					}
 					b_IsCompiling = false;
 				}

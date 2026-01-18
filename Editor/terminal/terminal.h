@@ -15,11 +15,7 @@
 #include <imgui.h>
 #include <raylib.h>
 
-#ifdef IMTERM_ENABLE_REGEX
-#include <regex>
-#endif
-
-namespace tterm 
+namespace term 
 {
 
     class Terminal 
@@ -27,6 +23,12 @@ namespace tterm
     public:
         Terminal();
         ~Terminal();
+        
+        // Delete copy and move operations (Terminal manages unique resources)
+        Terminal(const Terminal&) = delete;
+        Terminal& operator=(const Terminal&) = delete;
+        Terminal(Terminal&&) = delete;
+        Terminal& operator=(Terminal&&) = delete;
 
         // Main render function
         void show(std::string_view window_title = "Terminal", bool* p_open = nullptr);
@@ -39,16 +41,15 @@ namespace tterm
         Theme& theme() { return m_theme; }
         
         // Output Capture Setup
-        void InitCapture(); // Hides std::cout and hooks Raylib
-
-    public:
-        // Static access for C-style callbacks (Raylib)
-        static Terminal* s_Instance;
-        static void RaylibLogCallback(int logLevel, const char* text, va_list args);
+        void InitCapture();
+        
+        // Cleanup - must be called before destructor to ensure proper shutdown
+        void Shutdown();
 
     private:
         // Thread safety
         std::mutex m_mutex;
+        std::atomic<bool> m_is_shutting_down{false};
 
         // Logs
         std::deque<Message> m_messages;
@@ -71,6 +72,10 @@ namespace tterm
         // Capture State
         std::streambuf* m_old_cout = nullptr;
         std::streambuf* m_old_cerr = nullptr;
+        
+        // Raylib callback storage (raw pointer - we don't own this)
+        static std::mutex s_callback_mutex;
+        static Terminal* s_callback_instance;
 
         // Helper Methods
         void render_settings_bar(const ImVec2& size);
@@ -79,9 +84,15 @@ namespace tterm
         void execute_command(std::string_view cmd);
         bool pass_filter(const Message& msg);
         
+        // Shutdown check helper
+        bool is_shutting_down() const { return m_is_shutting_down.load(); }
+        
         // Validation helpers
         static bool is_valid_severity(int severity_value);
         static ImVec4 get_severity_color(Severity severity, const Theme& theme);
+        
+        // Static callback for Raylib
+        static void RaylibLogCallback(int logLevel, const char* text, va_list args);
     };
 
     // Custom stream buffer to capture std::cout/cerr

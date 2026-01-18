@@ -6,7 +6,7 @@
 #include <string_view>
 #include <imgui.h>
 
-namespace tterm 
+namespace term 
 {
     enum class Severity 
     {

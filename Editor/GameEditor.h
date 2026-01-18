@@ -116,7 +116,7 @@ private:
     void UpdatePerformanceMetrics();
 
     // Terminal
-    tterm::Terminal m_Terminal;
+    term::Terminal m_Terminal;
     bool m_bShowTerminal = true;
     void DrawTerminal();
 };
