@@ -23,14 +23,14 @@ static bool s_bfValidateExportFolder
 
 static bool b_IsProcessRunning(std::wstring_view exe_name)
 {
-	const auto SNAPSHOT = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-	if (SNAPSHOT == INVALID_HANDLE_VALUE) return false;
+	const auto snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+	if (snapshot == INVALID_HANDLE_VALUE) return false;
 
 	PROCESSENTRY32W entry{};
 	entry.dwSize = sizeof(entry);
 
 	bool b_Found = false;
-	if (Process32FirstW(SNAPSHOT, &entry))
+	if (Process32FirstW(snapshot, &entry))
 	{
 		do
 		{
@@ -39,10 +39,10 @@ static bool b_IsProcessRunning(std::wstring_view exe_name)
 				b_Found = true;
 				break;
 			}
-		} while (Process32NextW(SNAPSHOT, &entry));
+		} while (Process32NextW(snapshot, &entry));
 	}
 
-	CloseHandle(SNAPSHOT);
+	CloseHandle(snapshot);
 	return b_Found;
 }
 
