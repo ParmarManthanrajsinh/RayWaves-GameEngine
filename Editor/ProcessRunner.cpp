@@ -4,6 +4,7 @@
 #include <vector>
 #include <array>
 #include <functional>
+#include <memory>
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -15,7 +16,40 @@ namespace ProcessRunner
         struct Handle
         {
             HANDLE h{ nullptr };
-            ~Handle() { if (h) CloseHandle(h); }
+
+            Handle() = default;
+            Handle(HANDLE h_) : h(h_) {}
+
+            ~Handle() { Close(); }
+
+            Handle(const Handle&) = delete;
+            Handle& operator=(const Handle&) = delete;
+
+            Handle(Handle&& other) noexcept : h(other.h)
+            {
+                other.h = nullptr;
+            }
+
+            Handle& operator=(Handle&& other) noexcept
+            {
+                if (this != std::addressof(other))
+                {
+                    Close();
+                    h = other.h;
+                    other.h = nullptr;
+                }
+                return *this;
+            }
+
+            void Close()
+            {
+                if (h)
+                {
+                    CloseHandle(h);
+                    h = nullptr;
+                }
+            }
+
             operator HANDLE() const { return h; }
             HANDLE* operator&() { return &h; }
         };
