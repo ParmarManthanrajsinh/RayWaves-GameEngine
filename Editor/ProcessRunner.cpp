@@ -57,8 +57,8 @@ namespace ProcessRunner
 
     void RunBuildCommand
     (
-        const std::string& cmd,
-        std::function<void(const std::string&, bool)> on_output,
+        const std::string_view cmd,
+        std::function<void(const std::string_view, bool)> on_output,
         std::function<void(bool)> on_complete
     )
     {
@@ -92,7 +92,8 @@ namespace ProcessRunner
             si.wShowWindow = SW_HIDE;
 
             PROCESS_INFORMATION pi{};
-            std::string cmd_mutable = "cmd.exe /C " + cmd;
+            std::string cmd_mutable = "cmd.exe /C ";
+            cmd_mutable.append(cmd);
 
             if
             (
@@ -145,19 +146,25 @@ namespace ProcessRunner
             {
                 current_line.append(buffer.data(), bytes_read);
 
-                size_t pos;
-                while ((pos = current_line.find('\n')) != std::string::npos)
+                std::string_view view = current_line;
+
+                while (view.contains('\n'))
                 {
-                    std::string line = current_line.substr(0, pos);
+                    const auto pos = view.find('\n');
+
+                    std::string_view line = view.substr(0, pos);
+
                     if (!line.empty() && line.back() == '\r')
                     {
-                        line.pop_back();
+                        line.remove_suffix(1);
                     }
+
                     if (on_output)
                     {
                         on_output(line, false);
                     }
-                    current_line.erase(0, pos + 1);
+
+                    view.remove_prefix(pos + 1);
                 }
             }
 

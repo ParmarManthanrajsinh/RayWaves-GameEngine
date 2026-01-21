@@ -587,7 +587,7 @@ void GameEditor::DrawSceneWindow()
 			ProcessRunner::RunBuildCommand
 			(
 				"build_gamelogic.bat nopause",
-				[this](const std::string& line, bool isError)
+				[this](const std::string_view line, bool isError)
 				{
 					m_Terminal.add_text
 					(
