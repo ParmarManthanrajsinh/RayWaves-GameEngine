@@ -82,7 +82,7 @@ namespace term
         void render_log_window(const ImVec2& size);
         void render_input_bar(const ImVec2& size);
         void execute_command(std::string_view cmd);
-        bool pass_filter(const Message& msg);
+        bool pass_filter(const Message& msg) const;
         
         // Shutdown check helper
         bool is_shutting_down() const { return m_is_shutting_down.load(); }

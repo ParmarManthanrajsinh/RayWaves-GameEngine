@@ -96,9 +96,6 @@ namespace term
         Severity s = Severity::Debug;
         switch (logLevel) 
         {
-            case LOG_TRACE: s = Severity::Debug; break;
-            case LOG_DEBUG: s = Severity::Debug; break;
-            case LOG_INFO: s = Severity::Debug; break;
             case LOG_WARNING: s = Severity::Warn; break;
             case LOG_ERROR: s = Severity::Error; break;
             case LOG_FATAL: s = Severity::Error; break;
@@ -273,7 +270,7 @@ namespace term
             {
                 for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; i++) 
                 {
-                    const auto& msg = m_messages[i];
+                    const term::Message& msg = m_messages[i];
                     
                     // Skip messages with invalid severity
                     if (!is_valid_severity(static_cast<int>(msg.severity)))
@@ -294,7 +291,8 @@ namespace term
                 }
             }
         } 
-        else {
+        else 
+        {
              for (const auto& msg : m_messages) 
              {
                 // Skip messages with invalid severity
@@ -312,7 +310,7 @@ namespace term
                 ImGui::TextUnformatted(msg.text.c_str());
                 if (m_auto_wrap) ImGui::PopTextWrapPos();
                 ImGui::PopStyleColor();
-            }
+             }
         }
 
         if (m_scroll_to_bottom)
@@ -326,7 +324,7 @@ namespace term
         ImGui::PopStyleColor();
     }
 
-    bool Terminal::pass_filter(const Message& msg) 
+    bool Terminal::pass_filter(const Message& msg) const 
     {
         // Skip invalid severity messages
         if (!is_valid_severity(static_cast<int>(msg.severity)))
@@ -435,23 +433,15 @@ namespace term
                 // Early exit if terminal is shutting down
                 if (is_shutting_down()) return;
                 
-                #ifdef _WIN32
                 FILE* pipe = _popen((command_str + " 2>&1").c_str(), "r");
-                #else
-                FILE* pipe = popen((command_str + " 2>&1").c_str(), "r");
-                #endif
 
                 if (!pipe)
                 {
                     if (!is_shutting_down())
                     {
-                        #ifdef _WIN32
                         char error_msg[256];
                         strerror_s(error_msg, sizeof(error_msg), errno);
                         this->add_text(std::string("Failed to start command: ") + error_msg, Severity::Error);
-                        #else
-                        this->add_text(std::string("Failed to start command: ") + strerror(errno), Severity::Error);
-                        #endif
                     }
                     return;
                 }
@@ -462,11 +452,7 @@ namespace term
                     // Check if terminal is shutting down
                     if (is_shutting_down()) 
                     {
-                        #ifdef _WIN32
                         _pclose(pipe);
-                        #else
-                        pclose(pipe);
-                        #endif
                         return;
                     }
                     
@@ -483,11 +469,7 @@ namespace term
                     }
                 }
                 
-                #ifdef _WIN32
                 int return_code = _pclose(pipe);
-                #else
-                int return_code = pclose(pipe);
-                #endif
 
                 if (!is_shutting_down())
                 {

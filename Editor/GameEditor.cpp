@@ -1758,8 +1758,8 @@ bool GameEditor::b_ReloadGameLogic()
 
 static void s_fAppendLogLine
 (
-	std::vector<std::string>& logs, 
-	std::mutex& mtx, 
+	std::vector<std::string>& logs,
+	std::mutex& mtx,
 	std::string_view line
 )
 {
