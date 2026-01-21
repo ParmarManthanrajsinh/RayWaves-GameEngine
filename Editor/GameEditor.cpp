@@ -10,12 +10,12 @@ static void s_fAppendLogLine
 (
 	std::vector<std::string>& logs, 
 	std::mutex& mtx, 
-	const std::string& line
+	std::string_view line
 );
 
 static bool s_bfValidateExportFolder
 (
-	const std::string& out_dir, 
+	std::string_view out_dir, 
 	std::vector<std::string>& logs, 
 	std::mutex& mtx
 );
@@ -1760,16 +1760,16 @@ static void s_fAppendLogLine
 (
 	std::vector<std::string>& logs, 
 	std::mutex& mtx, 
-	const std::string& line
+	std::string_view line
 )
 {
 	std::scoped_lock lk(mtx);
-	logs.push_back(line);
+	logs.emplace_back(line);
 }
 
 static bool s_bfValidateExportFolder
 (
-	const std::string& out_dir, 
+	std::string_view out_dir, 
 	std::vector<std::string>& logs, 
 	std::mutex& mtx
 )
@@ -1788,12 +1788,13 @@ static bool s_bfValidateExportFolder
 	);
 	s_fAppendLogLine
 	(
-		logs, 
-		mtx, 
+		logs,
+		mtx,
 		std::string
 		(
 			"Checking export directory: "
-		) + out_dir
+		)
+		.append(out_dir)
 	);
 	
 	auto require = [&](const fs::path& p)
