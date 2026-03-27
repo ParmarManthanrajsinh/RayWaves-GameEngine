@@ -95,11 +95,14 @@ Creating a new level is as simple as inheriting from `GameMap`.
 
 **1. Create a class (`MyLevel.h`):**
 ```cpp
-class MyLevel : public GameMap {
-    void Update(float deltaTime) override {
+class MyLevel : public GameMap
+{
+    void Update(float delta_time) override
+    {
         if (IsKeyDown(KEY_SPACE)) Jump();
     }
-    void Draw() override {
+    void Draw() override
+    {
         DrawText("Hello World!", 100, 100, 20, WHITE);
     }
 };
