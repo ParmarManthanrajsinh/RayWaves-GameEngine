@@ -10,7 +10,7 @@ include(FetchContent)
 set(BUILD_SHARED_LIBS ON CACHE BOOL "Build shared libraries" FORCE)
 FetchContent_Declare(
     raylib
-    URL https://github.com/raysan5/raylib/archive/refs/tags/5.5.tar.gz
+    URL https://github.com/raysan5/raylib/archive/refs/tags/6.0.tar.gz
     DOWNLOAD_EXTRACT_TIMESTAMP True
 )
 FetchContent_MakeAvailable(raylib)
