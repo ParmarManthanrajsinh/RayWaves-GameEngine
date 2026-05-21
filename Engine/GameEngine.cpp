@@ -1,10 +1,12 @@
 #include "GameEngine.h"
 #include "MapManager.h"
 
+#define Rectangle WinAPIRectangle
 #define CloseWindow WinAPICloseWindow
 #define ShowCursor  WinAPIShowCursor
 #include <windows.h>
 #include <dwmapi.h>
+#undef Rectangle
 #undef CloseWindow
 #undef ShowCursor
 
