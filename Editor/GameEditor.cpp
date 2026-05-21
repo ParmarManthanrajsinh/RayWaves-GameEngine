@@ -213,6 +213,8 @@ void GameEditor::Run()
 		DrawSceneWindow();
         DrawTerminal();
 		DrawPerformanceOverlay();
+        DrawMessageLog();
+        DrawNotifications();
 
 		rlImGuiEnd();
 		EndDrawing();
@@ -585,16 +587,26 @@ void GameEditor::DrawSceneWindow()
 		{
 			b_IsCompiling = true;
 			b_IsPlaying = false;
-			if (!b_ReloadGameLogic()) m_GameEngine.ResetMap();
+			if (!b_ReloadGameLogic())
+			{
+				m_GameEngine.ResetMap();
+			}
 
 			m_bShowTerminal = true;
 			m_Terminal.add_text("Starting build process...", term::Severity::Debug);
+
+            BuildStatus = EBuildStatus::Compiling;
+            {
+                std::lock_guard<std::mutex> lock(BuildMessagesMutex);
+                BuildMessages.clear();
+            }
 
 			ProcessRunner::RunBuildCommand
 			(
 				"build_gamelogic.bat nopause",
 				[this](const std::string_view line, bool isError)
 				{
+                    ParseBuildLine(line);
 					m_Terminal.add_text
 					(
 						line, 
@@ -606,10 +618,15 @@ void GameEditor::DrawSceneWindow()
 					if (success)
 					{
 						m_Terminal.add_text("Build Successful.", term::Severity::Debug);
+                        BuildStatus = EBuildStatus::Success;
+                        NotificationTimer = 4.0f;
 					}
 					else
 					{
 						m_Terminal.add_text("Build Failed.", term::Severity::Error);
+                        BuildStatus = EBuildStatus::Failed;
+                        bShowMessageLog = true;
+                        NotificationTimer = 10.0f;
 					}
 					b_IsCompiling = false;
 				}
@@ -2048,4 +2065,184 @@ void GameEditor::DrawTerminal()
     {
         m_Terminal.show("Debug Console", &m_bShowTerminal);
     }
+}
+
+void GameEditor::ParseBuildLine(std::string_view line)
+{
+    auto err_pos = line.find("error:");
+    if (err_pos == std::string_view::npos) 
+	{
+		err_pos = line.find("error C");
+	}
+    if (err_pos == std::string_view::npos) 
+	{
+		err_pos = line.find("FAILED:");
+	}
+    
+    auto warn_pos = line.find("warning:");
+	if (warn_pos == std::string_view::npos)
+	{
+		warn_pos = line.find("warning C");
+	}
+
+    if (err_pos != std::string_view::npos || warn_pos != std::string_view::npos)
+    {
+        FBuildMessage msg;
+        msg.Severity = (err_pos != std::string_view::npos) ? FBuildMessage::ESeverity::Error : FBuildMessage::ESeverity::Warning;
+        msg.Text = std::string(line);
+
+        size_t keyword_pos = (err_pos != std::string_view::npos) ? err_pos : warn_pos;
+        std::string_view prefix = line.substr(0, keyword_pos);
+
+        size_t last_colon = prefix.find_last_of(':');
+        size_t last_paren = prefix.find_last_of(')');
+        
+        if (last_paren != std::string_view::npos && last_paren > 0)
+        {
+            size_t open_paren = prefix.find_last_of('(', last_paren);
+            if (open_paren != std::string_view::npos)
+            {
+                std::string_view line_str = prefix.substr(open_paren + 1, last_paren - open_paren - 1);
+                msg.Line = std::atoi(std::string(line_str).c_str());
+                msg.File = std::string(prefix.substr(0, open_paren));
+            }
+        }
+        else if (last_colon != std::string_view::npos)
+        {
+            size_t second_last_colon = prefix.find_last_of(':', last_colon > 0 ? last_colon - 1 : 0);
+            if (second_last_colon != std::string_view::npos)
+            {
+                std::string_view line_str = prefix.substr(second_last_colon + 1, last_colon - second_last_colon - 1);
+                msg.Line = std::atoi(std::string(line_str).c_str());
+                msg.File = std::string(prefix.substr(0, second_last_colon));
+            }
+        }
+
+        std::lock_guard<std::mutex> lock(BuildMessagesMutex);
+        BuildMessages.push_back(msg);
+    }
+}
+
+void GameEditor::DrawNotifications()
+{
+	if (BuildStatus == EBuildStatus::None)
+	{
+		return;
+	}
+
+    if (NotificationTimer > 0.0f || BuildStatus == EBuildStatus::Compiling || BuildStatus == EBuildStatus::Failed)
+    {
+        if (BuildStatus == EBuildStatus::Success)
+		{
+			NotificationTimer -= GetFrameTime();
+		}
+            
+        ImGuiIO& io = ImGui::GetIO();
+        ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x - 20.0f, io.DisplaySize.y - 20.0f), ImGuiCond_Always, ImVec2(1.0f, 1.0f));
+        ImGui::SetNextWindowBgAlpha(0.85f);
+        
+        ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove;
+        
+        if (ImGui::Begin("BuildNotification", nullptr, flags))
+        {
+            if (BuildStatus == EBuildStatus::Compiling)
+            {
+                ImGui::TextColored(ImVec4(0.5f, 0.8f, 1.0f, 1.0f), ICON_FA_HAMMER " Compiling...");
+            }
+            else if (BuildStatus == EBuildStatus::Success)
+            {
+                ImGui::TextColored(ImVec4(0.2f, 1.0f, 0.2f, 1.0f), ICON_FA_CHECK " Compile Successful!");
+            }
+            else if (BuildStatus == EBuildStatus::Failed)
+            {
+                ImGui::TextColored(ImVec4(1.0f, 0.2f, 0.2f, 1.0f), ICON_FA_XMARK " Compile Failed!");
+                ImGui::Separator();
+                if (ImGui::Button("View Message Log"))
+                {
+                    bShowMessageLog = true;
+                }
+                ImGui::SameLine();
+                if (ImGui::Button("Dismiss"))
+                {
+                    BuildStatus = EBuildStatus::None;
+                }
+            }
+        }
+        ImGui::End();
+    }
+}
+
+void GameEditor::DrawMessageLog()
+{
+    if (!bShowMessageLog) 
+	{
+		return;
+	}
+
+    ImGui::SetNextWindowSize(ImVec2(800, 300), ImGuiCond_FirstUseEver);
+    if (ImGui::Begin("Message Log", &bShowMessageLog))
+    {
+        // Align Clear button to the right
+        float content_width = ImGui::GetContentRegionAvail().x;
+        ImGui::SetCursorPosX(ImGui::GetCursorPosX() + content_width - 60.0f);
+        if (ImGui::Button("Clear", ImVec2(60, 0)))
+        {
+            std::lock_guard<std::mutex> lock(BuildMessagesMutex);
+            BuildMessages.clear();
+        }
+        ImGui::Separator();
+
+        std::vector<FBuildMessage> localMessages;
+        {
+            std::lock_guard<std::mutex> lock(BuildMessagesMutex);
+            localMessages = BuildMessages;
+        }
+
+        if (ImGui::BeginTable("MessageTable", 3, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable | ImGuiTableFlags_ScrollY))
+        {
+            ImGui::TableSetupScrollFreeze(0, 1);
+            ImGui::TableSetupColumn("Type", ImGuiTableColumnFlags_WidthFixed, 80.0f);
+            ImGui::TableSetupColumn("Location", ImGuiTableColumnFlags_WidthFixed, 150.0f);
+            ImGui::TableSetupColumn("Description", ImGuiTableColumnFlags_WidthStretch);
+            ImGui::TableHeadersRow();
+
+            for (const auto& msg : localMessages)
+            {
+                ImGui::TableNextRow();
+                ImGui::TableNextColumn();
+                
+                ImGui::Dummy(ImVec2(0, 2));
+                if (msg.Severity == FBuildMessage::ESeverity::Error)
+				{
+					ImGui::TextColored(ImVec4(1.0f, 0.2f, 0.2f, 1.0f), ICON_FA_XMARK " Error");
+				}
+                else
+				{
+					ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.2f, 1.0f), ICON_FA_TRIANGLE_EXCLAMATION " Warn");
+				}
+                
+                ImGui::TableNextColumn();
+                ImGui::Dummy(ImVec2(0, 2));
+                if (!msg.File.empty())
+                {
+                    std::string filename = msg.File;
+                    size_t slash = filename.find_last_of("/\\");
+                    if (slash != std::string::npos) filename = filename.substr(slash + 1);
+                    ImGui::Text("%s:%d", filename.c_str(), msg.Line);
+                    if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s:%d", msg.File.c_str(), msg.Line);
+                }
+                else
+                {
+                    ImGui::Text("-");
+                }
+
+                ImGui::TableNextColumn();
+                ImGui::Dummy(ImVec2(0, 2));
+                ImGui::TextWrapped("%s", msg.Text.c_str());
+                ImGui::Dummy(ImVec2(0, 2));
+            }
+            ImGui::EndTable();
+        }
+    }
+    ImGui::End();
 }

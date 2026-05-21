@@ -25,6 +25,16 @@
 #include "terminal/terminal.h"
 namespace fs = std::filesystem;
 
+enum class EBuildStatus { None, Compiling, Success, Failed };
+
+struct FBuildMessage {
+    enum class ESeverity { Info, Warning, Error };
+    ESeverity Severity = ESeverity::Info;
+    std::string File;
+    int Line = 0;
+    std::string Text;
+};
+
 class GameEditor
 {
 public:
@@ -114,6 +124,16 @@ private:
 
     void DrawPerformanceOverlay();
     void UpdatePerformanceMetrics();
+
+    // Build Notification & Log
+    EBuildStatus BuildStatus = EBuildStatus::None;
+    float NotificationTimer = 0.0f;
+    std::vector<FBuildMessage> BuildMessages;
+    std::mutex BuildMessagesMutex;
+    bool bShowMessageLog = false;
+    void DrawNotifications();
+    void DrawMessageLog();
+    void ParseBuildLine(std::string_view line);
 
     // Terminal
     term::Terminal m_Terminal;
