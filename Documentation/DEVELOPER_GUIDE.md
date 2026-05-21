@@ -112,6 +112,9 @@ When you export your game, here's what happens:
 
 ## 🧠 Advanced Tips
 
+### User Interfaces (UI)
+Need menus, buttons or HUDs? RayWaves comes with `raygui` pre-compiled. Just `#include <raygui.h>` in your level and start drawing buttons in your `Draw()` function. **Do not** `#define RAYGUI_IMPLEMENTATION` yourself!
+
 ### Customizing the Editor
 Want to add a new tool to the editor toolbar?
 1. Open `Editor/GameEditor.cpp`.

@@ -141,6 +141,43 @@ The core engine class that manages the window and main loop. Usually, you won't 
 | `SetMap(map)` | Sets the active game map manually. |
 | `ToggleFullscreen()` | Toggles between windowed and fullscreen. |
 
+## 🖼️ UI with RayGUI
+
+RayWaves now includes native support for the `raygui` library to easily create in-game user interfaces like menus, HUDs, and buttons.
+
+### Using RayGUI
+
+1. Include the header in your map file:
+   ```cpp
+   #include <raygui.h>
+   ```
+2. Call `raygui` functions directly in your `Draw()` method.
+
+> [!WARNING]
+> The engine already compiles the `raygui` implementation for you in the core static library. **Do NOT** use `#define RAYGUI_IMPLEMENTATION` in your game logic code, as this will cause linker errors.
+
+### Example UI
+
+```cpp
+#include "../Engine/GameMap.h"
+#include <raygui.h>
+
+class UIMap : public GameMap 
+{
+    void Draw() override 
+    {
+        ClearBackground(RAYWHITE);
+        
+        // Draw a styled button
+        if (GuiButton({ 100, 100, 200, 50 }, "Click Me!"))
+        {
+            // Handle button click
+            RequestGotoMap("NextLevel");
+        }
+    }
+};
+```
+
 ---
 
 ## 📚 Raylib Cheat Sheet
