@@ -425,19 +425,24 @@ void GameEditor::DrawSceneWindow()
 	const std::string &ICON = b_IsPlaying ? ICON_FA_PLAY : ICON_FA_STOP;
 	const std::string &LABEL = b_IsPlaying ? " PLAYING" : " STOPPED";
 
-	float text_y_offset = 
-	(
-		(toolbar_height - ImGui::GetTextLineHeight()) * 0.5f
-	) - vertical_offset - 2.0f;
-	float base_cursor_y = ImGui::GetCursorPosY();
-
-	// Icon
-	ImGui::SetCursorPosY(base_cursor_y + text_y_offset);
-	ImGui::TextColored(COLOR, "%s", ICON.c_str());
-	ImGui::SameLine();
-	
-	ImGui::SetCursorPosY(base_cursor_y + text_y_offset - 1.0f);
-	ImGui::TextColored(COLOR, "%s", LABEL.c_str());
+    // Draw status as a colored pill
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(16.0f, 4.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 12.0f); // Rounded pill
+    
+    ImVec4 bgColor = b_IsPlaying ? ImVec4(0.2f, 0.8f, 0.2f, 0.3f) : ImVec4(0.83f, 0.18f, 0.18f, 0.4f);
+    ImVec4 textColor = b_IsPlaying ? ImVec4(0.4f, 1.0f, 0.4f, 1.0f) : ImVec4(1.0f, 0.6f, 0.6f, 1.0f);
+    
+    ImGui::PushStyleColor(ImGuiCol_Button, bgColor);
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, bgColor);
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, bgColor);
+    ImGui::PushStyleColor(ImGuiCol_Text, textColor);
+    
+    std::string fullLabel = ICON + LABEL;
+    ImGui::Button(fullLabel.c_str(), ImVec2(0, 32.0f));
+    
+    ImGui::PopStyleVar(3);
+    ImGui::PopStyleColor(4);
 
 	ImGui::SameLine();
 	ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 12.0f);
@@ -619,11 +624,18 @@ void GameEditor::DrawSceneWindow()
 
 	ImGui::PopStyleVar(3);
 
+    // Remove padding for the viewport area
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+    ImGui::BeginChild("ViewportArea", ImVec2(0, 0), false, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+
 	rlImGuiImageRenderTextureFit
 	(
 		m_bUseOpaquePass ? &m_DisplayTexture : &m_RaylibTexture, 
 		true
 	);
+    
+    ImGui::EndChild();
+    ImGui::PopStyleVar();
 
 	ImGui::End();
 }
@@ -639,246 +651,202 @@ void GameEditor::DrawExportPanel()
         m_ExportState.m_ExportThread.join();
     }
 
-    ImGui::Text("Export standalone game");
-    ImGui::Separator();
-    
-    // Game Configuration
-    ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[0]);
-    ImGui::Text("Game Configuration");
-    ImGui::PopFont();
-    ImGui::Separator();
+    ImGui::Spacing();
+    ImGui::SeparatorText("Game Configuration");
     ImGui::Spacing();
 
-    // Game Name
-    ImGui::AlignTextToFramePadding();
-    ImGui::Text("Game Name:");
-    ImGui::SameLine();
-    ImGui::SetCursorPosX(120.0f);
-	ImGui::InputText("##game_name", &m_ExportState.m_GameName);
-    
-    ImGui::SameLine();
-    ImGui::TextDisabled("%s.exe", m_ExportState.m_GameName.c_str());
-
-    ImGui::Spacing();
-    ImGui::Spacing();
-
-    ImGui::Text("Display Settings");
-    ImGui::Separator();
-    ImGui::Spacing();
-
-    // Resolution Section
-    ImGui::AlignTextToFramePadding();
-    ImGui::Text("Resolution:");
-    ImGui::SameLine();
-    ImGui::SetCursorPosX(120.0f);
-    
-    ImGui::PushItemWidth(80.0f);
-    ImGui::InputInt("##width", &m_ExportState.m_WindowWidth, 0, 0);
-    ImGui::PopItemWidth();
-    
-    ImGui::SameLine();
-    ImGui::Text("x");
-    ImGui::SameLine();
-    
-    ImGui::PushItemWidth(80.0f);
-    ImGui::InputInt("##height", &m_ExportState.m_WindowHeight, 0, 0);
-    ImGui::PopItemWidth();
-    
-    ImGui::SameLine();
-    ImGui::PushItemWidth(150.0f);
-    if (ImGui::BeginCombo("##resolution_presets", "Presets"))
+    if (ImGui::BeginTable("##export_config_props", 2, ImGuiTableFlags_None))
     {
-        if (ImGui::Selectable("1920Ã—1080 (Full HD)")) 
-		{
-            m_ExportState.m_WindowWidth = 1920;
-            m_ExportState.m_WindowHeight = 1080;
-        }
-        if (ImGui::Selectable("1600Ã—900 (HD+)")) 
-		{
-            m_ExportState.m_WindowWidth = 1600;
-            m_ExportState.m_WindowHeight = 900;
-        }
-        if (ImGui::Selectable("1280Ã—720 (HD)")) 
-		{
-            m_ExportState.m_WindowWidth = 1280;
-            m_ExportState.m_WindowHeight = 720;
-        }
-        if (ImGui::Selectable("1024Ã—768 (4:3)")) 
-		{
-            m_ExportState.m_WindowWidth = 1024;
-            m_ExportState.m_WindowHeight = 768;
-        }
-        if (ImGui::Selectable("800Ã—600 (SVGA)")) 
-		{
-            m_ExportState.m_WindowWidth = 800;
-            m_ExportState.m_WindowHeight = 600;
-        }
-        ImGui::EndCombo();
-    }
-    ImGui::PopItemWidth();
-    
-    ImGui::Spacing();
+        ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthFixed, 140.0f);
+        ImGui::TableSetupColumn("Widget", ImGuiTableColumnFlags_WidthStretch);
 
-    // Window Options
-    ImGui::AlignTextToFramePadding();
-    ImGui::Text("Window Mode:");
-    ImGui::SameLine();
-    ImGui::SetCursorPosX(130.0f);
-    
-    ImGui::Checkbox("Fullscreen", &m_ExportState.m_bFullscreen);
-    ImGui::SameLine();
-    ImGui::SetCursorPosX(260.0f);
-    ImGui::Checkbox("Resizable", &m_ExportState.m_bResizable);
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(0);
+        ImGui::AlignTextToFramePadding();
+        ImGui::Text("Game Name:");
 
-    ImGui::Spacing();
-
-    ImGui::Text("Performance Settings");
-    ImGui::Separator();
-    ImGui::Spacing();
-
-    // VSync
-    ImGui::AlignTextToFramePadding();
-    ImGui::Text("V-Sync:");
-    ImGui::SameLine();
-    ImGui::SetCursorPosX(120.0f);
-    ImGui::Checkbox("##b_Vsync", &m_ExportState.m_bVSync);
-    if (m_ExportState.m_bVSync) 
-	{
+        ImGui::TableSetColumnIndex(1);
+        ImGui::PushItemWidth(250.0f);
+        ImGui::InputText("##game_name", &m_ExportState.m_GameName);
+        ImGui::PopItemWidth();
+        
         ImGui::SameLine();
-        ImGui::TextDisabled("(Locks FPS to display refresh rate)");
+        ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyle().Colors[ImGuiCol_TextDisabled]);
+        ImGui::Text("%s.exe", m_ExportState.m_GameName.c_str());
+        ImGui::PopStyleColor();
+
+        ImGui::EndTable();
     }
 
-    // FPS Settings
-    ImGui::AlignTextToFramePadding();
-    ImGui::Text("Target FPS:");
-    ImGui::SameLine();
-    ImGui::SetCursorPosX(120.0f);
-    
-    if (m_ExportState.m_bVSync) 
-	{
-        ImGui::BeginDisabled();
-    }
-    
-    ImGui::PushItemWidth(80.0f);
-    ImGui::InputInt("##target_fps", &m_ExportState.m_TargetFPS, 0, 0);
-    ImGui::PopItemWidth();
-    
-    ImGui::SameLine();
-    ImGui::PushItemWidth(100.0f);
-    if (ImGui::BeginCombo("##fps_presets", "Presets"))
+    ImGui::Spacing();
+    ImGui::Spacing();
+    ImGui::SeparatorText("Display Settings");
+    ImGui::Spacing();
+
+    if (ImGui::BeginTable("##export_display_props", 2, ImGuiTableFlags_None))
     {
-        if (ImGui::Selectable("30 FPS")) m_ExportState.m_TargetFPS = 30;
-        if (ImGui::Selectable("60 FPS")) m_ExportState.m_TargetFPS = 60;
-        if (ImGui::Selectable("120 FPS")) m_ExportState.m_TargetFPS = 120;
-        if (ImGui::Selectable("144 FPS")) m_ExportState.m_TargetFPS = 144;
-        if (ImGui::Selectable("240 FPS")) m_ExportState.m_TargetFPS = 240;
-        if (ImGui::Selectable("Unlimited")) m_ExportState.m_TargetFPS = 0;
-        ImGui::EndCombo();
-    }
-    ImGui::PopItemWidth();
-    
-    if (m_ExportState.m_bVSync) 
-	{
-        ImGui::EndDisabled();
-    }
-    
-    if (m_ExportState.m_TargetFPS == 0 && !m_ExportState.m_bVSync) 
-	{
+        ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthFixed, 140.0f);
+        ImGui::TableSetupColumn("Widget", ImGuiTableColumnFlags_WidthStretch);
+
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(0);
+        ImGui::AlignTextToFramePadding();
+        ImGui::Text("Resolution:");
+
+        ImGui::TableSetColumnIndex(1);
+        ImGui::PushItemWidth(80.0f);
+        ImGui::InputInt("##width", &m_ExportState.m_WindowWidth, 0, 0);
+        ImGui::PopItemWidth();
+        
         ImGui::SameLine();
-        ImGui::TextDisabled("(Unlimited)");
+        ImGui::Text("x");
+        ImGui::SameLine();
+        
+        ImGui::PushItemWidth(80.0f);
+        ImGui::InputInt("##height", &m_ExportState.m_WindowHeight, 0, 0);
+        ImGui::PopItemWidth();
+        
+        ImGui::SameLine();
+        ImGui::PushItemWidth(150.0f);
+        if (ImGui::BeginCombo("##resolution_presets", "Presets"))
+        {
+            if (ImGui::Selectable("1920x1080 (Full HD)")) { m_ExportState.m_WindowWidth = 1920; m_ExportState.m_WindowHeight = 1080; }
+            if (ImGui::Selectable("1600x900 (HD+)")) { m_ExportState.m_WindowWidth = 1600; m_ExportState.m_WindowHeight = 900; }
+            if (ImGui::Selectable("1280x720 (HD)")) { m_ExportState.m_WindowWidth = 1280; m_ExportState.m_WindowHeight = 720; }
+            if (ImGui::Selectable("1024x768 (4:3)")) { m_ExportState.m_WindowWidth = 1024; m_ExportState.m_WindowHeight = 768; }
+            if (ImGui::Selectable("800x600 (SVGA)")) { m_ExportState.m_WindowWidth = 800; m_ExportState.m_WindowHeight = 600; }
+            ImGui::EndCombo();
+        }
+        ImGui::PopItemWidth();
+        
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(0);
+        ImGui::AlignTextToFramePadding();
+        ImGui::Text("Window Mode:");
+
+        ImGui::TableSetColumnIndex(1);
+        ImGui::Checkbox("Fullscreen", &m_ExportState.m_bFullscreen);
+        ImGui::SameLine();
+        ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 20.0f);
+        ImGui::Checkbox("Resizable", &m_ExportState.m_bResizable);
+
+        ImGui::EndTable();
     }
 
     ImGui::Spacing();
     ImGui::Spacing();
+    ImGui::SeparatorText("Performance Settings");
+    ImGui::Spacing();
+
+    if (ImGui::BeginTable("##export_perf_props", 2, ImGuiTableFlags_None))
+    {
+        ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthFixed, 140.0f);
+        ImGui::TableSetupColumn("Widget", ImGuiTableColumnFlags_WidthStretch);
+
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(0);
+        ImGui::AlignTextToFramePadding();
+        ImGui::Text("V-Sync:");
+
+        ImGui::TableSetColumnIndex(1);
+        ImGui::Checkbox("##b_Vsync", &m_ExportState.m_bVSync);
+        if (m_ExportState.m_bVSync) 
+        {
+            ImGui::SameLine();
+            ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyle().Colors[ImGuiCol_TextDisabled]);
+            ImGui::Text("(Locks FPS to display refresh rate)");
+            ImGui::PopStyleColor();
+        }
+
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(0);
+        ImGui::AlignTextToFramePadding();
+        ImGui::Text("Target FPS:");
+
+        ImGui::TableSetColumnIndex(1);
+        if (m_ExportState.m_bVSync) ImGui::BeginDisabled();
+        
+        ImGui::PushItemWidth(80.0f);
+        ImGui::InputInt("##target_fps", &m_ExportState.m_TargetFPS, 0, 0);
+        ImGui::PopItemWidth();
+        
+        ImGui::SameLine();
+        ImGui::PushItemWidth(100.0f);
+        if (ImGui::BeginCombo("##fps_presets", "Presets"))
+        {
+            if (ImGui::Selectable("30 FPS")) m_ExportState.m_TargetFPS = 30;
+            if (ImGui::Selectable("60 FPS")) m_ExportState.m_TargetFPS = 60;
+            if (ImGui::Selectable("120 FPS")) m_ExportState.m_TargetFPS = 120;
+            if (ImGui::Selectable("144 FPS")) m_ExportState.m_TargetFPS = 144;
+            if (ImGui::Selectable("240 FPS")) m_ExportState.m_TargetFPS = 240;
+            if (ImGui::Selectable("Unlimited")) m_ExportState.m_TargetFPS = 0;
+            ImGui::EndCombo();
+        }
+        ImGui::PopItemWidth();
+        
+        if (m_ExportState.m_bVSync) ImGui::EndDisabled();
+        
+        if (m_ExportState.m_TargetFPS == 0 && !m_ExportState.m_bVSync) 
+        {
+            ImGui::SameLine();
+            ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyle().Colors[ImGuiCol_TextDisabled]);
+            ImGui::Text("(Unlimited)");
+            ImGui::PopStyleColor();
+        }
+
+        ImGui::EndTable();
+    }
 
     // Validation
-	if (m_ExportState.m_WindowWidth < 320)
-	{
-		m_ExportState.m_WindowWidth = 320;
-	}
+    if (m_ExportState.m_WindowWidth < 320) m_ExportState.m_WindowWidth = 320;
+    if (m_ExportState.m_WindowHeight < 240) m_ExportState.m_WindowHeight = 240;
+    if (m_ExportState.m_WindowWidth > 7680) m_ExportState.m_WindowWidth = 7680;
+    if (m_ExportState.m_WindowHeight > 4320) m_ExportState.m_WindowHeight = 4320;
+    if (m_ExportState.m_TargetFPS < 0) m_ExportState.m_TargetFPS = 0;
+    if (m_ExportState.m_TargetFPS > 1000) m_ExportState.m_TargetFPS = 1000;
 
-	if (m_ExportState.m_WindowHeight < 240)
-	{
-		m_ExportState.m_WindowHeight = 240;
-	}
-
-	if (m_ExportState.m_WindowWidth > 7680)
-	{
-		m_ExportState.m_WindowWidth = 7680;
-	}
-
-	if (m_ExportState.m_WindowHeight > 4320)
-	{
-		m_ExportState.m_WindowHeight = 4320;
-	}
-
-	if (m_ExportState.m_TargetFPS < 0)
-	{
-		m_ExportState.m_TargetFPS = 0;
-	}
-
-	if (m_ExportState.m_TargetFPS > 1000)
-	{
-		m_ExportState.m_TargetFPS = 1000;
-	}
-
-    ImGui::Text("Export Settings");
-    ImGui::Separator();
+    ImGui::Spacing();
+    ImGui::Spacing();
+    ImGui::SeparatorText("Export Settings");
     ImGui::Spacing();
 
-    // Export Location
-    ImGui::AlignTextToFramePadding();
-    ImGui::Text("Output Folder:");
-    ImGui::SameLine();
-    ImGui::SetCursorPosX(120.0f);
-
-	std::string& current_path = m_ExportState.m_ExportPath;
-	if (current_path.empty())
-	{
-		current_path = "export";
-	}
-
-	ImGui::PushItemWidth(300.0f);
-	ImGui::InputText
-	(
-		"##export_path",
-		current_path.data(),
-		current_path.capacity() + 1,
-		ImGuiInputTextFlags_ReadOnly
-	);
-	ImGui::PopItemWidth();
-
-    ImGui::SameLine();
-    if (ImGui::Button("Browse", ImVec2(80.0f, 0)))
+    if (ImGui::BeginTable("##export_folder_props", 2, ImGuiTableFlags_None))
     {
-        const char* selected_path = 
-		tinyfd_saveFileDialog
-		(
-			"Select Export Folder",
-			fs::current_path().string().c_str(), 
-			0, 
-			nullptr, 
-			nullptr
-		);
+        ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthFixed, 140.0f);
+        ImGui::TableSetupColumn("Widget", ImGuiTableColumnFlags_WidthStretch);
 
-		fs::path parent_path = selected_path ? 
-		fs::path(selected_path).parent_path() : fs::current_path();
-		m_ExportState.m_ExportPath = parent_path.string();
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(0);
+        ImGui::AlignTextToFramePadding();
+        ImGui::Text("Output Folder:");
+
+        ImGui::TableSetColumnIndex(1);
+        std::string& current_path = m_ExportState.m_ExportPath;
+        if (current_path.empty()) current_path = "export";
+
+        ImGui::PushItemWidth(300.0f);
+        ImGui::InputText("##export_path", current_path.data(), current_path.capacity() + 1, ImGuiInputTextFlags_ReadOnly);
+        ImGui::PopItemWidth();
+
+        ImGui::SameLine();
+        if (ImGui::Button("Browse", ImVec2(80.0f, 0)))
+        {
+            const char* selected_path = tinyfd_saveFileDialog("Select Export Folder", fs::current_path().string().c_str(), 0, nullptr, nullptr);
+            fs::path parent_path = selected_path ? fs::path(selected_path).parent_path() : fs::current_path();
+            m_ExportState.m_ExportPath = parent_path.string();
+        }
+
+        ImGui::EndTable();
     }
 
-    ImGui::Spacing();
     ImGui::Spacing();
     
     // Warning message
     ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.8f, 0.2f, 1.0f));
-    ImGui::TextWrapped
-	(
-		"Note: Close the editor before exporting to avoid file conflicts."
-	);
+    ImGui::TextWrapped("Note: Close the editor before exporting to avoid file conflicts.");
     ImGui::PopStyleColor();
     
     ImGui::Spacing();
-    ImGui::Separator();
     ImGui::Spacing();
 
     // Export Logic
@@ -1422,92 +1390,62 @@ void GameEditor::DrawSceneSettingsPanel()
 {
     ImGui::Begin("Scene Settings", nullptr, ImGuiWindowFlags_NoCollapse);
 
-    ImGui::Text("Scene Resolution Settings");
-    ImGui::Separator();
-    ImGui::Spacing();
-
     // Store previous values to detect changes
     static int s_PrevWidth = m_SceneSettings.m_SceneWidth;
     static int s_PrevHeight = m_SceneSettings.m_SceneHeight;
-	static int s_PrevTargetFPS = m_SceneSettings.m_TargetFPS;
-
-    // Resolution Section
-    ImGui::AlignTextToFramePadding();
-    ImGui::Text("Scene Resolution:");
-    ImGui::SameLine();
-    ImGui::SetCursorPosX(155.0f);
-    
-    ImGui::PushItemWidth(80.0f);
-    ImGui::InputInt("##scene_width", &m_SceneSettings.m_SceneWidth, 0, 0);
-    ImGui::PopItemWidth();
-    
-    ImGui::SameLine();
-    ImGui::Text("x");
-    ImGui::SameLine();
-    
-    ImGui::PushItemWidth(80.0f);
-    ImGui::InputInt("##scene_height", &m_SceneSettings.m_SceneHeight, 0, 0);
-    ImGui::PopItemWidth();
-    
-    ImGui::SameLine();
-    ImGui::PushItemWidth(150.0f);
-    if (ImGui::BeginCombo("##scene_resolution_presets", "Presets"))
-    {
-        if (ImGui::Selectable("1920Ã—1080 (Full HD)")) 
-        {
-            m_SceneSettings.m_SceneWidth = 1920;
-            m_SceneSettings.m_SceneHeight = 1080;
-        }
-        if (ImGui::Selectable("1600Ã—900 (HD+)")) 
-        {
-            m_SceneSettings.m_SceneWidth = 1600;
-            m_SceneSettings.m_SceneHeight = 900;
-        }
-        if (ImGui::Selectable("1280Ã—720 (HD)")) 
-        {
-            m_SceneSettings.m_SceneWidth = 1280;
-            m_SceneSettings.m_SceneHeight = 720;
-        }
-        if (ImGui::Selectable("1024Ã—768 (4:3)")) 
-        {
-            m_SceneSettings.m_SceneWidth = 1024;
-            m_SceneSettings.m_SceneHeight = 768;
-        }
-        if (ImGui::Selectable("800Ã—600 (SVGA)")) 
-        {
-            m_SceneSettings.m_SceneWidth = 800;
-            m_SceneSettings.m_SceneHeight = 600;
-        }
-        ImGui::EndCombo();
-    }
-    ImGui::PopItemWidth();
+    static int s_PrevTargetFPS = m_SceneSettings.m_TargetFPS;
 
     ImGui::Spacing();
+    ImGui::SeparatorText("Display Settings");
+    ImGui::Spacing();
+
+    if (ImGui::BeginTable("##scene_display_props", 2, ImGuiTableFlags_None))
+    {
+        ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthFixed, 140.0f);
+        ImGui::TableSetupColumn("Widget", ImGuiTableColumnFlags_WidthStretch);
+
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(0);
+        ImGui::AlignTextToFramePadding();
+        ImGui::Text("Scene Resolution:");
+
+        ImGui::TableSetColumnIndex(1);
+        ImGui::PushItemWidth(80.0f);
+        ImGui::InputInt("##scene_width", &m_SceneSettings.m_SceneWidth, 0, 0);
+        ImGui::PopItemWidth();
+        
+        ImGui::SameLine();
+        ImGui::Text("x");
+        ImGui::SameLine();
+        
+        ImGui::PushItemWidth(80.0f);
+        ImGui::InputInt("##scene_height", &m_SceneSettings.m_SceneHeight, 0, 0);
+        ImGui::PopItemWidth();
+        
+        ImGui::SameLine();
+        ImGui::PushItemWidth(150.0f);
+        if (ImGui::BeginCombo("##scene_resolution_presets", "Presets"))
+        {
+            if (ImGui::Selectable("1920x1080 (Full HD)")) { m_SceneSettings.m_SceneWidth = 1920; m_SceneSettings.m_SceneHeight = 1080; }
+            if (ImGui::Selectable("1600x900 (HD+)")) { m_SceneSettings.m_SceneWidth = 1600; m_SceneSettings.m_SceneHeight = 900; }
+            if (ImGui::Selectable("1280x720 (HD)")) { m_SceneSettings.m_SceneWidth = 1280; m_SceneSettings.m_SceneHeight = 720; }
+            if (ImGui::Selectable("1024x768 (4:3)")) { m_SceneSettings.m_SceneWidth = 1024; m_SceneSettings.m_SceneHeight = 768; }
+            if (ImGui::Selectable("800x600 (SVGA)")) { m_SceneSettings.m_SceneWidth = 800; m_SceneSettings.m_SceneHeight = 600; }
+            ImGui::EndCombo();
+        }
+        ImGui::PopItemWidth();
+        
+        ImGui::EndTable();
+    }
 
     // Validation
-    if (m_SceneSettings.m_SceneWidth < 320)
-    {
-        m_SceneSettings.m_SceneWidth = 320;
-    }
-    if (m_SceneSettings.m_SceneHeight < 240)
-    {
-        m_SceneSettings.m_SceneHeight = 240;
-    }
-    if (m_SceneSettings.m_SceneWidth > 7680)
-    {
-        m_SceneSettings.m_SceneWidth = 7680;
-    }
-    if (m_SceneSettings.m_SceneHeight > 4320)
-    {
-        m_SceneSettings.m_SceneHeight = 4320;
-    }
+    if (m_SceneSettings.m_SceneWidth < 320) m_SceneSettings.m_SceneWidth = 320;
+    if (m_SceneSettings.m_SceneHeight < 240) m_SceneSettings.m_SceneHeight = 240;
+    if (m_SceneSettings.m_SceneWidth > 7680) m_SceneSettings.m_SceneWidth = 7680;
+    if (m_SceneSettings.m_SceneHeight > 4320) m_SceneSettings.m_SceneHeight = 4320;
 
     // Check if resolution changed
-    b_ResolutionChanged = 
-	(
-		s_PrevWidth != m_SceneSettings.m_SceneWidth || 
-        s_PrevHeight != m_SceneSettings.m_SceneHeight
-	);
+    b_ResolutionChanged = (s_PrevWidth != m_SceneSettings.m_SceneWidth || s_PrevHeight != m_SceneSettings.m_SceneHeight);
 
     if (b_ResolutionChanged)
     {
@@ -1515,14 +1453,8 @@ void GameEditor::DrawSceneSettingsPanel()
         UnloadRenderTexture(m_RaylibTexture);
         UnloadRenderTexture(m_DisplayTexture);
 
-        m_RaylibTexture = LoadRenderTexture
-		(
-			m_SceneSettings.m_SceneWidth, m_SceneSettings.m_SceneHeight
-		);
-        m_DisplayTexture = LoadRenderTexture
-		(
-			m_SceneSettings.m_SceneWidth, m_SceneSettings.m_SceneHeight
-		);
+        m_RaylibTexture = LoadRenderTexture(m_SceneSettings.m_SceneWidth, m_SceneSettings.m_SceneHeight);
+        m_DisplayTexture = LoadRenderTexture(m_SceneSettings.m_SceneWidth, m_SceneSettings.m_SceneHeight);
 
         SetTextureFilter(m_RaylibTexture.texture, TEXTURE_FILTER_BILINEAR);
         SetTextureFilter(m_DisplayTexture.texture, TEXTURE_FILTER_BILINEAR);
@@ -1530,92 +1462,98 @@ void GameEditor::DrawSceneSettingsPanel()
         // Update scene bounds for game map/manager
         if (m_MapManager)
         {
-            m_MapManager->SetSceneBounds
-			(
-                static_cast<float>(m_SceneSettings.m_SceneWidth), 
-                static_cast<float>(m_SceneSettings.m_SceneHeight)
-            );
+            m_MapManager->SetSceneBounds(static_cast<float>(m_SceneSettings.m_SceneWidth), static_cast<float>(m_SceneSettings.m_SceneHeight));
         }
         else if (m_GameEngine.GetMapManager())
         {
-            m_GameEngine.GetMapManager()->SetSceneBounds
-			(
-                static_cast<float>(m_SceneSettings.m_SceneWidth), 
-                static_cast<float>(m_SceneSettings.m_SceneHeight)
-            );
+            m_GameEngine.GetMapManager()->SetSceneBounds(static_cast<float>(m_SceneSettings.m_SceneWidth), static_cast<float>(m_SceneSettings.m_SceneHeight));
         }
 
-        // Update previous values
         s_PrevWidth = m_SceneSettings.m_SceneWidth;
         s_PrevHeight = m_SceneSettings.m_SceneHeight;
     }
 
-	ImGui::Spacing();
+    ImGui::Spacing();
+    ImGui::Spacing();
+    ImGui::SeparatorText("Performance Settings");
+    ImGui::Spacing();
 
-	// FPS Settings
-	ImGui::AlignTextToFramePadding();
-	ImGui::Text("Target FPS:");
-	ImGui::SameLine();
-	ImGui::SetCursorPosX(120.0f);
+    if (ImGui::BeginTable("##scene_perf_props", 2, ImGuiTableFlags_None))
+    {
+        ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthFixed, 140.0f);
+        ImGui::TableSetupColumn("Widget", ImGuiTableColumnFlags_WidthStretch);
 
-	ImGui::SameLine();
-	ImGui::PushItemWidth(100.0f);
-	ImGui::InputInt("##target_fps", &m_SceneSettings.m_TargetFPS, 0, 0);
-	ImGui::PopItemWidth();
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(0);
+        ImGui::AlignTextToFramePadding();
+        ImGui::Text("Target FPS:");
 
-	ImGui::SameLine();
-	ImGui::PushItemWidth(150.0f);
-	if (ImGui::BeginCombo("##fps_presets", "Presets"))
-	{
-		if (ImGui::Selectable("30 FPS")) m_SceneSettings.m_TargetFPS = 30;
-		if (ImGui::Selectable("60 FPS")) m_SceneSettings.m_TargetFPS = 60;
-		if (ImGui::Selectable("120 FPS")) m_SceneSettings.m_TargetFPS = 120;
-		if (ImGui::Selectable("144 FPS")) m_SceneSettings.m_TargetFPS = 144;
-		if (ImGui::Selectable("240 FPS")) m_SceneSettings.m_TargetFPS = 240;
-		if (ImGui::Selectable("Unlimited")) m_SceneSettings.m_TargetFPS = 0;
-		ImGui::EndCombo();
-	}
-	ImGui::PopItemWidth();
+        ImGui::TableSetColumnIndex(1);
+        ImGui::PushItemWidth(100.0f);
+        ImGui::InputInt("##target_fps", &m_SceneSettings.m_TargetFPS, 0, 0);
+        ImGui::PopItemWidth();
 
-	// Check if FPS changed
-	b_FPSChanged =
-	(
-		s_PrevTargetFPS != m_SceneSettings.m_TargetFPS
-	);
+        ImGui::SameLine();
+        ImGui::PushItemWidth(150.0f);
+        if (ImGui::BeginCombo("##fps_presets", "Presets"))
+        {
+            if (ImGui::Selectable("30 FPS")) m_SceneSettings.m_TargetFPS = 30;
+            if (ImGui::Selectable("60 FPS")) m_SceneSettings.m_TargetFPS = 60;
+            if (ImGui::Selectable("120 FPS")) m_SceneSettings.m_TargetFPS = 120;
+            if (ImGui::Selectable("144 FPS")) m_SceneSettings.m_TargetFPS = 144;
+            if (ImGui::Selectable("240 FPS")) m_SceneSettings.m_TargetFPS = 240;
+            if (ImGui::Selectable("Unlimited")) m_SceneSettings.m_TargetFPS = 0;
+            ImGui::EndCombo();
+        }
+        ImGui::PopItemWidth();
+        
+        ImGui::EndTable();
+    }
 
-	if (b_FPSChanged)
-	{
-		if (m_MapManager)
-		{
-			m_MapManager->SetTargetFPS(m_SceneSettings.m_TargetFPS);
-		}
-		else if (m_GameEngine.GetMapManager())
-		{
-			m_GameEngine.GetMapManager()->SetTargetFPS(m_SceneSettings.m_TargetFPS);
-		}
-		s_PrevTargetFPS = m_SceneSettings.m_TargetFPS;
-	}
+    // Check if FPS changed
+    b_FPSChanged = (s_PrevTargetFPS != m_SceneSettings.m_TargetFPS);
 
+    if (b_FPSChanged)
+    {
+        if (m_MapManager)
+        {
+            m_MapManager->SetTargetFPS(m_SceneSettings.m_TargetFPS);
+        }
+        else if (m_GameEngine.GetMapManager())
+        {
+            m_GameEngine.GetMapManager()->SetTargetFPS(m_SceneSettings.m_TargetFPS);
+        }
+        s_PrevTargetFPS = m_SceneSettings.m_TargetFPS;
+    }
+
+    ImGui::Spacing();
     ImGui::Spacing();
     ImGui::Separator();
     ImGui::Spacing();
 
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.7f, 0.7f, 0.7f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyle().Colors[ImGuiCol_TextDisabled]);
     ImGui::TextWrapped
-	(
-		"This sets the resolution of the scene viewport that your game will use during development. "
-
+    (
+        "This sets the resolution of the scene viewport that your game will use during development. "
         "The export resolution can be set separately in the Export panel."
-	);
+    );
     ImGui::PopStyleColor();
 
-    // Sync button to copy scene resolution to export settings
     ImGui::Spacing();
-    if (ImGui::Button("Copy to Export Settings", ImVec2(200.0f, 30.0f)))
+    ImGui::Spacing();
+
+    // Copy to Export button with professional styling
+    ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyle().Colors[ImGuiCol_FrameBg]);
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImGui::GetStyle().Colors[ImGuiCol_FrameBgHovered]);
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImGui::GetStyle().Colors[ImGuiCol_FrameBgActive]);
+    
+    if (ImGui::Button("Copy to Export Settings", ImVec2(240.0f, 32.0f)))
     {
         m_ExportState.m_WindowWidth = m_SceneSettings.m_SceneWidth;
         m_ExportState.m_WindowHeight = m_SceneSettings.m_SceneHeight;
     }
+    
+    ImGui::PopStyleColor(3);
 
     ImGui::End();
 }
@@ -1880,25 +1818,32 @@ void GameEditor::DrawMapSelectionUI()
 	}
 
 	ImGui::Begin("Map Selection", nullptr, ImGuiWindowFlags_NoCollapse);
-	ImGui::Text("Current Map: %s", m_MapManager->GetCurrentMapId().c_str());
-	ImGui::Separator();
+    
+    ImGui::Spacing();
+    ImGui::SeparatorText("Map Status");
+    ImGui::Spacing();
+
+    ImGui::Text("Current Map: ");
+    ImGui::SameLine();
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.83f, 0.18f, 0.18f, 1.0f)); // Accent color
+    ImGui::Text("%s", m_MapManager->GetCurrentMapId().c_str());
+    ImGui::PopStyleColor();
+
 	ImGui::Spacing();
+    ImGui::Spacing();
 
 	// Get available maps
 	std::vector<std::string> available_maps = m_MapManager->GetAvailableMaps();
 
 	if (available_maps.empty())
 	{
-		ImGui::TextColored
-		(
-			ImVec4(1.0f, 0.6f, 0.6f, 1.0f), 
-			"No maps registered in MapManager"
-		);
-		ImGui::Text("Register maps using RegisterMap<YourMap>(\"MAP_ID\")");
+        ImGui::SeparatorText("Warning");
+		ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f), "No maps registered in MapManager");
+		ImGui::TextDisabled("Register maps using RegisterMap<YourMap>(\"MAP_ID\")");
 	}
 	else
 	{
-		ImGui::Text("Available Maps:");
+        ImGui::SeparatorText("Available Maps");
 		ImGui::Spacing();
 
 		// Create a combo box for map selection
@@ -1915,138 +1860,91 @@ void GameEditor::DrawMapSelectionUI()
 			}
 		}
 
-		// Create combo box
-		if
-		(
-			ImGui::BeginCombo
-			(
-				"Select Map", 
-				curr_map_id.empty() ? 
-				"No map loaded" : curr_map_id.c_str()
-			)
-		)
-		{
-			for (int i = 0; i < available_maps.size(); ++i)
-			{
-				bool b_IsSelected = (s_SelectedIndex == i);
-				bool b_IsCurrent = (available_maps[i] == curr_map_id);
+        if (ImGui::BeginTable("##map_selection_table", 2, ImGuiTableFlags_None))
+        {
+            ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthFixed, 100.0f);
+            ImGui::TableSetupColumn("Widget", ImGuiTableColumnFlags_WidthStretch);
 
-				// Highlight current map in red
-				if (b_IsCurrent)
-				{
-					ImGui::PushStyleColor
-					(
-						// Red color
-						ImGuiCol_Text, ImVec4(1.0f, 0.2f, 0.2f, 1.0f)
-					);
-				}
-				// Highlight MainMap (index 0) in a special way
-				else if (i == 0)
-				{
-					ImGui::PushStyleColor
-					(
-						// Yellow/gold color
-						ImGuiCol_Text, ImVec4(1.0f, 0.8f, 0.2f, 1.0f) 
-					);
-				}
+            ImGui::TableNextRow();
+            ImGui::TableSetColumnIndex(0);
+            ImGui::AlignTextToFramePadding();
+            ImGui::Text("Select Map:");
 
-				if
-				(
-					ImGui::Selectable
-					(
-						available_maps[i].c_str(), b_IsSelected
-					)
-				)
-				{
-					s_SelectedIndex = i;
-					m_SelectedMapId = available_maps[i];
+            ImGui::TableSetColumnIndex(1);
+            ImGui::SetNextItemWidth(-1);
+            
+            // Create combo box
+            if (ImGui::BeginCombo("##Select Map", curr_map_id.empty() ? "No map loaded" : curr_map_id.c_str()))
+            {
+                for (int i = 0; i < available_maps.size(); ++i)
+                {
+                    bool b_IsSelected = (s_SelectedIndex == i);
+                    bool b_IsCurrent = (available_maps[i] == curr_map_id);
 
-					// Switch to selected map
-					if (m_SelectedMapId != curr_map_id)
-					{
-						m_MapManager->b_GotoMap(m_SelectedMapId);
-					}
-				}
+                    // Highlight current map in red
+                    if (b_IsCurrent)
+                    {
+                        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.83f, 0.18f, 0.18f, 1.0f));
+                    }
+                    else if (i == 0) // Main map indicator
+                    {
+                        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.9f, 0.9f, 0.9f, 0.7f));
+                    }
 
-				// If the item is focused, set it as the default
-				if (b_IsSelected)
-				{
-					ImGui::SetItemDefaultFocus();
-				}
+                    if (ImGui::Selectable(available_maps[i].c_str(), b_IsSelected))
+                    {
+                        s_SelectedIndex = i;
+                        m_SelectedMapId = available_maps[i];
 
-				// Pop style color if we pushed it
-				if (b_IsCurrent || i == 0)
-				{
-					ImGui::PopStyleColor();
-				}
-			}
-			ImGui::EndCombo();
-		}
+                        // Switch to selected map
+                        if (m_SelectedMapId != curr_map_id)
+                        {
+                            m_MapManager->b_GotoMap(m_SelectedMapId);
+                        }
+                    }
+
+                    if (b_IsSelected) ImGui::SetItemDefaultFocus();
+
+                    if (b_IsCurrent || i == 0) ImGui::PopStyleColor();
+                }
+                ImGui::EndCombo();
+            }
+            ImGui::EndTable();
+        }
 
 		ImGui::Spacing();
+        ImGui::Spacing();
 
 		// Quick access buttons for each map
-		ImGui::Text("Quick Access:");
-		ImGui::Spacing();
-		ImGui::Separator();
+		ImGui::SeparatorText("Quick Access");
 		ImGui::Spacing();
 
 		for (int i = 0; i < available_maps.size(); ++i)
 		{
 			const auto& MAP_ID = available_maps[i];
 			bool b_IsCurrent = (MAP_ID == curr_map_id);
+            bool b_IsMain = (i == 0);
 
-			// Style current map button with red color
+			// Style current map button with accent color
 			if (b_IsCurrent)
 			{
-				ImGui::PushStyleColor
-				(
-					// Dark red
-					ImGuiCol_Button, ImVec4(0.7f, 0.2f, 0.2f, 0.6f)
-				);
-
-				ImGui::PushStyleColor
-				(
-					// Light red
-					ImGuiCol_ButtonHovered, ImVec4(0.9f, 0.3f, 0.3f, 0.8f)
-				);
-
-				ImGui::PushStyleColor
-				(
-					// Darker red
-					ImGuiCol_ButtonActive, ImVec4(0.5f, 0.1f, 0.1f, 1.0f) 
-				);
+				ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.83f, 0.18f, 0.18f, 0.6f));
+				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(1.00f, 0.40f, 0.40f, 0.8f));
+				ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.83f, 0.18f, 0.18f, 1.0f));
 			}
-			// Style MainMap (index 0) button differently to make it stand out
-			else if (i == 0)
+			// Style MainMap differently but cleanly
+			else if (b_IsMain)
 			{
-				ImGui::PushStyleColor
-				(
-					// Dark gold
-					ImGuiCol_Button, ImVec4(0.8f, 0.6f, 0.0f, 0.7f) 
-				);
-
-				ImGui::PushStyleColor
-				(
-					// Light gold
-					ImGuiCol_ButtonHovered, ImVec4(1.0f, 0.8f, 0.2f, 0.9f) 
-				);
-
-				ImGui::PushStyleColor
-				(
-					// Darker gold
-					ImGuiCol_ButtonActive, ImVec4(0.6f, 0.4f, 0.0f, 1.0f) 
-				);
+				ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.25f, 0.25f, 0.27f, 1.0f));
+				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.35f, 0.35f, 0.37f, 1.0f));
+				ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.45f, 0.45f, 0.47f, 1.0f));
 			}
 
 			// Add a special label for MainMap
 			std::string button_label = MAP_ID;
-			if (i == 0)
-			{
-				button_label += " (Main)";
-			}
+			if (b_IsMain) button_label += " (Main)";
 
-			if (ImGui::Button(button_label.c_str(), ImVec2(-1, 0)))
+			if (ImGui::Button(button_label.c_str(), ImVec2(-1, 32.0f))) // Professional larger buttons
 			{
 				if (MAP_ID != curr_map_id)
 				{
@@ -2055,14 +1953,13 @@ void GameEditor::DrawMapSelectionUI()
 			}
 
 			// Pop style colors if we pushed them
-			if (b_IsCurrent || i == 0)
+			if (b_IsCurrent || b_IsMain)
 			{
 				ImGui::PopStyleColor(3);
 			}
+            
+            ImGui::Spacing();
 		}
-
-		ImGui::Spacing();
-		ImGui::Separator();
 	}
 
 	ImGui::End();

@@ -211,54 +211,64 @@ namespace term
         ImGui::PushStyleColor(ImGuiCol_Button, m_theme.button_bg);
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, m_theme.button_hover);
         ImGui::PushStyleColor(ImGuiCol_ButtonActive, m_theme.button_active);
-        ImGui::PushStyleColor(ImGuiCol_Text, m_theme.text_default);
 
-        if (ImGui::Button("Clear")) clear();
+        // Modern flat toolbar styling
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 2.0f);
         
-        ImGui::SameLine();
+        if (ImGui::Button(" Clear Log ")) clear();
+        
+        ImGui::SameLine(0, 10.0f);
         
         // Options Menu
-        if (ImGui::BeginCombo("##Options", "Options", ImGuiComboFlags_NoPreview))
+        ImGui::SetNextItemWidth(120.0f);
+        if (ImGui::BeginCombo("##Options", "Settings", ImGuiComboFlags_NoPreview))
         {
-            ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(2, 2));
+            ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(4, 4));
 
             ImGui::Checkbox("Auto-scroll", &m_auto_scroll);
-            ImGui::Checkbox("Wrap", &m_auto_wrap);
+            ImGui::Checkbox("Word Wrap", &m_auto_wrap);
             
             ImGui::PopStyleVar();
             ImGui::EndCombo();
         }
         if (ImGui::IsItemHovered()) ImGui::SetTooltip("Terminal Options");
 
-        ImGui::SameLine();
+        ImGui::SameLine(0, 10.0f);
 
-        ImGui::SetNextItemWidth(200.0f);
-        ImGui::PushStyleColor(ImGuiCol_FrameBg, m_theme.input_bg);
+        // Search/Filter
+        ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
+        ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.1f, 0.1f, 0.12f, 1.0f));
         ImGui::InputTextWithHint
         (
             "##Filter", 
-            "Filter...", 
+            "Search logs...", 
             m_filter_buf, 
             sizeof(m_filter_buf)
         );
         ImGui::PopStyleColor(); // InputBg
 
-        ImGui::PopStyleColor(4); // Buttons + Text
+        ImGui::PopStyleVar();
+        ImGui::PopStyleColor(3); // Buttons
         ImGui::EndGroup();
     }
 
     void Terminal::render_log_window(const ImVec2& size) 
     {
-        ImGui::PushStyleColor(ImGuiCol_ChildBg, m_theme.window_bg);
+        // Dark, pure black background for the terminal screen
+        ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.04f, 0.04f, 0.05f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.2f, 0.2f, 0.22f, 1.0f));
+        ImGui::PushStyleVar(ImGuiStyleVar_ChildBorderSize, 1.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 4.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8, 8)); // padding inside child
         
         ImGuiWindowFlags flags = ImGuiWindowFlags_HorizontalScrollbar;
         if (!m_auto_wrap) flags |= ImGuiWindowFlags_AlwaysHorizontalScrollbar;
 
-        ImGui::BeginChild("##LogWindow", ImVec2(size.x, size.y), false, flags);
+        ImGui::BeginChild("##LogWindow", ImVec2(size.x, size.y), true, flags);
         
         std::lock_guard<std::mutex> lock(m_mutex);
         
-        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4, 2));
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4, 4));
 
         bool has_filter = (m_filter_buf[0] != '\0');
 
@@ -272,19 +282,12 @@ namespace term
                 {
                     const term::Message& msg = m_messages[i];
                     
-                    // Skip messages with invalid severity
-                    if (!is_valid_severity(static_cast<int>(msg.severity)))
-                    {
-                        continue;
-                    }
+                    if (!is_valid_severity(static_cast<int>(msg.severity))) continue;
                     
                     ImVec4 color = get_severity_color(msg.severity, m_theme);
 
                     ImGui::PushStyleColor(ImGuiCol_Text, color);
-                    if (m_auto_wrap)
-                    {
-                        ImGui::PushTextWrapPos(ImGui::GetContentRegionAvail().x);
-                    }
+                    if (m_auto_wrap) ImGui::PushTextWrapPos(ImGui::GetContentRegionAvail().x);
                     ImGui::TextUnformatted(msg.text.c_str());
                     if (m_auto_wrap) ImGui::PopTextWrapPos();
                     ImGui::PopStyleColor();
@@ -295,12 +298,7 @@ namespace term
         {
              for (const auto& msg : m_messages) 
              {
-                // Skip messages with invalid severity
-                if (!is_valid_severity(static_cast<int>(msg.severity)))
-                {
-                    continue;
-                }
-                
+                if (!is_valid_severity(static_cast<int>(msg.severity))) continue;
                 if (!pass_filter(msg)) continue;
 
                 ImVec4 color = get_severity_color(msg.severity, m_theme);
@@ -321,7 +319,8 @@ namespace term
 
         ImGui::PopStyleVar();
         ImGui::EndChild();
-        ImGui::PopStyleColor();
+        ImGui::PopStyleVar(3);
+        ImGui::PopStyleColor(2);
     }
 
     bool Terminal::pass_filter(const Message& msg) const 
@@ -339,9 +338,18 @@ namespace term
 
     void Terminal::render_input_bar(const ImVec2& size) 
     {
-        ImGui::Separator();
-        ImGui::PushStyleColor(ImGuiCol_FrameBg, m_theme.input_bg);
+        ImGui::Spacing();
+        
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.4f, 0.8f, 0.4f, 1.0f));
+        ImGui::AlignTextToFramePadding();
+        ImGui::Text("> ");
+        ImGui::PopStyleColor();
+        
+        ImGui::SameLine(0, 0);
+
+        ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.08f, 0.08f, 0.09f, 1.0f));
         ImGui::PushStyleColor(ImGuiCol_Text, m_theme.input_text);
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
 
         ImGuiInputTextFlags flags = ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_CallbackHistory;
         
@@ -402,6 +410,7 @@ namespace term
                 ImGui::SetKeyboardFocusHere(-1);
             }
         }
+        ImGui::PopStyleVar();
         ImGui::PopStyleColor(2);
     }
 
