@@ -63,6 +63,8 @@ endif()
 set_target_properties(GameLogic PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}
     LIBRARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}
+    PREFIX ""
+    OUTPUT_NAME "GameLogic"
 )
 
 # Copy DLL after build
