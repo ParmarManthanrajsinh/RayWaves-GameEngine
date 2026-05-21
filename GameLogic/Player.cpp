@@ -28,11 +28,6 @@ void Player::Initialize(const char* TexturePath)
 
 void Player::LoadSounds()
 {
-    if (!IsAudioDeviceReady()) 
-    {
-        InitAudioDevice();
-    }
-
     m_JumpSound = LoadSound("Assets/Sounds/jump.wav");
     m_AttackSound = LoadSound("Assets/Sounds/attack.wav");
     

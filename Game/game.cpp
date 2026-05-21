@@ -98,6 +98,7 @@ int main()
     }
 
     UnloadDll(game_logic_handle);
+    CloseAudioDevice();
     CloseWindow();
     return 0;
 }

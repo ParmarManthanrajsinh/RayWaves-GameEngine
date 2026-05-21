@@ -1,4 +1,4 @@
-﻿#include "../Engine/MapManager.h"
+#include "../Engine/MapManager.h"
 #include "../Game/DllLoader.h"
 #include "GameEditor.h"
 #include "ProcessRunner.h"
@@ -237,6 +237,7 @@ void GameEditor::Close() const
 	}
 
 	rlImGuiShutdown();
+	CloseAudioDevice();
 	CloseWindow();
 }
 
@@ -1441,7 +1442,7 @@ void GameEditor::DrawSceneSettingsPanel()
     ImGui::PopItemWidth();
     
     ImGui::SameLine();
-    ImGui::Text("Ã—");
+    ImGui::Text("x");
     ImGui::SameLine();
     
     ImGui::PushItemWidth(80.0f);

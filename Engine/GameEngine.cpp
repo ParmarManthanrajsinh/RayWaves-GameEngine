@@ -26,6 +26,7 @@ void GameEngine::LaunchWindow(int width, int height, std::string_view title)
 	std::println("Window initialized: {} ({}x{})", title, width, height);
 
 	InitWindow(width, height, title.data());
+	InitAudioDevice();
 
 	HWND hwnd = GetActiveWindow();
 	BOOL value = TRUE;
@@ -69,6 +70,7 @@ void GameEngine::LaunchWindow(const t_WindowConfig& config)
 	}
 
 	InitWindow(config.width, config.height, config.title.c_str());
+	InitAudioDevice();
 
 	// Set fullscreen after window creation if needed
 	if (config.b_Fullscreen)
