@@ -53,6 +53,10 @@ target_include_directories(GameLogic PRIVATE
 
 target_link_libraries(GameLogic PRIVATE Engine)
 
+if(MINGW)
+    target_link_libraries(GameLogic PRIVATE stdc++exp)
+endif()
+
 # -------------------------------------
 # OUTPUT LOCATION
 # -------------------------------------

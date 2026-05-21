@@ -1,5 +1,6 @@
 #include "DemoMainMenu.h"
 #include "../Engine/MapManager.h"
+#include "../Engine/raygui.h"
 #include <iostream>
 #include <cmath>
 
@@ -50,50 +51,62 @@ void DemoMainMenu::Update(float DeltaTime)
 
 void DemoMainMenu::Draw()
 {
-    // Draw Background with proper scaling (cover mode - fills screen while maintaining aspect ratio)
     float ScreenWidth = static_cast<float>(GetScreenWidth());
     float ScreenHeight = static_cast<float>(GetScreenHeight());
 
-    // Draw Title
-    const char* Title = "Shadow Woods";
-    Vector2 TitleSize = MeasureTextEx(m_TitleFont, Title, 80, 2);
-    Vector2 TitlePos = 
-    {
-        (ScreenWidth - TitleSize.x) / 2.0f,
-        250.0f
-    };
-    
 	// Draw Background
     ClearBackground(BLACK);
 
-    // Draw Shadow
-    DrawTextEx(m_TitleFont, Title, Vector2{ TitlePos.x + 4, TitlePos.y + 4 }, 80, 2, Color{ 0, 0, 0, 180 });
-    // Draw Text
-    DrawTextEx(m_TitleFont, Title, TitlePos, 80, 2, Color{ 255, 200, 100, 255 });
+    GuiSetFont(m_TitleFont);
+    int oldTextSize = GuiGetStyle(DEFAULT, TEXT_SIZE);
+    
+    // Draw Title
+    const char* Title = "Shadow Woods";
+    Vector2 TitleSize = MeasureTextEx(m_TitleFont, Title, 80, 2);
+    
+    GuiSetStyle(DEFAULT, TEXT_SIZE, 80);
+    GuiSetStyle(LABEL, TEXT_COLOR_NORMAL, ColorToInt(Color{ 255, 200, 100, 255 }));
+    GuiLabel(Rectangle{ (ScreenWidth - TitleSize.x) / 2.0f, 250.0f, TitleSize.x, 80.0f }, Title);
 
-    // Draw Menu Options
-    const char* Options[] = { "PLAY GAME", "EXIT" };
+    GuiSetStyle(DEFAULT, TEXT_SIZE, 40);
+    
+    // Draw Menu Options using raygui
     float StartY = 400.0f;
     float Padding = 60.0f;
+    const float btnWidth = 250.0f;
+    const float btnHeight = 50.0f;
 
-    for (int32_t i = 0; i < 2; ++i)
+    // Set Button Styles
+    GuiSetStyle(BUTTON, BASE_COLOR_NORMAL, ColorToInt(Color{ 30, 30, 30, 255 }));
+    GuiSetStyle(BUTTON, TEXT_COLOR_NORMAL, ColorToInt(GRAY));
+    GuiSetStyle(BUTTON, BORDER_COLOR_NORMAL, ColorToInt(Color{ 50, 50, 50, 255 }));
+    
+    GuiSetStyle(BUTTON, BASE_COLOR_FOCUSED, ColorToInt(Color{ 50, 50, 50, 255 }));
+    GuiSetStyle(BUTTON, TEXT_COLOR_FOCUSED, ColorToInt(WHITE));
+    GuiSetStyle(BUTTON, BORDER_COLOR_FOCUSED, ColorToInt(ORANGE));
+    
+    GuiSetStyle(BUTTON, BASE_COLOR_PRESSED, ColorToInt(Color{ 20, 20, 20, 255 }));
+    GuiSetStyle(BUTTON, TEXT_COLOR_PRESSED, ColorToInt(ORANGE));
+    GuiSetStyle(BUTTON, BORDER_COLOR_PRESSED, ColorToInt(ORANGE));
+
+    // PLAY GAME
+    if (m_SelectedOption == 0) GuiSetState(STATE_FOCUSED);
+    if (GuiButton(Rectangle{ (ScreenWidth - btnWidth) / 2.0f, StartY, btnWidth, btnHeight }, "PLAY GAME"))
     {
-        bool bIsSelected = (i == m_SelectedOption);
-        Color TextColor = bIsSelected ? WHITE : GRAY;
-        float FontSize = bIsSelected ? 40.0f * m_PulseScale : 40.0f;
-        
-        Vector2 TextSize = MeasureTextEx(m_TitleFont, Options[i], FontSize, 2);
-        Vector2 TextPos = 
-        {
-            (GetScreenWidth() - TextSize.x) / 2.0f,
-            StartY + (i * Padding)
-        };
-
-        if (bIsSelected)
-        {
-            DrawTextEx(m_TitleFont, ">", Vector2{ TextPos.x - 30, TextPos.y }, FontSize, 2, ORANGE);
-        }
-        
-        DrawTextEx(m_TitleFont, Options[i], TextPos, FontSize, 2, TextColor);
+        PlaySound(m_SelectSound);
+        RequestGotoMap("DemoLevel");
     }
+    GuiSetState(STATE_NORMAL);
+
+    // EXIT
+    if (m_SelectedOption == 1) GuiSetState(STATE_FOCUSED);
+    if (GuiButton(Rectangle{ (ScreenWidth - btnWidth) / 2.0f, StartY + Padding, btnWidth, btnHeight }, "EXIT"))
+    {
+        std::cout << "Exit Requested" << std::endl;
+        CloseWindow();
+    }
+    GuiSetState(STATE_NORMAL);
+    
+    // Restore default style
+    GuiSetStyle(DEFAULT, TEXT_SIZE, oldTextSize);
 }

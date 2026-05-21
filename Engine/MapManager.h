@@ -135,9 +135,9 @@ void MapManager::RegisterMap
 /*
 Disadvantages of macros:
 
-No type safety (compiler won’t catch mismatches).
+No type safety (compiler wonâ€™t catch mismatches).
 
-Harder to debug (the debugger doesn’t “see” macros).
+Harder to debug (the debugger doesnâ€™t â€œseeâ€ macros).
 
 Error messages can be confusing.
 
