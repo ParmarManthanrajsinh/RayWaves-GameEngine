@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include <string>
 #include <imgui.h>
 #include "../Editor/rlImGui/extras/IconsFontAwesome6.h"
@@ -48,77 +48,78 @@ inline void SetEngineTheme
 
     ImGuiStyle& style = ImGui::GetStyle();
 
-    // === STRICT BLACK + CRIMSON ===
-    // Deep blacks
-    ImVec4 bg_0 = ImVec4(0.05f, 0.05f, 0.05f, 1.00f);
-    ImVec4 bg_1 = ImVec4(0.08f, 0.08f, 0.08f, 1.00f);
-    ImVec4 bg_2 = ImVec4(0.12f, 0.12f, 0.12f, 1.00f);
-    ImVec4 bg_3 = ImVec4(0.18f, 0.18f, 0.18f, 1.00f);
+    // === MODERN RED THEME ===
+    // Deep charcoal blacks
+    ImVec4 bg_0 = ImVec4(0.08f, 0.08f, 0.09f, 1.00f); // Main window
+    ImVec4 bg_1 = ImVec4(0.12f, 0.12f, 0.13f, 1.00f); // Panels
+    ImVec4 bg_2 = ImVec4(0.16f, 0.16f, 0.17f, 1.00f); // Frames
+    ImVec4 bg_3 = ImVec4(0.20f, 0.20f, 0.21f, 1.00f); // Headers
 
-    // Crimson tones
-    ImVec4 red_primary = ImVec4(0.95f, 0.20f, 0.30f, 1.00f);
-    ImVec4 red_secondary = ImVec4(0.80f, 0.15f, 0.25f, 1.00f);
-    ImVec4 red_highlight = ImVec4(1.00f, 0.35f, 0.45f, 1.00f);
+    // Modern Red Accents
+    ImVec4 accent_primary = ImVec4(0.83f, 0.18f, 0.18f, 1.00f); // Vibrant Ruby Red
+    ImVec4 accent_secondary = ImVec4(0.94f, 0.33f, 0.31f, 1.00f); // Lighter Red
+    ImVec4 accent_highlight = ImVec4(1.00f, 0.40f, 0.40f, 1.00f); // Bright Red
 
     // Text
-    ImVec4 text_primary = ImVec4(0.90f, 0.90f, 0.90f, 1.00f);
-    ImVec4 text_disabled = ImVec4(0.40f, 0.40f, 0.40f, 1.00f);
+    ImVec4 text_primary = ImVec4(0.90f, 0.90f, 0.90f, 1.00f); 
+    ImVec4 text_disabled = ImVec4(0.50f, 0.50f, 0.50f, 1.00f);
 
-    // Hover/active/select overlays - Updated gray hover
-    ImVec4 hover = ImVec4(0.22f, 0.22f, 0.22f, 1.00f);
-    ImVec4 active = ImVec4(0.95f, 0.20f, 0.30f, 0.70f);
-    ImVec4 select = ImVec4(0.95f, 0.20f, 0.30f, 0.40f);
+    // Hover/active/select overlays
+    ImVec4 hover = ImVec4(0.24f, 0.24f, 0.25f, 1.00f); 
+    ImVec4 active = ImVec4(0.83f, 0.18f, 0.18f, 0.70f);
+    ImVec4 select = ImVec4(0.83f, 0.18f, 0.18f, 0.40f);
 
     // === Apply Colors ===
     style.Colors[ImGuiCol_Text] = text_primary;
     style.Colors[ImGuiCol_TextDisabled] = text_disabled;
-    style.Colors[ImGuiCol_WindowBg] = bg_1;
-    style.Colors[ImGuiCol_ChildBg] = bg_0;
-    style.Colors[ImGuiCol_PopupBg] = bg_1;
-    style.Colors[ImGuiCol_Border] = bg_3;
+    style.Colors[ImGuiCol_WindowBg] = bg_0;
+    style.Colors[ImGuiCol_ChildBg] = bg_1;
+    style.Colors[ImGuiCol_PopupBg] = bg_0;
+    style.Colors[ImGuiCol_Border] = ImVec4(0.10f, 0.10f, 0.10f, 1.00f);
 
     // Frames & Controls
     style.Colors[ImGuiCol_FrameBg] = bg_2;
     style.Colors[ImGuiCol_FrameBgHovered] = hover;
     style.Colors[ImGuiCol_FrameBgActive] = active;
-    style.Colors[ImGuiCol_CheckMark] = red_primary;
-    style.Colors[ImGuiCol_SliderGrab] = red_primary;
-    style.Colors[ImGuiCol_SliderGrabActive] = red_highlight;
+    style.Colors[ImGuiCol_CheckMark] = accent_highlight;
+    style.Colors[ImGuiCol_CheckboxSelectedBg] = bg_0;
+    style.Colors[ImGuiCol_SliderGrab] = accent_primary;
+    style.Colors[ImGuiCol_SliderGrabActive] = accent_highlight;
 
     // Buttons
     style.Colors[ImGuiCol_Button] = bg_2;
-    style.Colors[ImGuiCol_ButtonHovered] = hover;  // Updated to use gray hover
-    style.Colors[ImGuiCol_ButtonActive] = red_primary;
+    style.Colors[ImGuiCol_ButtonHovered] = hover;
+    style.Colors[ImGuiCol_ButtonActive] = accent_primary;
 
     // Tabs
     style.Colors[ImGuiCol_Tab] = bg_2;
-    style.Colors[ImGuiCol_TabHovered] = hover;  // Updated to use gray hover
-    style.Colors[ImGuiCol_TabActive] = red_primary;
+    style.Colors[ImGuiCol_TabHovered] = hover;
+    style.Colors[ImGuiCol_TabActive] = accent_primary;
     style.Colors[ImGuiCol_TabUnfocused] = bg_2;
-    style.Colors[ImGuiCol_TabUnfocusedActive] = red_secondary;
+    style.Colors[ImGuiCol_TabUnfocusedActive] = accent_secondary;
 
     // Headers
     style.Colors[ImGuiCol_Header] = bg_3;
     style.Colors[ImGuiCol_HeaderHovered] = hover;
-    style.Colors[ImGuiCol_HeaderActive] = red_primary;
+    style.Colors[ImGuiCol_HeaderActive] = accent_primary;
 
     // Scrollbars
-    style.Colors[ImGuiCol_ScrollbarBg] = bg_1;
+    style.Colors[ImGuiCol_ScrollbarBg] = bg_0;
     style.Colors[ImGuiCol_ScrollbarGrab] = bg_3;
     style.Colors[ImGuiCol_ScrollbarGrabHovered] = hover;  
-    style.Colors[ImGuiCol_ScrollbarGrabActive] = red_primary;
+    style.Colors[ImGuiCol_ScrollbarGrabActive] = accent_primary;
 
     // Highlights
     style.Colors[ImGuiCol_TextSelectedBg] = select;
-    style.Colors[ImGuiCol_DragDropTarget] = red_primary;
-    style.Colors[ImGuiCol_NavHighlight] = red_primary;
+    style.Colors[ImGuiCol_DragDropTarget] = accent_primary;
+    style.Colors[ImGuiCol_NavHighlight] = accent_primary;
 
     // === Modern Styling ===
-    style.WindowRounding = 6.0f;
-    style.FrameRounding = 5.0f;
-    style.ScrollbarRounding = 6.0f;
+    style.WindowRounding = 4.0f;
+    style.FrameRounding = 4.0f;
+    style.ScrollbarRounding = 4.0f;
     style.GrabRounding = 4.0f;
-    style.TabRounding = 5.0f;
+    style.TabRounding = 4.0f;
 
     style.WindowBorderSize = 1.0f;
     style.ChildBorderSize = 1.0f;
@@ -126,10 +127,10 @@ inline void SetEngineTheme
     style.FrameBorderSize = 1.0f;
     style.TabBorderSize = 1.0f;
 
-    style.WindowPadding = ImVec2(10.0f, 8.0f);
-    style.FramePadding = ImVec2(10.0f, 8.0f);
-    style.ItemSpacing = ImVec2(10.0f, 8.0f);
-    style.ItemInnerSpacing = ImVec2(5.0f, 4.0f);
+    style.WindowPadding = ImVec2(10.0f, 10.0f);
+    style.FramePadding = ImVec2(10.0f, 6.0f);
+    style.ItemSpacing = ImVec2(10.0f, 6.0f);
+    style.ItemInnerSpacing = ImVec2(6.0f, 4.0f);
     style.ScrollbarSize = 14.0f;
     style.GrabMinSize = 12.0f;
 
@@ -137,42 +138,38 @@ inline void SetEngineTheme
     style.ButtonTextAlign = ImVec2(0.5f, 0.5f);
 
     // --- PERFECT BLACK FOCUS / SELECTION / INTERACTION FIX ---
-    style.Colors[ImGuiCol_NavHighlight] = ImVec4(0.0f, 0.0f, 0.0f, 0.80f); // black focus
-    style.Colors[ImGuiCol_NavWindowingHighlight] = ImVec4(0.0f, 0.0f, 0.0f, 0.85f); // black overlay for selected window
-    style.Colors[ImGuiCol_NavWindowingDimBg] = ImVec4(0.0f, 0.0f, 0.0f, 0.60f); // dim background in black
-    style.Colors[ImGuiCol_ModalWindowDimBg] = ImVec4(0.0f, 0.0f, 0.0f, 0.70f); // modal dim in black
+    style.Colors[ImGuiCol_NavHighlight] = ImVec4(0.83f, 0.18f, 0.18f, 0.80f); 
+    style.Colors[ImGuiCol_NavWindowingHighlight] = ImVec4(1.0f, 1.0f, 1.0f, 0.70f); 
+    style.Colors[ImGuiCol_NavWindowingDimBg] = ImVec4(0.0f, 0.0f, 0.0f, 0.60f); 
+    style.Colors[ImGuiCol_ModalWindowDimBg] = ImVec4(0.0f, 0.0f, 0.0f, 0.70f); 
 
     // Window title bars - smooth state transitions
-    style.Colors[ImGuiCol_TitleBg] = bg_1;
-    style.Colors[ImGuiCol_TitleBgActive] = ImVec4(0.0f, 0.0f, 0.0f, 1.00f);
+    style.Colors[ImGuiCol_TitleBg] = bg_0;
+    style.Colors[ImGuiCol_TitleBgActive] = bg_1;
     style.Colors[ImGuiCol_TitleBgCollapsed] = bg_0;
 
     // Menu bar
     style.Colors[ImGuiCol_MenuBarBg] = bg_1;
 
     // === RESIZING ELEMENTS & BLOCKING FEATURES ===
-    // Resize grips - use dark red instead of blue
-    style.Colors[ImGuiCol_ResizeGrip] = ImVec4(0.30f, 0.05f, 0.05f, 0.70f); // dark red, semi-transparent
-    style.Colors[ImGuiCol_ResizeGripHovered] = ImVec4(0.50f, 0.10f, 0.10f, 0.80f); // lighter red on hover
-    style.Colors[ImGuiCol_ResizeGripActive] = red_primary; // bright red when active
+    style.Colors[ImGuiCol_ResizeGrip] = ImVec4(0.83f, 0.18f, 0.18f, 0.50f); 
+    style.Colors[ImGuiCol_ResizeGripHovered] = ImVec4(1.00f, 0.40f, 0.40f, 0.80f); 
+    style.Colors[ImGuiCol_ResizeGripActive] = accent_primary; 
 
-    // Docking elements - ensure no blue bleeding through
-    style.Colors[ImGuiCol_DockingPreview] = ImVec4(0.60f, 0.15f, 0.20f, 0.50f); // red docking preview
-    style.Colors[ImGuiCol_DockingEmptyBg] = bg_0; // black empty docking background
+    // Docking elements
+    style.Colors[ImGuiCol_DockingPreview] = ImVec4(0.83f, 0.18f, 0.18f, 0.50f); 
+    style.Colors[ImGuiCol_DockingEmptyBg] = bg_0; 
 
-    // Window background when docked/blocked
-    style.Colors[ImGuiCol_WindowBg] = bg_1; // ensure consistent dark background
+    // Plot colors (if using ImPlot)
+    style.Colors[ImGuiCol_PlotLines] = accent_primary;
+    style.Colors[ImGuiCol_PlotLinesHovered] = accent_highlight;
+    style.Colors[ImGuiCol_PlotHistogram] = accent_secondary;
+    style.Colors[ImGuiCol_PlotHistogramHovered] = accent_highlight;
 
-    // Plot colors (if using ImPlot) - replace any blue elements
-    style.Colors[ImGuiCol_PlotLines] = red_primary;
-    style.Colors[ImGuiCol_PlotLinesHovered] = red_highlight;
-    style.Colors[ImGuiCol_PlotHistogram] = red_secondary;
-    style.Colors[ImGuiCol_PlotHistogramHovered] = red_highlight;
-
-    // Table elements - ensure consistent theming
+    // Table elements
     style.Colors[ImGuiCol_TableHeaderBg] = bg_3;
-    style.Colors[ImGuiCol_TableBorderStrong] = ImVec4(0.20f, 0.05f, 0.05f, 1.00f); // dark red borders
-    style.Colors[ImGuiCol_TableBorderLight] = ImVec4(0.15f, 0.05f, 0.05f, 0.50f); // lighter red borders
-    style.Colors[ImGuiCol_TableRowBg] = ImVec4(0.0f, 0.0f, 0.0f, 0.0f); // transparent
-    style.Colors[ImGuiCol_TableRowBgAlt] = ImVec4(0.05f, 0.02f, 0.02f, 0.15f); // subtle dark red alt row
+    style.Colors[ImGuiCol_TableBorderStrong] = ImVec4(0.30f, 0.30f, 0.30f, 1.00f); 
+    style.Colors[ImGuiCol_TableBorderLight] = ImVec4(0.25f, 0.25f, 0.25f, 0.50f); 
+    style.Colors[ImGuiCol_TableRowBg] = ImVec4(0.0f, 0.0f, 0.0f, 0.0f); 
+    style.Colors[ImGuiCol_TableRowBgAlt] = ImVec4(1.0f, 1.0f, 1.0f, 0.05f); 
 }

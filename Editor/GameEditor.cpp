@@ -677,7 +677,7 @@ void GameEditor::DrawExportPanel()
     ImGui::PopItemWidth();
     
     ImGui::SameLine();
-    ImGui::Text("Ã—");
+    ImGui::Text("x");
     ImGui::SameLine();
     
     ImGui::PushItemWidth(80.0f);
