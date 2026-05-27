@@ -103,10 +103,8 @@ void GameEditor::Init(int width, int height, std::string_view title)
 
 	SetEngineTheme();
     
-    if (!std::filesystem::exists("imgui.ini"))
-    {
-	    LoadEditorDefaultIni();
-    }
+    // Load default layout directly since layout saving is disabled
+    LoadEditorDefaultIni();
 
 	if (GameConfig::GetInstance().m_bLoadFromFile("config.ini"))
 	{
@@ -2371,22 +2369,7 @@ void GameEditor::DrawMainMenuBar()
             ImGui::EndMenu();
         }
 
-        if (ImGui::BeginMenu("Layout"))
-        {
-            if (ImGui::MenuItem(ICON_FA_FLOPPY_DISK " Save Layout"))
-            {
-                ImGui::SaveIniSettingsToDisk(ImGui::GetIO().IniFilename);
-                m_Terminal.add_text("Editor layout saved manually.", term::Severity::Debug);
-            }
-            if (ImGui::MenuItem(ICON_FA_ROTATE_LEFT " Reset to Default"))
-            {
-                ImGui::ClearIniSettings();
-                if (ImGui::GetIO().IniFilename) 
-                    std::remove(ImGui::GetIO().IniFilename);
-                m_Terminal.add_text("Editor layout reset. Restart editor to see changes.", term::Severity::Warn);
-            }
-            ImGui::EndMenu();
-        }
+
 
         if (ImGui::BeginMenu("Tools"))
         {            

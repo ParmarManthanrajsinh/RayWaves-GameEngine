@@ -1,12 +1,14 @@
 #include<cstring>
+#include<string>
 #include<imgui.h>
+#include "rlImGui/extras/IconsFontAwesome6.h"
 
-// Optional: disable saving to file
-// ImGui::GetIO().IniFilename = nullptr;
+inline void LoadEditorDefaultIni()
+{
+    // Disable saving to file
+    ImGui::GetIO().IniFilename = nullptr;
 
-// Default docking layout for the editor, loaded on startup
-static constexpr std::string_view s_cEDITOR_DEFAULT_INI = 
-R"(
+    std::string ini = std::string(R"(
 [Window][WindowOverViewport_11111111]
 Pos=0,25
 Size=1280,695
@@ -17,56 +19,62 @@ Pos=60,60
 Size=400,400
 Collapsed=0
 
-[Window][Scene]
+[Window][)") + ICON_FA_IMAGE + R"( Scene]
 Pos=0,25
-Size=972,465
+Size=966,478
 Collapsed=0
-DockId=0x00000005,0
+DockId=0x00000001,0
 
-[Window][Map Selection]
-Pos=974,25
-Size=306,695
+[Window][)" + ICON_FA_MAP + R"( Map Selection]
+Pos=968,25
+Size=312,695
 Collapsed=0
-DockId=0x00000002,0
+DockId=0x00000003,0
 
-[Window][Export]
+[Window][)" + ICON_FA_FILE_EXPORT + R"( Export]
 Pos=0,25
 Size=972,465
 Collapsed=0
 DockId=0x00000005,2
 
-[Window][Scene Settings]
+[Window][)" + ICON_FA_GEARS + R"( Scene Settings]
 Pos=0,25
-Size=972,465
+Size=951,444
 Collapsed=0
-DockId=0x00000005,1
+DockId=0x00000001,1
 
 [Window][Performance Overlay]
 Pos=10,140
 Size=220,182
 Collapsed=0
 
-[Window][Debug Console]
-Pos=0,492
-Size=972,228
+[Window][Message Log]
+Pos=10,140
+Size=220,182
 Collapsed=0
-DockId=0x00000006,0
+
+[Window][)" + ICON_FA_TERMINAL + R"( Console]
+Pos=0,505
+Size=966,215
+Collapsed=0
+DockId=0x00000004,0
+
+[Window][##MainMenuBar]
+Size=1280,25
+Collapsed=0
 
 [Docking][Data]
-DockSpace       ID=0x08BD597D Window=0x1BBC0F80 Pos=0,25 Size=1280,695 Split=Y Selected=0xE601B12F
-  DockNode      ID=0x00000003 Parent=0x08BD597D SizeRef=1280,520 Split=X Selected=0xE601B12F
-    DockNode    ID=0x00000001 Parent=0x00000003 SizeRef=972,720 Split=Y Selected=0xE601B12F
-      DockNode  ID=0x00000005 Parent=0x00000001 SizeRef=972,490 CentralNode=1 Selected=0xE601B12F
-      DockNode  ID=0x00000006 Parent=0x00000001 SizeRef=972,228 HiddenTabBar=1 Selected=0x9F51CE4F
-    DockNode    ID=0x00000002 Parent=0x00000003 SizeRef=306,720 Selected=0x9D14B58E
-  DockNode      ID=0x00000004 Parent=0x08BD597D SizeRef=1280,198 Selected=0x9C2B5678
+DockSpace     ID=0x08BD597D Window=0x1BBC0F80 Pos=0,25 Size=1280,695 Split=X
+  DockNode    ID=0x00000002 Parent=0x08BD597D SizeRef=966,695 Split=Y Selected=0xE53DD001
+    DockNode  ID=0x00000001 Parent=0x00000002 SizeRef=951,478 CentralNode=1 Selected=0xE53DD001
+    DockNode  ID=0x00000004 Parent=0x00000002 SizeRef=951,215 Selected=0x8509AE9E
+  DockNode    ID=0x00000003 Parent=0x08BD597D SizeRef=312,695 Selected=0x38B9FCCC
+
 )";
 
-inline void LoadEditorDefaultIni()
-{
     ImGui::LoadIniSettingsFromMemory
     (
-        s_cEDITOR_DEFAULT_INI.data(), strlen(s_cEDITOR_DEFAULT_INI.data())
+        ini.c_str(), ini.size()
     );
 }
 
