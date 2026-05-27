@@ -19,11 +19,11 @@ enum EEditorFont : int
 // ============================================================================
 //  Accent color accessors  (so other code can reference the theme)
 // ============================================================================
-inline ImVec4 GetAccentColor()        { return ImVec4(0.75f, 0.15f, 0.15f, 1.00f); }
-inline ImVec4 GetAccentHoverColor()   { return ImVec4(0.88f, 0.28f, 0.28f, 1.00f); }
-inline ImVec4 GetAccentActiveColor()  { return ImVec4(0.95f, 0.35f, 0.35f, 1.00f); }
-inline ImU32  GetAccentU32()          { return IM_COL32(191, 38, 38, 255); }
-inline ImU32  GetAccentDimU32()       { return IM_COL32(191, 38, 38, 100); }
+inline ImVec4 GetAccentColor()        { return ImVec4(0.839f, 0.188f, 0.192f, 1.00f); } // #D63031
+inline ImVec4 GetAccentHoverColor()   { return ImVec4(0.939f, 0.288f, 0.292f, 1.00f); }
+inline ImVec4 GetAccentActiveColor()  { return ImVec4(0.739f, 0.088f, 0.092f, 1.00f); }
+inline ImU32  GetAccentU32()          { return IM_COL32(214, 48, 49, 255); }
+inline ImU32  GetAccentDimU32()       { return IM_COL32(214, 48, 49, 100); }
 
 // ============================================================================
 //  SetEngineTheme — call once after rlImGuiSetup
@@ -114,31 +114,31 @@ inline void SetEngineTheme
     // ════════════════════════════════════════════════════════════════════
     ImGuiStyle& style = ImGui::GetStyle();
 
-    // Background layers (darkest → lightest)
-    ImVec4 bg_base     = ImVec4(0.098f, 0.098f, 0.110f, 1.00f); // #191919 — main window
-    ImVec4 bg_panel    = ImVec4(0.118f, 0.118f, 0.133f, 1.00f); // #1E1E22 — child/panel
-    ImVec4 bg_frame    = ImVec4(0.145f, 0.145f, 0.160f, 1.00f); // #252529 — input frames
-    ImVec4 bg_header   = ImVec4(0.165f, 0.165f, 0.180f, 1.00f); // #2A2A2E — headers
-    ImVec4 bg_elevated = ImVec4(0.200f, 0.200f, 0.215f, 1.00f); // #333337 — elevated
+    // Background layers (darkest -> lightest)
+    ImVec4 bg_base     = ImVec4(0.082f, 0.094f, 0.118f, 1.00f); // #15181E - main window
+    ImVec4 bg_panel    = ImVec4(0.102f, 0.110f, 0.137f, 1.00f); // #1A1C23 - child/panel
+    ImVec4 bg_frame    = ImVec4(0.125f, 0.137f, 0.165f, 1.00f); // #20232A - input frames
+    ImVec4 bg_header   = ImVec4(0.145f, 0.157f, 0.188f, 1.00f); // #252830 - headers
+    ImVec4 bg_elevated = ImVec4(0.165f, 0.177f, 0.208f, 1.00f); // #2A2D35 - elevated
 
-    // Accent (subdued ruby red)
+    // Accent
     ImVec4 accent         = GetAccentColor();
     ImVec4 accent_hover   = GetAccentHoverColor();
     ImVec4 accent_active  = GetAccentActiveColor();
-    ImVec4 accent_dim     = ImVec4(0.75f, 0.15f, 0.15f, 0.40f);
+    ImVec4 accent_dim     = ImVec4(0.839f, 0.188f, 0.192f, 0.40f);
 
     // Text
-    ImVec4 text_primary   = ImVec4(0.85f, 0.85f, 0.85f, 1.00f);
-    ImVec4 text_secondary = ImVec4(0.55f, 0.55f, 0.55f, 1.00f);
+    ImVec4 text_primary   = ImVec4(0.90f, 0.90f, 0.92f, 1.00f);
+    ImVec4 text_secondary = ImVec4(0.60f, 0.62f, 0.65f, 1.00f);
 
     // Interactive overlays
-    ImVec4 hover  = ImVec4(0.22f, 0.22f, 0.24f, 1.00f);
-    ImVec4 active = ImVec4(0.75f, 0.15f, 0.15f, 0.60f);
-    ImVec4 select = ImVec4(0.75f, 0.15f, 0.15f, 0.30f);
+    ImVec4 hover  = ImVec4(0.22f, 0.23f, 0.26f, 1.00f);
+    ImVec4 active = ImVec4(0.839f, 0.188f, 0.192f, 0.60f);
+    ImVec4 select = ImVec4(0.839f, 0.188f, 0.192f, 0.30f);
 
     // Border
-    ImVec4 border       = ImVec4(0.14f, 0.14f, 0.16f, 1.00f);
-    ImVec4 border_light = ImVec4(0.20f, 0.20f, 0.22f, 0.50f);
+    ImVec4 border       = ImVec4(0.18f, 0.20f, 0.23f, 1.00f);
+    ImVec4 border_light = ImVec4(0.24f, 0.26f, 0.29f, 0.50f);
 
     // ════════════════════════════════════════════════════════════════════
     //  APPLY COLORS

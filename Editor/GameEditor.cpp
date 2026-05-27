@@ -3,6 +3,8 @@
 #include "GameEditor.h"
 #include "ProcessRunner.h"
 #include <imgui/imgui_stdlib.h>
+#include <imgui_internal.h>
+#include <cstdio>
 using Clock = std::chrono::steady_clock;
 
 // Export Utility functions
@@ -19,6 +21,8 @@ static bool s_bfValidateExportFolder
 	std::vector<std::string>& logs, 
 	std::mutex& mtx
 );
+
+bool g_bNeedsTextureRecreate = false;
 
 GameEditor::GameEditor()
 	: m_Viewport(nullptr),
@@ -98,7 +102,11 @@ void GameEditor::Init(int width, int height, std::string_view title)
 	rlImGuiReloadFonts();
 
 	SetEngineTheme();
-	LoadEditorDefaultIni();
+    
+    if (!std::filesystem::exists("imgui.ini"))
+    {
+	    LoadEditorDefaultIni();
+    }
 
 	if (GameConfig::GetInstance().m_bLoadFromFile("config.ini"))
 	{
@@ -174,6 +182,22 @@ void GameEditor::Run()
 		{
 			m_GameEngine.UpdateMap(delta_time);
 		}
+
+		// Handle deferred texture recreation outside ImGui render loop to avoid OpenGL crashes
+		extern bool g_bNeedsTextureRecreate;
+		if (g_bNeedsTextureRecreate)
+		{
+			g_bNeedsTextureRecreate = false;
+			UnloadRenderTexture(m_RaylibTexture);
+			if (m_DisplayTexture.id != 0) UnloadRenderTexture(m_DisplayTexture);
+
+			m_RaylibTexture = LoadRenderTexture(m_SceneSettings.m_SceneWidth, m_SceneSettings.m_SceneHeight);
+			m_DisplayTexture = LoadRenderTexture(m_SceneSettings.m_SceneWidth, m_SceneSettings.m_SceneHeight);
+
+			SetTextureFilter(m_RaylibTexture.texture, TEXTURE_FILTER_BILINEAR);
+			SetTextureFilter(m_DisplayTexture.texture, TEXTURE_FILTER_BILINEAR);
+		}
+
 		BeginDrawing();
 
 		BeginTextureMode(m_RaylibTexture);
@@ -207,6 +231,7 @@ void GameEditor::Run()
 
 		ImGui::DockSpaceOverViewport(0, m_Viewport);
 
+        DrawMainMenuBar();
 		DrawMapSelectionUI();
         DrawExportPanel();
 		DrawSceneSettingsPanel();
@@ -367,7 +392,13 @@ static bool s_bIconButton
 
 void GameEditor::DrawSceneWindow()
 {
-	ImGui::Begin("Scene");
+	ImGuiStyle& style = ImGui::GetStyle();
+	ImGuiDir old_menu_pos = style.WindowMenuButtonPosition;
+	style.WindowMenuButtonPosition = ImGuiDir_None;
+
+	ImGui::Begin(ICON_FA_IMAGE " Scene");
+
+	style.WindowMenuButtonPosition = old_menu_pos;
 	DrawToolbarBackground();
 
 	ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(4, 4));
@@ -540,6 +571,7 @@ void GameEditor::DrawSceneWindow()
     ImGui::PopStyleColor();
     ImGui::SameLine();
 
+
 	// Compile
 	float button_sz = 32.0f + ImGui::GetStyle().FramePadding.x * 2.0f;
 	float status_sz = 0.0f;
@@ -659,7 +691,24 @@ void GameEditor::DrawSceneWindow()
 
 void GameEditor::DrawExportPanel()
 {
-    ImGui::Begin("Export", nullptr, ImGuiWindowFlags_NoCollapse);
+    if (!m_bShowExport) 
+	{
+		return;
+	}
+    
+    ImGuiStyle& style = ImGui::GetStyle();
+    ImGuiDir old_menu_pos = style.WindowMenuButtonPosition;
+    style.WindowMenuButtonPosition = ImGuiDir_None;
+
+    bool b_begin = ImGui::Begin(ICON_FA_FILE_EXPORT " Export", &m_bShowExport);
+
+    style.WindowMenuButtonPosition = old_menu_pos;
+
+    if (!b_begin)
+    {
+        ImGui::End();
+        return;
+    }
 
     // Join previous worker if it finished to avoid accumulating threads
     if (!m_ExportState.m_bIsExporting && 
@@ -858,9 +907,24 @@ void GameEditor::DrawExportPanel()
 
     ImGui::Spacing();
     
-    // Warning message
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.8f, 0.2f, 1.0f));
-    ImGui::TextWrapped("Note: Close the editor before exporting to avoid file conflicts.");
+    // Info Box for export warning
+    ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.12f, 0.16f, 0.24f, 1.0f)); // Subtle blue tint
+    ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 4.0f);
+    if (ImGui::BeginChild("export_info_box", ImVec2(0, 50), false))
+    {
+        ImGui::SetCursorPos(ImVec2(10, 10));
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.4f, 0.6f, 1.0f, 1.0f));
+        ImGui::Text(ICON_FA_CIRCLE_INFO);
+        ImGui::PopStyleColor();
+        
+        ImGui::SameLine();
+        ImGui::SetCursorPosY(10);
+        ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyle().Colors[ImGuiCol_TextDisabled]);
+        ImGui::TextWrapped("Note: Close the editor before exporting to avoid file conflicts.");
+        ImGui::PopStyleColor();
+    }
+    ImGui::EndChild();
+    ImGui::PopStyleVar();
     ImGui::PopStyleColor();
     
     ImGui::Spacing();
@@ -877,20 +941,11 @@ void GameEditor::DrawExportPanel()
 			(window_width - button_width) * 0.5f
 		);
         
-        ImGui::PushStyleColor
-		(
-			ImGuiCol_Button, ImVec4(0.2f, 0.7f, 0.2f, 1.0f)
-		);
-        ImGui::PushStyleColor
-		(
-			ImGuiCol_ButtonHovered, ImVec4(0.3f, 0.8f, 0.3f, 1.0f)
-		);
-        ImGui::PushStyleColor
-		(
-			ImGuiCol_ButtonActive, ImVec4(0.1f, 0.6f, 0.1f, 1.0f)
-		);
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.839f, 0.188f, 0.192f, 0.8f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.839f, 0.188f, 0.192f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.6f, 0.1f, 0.1f, 1.0f));
         
-        if (ImGui::Button("Start Export", ImVec2(button_width, 40.0f)))
+        if (ImGui::Button(ICON_FA_PLAY " Start Export", ImVec2(button_width, 40.0f)))
         {
             m_ExportState.m_bIsExporting = true;
             m_ExportState.m_bCancelExport = false;
@@ -1405,7 +1460,24 @@ void GameEditor::DrawExportPanel()
 
 void GameEditor::DrawSceneSettingsPanel()
 {
-    ImGui::Begin("Scene Settings", nullptr, ImGuiWindowFlags_NoCollapse);
+	if (!m_bShowSceneSettings)
+	{
+		return;
+	}
+    
+    ImGuiStyle& style = ImGui::GetStyle();
+    ImGuiDir old_menu_pos = style.WindowMenuButtonPosition;
+    style.WindowMenuButtonPosition = ImGuiDir_None;
+
+    bool b_begin = ImGui::Begin(ICON_FA_GEARS " Scene Settings", &m_bShowSceneSettings);
+
+    style.WindowMenuButtonPosition = old_menu_pos;
+
+    if (!b_begin)
+    {
+        ImGui::End();
+        return;
+    }
 
     // Store previous values to detect changes
     static int s_PrevWidth = m_SceneSettings.m_SceneWidth;
@@ -1462,19 +1534,13 @@ void GameEditor::DrawSceneSettingsPanel()
     if (m_SceneSettings.m_SceneHeight > 4320) m_SceneSettings.m_SceneHeight = 4320;
 
     // Check if resolution changed
-    b_ResolutionChanged = (s_PrevWidth != m_SceneSettings.m_SceneWidth || s_PrevHeight != m_SceneSettings.m_SceneHeight);
+    bool b_ResolutionChanged = (s_PrevWidth != m_SceneSettings.m_SceneWidth || s_PrevHeight != m_SceneSettings.m_SceneHeight);
 
+    extern bool g_bNeedsTextureRecreate;
     if (b_ResolutionChanged)
     {
-        // Update render textures with new resolution
-        UnloadRenderTexture(m_RaylibTexture);
-        UnloadRenderTexture(m_DisplayTexture);
-
-        m_RaylibTexture = LoadRenderTexture(m_SceneSettings.m_SceneWidth, m_SceneSettings.m_SceneHeight);
-        m_DisplayTexture = LoadRenderTexture(m_SceneSettings.m_SceneWidth, m_SceneSettings.m_SceneHeight);
-
-        SetTextureFilter(m_RaylibTexture.texture, TEXTURE_FILTER_BILINEAR);
-        SetTextureFilter(m_DisplayTexture.texture, TEXTURE_FILTER_BILINEAR);
+        // Defer render textures recreation to outside the ImGui frame
+        g_bNeedsTextureRecreate = true;
 
         // Update scene bounds for game map/manager
         if (m_MapManager)
@@ -1545,15 +1611,29 @@ void GameEditor::DrawSceneSettingsPanel()
 
     ImGui::Spacing();
     ImGui::Spacing();
-    ImGui::Separator();
-    ImGui::Spacing();
-
-    ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyle().Colors[ImGuiCol_TextDisabled]);
-    ImGui::TextWrapped
-    (
-        "This sets the resolution of the scene viewport that your game will use during development. "
-        "The export resolution can be set separately in the Export panel."
-    );
+    
+    // Info Box
+    ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.12f, 0.16f, 0.24f, 1.0f)); // Subtle blue tint
+    ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 4.0f);
+    if (ImGui::BeginChild("info_box", ImVec2(0, 60), false))
+    {
+        ImGui::SetCursorPos(ImVec2(10, 10));
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.4f, 0.6f, 1.0f, 1.0f));
+        ImGui::Text(ICON_FA_CIRCLE_INFO);
+        ImGui::PopStyleColor();
+        
+        ImGui::SameLine();
+        ImGui::SetCursorPosY(10);
+        ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyle().Colors[ImGuiCol_TextDisabled]);
+        ImGui::TextWrapped
+        (
+            "This sets the resolution of the scene viewport that your game will use during development. "
+            "The export resolution can be set separately in the Export panel."
+        );
+        ImGui::PopStyleColor();
+    }
+    ImGui::EndChild();
+    ImGui::PopStyleVar();
     ImGui::PopStyleColor();
 
     ImGui::Spacing();
@@ -1564,7 +1644,7 @@ void GameEditor::DrawSceneSettingsPanel()
     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImGui::GetStyle().Colors[ImGuiCol_FrameBgHovered]);
     ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImGui::GetStyle().Colors[ImGuiCol_FrameBgActive]);
     
-    if (ImGui::Button("Copy to Export Settings", ImVec2(240.0f, 32.0f)))
+    if (ImGui::Button(ICON_FA_COPY " Copy to Export Settings", ImVec2(240.0f, 32.0f)))
     {
         m_ExportState.m_WindowWidth = m_SceneSettings.m_SceneWidth;
         m_ExportState.m_WindowHeight = m_SceneSettings.m_SceneHeight;
@@ -1833,18 +1913,28 @@ void GameEditor::DrawMapSelectionUI()
 	{
 		return;
 	}
-
-	ImGui::Begin("Map Selection", nullptr, ImGuiWindowFlags_NoCollapse);
+	ImGui::Begin(ICON_FA_MAP " Map Selection", nullptr, ImGuiWindowFlags_NoCollapse);
     
-    ImGui::Spacing();
-    ImGui::SeparatorText("Map Status");
-    ImGui::Spacing();
-
-    ImGui::Text("Current Map: ");
-    ImGui::SameLine();
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.83f, 0.18f, 0.18f, 1.0f)); // Accent color
+    // Map Status Box
+    ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 4.0f);
+    ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::GetStyle().Colors[ImGuiCol_FrameBg]);
+    ImGui::BeginChild("map_status_box", ImVec2(0, 80), false, ImGuiWindowFlags_NoScrollbar);
+    ImGui::SetCursorPos(ImVec2(10, 10));
+    ImGui::TextDisabled("Map Status");
+    
+    // Draw red dot indicator
+    ImVec2 p = ImGui::GetCursorScreenPos();
+    ImGui::GetWindowDrawList()->AddCircleFilled(ImVec2(p.x + ImGui::GetContentRegionAvail().x - 10, p.y - 10), 4.0f, IM_COL32(214, 48, 49, 255));
+    
+    ImGui::SetCursorPos(ImVec2(10, 40));
+    ImGui::Text("Current Map:");
+    ImGui::SameLine(ImGui::GetContentRegionAvail().x - ImGui::CalcTextSize(m_MapManager->GetCurrentMapId().c_str()).x - 5);
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.839f, 0.188f, 0.192f, 1.0f)); // Accent color
     ImGui::Text("%s", m_MapManager->GetCurrentMapId().c_str());
     ImGui::PopStyleColor();
+    ImGui::EndChild();
+    ImGui::PopStyleColor();
+    ImGui::PopStyleVar();
 
 	ImGui::Spacing();
     ImGui::Spacing();
@@ -1860,7 +1950,9 @@ void GameEditor::DrawMapSelectionUI()
 	}
 	else
 	{
-        ImGui::SeparatorText("Available Maps");
+        // Available Maps section
+        ImGui::SetCursorPosX(10);
+        ImGui::TextDisabled(ICON_FA_LAYER_GROUP " Available Maps");
 		ImGui::Spacing();
 
 		// Create a combo box for map selection
@@ -1879,7 +1971,7 @@ void GameEditor::DrawMapSelectionUI()
 
         if (ImGui::BeginTable("##map_selection_table", 2, ImGuiTableFlags_None))
         {
-            ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthFixed, 100.0f);
+            ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthFixed, 80.0f);
             ImGui::TableSetupColumn("Widget", ImGuiTableColumnFlags_WidthStretch);
 
             ImGui::TableNextRow();
@@ -1933,8 +2025,11 @@ void GameEditor::DrawMapSelectionUI()
         ImGui::Spacing();
 
 		// Quick access buttons for each map
-		ImGui::SeparatorText("Quick Access");
+        ImGui::SetCursorPosX(10);
+		ImGui::TextDisabled(ICON_FA_BOLT " Quick Access");
 		ImGui::Spacing();
+
+        ImGui::PushStyleVar(ImGuiStyleVar_ButtonTextAlign, ImVec2(0.05f, 0.5f));
 
 		for (int i = 0; i < available_maps.size(); ++i)
 		{
@@ -1945,29 +2040,34 @@ void GameEditor::DrawMapSelectionUI()
 			// Style current map button with accent color
 			if (b_IsCurrent)
 			{
-				ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.83f, 0.18f, 0.18f, 0.6f));
-				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(1.00f, 0.40f, 0.40f, 0.8f));
-				ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.83f, 0.18f, 0.18f, 1.0f));
+				ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.839f, 0.188f, 0.192f, 1.0f));
+				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.939f, 0.288f, 0.292f, 1.0f));
+				ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.739f, 0.088f, 0.092f, 1.0f));
 			}
 			// Style MainMap differently but cleanly
 			else if (b_IsMain)
 			{
-				ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.25f, 0.25f, 0.27f, 1.0f));
-				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.35f, 0.35f, 0.37f, 1.0f));
-				ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.45f, 0.45f, 0.47f, 1.0f));
+				ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.125f, 0.137f, 0.165f, 1.0f));
+				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.145f, 0.157f, 0.188f, 1.0f));
+				ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.165f, 0.177f, 0.208f, 1.0f));
 			}
 
 			// Add a special label for MainMap
 			std::string button_label = MAP_ID;
 			if (b_IsMain) button_label += " (Main)";
 
-			if (ImGui::Button(button_label.c_str(), ImVec2(-1, 32.0f))) // Professional larger buttons
+            ImVec2 start_pos = ImGui::GetCursorScreenPos();
+            
+			if (ImGui::Button(button_label.c_str(), ImVec2(-1, 36.0f))) // Professional larger buttons
 			{
 				if (MAP_ID != curr_map_id)
 				{
 					m_MapManager->b_GotoMap(MAP_ID);
 				}
 			}
+            
+            // Draw right aligned icon
+            ImGui::GetWindowDrawList()->AddText(ImVec2(start_pos.x + ImGui::GetContentRegionAvail().x - 20, start_pos.y + 10), ImGui::GetColorU32(ImGuiCol_Text), ICON_FA_ARROW_RIGHT_TO_BRACKET);
 
 			// Pop style colors if we pushed them
 			if (b_IsCurrent || b_IsMain)
@@ -1976,7 +2076,10 @@ void GameEditor::DrawMapSelectionUI()
 			}
             
             ImGui::Spacing();
+            ImGui::Spacing();
 		}
+        
+        ImGui::PopStyleVar();
 	}
 
 	ImGui::End();
@@ -2063,7 +2166,7 @@ void GameEditor::DrawTerminal()
 {
     if (m_bShowTerminal) 
     {
-        m_Terminal.show("Debug Console", &m_bShowTerminal);
+        m_Terminal.show(ICON_FA_TERMINAL " Console", &m_bShowTerminal);
     }
 }
 
@@ -2252,4 +2355,106 @@ void GameEditor::DrawMessageLog()
         }
     }
     ImGui::End();
+}
+
+void GameEditor::DrawMainMenuBar()
+{
+    if (ImGui::BeginMainMenuBar())
+    {
+        if (ImGui::BeginMenu("View"))
+        {
+            ImGui::MenuItem(ICON_FA_TERMINAL " Console", nullptr, &m_bShowTerminal);
+            ImGui::MenuItem(ICON_FA_CHART_LINE " Performance Stats", nullptr, &m_bShowPerformanceStats);
+            ImGui::MenuItem(ICON_FA_LIST " Message Log", nullptr, &bShowMessageLog);
+            ImGui::EndMenu();
+        }
+
+        if (ImGui::BeginMenu("Settings"))
+        {
+            ImGui::MenuItem(ICON_FA_GEARS " Scene Settings", nullptr, &m_bShowSceneSettings);
+            ImGui::EndMenu();
+        }
+
+        if (ImGui::BeginMenu("Layout"))
+        {
+            if (ImGui::MenuItem(ICON_FA_FLOPPY_DISK " Save Layout"))
+            {
+                ImGui::SaveIniSettingsToDisk(ImGui::GetIO().IniFilename);
+                m_Terminal.add_text("Editor layout saved manually.", term::Severity::Debug);
+            }
+            if (ImGui::MenuItem(ICON_FA_ROTATE_LEFT " Reset to Default"))
+            {
+                ImGui::ClearIniSettings();
+                if (ImGui::GetIO().IniFilename) 
+                    std::remove(ImGui::GetIO().IniFilename);
+                m_Terminal.add_text("Editor layout reset. Restart editor to see changes.", term::Severity::Warn);
+            }
+            ImGui::EndMenu();
+        }
+
+        if (ImGui::BeginMenu("Tools"))
+        {            
+            if (ImGui::MenuItem(ICON_FA_HAMMER " Force Recompile"))
+            {
+                // Trigger recompile
+                b_IsCompiling = true;
+                b_IsPlaying = false;
+
+                if (!b_ReloadGameLogic())
+				{
+					m_GameEngine.ResetMap();
+				}
+
+                m_bShowTerminal = true;
+                m_Terminal.add_text("Starting build process...", term::Severity::Debug);
+
+                BuildStatus = EBuildStatus::Compiling;
+                {
+                    std::lock_guard<std::mutex> lock(BuildMessagesMutex);
+                    BuildMessages.clear();
+                }
+
+                ProcessRunner::RunBuildCommand
+				(
+                    "build_gamelogic.bat nopause",
+                    [this](const std::string_view line, bool isError) 
+					{
+                        ParseBuildLine(line);
+                        m_Terminal.add_text(line, isError ? term::Severity::Error : term::Severity::Debug);
+                    },
+                    [this](bool success) 
+					{
+                        if (success) 
+						{
+                            m_Terminal.add_text("Build Successful.", term::Severity::Debug);
+                            BuildStatus = EBuildStatus::Success;
+                            NotificationTimer = 4.0f;
+                        } 
+						else 
+						{
+                            m_Terminal.add_text("Build Failed.", term::Severity::Error);
+                            BuildStatus = EBuildStatus::Failed;
+                            bShowMessageLog = true;
+                            NotificationTimer = 10.0f;
+                        }
+                        b_IsCompiling = false;
+                    }
+                );
+            }
+            ImGui::EndMenu();
+        }
+
+		if (ImGui::BeginMenu("Export"))
+		{
+			ImGui::MenuItem(ICON_FA_FILE_EXPORT " Export", nullptr, &m_bShowExport);
+			ImGui::EndMenu();
+		}
+
+        // Align right for engine version
+        float version_width = ImGui::CalcTextSize(version.c_str()).x + 20.0f;
+        ImGui::SameLine(ImGui::GetWindowWidth() - version_width);
+        ImGui::TextDisabled(version.c_str());
+
+        ImGui::EndMainMenuBar();
+    }
 }

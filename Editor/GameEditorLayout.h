@@ -8,8 +8,8 @@
 static constexpr std::string_view s_cEDITOR_DEFAULT_INI = 
 R"(
 [Window][WindowOverViewport_11111111]
-Pos=0,0
-Size=1280,720
+Pos=0,25
+Size=1280,695
 Collapsed=0
 
 [Window][Debug##Default]
@@ -18,26 +18,26 @@ Size=400,400
 Collapsed=0
 
 [Window][Scene]
-Pos=0,0
-Size=972,490
+Pos=0,25
+Size=972,465
 Collapsed=0
 DockId=0x00000005,0
 
 [Window][Map Selection]
-Pos=974,0
-Size=306,720
+Pos=974,25
+Size=306,695
 Collapsed=0
 DockId=0x00000002,0
 
 [Window][Export]
-Pos=0,0
-Size=972,490
+Pos=0,25
+Size=972,465
 Collapsed=0
 DockId=0x00000005,2
 
 [Window][Scene Settings]
-Pos=0,0
-Size=972,490
+Pos=0,25
+Size=972,465
 Collapsed=0
 DockId=0x00000005,1
 
@@ -53,7 +53,7 @@ Collapsed=0
 DockId=0x00000006,0
 
 [Docking][Data]
-DockSpace       ID=0x08BD597D Window=0x1BBC0F80 Pos=0,0 Size=1280,720 Split=Y Selected=0xE601B12F
+DockSpace       ID=0x08BD597D Window=0x1BBC0F80 Pos=0,25 Size=1280,695 Split=Y Selected=0xE601B12F
   DockNode      ID=0x00000003 Parent=0x08BD597D SizeRef=1280,520 Split=X Selected=0xE601B12F
     DockNode    ID=0x00000001 Parent=0x00000003 SizeRef=972,720 Split=Y Selected=0xE601B12F
       DockNode  ID=0x00000005 Parent=0x00000001 SizeRef=972,490 CentralNode=1 Selected=0xE601B12F

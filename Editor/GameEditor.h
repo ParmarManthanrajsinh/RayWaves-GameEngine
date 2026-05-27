@@ -56,6 +56,8 @@ public:
 private:
     void Close() const;
 
+    std::string version = "Raywaves v0.4.0";
+
     GameEngine m_GameEngine;
     ImGuiViewport* m_Viewport;
 
@@ -63,6 +65,7 @@ private:
     RenderTexture2D m_DisplayTexture;
     Texture2D m_SourceTexture;
 
+    void DrawMainMenuBar();
     void DrawSceneWindow();
     void DrawMapSelectionUI();
     void DrawExportPanel();
@@ -139,4 +142,8 @@ private:
     term::Terminal m_Terminal;
     bool m_bShowTerminal = true;
     void DrawTerminal();
+    
+    // Window visibility flags
+    bool m_bShowSceneSettings = false;
+    bool m_bShowExport = false;
 };

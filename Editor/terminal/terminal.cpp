@@ -5,7 +5,18 @@
 #include <mutex>
 #include <thread>
 #include <memory>
+#include <chrono>
+#include <ctime>
 #include <imgui_internal.h>
+#define _CRTDBG_MAP_ALLOC
+#include <stdlib.h>
+#include <crtdbg.h>
+
+#ifdef _DEBUG
+#define DEBUG_NEW new(_NORMAL_BLOCK, __FILE__, __LINE__)
+#define new DEBUG_NEW
+#endif
+
 #include "terminal.h"
 #include "../GameEditorTheme.h"
 
@@ -126,7 +137,19 @@ namespace term
     void Terminal::add_text(std::string_view text, Severity severity) 
     {
         if (is_shutting_down()) return;
-        Message msg(text, severity);
+
+        auto now = std::chrono::system_clock::now();
+        std::time_t now_c = std::chrono::system_clock::to_time_t(now);
+        std::tm now_tm;
+#ifdef _WIN32
+        localtime_s(&now_tm, &now_c);
+#else
+        localtime_r(&now_c, &now_tm);
+#endif
+        char time_buf[16];
+        std::strftime(time_buf, sizeof(time_buf), "%H:%M:%S", &now_tm);
+
+        Message msg(text, severity, time_buf);
         add_message(msg);
     }
 
@@ -178,7 +201,15 @@ namespace term
         );
 
         // Use a generic window so it can be docked
-        if (!ImGui::Begin(window_title.data(), p_open))
+        ImGuiStyle& style = ImGui::GetStyle();
+        ImGuiDir old_menu_pos = style.WindowMenuButtonPosition;
+        style.WindowMenuButtonPosition = ImGuiDir_None;
+
+        bool b_begin = ImGui::Begin(window_title.data(), p_open);
+
+        style.WindowMenuButtonPosition = old_menu_pos;
+
+        if (!b_begin)
         {
             ImGui::PopStyleVar(2);
             ImGui::PopStyleColor(2);
@@ -209,46 +240,30 @@ namespace term
     {
         ImGui::BeginGroup();
         
-        ImGui::PushStyleColor(ImGuiCol_Button, m_theme.button_bg);
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0)); // transparent button
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, m_theme.button_hover);
         ImGui::PushStyleColor(ImGuiCol_ButtonActive, m_theme.button_active);
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
 
-        // Modern flat toolbar styling
-        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 2.0f);
+        float clear_btn_width = ImGui::CalcTextSize(ICON_FA_TRASH_CAN " Clear Log").x + ImGui::GetStyle().FramePadding.x * 2.0f;
         
-        if (ImGui::Button(" Clear Log ")) clear();
-        
-        ImGui::SameLine(0, 10.0f);
-        
-        // Options Menu
-        ImGui::SetNextItemWidth(120.0f);
-        if (ImGui::BeginCombo("##Options", "Settings", ImGuiComboFlags_NoPreview))
-        {
-            ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(4, 4));
-
-            bool b_auto_scroll = m_auto_scroll;
-            bool b_auto_wrap = m_auto_wrap;
-            if (ImGui::Checkbox("Auto-scroll", &b_auto_scroll)) m_auto_scroll = b_auto_scroll;
-            if (ImGui::Checkbox("Word Wrap", &b_auto_wrap)) m_auto_wrap = b_auto_wrap;
-            
-            ImGui::PopStyleVar();
-            ImGui::EndCombo();
-        }
-        if (ImGui::IsItemHovered()) ImGui::SetTooltip("Terminal Options");
-
-        ImGui::SameLine(0, 10.0f);
-
         // Search/Filter
-        ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
-        ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.1f, 0.1f, 0.12f, 1.0f));
+        ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - clear_btn_width - ImGui::GetStyle().ItemSpacing.x * 2.0f);
+        ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.08f, 0.08f, 0.09f, 1.0f));
         ImGui::InputTextWithHint
         (
             "##Filter", 
-            "Search logs...", 
+            ICON_FA_FILTER " Search logs...", 
             m_filter_buf, 
             sizeof(m_filter_buf)
         );
         ImGui::PopStyleColor(); // InputBg
+
+        ImGui::SameLine();
+        
+        ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x - clear_btn_width);
+        
+        if (ImGui::Button(ICON_FA_TRASH_CAN " Clear Log")) clear();
 
         ImGui::PopStyleVar();
         ImGui::PopStyleColor(3); // Buttons
@@ -294,13 +309,22 @@ namespace term
                     
                     if (!is_valid_severity(static_cast<int>(msg.severity))) continue;
                     
-                    ImVec4 color = get_severity_color(msg.severity, m_theme);
-
-                    ImGui::PushStyleColor(ImGuiCol_Text, color);
                     if (m_auto_wrap) ImGui::PushTextWrapPos(ImGui::GetContentRegionAvail().x);
+
+                    if (!msg.timestamp.empty())
+                    {
+                        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.1f, 0.8f, 0.1f, 1.0f)); // Green timestamp
+                        ImGui::TextUnformatted(msg.timestamp.c_str());
+                        ImGui::PopStyleColor();
+                        ImGui::SameLine(0, 10.0f);
+                    }
+
+                    ImVec4 color = get_severity_color(msg.severity, m_theme);
+                    ImGui::PushStyleColor(ImGuiCol_Text, color);
                     ImGui::TextUnformatted(msg.text.c_str());
-                    if (m_auto_wrap) ImGui::PopTextWrapPos();
                     ImGui::PopStyleColor();
+                    
+                    if (m_auto_wrap) ImGui::PopTextWrapPos();
                 }
             }
         } 
@@ -311,13 +335,22 @@ namespace term
                 if (!is_valid_severity(static_cast<int>(msg.severity))) continue;
                 if (!pass_filter(msg)) continue;
 
-                ImVec4 color = get_severity_color(msg.severity, m_theme);
-
-                ImGui::PushStyleColor(ImGuiCol_Text, color);
                 if (m_auto_wrap) ImGui::PushTextWrapPos(ImGui::GetContentRegionAvail().x);
+
+                if (!msg.timestamp.empty())
+                {
+                    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.1f, 0.8f, 0.1f, 1.0f)); // Green timestamp
+                    ImGui::TextUnformatted(msg.timestamp.c_str());
+                    ImGui::PopStyleColor();
+                    ImGui::SameLine(0, 10.0f);
+                }
+
+                ImVec4 color = get_severity_color(msg.severity, m_theme);
+                ImGui::PushStyleColor(ImGuiCol_Text, color);
                 ImGui::TextUnformatted(msg.text.c_str());
-                if (m_auto_wrap) ImGui::PopTextWrapPos();
                 ImGui::PopStyleColor();
+
+                if (m_auto_wrap) ImGui::PopTextWrapPos();
              }
         }
 

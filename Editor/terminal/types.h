@@ -20,8 +20,9 @@ namespace term
     {
         std::string text;
         Severity severity;
+        std::string timestamp;
 
-        Message(std::string_view txt, Severity sev) : text(txt), severity(sev) {}
+        Message(std::string_view txt, Severity sev, std::string_view ts = "") : text(txt), severity(sev), timestamp(ts) {}
     };
 
     struct Theme 
