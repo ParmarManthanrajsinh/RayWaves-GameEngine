@@ -26,7 +26,7 @@ set(GAME_SRC_CPP
     Game/DllLoader.cpp
 )
 file(GLOB ENGINE_SRC_CPP  CONFIGURE_DEPENDS "Engine/*.cpp")
-file(GLOB EDITOR_SRC_CPP  CONFIGURE_DEPENDS "Editor/*.cpp" "Editor/terminal/*.cpp")
+file(GLOB EDITOR_SRC_CPP  CONFIGURE_DEPENDS "Editor/*.cpp" "Editor/terminal/*.cpp" "Editor/Panels/*.cpp")
 
 # rlImGui and ImGui sources
 set(RLIMGUI_SRC Editor/rlImGui/rlImGui.cpp)

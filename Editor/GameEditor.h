@@ -53,41 +53,20 @@ public:
     bool b_ReloadGameLogic();
 
     void Run();
-private:
-    void Close() const;
+    
+    void CompileGameLogic();
+    GameEngine& GetGameEngine() { return m_GameEngine; }
+    MapManager* GetMapManager() { return m_MapManager; }
+    term::Terminal& GetTerminal() { return m_Terminal; }
+    
+    bool IsWindowResized() const { return b_ResolutionChanged; } // Or ImGui function if needed
 
     std::string version = "Raywaves v0.4.0";
-
-    GameEngine m_GameEngine;
-    ImGuiViewport* m_Viewport;
 
     RenderTexture2D m_RaylibTexture;
     RenderTexture2D m_DisplayTexture;
     Texture2D m_SourceTexture;
-
-    void DrawMainMenuBar();
-    void DrawSceneWindow();
-    void DrawMapSelectionUI();
-    void DrawExportPanel();
-    void DrawSceneSettingsPanel();
-    void DrawToolbarBackground();
-
-    // Hot-reload state
-    DllHandle m_GameLogicDll;
-    using CreateGameMapFunc = GameMap * (*)();
-    CreateGameMapFunc m_CreateGameMap = nullptr;
-
-    std::string m_GameLogicPath;
-    fs::file_time_type m_LastLogicWriteTime{};
-
-    float m_ReloadCheckAccum = 0.0f;
-    Shader m_OpaqueShader;
-    bool m_bUseOpaquePass = true;
-
-    // Map selection UI
-    MapManager* m_MapManager = nullptr;
-    std::string m_SelectedMapId;
-
+    
     bool b_ResolutionChanged = false;
     bool b_FPSChanged = false;
     
@@ -98,7 +77,6 @@ private:
 		int m_TargetFPS = 60;
     } m_SceneSettings;
     
-    // Export UI state
     struct m_tExportState 
     {
         std::atomic<bool> m_bIsExporting{false};
@@ -120,30 +98,50 @@ private:
         bool m_bExportSuccess = false;
     } m_ExportState;
 
-    // Performance Overlay
     bool m_bShowPerformanceStats = false;
     std::array<float, 120> m_FrameTimes{};
     size_t m_FrameOffset;
-
-    void DrawPerformanceOverlay();
-    void UpdatePerformanceMetrics();
-
-    // Build Notification & Log
+    
     EBuildStatus BuildStatus = EBuildStatus::None;
     float NotificationTimer = 0.0f;
     std::vector<FBuildMessage> BuildMessages;
     std::mutex BuildMessagesMutex;
     bool bShowMessageLog = false;
-    void DrawNotifications();
-    void DrawMessageLog();
     void ParseBuildLine(std::string_view line);
+    
+    bool m_bShowTerminal = true;
+    bool m_bShowSceneSettings = false;
+    bool m_bShowExport = false;
+    
+    bool m_bUseOpaquePass = true;
+    
+    std::string m_SelectedMapId;
+
+private:
+    void Close() const;
+
+    GameEngine m_GameEngine;
+    ImGuiViewport* m_Viewport;
+
+    // Hot-reload state
+    DllHandle m_GameLogicDll;
+    using CreateGameMapFunc = GameMap * (*)();
+    CreateGameMapFunc m_CreateGameMap = nullptr;
+
+    std::string m_GameLogicPath;
+    fs::file_time_type m_LastLogicWriteTime{};
+
+    float m_ReloadCheckAccum = 0.0f;
+    Shader m_OpaqueShader;
+
+    // Map selection UI
+    MapManager* m_MapManager = nullptr;
+
+    void UpdatePerformanceMetrics();
 
     // Terminal
     term::Terminal m_Terminal;
-    bool m_bShowTerminal = true;
-    void DrawTerminal();
-    
-    // Window visibility flags
-    bool m_bShowSceneSettings = false;
-    bool m_bShowExport = false;
+
+    // UI Panels
+    std::vector<std::unique_ptr<class IEditorPanel>> m_Panels;
 };
