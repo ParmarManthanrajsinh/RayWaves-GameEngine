@@ -141,7 +141,6 @@ This generates a `dist/` folder with everything they need:
 
 - **[API Reference](Documentation/API_REFERENCE.md)** - Detailed class documentation.
 - **[Developer Guide](Documentation/DEVELOPER_GUIDE.md)** - Best practices and patterns.
-- **[Particle System](Documentation/PARTICLE_SYSTEM_GUIDE.md)** - Creating cool visual effects.
 - **[Troubleshooting](Documentation/TROUBLESHOOTING.md)** - Fix common issues.
 
 ---
