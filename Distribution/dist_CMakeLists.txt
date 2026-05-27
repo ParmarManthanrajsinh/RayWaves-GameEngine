@@ -3,11 +3,6 @@ project(RayWaves-GameLogic)
 
 # Reduce CMake's file generation noise
 set(CMAKE_SUPPRESS_REGENERATION ON)
-set(CMAKE_TRY_COMPILE_TARGET_TYPE "STATIC_LIBRARY")
-
-# Disable compiler ID tests (removes CompilerIdC / CompilerIdCXX folders)
-set(CMAKE_C_COMPILER_ID_RUN FALSE)
-set(CMAKE_CXX_COMPILER_ID_RUN FALSE)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -59,9 +54,13 @@ endif()
 
 # -------------------------------------
 # OUTPUT LOCATION
+# For multi-config generators (Visual Studio), set per-config output dirs
+# so the DLL lands directly in the dist root, not in Release/ subfolder.
 # -------------------------------------
 set_target_properties(GameLogic PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}
+    RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_SOURCE_DIR}
+    RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_SOURCE_DIR}
     LIBRARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}
     PREFIX ""
     OUTPUT_NAME "GameLogic"

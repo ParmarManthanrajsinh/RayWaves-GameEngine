@@ -619,10 +619,6 @@ void GameEditor::DrawSceneWindow()
 		{
 			b_IsCompiling = true;
 			b_IsPlaying = false;
-			if (!b_ReloadGameLogic())
-			{
-				m_GameEngine.ResetMap();
-			}
 
 			m_bShowTerminal = true;
 			m_Terminal.add_text("Starting build process...", term::Severity::Debug);
@@ -2399,11 +2395,6 @@ void GameEditor::DrawMainMenuBar()
                 // Trigger recompile
                 b_IsCompiling = true;
                 b_IsPlaying = false;
-
-                if (!b_ReloadGameLogic())
-				{
-					m_GameEngine.ResetMap();
-				}
 
                 m_bShowTerminal = true;
                 m_Terminal.add_text("Starting build process...", term::Severity::Debug);
