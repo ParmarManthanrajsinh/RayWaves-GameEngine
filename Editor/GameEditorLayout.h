@@ -32,16 +32,14 @@ Collapsed=0
 DockId=0x00000003,0
 
 [Window][)" + ICON_FA_FILE_EXPORT + R"( Export]
-Pos=0,25
-Size=972,465
+Pos=141,134
+Size=695,748
 Collapsed=0
-DockId=0x00000005,2
 
 [Window][)" + ICON_FA_GEARS + R"( Scene Settings]
-Pos=0,25
-Size=951,444
+Pos=65,116
+Size=564,222
 Collapsed=0
-DockId=0x00000001,1
 
 [Window][Performance Overlay]
 Pos=10,140
@@ -69,7 +67,6 @@ DockSpace     ID=0x08BD597D Window=0x1BBC0F80 Pos=0,25 Size=1280,695 Split=X
     DockNode  ID=0x00000001 Parent=0x00000002 SizeRef=951,478 CentralNode=1 Selected=0xE53DD001
     DockNode  ID=0x00000004 Parent=0x00000002 SizeRef=951,215 Selected=0x8509AE9E
   DockNode    ID=0x00000003 Parent=0x08BD597D SizeRef=312,695 Selected=0x38B9FCCC
-
 )";
 
     ImGui::LoadIniSettingsFromMemory
