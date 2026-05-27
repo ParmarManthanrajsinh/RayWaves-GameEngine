@@ -7,6 +7,7 @@
 #include <memory>
 #include <imgui_internal.h>
 #include "terminal.h"
+#include "../GameEditorTheme.h"
 
 namespace term 
 {
@@ -225,8 +226,10 @@ namespace term
         {
             ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(4, 4));
 
-            ImGui::Checkbox("Auto-scroll", &m_auto_scroll);
-            ImGui::Checkbox("Word Wrap", &m_auto_wrap);
+            bool b_auto_scroll = m_auto_scroll;
+            bool b_auto_wrap = m_auto_wrap;
+            if (ImGui::Checkbox("Auto-scroll", &b_auto_scroll)) m_auto_scroll = b_auto_scroll;
+            if (ImGui::Checkbox("Word Wrap", &b_auto_wrap)) m_auto_wrap = b_auto_wrap;
             
             ImGui::PopStyleVar();
             ImGui::EndCombo();
@@ -266,6 +269,13 @@ namespace term
 
         ImGui::BeginChild("##LogWindow", ImVec2(size.x, size.y), true, flags);
         
+        // Push Consolas Mono font
+        ImGuiIO& io = ImGui::GetIO();
+        if (Font_MonoSmall < io.Fonts->Fonts.Size)
+        {
+            ImGui::PushFont(io.Fonts->Fonts[Font_MonoSmall]);
+        }
+
         std::lock_guard<std::mutex> lock(m_mutex);
         
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4, 4));
@@ -317,6 +327,11 @@ namespace term
             m_scroll_to_bottom = false;
         }
 
+        if (Font_MonoSmall < io.Fonts->Fonts.Size)
+        {
+            ImGui::PopFont();
+        }
+
         ImGui::PopStyleVar();
         ImGui::EndChild();
         ImGui::PopStyleVar(3);
@@ -340,7 +355,11 @@ namespace term
     {
         ImGui::Spacing();
         
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.4f, 0.8f, 0.4f, 1.0f));
+        ImGuiIO& io = ImGui::GetIO();
+        bool has_font = (Font_MonoSmall < io.Fonts->Fonts.Size);
+        if (has_font) ImGui::PushFont(io.Fonts->Fonts[Font_MonoSmall]);
+
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.75f, 0.15f, 0.15f, 1.0f)); // Accent color prompt
         ImGui::AlignTextToFramePadding();
         ImGui::Text("> ");
         ImGui::PopStyleColor();
@@ -410,6 +429,7 @@ namespace term
                 ImGui::SetKeyboardFocusHere(-1);
             }
         }
+        if (has_font) ImGui::PopFont();
         ImGui::PopStyleVar();
         ImGui::PopStyleColor(2);
     }
@@ -427,11 +447,7 @@ namespace term
             return;
         } 
         
-        if (command_str == "help") 
-        {
-            add_text("Available commands: clear, help, [system commands]", Severity::Debug);
-            return;
-        }
+
 
         // Async execution for system commands
         // Use shared_from_this pattern by capturing 'this' and checking shutdown flag

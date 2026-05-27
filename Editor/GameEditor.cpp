@@ -2192,10 +2192,10 @@ void GameEditor::DrawMessageLog()
         }
         ImGui::Separator();
 
-        std::vector<FBuildMessage> localMessages;
+        std::vector<FBuildMessage> local_messages;
         {
             std::lock_guard<std::mutex> lock(BuildMessagesMutex);
-            localMessages = BuildMessages;
+            local_messages = BuildMessages;
         }
 
         if (ImGui::BeginTable("MessageTable", 3, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable | ImGuiTableFlags_ScrollY))
@@ -2206,7 +2206,7 @@ void GameEditor::DrawMessageLog()
             ImGui::TableSetupColumn("Description", ImGuiTableColumnFlags_WidthStretch);
             ImGui::TableHeadersRow();
 
-            for (const auto& msg : localMessages)
+            for (const auto& msg : local_messages)
             {
                 ImGui::TableNextRow();
                 ImGui::TableNextColumn();
@@ -2227,9 +2227,16 @@ void GameEditor::DrawMessageLog()
                 {
                     std::string filename = msg.File;
                     size_t slash = filename.find_last_of("/\\");
-                    if (slash != std::string::npos) filename = filename.substr(slash + 1);
+                    if (slash != std::string::npos)
+					{
+						filename = filename.substr(slash + 1);
+					}
+
                     ImGui::Text("%s:%d", filename.c_str(), msg.Line);
-                    if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s:%d", msg.File.c_str(), msg.Line);
+                    if (ImGui::IsItemHovered()) 
+					{
+						ImGui::SetTooltip("%s:%d", msg.File.c_str(), msg.Line);
+					}
                 }
                 else
                 {

@@ -1,12 +1,37 @@
 #pragma once
 #include <string>
 #include <imgui.h>
-#include "../Editor/rlImGui/extras/IconsFontAwesome6.h"
 #include <rlImGui.h>
+#include <filesystem>
+#include "../Editor/rlImGui/extras/IconsFontAwesome6.h"
 
+// ============================================================================
+//  Font indices — use these to push fonts in draw code
+// ============================================================================
+enum EEditorFont : int
+{
+    Font_Default    = 0,   // Roboto 17px  + FA icons merged
+    Font_Large      = 1,   // Roboto 24px  (section titles / big FPS)
+    Font_Mono       = 2,   // Consolas 15px (terminal / code)
+    Font_MonoSmall  = 3,   // Consolas 13px (message log)
+};
+
+// ============================================================================
+//  Accent color accessors  (so other code can reference the theme)
+// ============================================================================
+inline ImVec4 GetAccentColor()        { return ImVec4(0.75f, 0.15f, 0.15f, 1.00f); }
+inline ImVec4 GetAccentHoverColor()   { return ImVec4(0.88f, 0.28f, 0.28f, 1.00f); }
+inline ImVec4 GetAccentActiveColor()  { return ImVec4(0.95f, 0.35f, 0.35f, 1.00f); }
+inline ImU32  GetAccentU32()          { return IM_COL32(191, 38, 38, 255); }
+inline ImU32  GetAccentDimU32()       { return IM_COL32(191, 38, 38, 100); }
+
+// ============================================================================
+//  SetEngineTheme — call once after rlImGuiSetup
+// ============================================================================
 inline void SetEngineTheme
 (
-    std::string_view path = "Assets/EngineContent/Roboto-Regular.ttf"
+    std::string_view path      = "Assets/EngineContent/Roboto-Regular.ttf",
+    std::string_view mono_path = "Assets/EngineContent/Consolas-Regular.ttf"
 )
 {
     ImGuiIO& io = ImGui::GetIO();
@@ -14,162 +39,233 @@ inline void SetEngineTheme
 
     io.Fonts->Clear();
 
+    // ── Base font config ────────────────────────────────────────────────
     ImFontConfig font_config;
     font_config.OversampleH = 2;
     font_config.OversampleV = 1;
-    font_config.PixelSnapH = true;
-    font_config.RasterizerMultiply = 1.15f;
+    font_config.PixelSnapH  = true;
+    font_config.RasterizerMultiply = 1.10f;
+    font_config.Flags |= ImFontFlags_NoLoadError;
 
-    // Load base font (size 20)
-    io.Fonts->AddFontFromFileTTF(path.data(), 20.0f, &font_config);
+    // Font 0: Roboto 17px (main UI)
+    if (std::filesystem::exists(path))
+    {
+        if (!io.Fonts->AddFontFromFileTTF(path.data(), 17.0f, &font_config))
+            io.Fonts->AddFontDefault();
+    }
+    else
+    {
+        io.Fonts->AddFontDefault();
+    }
 
-    // Merge FontAwesome icons
+    // Merge FontAwesome icons into Font 0
     ImFontConfig icons_config;
-    icons_config.MergeMode = true;
-    icons_config.PixelSnapH = true;
+    icons_config.MergeMode   = true;
+    icons_config.PixelSnapH  = true;
     icons_config.OversampleH = 2;
     icons_config.OversampleV = 1;
-    icons_config.RasterizerMultiply = 1.15f;
-    
-    static const ImWchar icons_ranges[] = { ICON_MIN_FA, ICON_MAX_FA, 0 };
-    
-    // Try to load FontAwesome Solid from the same directory structure
-    // We assume the file is in Assets/EngineContent/
-    std::string icon_path = "Assets/EngineContent/" FONT_ICON_FILE_NAME_FAS;
-    
-    io.Fonts->AddFontFromFileTTF(icon_path.c_str(), 22.0f, &icons_config, icons_ranges);
+    icons_config.RasterizerMultiply = 1.10f;
+    icons_config.Flags |= ImFontFlags_NoLoadError;
 
-    // Load larger size (26)
-    // Note: We are not merging icons for the large font here for simplicity, 
-    // but if needed we would repeat the merge process.
-    io.Fonts->AddFontFromFileTTF(path.data(), 26.0f, &font_config);
+    static const ImWchar icons_ranges[] = { ICON_MIN_FA, ICON_MAX_FA, 0 };
+    std::string icon_path = "Assets/EngineContent/" FONT_ICON_FILE_NAME_FAS;
+    if (std::filesystem::exists(icon_path))
+    {
+        io.Fonts->AddFontFromFileTTF(icon_path.c_str(), 17.0f, &icons_config, icons_ranges);
+    }
+
+    // Font 1: Roboto 24px (large headers)
+    if (std::filesystem::exists(path))
+    {
+        if (!io.Fonts->AddFontFromFileTTF(path.data(), 24.0f, &font_config))
+            io.Fonts->AddFontDefault();
+    }
+    else
+    {
+        io.Fonts->AddFontDefault();
+    }
+
+    // Font 2: Monospace 15px (terminal)
+    if (std::filesystem::exists(mono_path))
+    {
+        if (!io.Fonts->AddFontFromFileTTF(mono_path.data(), 15.0f, &font_config))
+            io.Fonts->AddFontDefault();
+    }
+    else
+    {
+        io.Fonts->AddFontDefault();
+    }
+
+    // Font 3: Monospace 13px (message log, small code)
+    if (std::filesystem::exists(mono_path))
+    {
+        if (!io.Fonts->AddFontFromFileTTF(mono_path.data(), 13.0f, &font_config))
+            io.Fonts->AddFontDefault();
+    }
+    else
+    {
+        io.Fonts->AddFontDefault();
+    }
 
     rlImGuiReloadFonts();
 
+    // ════════════════════════════════════════════════════════════════════
+    //  COLOR PALETTE — Nuake-inspired deep charcoal
+    // ════════════════════════════════════════════════════════════════════
     ImGuiStyle& style = ImGui::GetStyle();
 
-    // === MODERN RED THEME ===
-    // Deep charcoal blacks
-    ImVec4 bg_0 = ImVec4(0.08f, 0.08f, 0.09f, 1.00f); // Main window
-    ImVec4 bg_1 = ImVec4(0.12f, 0.12f, 0.13f, 1.00f); // Panels
-    ImVec4 bg_2 = ImVec4(0.16f, 0.16f, 0.17f, 1.00f); // Frames
-    ImVec4 bg_3 = ImVec4(0.20f, 0.20f, 0.21f, 1.00f); // Headers
+    // Background layers (darkest → lightest)
+    ImVec4 bg_base     = ImVec4(0.098f, 0.098f, 0.110f, 1.00f); // #191919 — main window
+    ImVec4 bg_panel    = ImVec4(0.118f, 0.118f, 0.133f, 1.00f); // #1E1E22 — child/panel
+    ImVec4 bg_frame    = ImVec4(0.145f, 0.145f, 0.160f, 1.00f); // #252529 — input frames
+    ImVec4 bg_header   = ImVec4(0.165f, 0.165f, 0.180f, 1.00f); // #2A2A2E — headers
+    ImVec4 bg_elevated = ImVec4(0.200f, 0.200f, 0.215f, 1.00f); // #333337 — elevated
 
-    // Modern Red Accents
-    ImVec4 accent_primary = ImVec4(0.83f, 0.18f, 0.18f, 1.00f); // Vibrant Ruby Red
-    ImVec4 accent_secondary = ImVec4(0.94f, 0.33f, 0.31f, 1.00f); // Lighter Red
-    ImVec4 accent_highlight = ImVec4(1.00f, 0.40f, 0.40f, 1.00f); // Bright Red
+    // Accent (subdued ruby red)
+    ImVec4 accent         = GetAccentColor();
+    ImVec4 accent_hover   = GetAccentHoverColor();
+    ImVec4 accent_active  = GetAccentActiveColor();
+    ImVec4 accent_dim     = ImVec4(0.75f, 0.15f, 0.15f, 0.40f);
 
     // Text
-    ImVec4 text_primary = ImVec4(0.90f, 0.90f, 0.90f, 1.00f); 
-    ImVec4 text_disabled = ImVec4(0.50f, 0.50f, 0.50f, 1.00f);
+    ImVec4 text_primary   = ImVec4(0.85f, 0.85f, 0.85f, 1.00f);
+    ImVec4 text_secondary = ImVec4(0.55f, 0.55f, 0.55f, 1.00f);
 
-    // Hover/active/select overlays
-    ImVec4 hover = ImVec4(0.24f, 0.24f, 0.25f, 1.00f); 
-    ImVec4 active = ImVec4(0.83f, 0.18f, 0.18f, 0.70f);
-    ImVec4 select = ImVec4(0.83f, 0.18f, 0.18f, 0.40f);
+    // Interactive overlays
+    ImVec4 hover  = ImVec4(0.22f, 0.22f, 0.24f, 1.00f);
+    ImVec4 active = ImVec4(0.75f, 0.15f, 0.15f, 0.60f);
+    ImVec4 select = ImVec4(0.75f, 0.15f, 0.15f, 0.30f);
 
-    // === Apply Colors ===
-    style.Colors[ImGuiCol_Text] = text_primary;
-    style.Colors[ImGuiCol_TextDisabled] = text_disabled;
-    style.Colors[ImGuiCol_WindowBg] = bg_0;
-    style.Colors[ImGuiCol_ChildBg] = bg_1;
-    style.Colors[ImGuiCol_PopupBg] = bg_0;
-    style.Colors[ImGuiCol_Border] = ImVec4(0.10f, 0.10f, 0.10f, 1.00f);
+    // Border
+    ImVec4 border       = ImVec4(0.14f, 0.14f, 0.16f, 1.00f);
+    ImVec4 border_light = ImVec4(0.20f, 0.20f, 0.22f, 0.50f);
+
+    // ════════════════════════════════════════════════════════════════════
+    //  APPLY COLORS
+    // ════════════════════════════════════════════════════════════════════
+
+    // Window
+    style.Colors[ImGuiCol_Text]                 = text_primary;
+    style.Colors[ImGuiCol_TextDisabled]         = text_secondary;
+    style.Colors[ImGuiCol_WindowBg]             = bg_base;
+    style.Colors[ImGuiCol_ChildBg]              = ImVec4(0, 0, 0, 0); // Transparent children
+    style.Colors[ImGuiCol_PopupBg]              = ImVec4(0.10f, 0.10f, 0.12f, 0.96f);
+    style.Colors[ImGuiCol_Border]               = border;
+    style.Colors[ImGuiCol_BorderShadow]         = ImVec4(0, 0, 0, 0);
 
     // Frames & Controls
-    style.Colors[ImGuiCol_FrameBg] = bg_2;
-    style.Colors[ImGuiCol_FrameBgHovered] = hover;
-    style.Colors[ImGuiCol_FrameBgActive] = active;
-    style.Colors[ImGuiCol_CheckMark] = accent_highlight;
-    style.Colors[ImGuiCol_CheckboxSelectedBg] = bg_0;
-    style.Colors[ImGuiCol_SliderGrab] = accent_primary;
-    style.Colors[ImGuiCol_SliderGrabActive] = accent_highlight;
+    style.Colors[ImGuiCol_FrameBg]              = bg_frame;
+    style.Colors[ImGuiCol_FrameBgHovered]       = hover;
+    style.Colors[ImGuiCol_FrameBgActive]        = active;
+    style.Colors[ImGuiCol_CheckMark]            = accent_active;
+    style.Colors[ImGuiCol_CheckboxSelectedBg]   = bg_frame;
+    style.Colors[ImGuiCol_SliderGrab]           = accent;
+    style.Colors[ImGuiCol_SliderGrabActive]     = accent_active;
 
     // Buttons
-    style.Colors[ImGuiCol_Button] = bg_2;
-    style.Colors[ImGuiCol_ButtonHovered] = hover;
-    style.Colors[ImGuiCol_ButtonActive] = accent_primary;
+    style.Colors[ImGuiCol_Button]               = bg_frame;
+    style.Colors[ImGuiCol_ButtonHovered]        = hover;
+    style.Colors[ImGuiCol_ButtonActive]         = accent;
 
     // Tabs
-    style.Colors[ImGuiCol_Tab] = bg_2;
-    style.Colors[ImGuiCol_TabHovered] = hover;
-    style.Colors[ImGuiCol_TabActive] = accent_primary;
-    style.Colors[ImGuiCol_TabUnfocused] = bg_2;
-    style.Colors[ImGuiCol_TabUnfocusedActive] = accent_secondary;
+    style.Colors[ImGuiCol_Tab]                  = bg_panel;
+    style.Colors[ImGuiCol_TabHovered]           = hover;
+    style.Colors[ImGuiCol_TabActive]            = bg_base;
+    style.Colors[ImGuiCol_TabUnfocused]         = bg_panel;
+    style.Colors[ImGuiCol_TabUnfocusedActive]   = bg_base;
 
-    // Headers
-    style.Colors[ImGuiCol_Header] = bg_3;
-    style.Colors[ImGuiCol_HeaderHovered] = hover;
-    style.Colors[ImGuiCol_HeaderActive] = accent_primary;
+    // Headers (collapsing, tree nodes, selectables)
+    style.Colors[ImGuiCol_Header]               = bg_header;
+    style.Colors[ImGuiCol_HeaderHovered]        = hover;
+    style.Colors[ImGuiCol_HeaderActive]         = accent;
 
-    // Scrollbars
-    style.Colors[ImGuiCol_ScrollbarBg] = bg_0;
-    style.Colors[ImGuiCol_ScrollbarGrab] = bg_3;
-    style.Colors[ImGuiCol_ScrollbarGrabHovered] = hover;  
-    style.Colors[ImGuiCol_ScrollbarGrabActive] = accent_primary;
+    // Scrollbar — very subtle, only visible on hover
+    style.Colors[ImGuiCol_ScrollbarBg]          = ImVec4(0, 0, 0, 0.02f);
+    style.Colors[ImGuiCol_ScrollbarGrab]        = ImVec4(0.30f, 0.30f, 0.32f, 0.60f);
+    style.Colors[ImGuiCol_ScrollbarGrabHovered] = ImVec4(0.40f, 0.40f, 0.42f, 0.80f);
+    style.Colors[ImGuiCol_ScrollbarGrabActive]  = accent;
 
-    // Highlights
-    style.Colors[ImGuiCol_TextSelectedBg] = select;
-    style.Colors[ImGuiCol_DragDropTarget] = accent_primary;
-    style.Colors[ImGuiCol_NavHighlight] = accent_primary;
+    // Selection & highlights
+    style.Colors[ImGuiCol_TextSelectedBg]       = select;
+    style.Colors[ImGuiCol_DragDropTarget]       = accent;
+    style.Colors[ImGuiCol_NavHighlight]         = accent;
 
-    // === Modern Styling ===
-    style.WindowRounding = 4.0f;
-    style.FrameRounding = 4.0f;
-    style.ScrollbarRounding = 4.0f;
-    style.GrabRounding = 4.0f;
-    style.TabRounding = 4.0f;
-
-    style.WindowBorderSize = 1.0f;
-    style.ChildBorderSize = 1.0f;
-    style.PopupBorderSize = 1.0f;
-    style.FrameBorderSize = 1.0f;
-    style.TabBorderSize = 1.0f;
-
-    style.WindowPadding = ImVec2(10.0f, 10.0f);
-    style.FramePadding = ImVec2(10.0f, 6.0f);
-    style.ItemSpacing = ImVec2(10.0f, 6.0f);
-    style.ItemInnerSpacing = ImVec2(6.0f, 4.0f);
-    style.ScrollbarSize = 14.0f;
-    style.GrabMinSize = 12.0f;
-
-    style.WindowTitleAlign = ImVec2(0.5f, 0.5f);
-    style.ButtonTextAlign = ImVec2(0.5f, 0.5f);
-
-    // --- PERFECT BLACK FOCUS / SELECTION / INTERACTION FIX ---
-    style.Colors[ImGuiCol_NavHighlight] = ImVec4(0.83f, 0.18f, 0.18f, 0.80f); 
-    style.Colors[ImGuiCol_NavWindowingHighlight] = ImVec4(1.0f, 1.0f, 1.0f, 0.70f); 
-    style.Colors[ImGuiCol_NavWindowingDimBg] = ImVec4(0.0f, 0.0f, 0.0f, 0.60f); 
-    style.Colors[ImGuiCol_ModalWindowDimBg] = ImVec4(0.0f, 0.0f, 0.0f, 0.70f); 
-
-    // Window title bars - smooth state transitions
-    style.Colors[ImGuiCol_TitleBg] = bg_0;
-    style.Colors[ImGuiCol_TitleBgActive] = bg_1;
-    style.Colors[ImGuiCol_TitleBgCollapsed] = bg_0;
+    // Title bars — blend with window bg
+    style.Colors[ImGuiCol_TitleBg]              = bg_base;
+    style.Colors[ImGuiCol_TitleBgActive]        = ImVec4(0.12f, 0.12f, 0.14f, 1.00f);
+    style.Colors[ImGuiCol_TitleBgCollapsed]     = bg_base;
 
     // Menu bar
-    style.Colors[ImGuiCol_MenuBarBg] = bg_1;
+    style.Colors[ImGuiCol_MenuBarBg]            = bg_base;
 
-    // === RESIZING ELEMENTS & BLOCKING FEATURES ===
-    style.Colors[ImGuiCol_ResizeGrip] = ImVec4(0.83f, 0.18f, 0.18f, 0.50f); 
-    style.Colors[ImGuiCol_ResizeGripHovered] = ImVec4(1.00f, 0.40f, 0.40f, 0.80f); 
-    style.Colors[ImGuiCol_ResizeGripActive] = accent_primary; 
+    // Separators
+    style.Colors[ImGuiCol_Separator]            = border;
+    style.Colors[ImGuiCol_SeparatorHovered]     = accent_hover;
+    style.Colors[ImGuiCol_SeparatorActive]      = accent;
 
-    // Docking elements
-    style.Colors[ImGuiCol_DockingPreview] = ImVec4(0.83f, 0.18f, 0.18f, 0.50f); 
-    style.Colors[ImGuiCol_DockingEmptyBg] = bg_0; 
+    // Resize grips
+    style.Colors[ImGuiCol_ResizeGrip]           = ImVec4(0.75f, 0.15f, 0.15f, 0.20f);
+    style.Colors[ImGuiCol_ResizeGripHovered]    = ImVec4(0.88f, 0.28f, 0.28f, 0.60f);
+    style.Colors[ImGuiCol_ResizeGripActive]     = accent;
 
-    // Plot colors (if using ImPlot)
-    style.Colors[ImGuiCol_PlotLines] = accent_primary;
-    style.Colors[ImGuiCol_PlotLinesHovered] = accent_highlight;
-    style.Colors[ImGuiCol_PlotHistogram] = accent_secondary;
-    style.Colors[ImGuiCol_PlotHistogramHovered] = accent_highlight;
+    // Docking
+    style.Colors[ImGuiCol_DockingPreview]       = accent_dim;
+    style.Colors[ImGuiCol_DockingEmptyBg]       = bg_base;
 
-    // Table elements
-    style.Colors[ImGuiCol_TableHeaderBg] = bg_3;
-    style.Colors[ImGuiCol_TableBorderStrong] = ImVec4(0.30f, 0.30f, 0.30f, 1.00f); 
-    style.Colors[ImGuiCol_TableBorderLight] = ImVec4(0.25f, 0.25f, 0.25f, 0.50f); 
-    style.Colors[ImGuiCol_TableRowBg] = ImVec4(0.0f, 0.0f, 0.0f, 0.0f); 
-    style.Colors[ImGuiCol_TableRowBgAlt] = ImVec4(1.0f, 1.0f, 1.0f, 0.05f); 
+    // Modal overlay
+    style.Colors[ImGuiCol_NavWindowingHighlight]= ImVec4(1.0f, 1.0f, 1.0f, 0.70f);
+    style.Colors[ImGuiCol_NavWindowingDimBg]    = ImVec4(0.0f, 0.0f, 0.0f, 0.60f);
+    style.Colors[ImGuiCol_ModalWindowDimBg]     = ImVec4(0.0f, 0.0f, 0.0f, 0.70f);
+
+    // Plots
+    style.Colors[ImGuiCol_PlotLines]            = accent;
+    style.Colors[ImGuiCol_PlotLinesHovered]     = accent_active;
+    style.Colors[ImGuiCol_PlotHistogram]        = accent_hover;
+    style.Colors[ImGuiCol_PlotHistogramHovered]  = accent_active;
+
+    // Tables
+    style.Colors[ImGuiCol_TableHeaderBg]        = bg_header;
+    style.Colors[ImGuiCol_TableBorderStrong]    = border;
+    style.Colors[ImGuiCol_TableBorderLight]     = border_light;
+    style.Colors[ImGuiCol_TableRowBg]           = ImVec4(0.0f, 0.0f, 0.0f, 0.0f);
+    style.Colors[ImGuiCol_TableRowBgAlt]        = ImVec4(1.0f, 1.0f, 1.0f, 0.02f);
+
+    // ════════════════════════════════════════════════════════════════════
+    //  GEOMETRY — compact, professional
+    // ════════════════════════════════════════════════════════════════════
+
+    // Minimal rounding — clean, flat aesthetic
+    style.WindowRounding    = 2.0f;
+    style.FrameRounding     = 2.0f;
+    style.ScrollbarRounding = 2.0f;
+    style.GrabRounding      = 2.0f;
+    style.TabRounding       = 2.0f;
+    style.ChildRounding     = 1.0f;
+    style.PopupRounding     = 3.0f;
+
+    // Thin borders
+    style.WindowBorderSize  = 1.0f;
+    style.ChildBorderSize   = 0.0f;
+    style.PopupBorderSize   = 1.0f;
+    style.FrameBorderSize   = 0.0f;
+    style.TabBorderSize     = 0.0f;
+
+    // Compact spacing
+    style.WindowPadding     = ImVec2(6.0f, 6.0f);
+    style.FramePadding      = ImVec2(6.0f, 4.0f);
+    style.ItemSpacing       = ImVec2(6.0f, 4.0f);
+    style.ItemInnerSpacing  = ImVec2(4.0f, 4.0f);
+    style.CellPadding       = ImVec2(4.0f, 2.0f);
+    style.IndentSpacing     = 16.0f;
+
+    // Subtle scrollbar
+    style.ScrollbarSize     = 10.0f;
+    style.GrabMinSize       = 8.0f;
+
+    // Alignment
+    style.WindowTitleAlign  = ImVec2(0.0f, 0.5f); // Left-aligned titles (like reference)
+    style.ButtonTextAlign   = ImVec2(0.5f, 0.5f);
+
+    // Window menu button
+    style.WindowMenuButtonPosition = ImGuiDir_None; // Hide the collapse arrow
 }
