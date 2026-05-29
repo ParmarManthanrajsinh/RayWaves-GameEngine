@@ -235,8 +235,7 @@ void DemoLevel::DrawGround(float InFloorY)
             }
             else
             {
-                DeepUnderPatternLen = TileOffset[Depth - 1]; 
-                int32_t UnderCol = DeepUnderPattern[TileIndex % DeepUnderPatternLen];
+                int32_t UnderCol = DeepUnderPattern[TileIndex % 3];
                 DrawTexturePro(m_TilesetTex, GetTileRect(UnderCol, 9), DeepRect, { 0, 0 }, 0, WHITE);
             }
         }
