@@ -5,8 +5,20 @@
 #include <mutex>
 #include <thread>
 #include <memory>
+#include <chrono>
+#include <ctime>
 #include <imgui_internal.h>
+#define _CRTDBG_MAP_ALLOC
+#include <stdlib.h>
+#include <crtdbg.h>
+
+#ifdef _DEBUG
+#define DEBUG_NEW new(_NORMAL_BLOCK, __FILE__, __LINE__)
+#define new DEBUG_NEW
+#endif
+
 #include "terminal.h"
+#include "../GameEditorTheme.h"
 
 namespace term 
 {
@@ -125,7 +137,19 @@ namespace term
     void Terminal::add_text(std::string_view text, Severity severity) 
     {
         if (is_shutting_down()) return;
-        Message msg(text, severity);
+
+        auto now = std::chrono::system_clock::now();
+        std::time_t now_c = std::chrono::system_clock::to_time_t(now);
+        std::tm now_tm;
+#ifdef _WIN32
+        localtime_s(&now_tm, &now_c);
+#else
+        localtime_r(&now_c, &now_tm);
+#endif
+        char time_buf[16];
+        std::strftime(time_buf, sizeof(time_buf), "%H:%M:%S", &now_tm);
+
+        Message msg(text, severity, time_buf);
         add_message(msg);
     }
 
@@ -177,7 +201,15 @@ namespace term
         );
 
         // Use a generic window so it can be docked
-        if (!ImGui::Begin(window_title.data(), p_open))
+        ImGuiStyle& style = ImGui::GetStyle();
+        ImGuiDir old_menu_pos = style.WindowMenuButtonPosition;
+        style.WindowMenuButtonPosition = ImGuiDir_None;
+
+        bool b_begin = ImGui::Begin(window_title.data(), p_open);
+
+        style.WindowMenuButtonPosition = old_menu_pos;
+
+        if (!b_begin)
         {
             ImGui::PopStyleVar(2);
             ImGui::PopStyleColor(2);
@@ -208,44 +240,30 @@ namespace term
     {
         ImGui::BeginGroup();
         
-        ImGui::PushStyleColor(ImGuiCol_Button, m_theme.button_bg);
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0)); // transparent button
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, m_theme.button_hover);
         ImGui::PushStyleColor(ImGuiCol_ButtonActive, m_theme.button_active);
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
 
-        // Modern flat toolbar styling
-        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 2.0f);
+        float clear_btn_width = ImGui::CalcTextSize(ICON_FA_TRASH_CAN " Clear Log").x + ImGui::GetStyle().FramePadding.x * 2.0f;
         
-        if (ImGui::Button(" Clear Log ")) clear();
-        
-        ImGui::SameLine(0, 10.0f);
-        
-        // Options Menu
-        ImGui::SetNextItemWidth(120.0f);
-        if (ImGui::BeginCombo("##Options", "Settings", ImGuiComboFlags_NoPreview))
-        {
-            ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(4, 4));
-
-            ImGui::Checkbox("Auto-scroll", &m_auto_scroll);
-            ImGui::Checkbox("Word Wrap", &m_auto_wrap);
-            
-            ImGui::PopStyleVar();
-            ImGui::EndCombo();
-        }
-        if (ImGui::IsItemHovered()) ImGui::SetTooltip("Terminal Options");
-
-        ImGui::SameLine(0, 10.0f);
-
         // Search/Filter
-        ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
-        ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.1f, 0.1f, 0.12f, 1.0f));
+        ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - clear_btn_width - ImGui::GetStyle().ItemSpacing.x * 2.0f);
+        ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.08f, 0.08f, 0.09f, 1.0f));
         ImGui::InputTextWithHint
         (
             "##Filter", 
-            "Search logs...", 
+            ICON_FA_FILTER " Search logs...", 
             m_filter_buf, 
             sizeof(m_filter_buf)
         );
         ImGui::PopStyleColor(); // InputBg
+
+        ImGui::SameLine();
+        
+        ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x - clear_btn_width);
+        
+        if (ImGui::Button(ICON_FA_TRASH_CAN " Clear Log")) clear();
 
         ImGui::PopStyleVar();
         ImGui::PopStyleColor(3); // Buttons
@@ -266,6 +284,13 @@ namespace term
 
         ImGui::BeginChild("##LogWindow", ImVec2(size.x, size.y), true, flags);
         
+        // Push Consolas Mono font
+        ImGuiIO& io = ImGui::GetIO();
+        if (Font_MonoSmall < io.Fonts->Fonts.Size)
+        {
+            ImGui::PushFont(io.Fonts->Fonts[Font_MonoSmall]);
+        }
+
         std::lock_guard<std::mutex> lock(m_mutex);
         
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4, 4));
@@ -284,13 +309,22 @@ namespace term
                     
                     if (!is_valid_severity(static_cast<int>(msg.severity))) continue;
                     
-                    ImVec4 color = get_severity_color(msg.severity, m_theme);
-
-                    ImGui::PushStyleColor(ImGuiCol_Text, color);
                     if (m_auto_wrap) ImGui::PushTextWrapPos(ImGui::GetContentRegionAvail().x);
+
+                    if (!msg.timestamp.empty())
+                    {
+                        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.1f, 0.8f, 0.1f, 1.0f)); // Green timestamp
+                        ImGui::TextUnformatted(msg.timestamp.c_str());
+                        ImGui::PopStyleColor();
+                        ImGui::SameLine(0, 10.0f);
+                    }
+
+                    ImVec4 color = get_severity_color(msg.severity, m_theme);
+                    ImGui::PushStyleColor(ImGuiCol_Text, color);
                     ImGui::TextUnformatted(msg.text.c_str());
-                    if (m_auto_wrap) ImGui::PopTextWrapPos();
                     ImGui::PopStyleColor();
+                    
+                    if (m_auto_wrap) ImGui::PopTextWrapPos();
                 }
             }
         } 
@@ -301,13 +335,22 @@ namespace term
                 if (!is_valid_severity(static_cast<int>(msg.severity))) continue;
                 if (!pass_filter(msg)) continue;
 
-                ImVec4 color = get_severity_color(msg.severity, m_theme);
-
-                ImGui::PushStyleColor(ImGuiCol_Text, color);
                 if (m_auto_wrap) ImGui::PushTextWrapPos(ImGui::GetContentRegionAvail().x);
+
+                if (!msg.timestamp.empty())
+                {
+                    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.1f, 0.8f, 0.1f, 1.0f)); // Green timestamp
+                    ImGui::TextUnformatted(msg.timestamp.c_str());
+                    ImGui::PopStyleColor();
+                    ImGui::SameLine(0, 10.0f);
+                }
+
+                ImVec4 color = get_severity_color(msg.severity, m_theme);
+                ImGui::PushStyleColor(ImGuiCol_Text, color);
                 ImGui::TextUnformatted(msg.text.c_str());
-                if (m_auto_wrap) ImGui::PopTextWrapPos();
                 ImGui::PopStyleColor();
+
+                if (m_auto_wrap) ImGui::PopTextWrapPos();
              }
         }
 
@@ -315,6 +358,11 @@ namespace term
         {
             ImGui::SetScrollHereY(1.0f);
             m_scroll_to_bottom = false;
+        }
+
+        if (Font_MonoSmall < io.Fonts->Fonts.Size)
+        {
+            ImGui::PopFont();
         }
 
         ImGui::PopStyleVar();
@@ -340,7 +388,11 @@ namespace term
     {
         ImGui::Spacing();
         
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.4f, 0.8f, 0.4f, 1.0f));
+        ImGuiIO& io = ImGui::GetIO();
+        bool has_font = (Font_MonoSmall < io.Fonts->Fonts.Size);
+        if (has_font) ImGui::PushFont(io.Fonts->Fonts[Font_MonoSmall]);
+
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.75f, 0.15f, 0.15f, 1.0f)); // Accent color prompt
         ImGui::AlignTextToFramePadding();
         ImGui::Text("> ");
         ImGui::PopStyleColor();
@@ -410,6 +462,7 @@ namespace term
                 ImGui::SetKeyboardFocusHere(-1);
             }
         }
+        if (has_font) ImGui::PopFont();
         ImGui::PopStyleVar();
         ImGui::PopStyleColor(2);
     }
@@ -427,11 +480,7 @@ namespace term
             return;
         } 
         
-        if (command_str == "help") 
-        {
-            add_text("Available commands: clear, help, [system commands]", Severity::Debug);
-            return;
-        }
+
 
         // Async execution for system commands
         // Use shared_from_this pattern by capturing 'this' and checking shutdown flag

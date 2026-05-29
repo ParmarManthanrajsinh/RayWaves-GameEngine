@@ -58,9 +58,10 @@ namespace term
         // UI State
         char m_input_buf[1024] = "";
         char m_filter_buf[128] = "";
-        bool m_auto_scroll = true;
-        bool m_auto_wrap = true;
-        bool m_scroll_to_bottom = false;
+        
+        uint8_t m_auto_scroll : 1 = 1;
+        uint8_t m_auto_wrap : 1 = 1;
+        uint8_t m_scroll_to_bottom : 1 = 0;
 
         // History
         std::vector<std::string> m_history;

@@ -1,6 +1,10 @@
 cmake_minimum_required(VERSION 3.10)
 project(RayWaves)
 
+if(MSVC)
+    add_compile_options(/wd4244)
+endif()
+
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -25,7 +29,7 @@ set(GAME_SRC_CPP
     Game/DllLoader.cpp
 )
 file(GLOB ENGINE_SRC_CPP  CONFIGURE_DEPENDS "Engine/*.cpp")
-file(GLOB EDITOR_SRC_CPP  CONFIGURE_DEPENDS "Editor/*.cpp" "Editor/terminal/*.cpp")
+file(GLOB EDITOR_SRC_CPP  CONFIGURE_DEPENDS "Editor/*.cpp" "Editor/terminal/*.cpp" "Editor/Panels/*.cpp")
 
 # rlImGui and ImGui sources
 set(RLIMGUI_SRC Editor/rlImGui/rlImGui.cpp)

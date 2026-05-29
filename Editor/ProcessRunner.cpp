@@ -62,7 +62,7 @@ namespace ProcessRunner
         std::function<void(bool)> on_complete
     )
     {
-        std::thread([cmd, on_output, on_complete]()
+        std::thread([cmd_str = std::string(cmd), on_output, on_complete]()
         {
             SECURITY_ATTRIBUTES sa{};
             sa.nLength = sizeof(SECURITY_ATTRIBUTES);
@@ -93,7 +93,7 @@ namespace ProcessRunner
 
             PROCESS_INFORMATION pi{};
             std::string cmd_mutable = "cmd.exe /C ";
-            cmd_mutable.append(cmd);
+            cmd_mutable.append(cmd_str);
 
             if
             (
@@ -166,6 +166,8 @@ namespace ProcessRunner
 
                     view.remove_prefix(pos + 1);
                 }
+                
+                current_line.erase(0, current_line.length() - view.length());
             }
 
             if (!current_line.empty())
