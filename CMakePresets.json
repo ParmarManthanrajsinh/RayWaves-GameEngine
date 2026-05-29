@@ -7,16 +7,25 @@
             "generator": "Ninja",
             "binaryDir": "${sourceDir}/out/build/${presetName}",
             "installDir": "${sourceDir}/out/install/${presetName}",
+
             "cacheVariables": {
+                "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+
+                // IMPORTANT: let MSVC be auto-detected correctly
                 "CMAKE_C_COMPILER": "cl.exe",
-                "CMAKE_CXX_COMPILER": "cl.exe"
+                "CMAKE_CXX_COMPILER": "cl.exe",
+
+                // BIG SPEED BOOST: skip executable test builds
+                "CMAKE_TRY_COMPILE_TARGET_TYPE": "STATIC_LIBRARY"
             },
+
             "condition": {
                 "type": "equals",
                 "lhs": "${hostSystemName}",
                 "rhs": "Windows"
             }
         },
+
         {
             "name": "x64-debug",
             "displayName": "x64 Debug",
@@ -29,6 +38,7 @@
                 "CMAKE_BUILD_TYPE": "Debug"
             }
         },
+
         {
             "name": "x64-release",
             "displayName": "x64 Release",
@@ -37,6 +47,7 @@
                 "CMAKE_BUILD_TYPE": "Release"
             }
         },
+
         {
             "name": "x86-debug",
             "displayName": "x86 Debug",
@@ -49,6 +60,7 @@
                 "CMAKE_BUILD_TYPE": "Debug"
             }
         },
+
         {
             "name": "x86-release",
             "displayName": "x86 Release",
