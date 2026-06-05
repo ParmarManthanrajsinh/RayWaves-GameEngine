@@ -8,17 +8,6 @@
             "binaryDir": "${sourceDir}/out/build/${presetName}",
             "installDir": "${sourceDir}/out/install/${presetName}",
 
-            "cacheVariables": {
-                "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
-
-                // IMPORTANT: let MSVC be auto-detected correctly
-                "CMAKE_C_COMPILER": "cl.exe",
-                "CMAKE_CXX_COMPILER": "cl.exe",
-
-                // BIG SPEED BOOST: skip executable test builds
-                "CMAKE_TRY_COMPILE_TARGET_TYPE": "STATIC_LIBRARY"
-            },
-
             "condition": {
                 "type": "equals",
                 "lhs": "${hostSystemName}",
