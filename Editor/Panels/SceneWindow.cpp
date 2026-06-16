@@ -1,9 +1,12 @@
+#define IMGUI_DEFINE_MATH_OPERATORS
 #include "SceneWindow.h"
 #include "../GameEditor.h"
 #include "../../Engine/MapManager.h"
 #include "../../Engine/GameEngine.h"
 #include "../ProcessRunner.h"
+
 #include <imgui.h>
+#include <imgui_internal.h>
 #include <rlImGui.h>
 #include <cmath>
 
@@ -11,12 +14,13 @@ void SceneWindow::DrawToolbarBackground()
 {
 	ImDrawList* draw_list = ImGui::GetWindowDrawList();
 	ImVec2 toolbar_pos = ImGui::GetCursorScreenPos();
-	ImVec2 toolbar_size = ImVec2(ImGui::GetContentRegionAvail().x, 40.0f); 
+	ImVec2 toolbar_size = ImVec2(ImGui::GetContentRegionAvail().x, 40.0f);
 
 	ImU32 toolbar_color_top = IM_COL32(50, 50, 55, 255);
 	ImU32 toolbar_color_bottom = IM_COL32(40, 40, 45, 255);
 
-	draw_list->AddRectFilledMultiColor(
+	draw_list->AddRectFilledMultiColor
+	(
 		toolbar_pos,
 		ImVec2(toolbar_pos.x + toolbar_size.x, toolbar_pos.y + toolbar_size.y),
 		toolbar_color_top, toolbar_color_top,
@@ -26,7 +30,8 @@ void SceneWindow::DrawToolbarBackground()
 
 void SceneWindow::s_fDrawSpinner(float radius, float thickness, const unsigned int& color)
 {
-	alignas(16) struct {
+	alignas(16) struct
+	{
 		float time; float start; float a_min; float a_max; float centre_x; float centre_y; float time_x8; float inv_num_segments; float angle_range;
 	} vars{};
 
@@ -60,22 +65,30 @@ void SceneWindow::s_fDrawSpinner(float radius, float thickness, const unsigned i
 
 bool SceneWindow::s_bIconButton(std::string_view label, std::string_view icon, const ImVec2& size, std::string_view tooltip)
 {
-    ImGui::PushID(label.data());
-    bool b_Clicked = ImGui::Button(icon.data(), size);
-    if (ImGui::IsItemHovered()) ImGui::SetTooltip("%.*s", static_cast<int>(tooltip.size()), tooltip.data());
-    ImGui::PopID();
-    return b_Clicked;
+	ImGui::PushID(label.data());
+	bool b_Clicked = ImGui::Button(icon.data(), size);
+
+	if (ImGui::IsItemHovered()) 
+	{
+		ImGui::SetTooltip("%.*s", static_cast<int>(tooltip.size()), tooltip.data());
+	}
+	ImGui::PopID();
+	return b_Clicked;
 }
 
 void SceneWindow::Draw(GameEditor* editor)
 {
 	ImGuiStyle& style = ImGui::GetStyle();
-	ImGuiDir old_menu_pos = style.WindowMenuButtonPosition;
-	style.WindowMenuButtonPosition = ImGuiDir_None;
+	style.WindowMenuButtonPosition = ImGuiDir_Left;
 
-	ImGui::Begin(ICON_FA_IMAGE " Scene");
+	ImGui::Begin(ICON_FA_IMAGE " Scene", nullptr, ImGuiWindowFlags_NoTitleBar);
 
-	style.WindowMenuButtonPosition = old_menu_pos;
+	ImGuiDockNode* node = ImGui::DockBuilderGetNode(0x00000001);
+	if (node)
+	{
+		node->LocalFlags |= ImGuiDockNodeFlags_HiddenTabBar;
+	}
+
 	DrawToolbarBackground();
 
 	ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(4, 4));
@@ -88,8 +101,8 @@ void SceneWindow::Draw(GameEditor* editor)
 	ImGui::SetCursorPosY(ImGui::GetCursorPosY() + vertical_offset);
 	ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 5.0f);
 
-    // Play/Pause
-    if (editor->b_IsPlaying)
+	// Play/Pause
+	if (editor->b_IsPlaying)
 	{
 		if (s_bIconButton("pause_btn", ICON_FA_PAUSE, ImVec2(32, 32), "Pause")) editor->b_IsPlaying = false;
 	}
@@ -97,9 +110,9 @@ void SceneWindow::Draw(GameEditor* editor)
 	{
 		if (s_bIconButton("play_btn", ICON_FA_PLAY, ImVec2(32, 32), "Play")) editor->b_IsPlaying = true;
 	}
-	
+
 	ImGui::SameLine();
-	
+
 	// Restart
 	if (s_bIconButton("restart_btn", ICON_FA_ARROW_ROTATE_RIGHT, ImVec2(32, 32), "Restart") || editor->IsWindowResized())
 	{
@@ -110,33 +123,33 @@ void SceneWindow::Draw(GameEditor* editor)
 	ImGui::SameLine();
 	ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 12);
 
-    // Status Text
+	// Status Text
 	const ImVec4 COLOR = editor->b_IsPlaying ? ImVec4(0.2f, 0.8f, 0.2f, 1.0f) : ImVec4(0.8f, 0.2f, 0.2f, 1.0f);
-	const std::string &ICON = editor->b_IsPlaying ? ICON_FA_PLAY : ICON_FA_STOP;
-	const std::string &LABEL = editor->b_IsPlaying ? " PLAYING" : " STOPPED";
+	const std::string& ICON = editor->b_IsPlaying ? ICON_FA_PLAY : ICON_FA_STOP;
+	const std::string& LABEL = editor->b_IsPlaying ? " PLAYING" : " STOPPED";
 
-    ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0f);
-    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(16.0f, 4.0f));
-    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 12.0f);
-    
-    ImVec4 bgColor = editor->b_IsPlaying ? ImVec4(0.2f, 0.8f, 0.2f, 0.3f) : ImVec4(0.83f, 0.18f, 0.18f, 0.4f);
-    ImVec4 textColor = editor->b_IsPlaying ? ImVec4(0.4f, 1.0f, 0.4f, 1.0f) : ImVec4(1.0f, 0.6f, 0.6f, 1.0f);
-    
-    ImGui::PushStyleColor(ImGuiCol_Button, bgColor);
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, bgColor);
-    ImGui::PushStyleColor(ImGuiCol_ButtonActive, bgColor);
-    ImGui::PushStyleColor(ImGuiCol_Text, textColor);
-    
-    std::string fullLabel = ICON + LABEL;
-    ImGui::Button(fullLabel.c_str(), ImVec2(0, 32.0f));
-    
-    ImGui::PopStyleVar(3);
-    ImGui::PopStyleColor(4);
+	ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0f);
+	ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(16.0f, 4.0f));
+	ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 12.0f);
+
+	ImVec4 bgColor = editor->b_IsPlaying ? ImVec4(0.2f, 0.8f, 0.2f, 0.3f) : ImVec4(0.83f, 0.18f, 0.18f, 0.4f);
+	ImVec4 textColor = editor->b_IsPlaying ? ImVec4(0.4f, 1.0f, 0.4f, 1.0f) : ImVec4(1.0f, 0.6f, 0.6f, 1.0f);
+
+	ImGui::PushStyleColor(ImGuiCol_Button, bgColor);
+	ImGui::PushStyleColor(ImGuiCol_ButtonHovered, bgColor);
+	ImGui::PushStyleColor(ImGuiCol_ButtonActive, bgColor);
+	ImGui::PushStyleColor(ImGuiCol_Text, textColor);
+
+	std::string fullLabel = ICON + LABEL;
+	ImGui::Button(fullLabel.c_str(), ImVec2(0, 32.0f));
+
+	ImGui::PopStyleVar(3);
+	ImGui::PopStyleColor(4);
 
 	ImGui::SameLine();
 	ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 12.0f);
 
-    // Restore
+	// Restore
 	if (s_bIconButton("restore_btn", ICON_FA_ARROW_ROTATE_LEFT, ImVec2(32, 32), "Reset Game"))
 	{
 		editor->b_IsPlaying = false;
@@ -146,7 +159,7 @@ void SceneWindow::Draw(GameEditor* editor)
 	ImGui::SameLine();
 	ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 5);
 
-    // Clean
+	// Clean
 	if (s_bIconButton("clean_btn", ICON_FA_TRASH_CAN, ImVec2(32, 32), "Delete Build Folder"))
 	{
 		if (std::filesystem::exists("build")) std::filesystem::remove_all("build");
@@ -161,14 +174,14 @@ void SceneWindow::Draw(GameEditor* editor)
 
 	if (s_bIconButton("perf_btn", ICON_FA_CHART_LINE, ImVec2(32, 32), "Performance Overlay")) editor->m_bShowPerformanceStats = !editor->m_bShowPerformanceStats;
 	ImGui::PopStyleColor();
-	ImGui::SameLine();	
-    
-    // Terminal Toggle
-    const ImVec4 TERM_COLOR = editor->m_bShowTerminal ? ImVec4(1.0f, 1.0f, 1.0f, 1.0f) : ImVec4(0.5f, 0.5f, 0.5f, 1.0f);
-    ImGui::PushStyleColor(ImGuiCol_Text, TERM_COLOR);
-    if(s_bIconButton("term_btn", ICON_FA_TERMINAL, ImVec2(32, 32), "Debug Console")) editor->m_bShowTerminal = !editor->m_bShowTerminal;
-    ImGui::PopStyleColor();
-    ImGui::SameLine();
+	ImGui::SameLine();
+
+	// Terminal Toggle
+	const ImVec4 TERM_COLOR = editor->m_bShowTerminal ? ImVec4(1.0f, 1.0f, 1.0f, 1.0f) : ImVec4(0.5f, 0.5f, 0.5f, 1.0f);
+	ImGui::PushStyleColor(ImGuiCol_Text, TERM_COLOR);
+	if (s_bIconButton("term_btn", ICON_FA_TERMINAL, ImVec2(32, 32), "Debug Console")) editor->m_bShowTerminal = !editor->m_bShowTerminal;
+	ImGui::PopStyleColor();
+	ImGui::SameLine();
 
 	// Compile
 	float button_sz = 32.0f + ImGui::GetStyle().FramePadding.x * 2.0f;
@@ -188,7 +201,7 @@ void SceneWindow::Draw(GameEditor* editor)
 		ImGui::SetCursorPosY(ImGui::GetCursorPosY() - vertical_offset + spinner_y_offset);
 
 		s_fDrawSpinner(10.0f, 2.0f, ImGui::GetColorU32(ImVec4(0.2f, 0.8f, 0.2f, 1.0f)));
-		
+
 		ImGui::SameLine();
 		float text_compile_y_offset = (toolbar_height - ImGui::GetTextLineHeight()) / 2.0f;
 		ImGui::SetCursorPosY(ImGui::GetCursorPosY() - vertical_offset - 5 + text_compile_y_offset);
@@ -210,13 +223,13 @@ void SceneWindow::Draw(GameEditor* editor)
 	if (b_Disabled) ImGui::PopStyleVar();
 	ImGui::PopStyleVar(3);
 
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
-    ImGui::BeginChild("ViewportArea", ImVec2(0, 0), false, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+	ImGui::BeginChild("ViewportArea", ImVec2(0, 0), false, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
 
 	rlImGuiImageRenderTextureFit(editor->m_bUseOpaquePass ? &editor->m_DisplayTexture : &editor->m_RaylibTexture, true);
-    
-    ImGui::EndChild();
-    ImGui::PopStyleVar();
+
+	ImGui::EndChild();
+	ImGui::PopStyleVar();
 
 	ImGui::End();
 }

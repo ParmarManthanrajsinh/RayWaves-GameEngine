@@ -1,4 +1,4 @@
-#include<cstring>
+﻿#include<cstring>
 #include<string>
 #include<imgui.h>
 #include "rlImGui/extras/IconsFontAwesome6.h"
@@ -22,7 +22,7 @@ Collapsed=0
 [Window][)") + ICON_FA_IMAGE + R"( Scene]
 Pos=0,25
 Size=966,478
-Collapsed=0
+Collapsed=1
 DockId=0x00000001,0
 
 [Window][)" + ICON_FA_MAP + R"( Map Selection]
