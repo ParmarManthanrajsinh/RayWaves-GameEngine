@@ -124,7 +124,7 @@ Want to add a new tool to the editor toolbar?
 
 ### Debugging
 - **Console Logs:** The engine prints useful info to the attached console. Keep it open!
-- **Visual Studio:** You can attach the VS debugger to `main.exe` to debug your DLL code. breakpoints *usually* work even after reloading!
+- **Debuggers:** You can attach any C++ debugger (VS Code, LLDB, Visual Studio) to `main.exe` to debug your DLL code. Breakpoints *usually* work even after reloading since Zig generates standard PDB files on Windows!
 
 ---
 

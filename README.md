@@ -55,15 +55,15 @@ With our **hot-reloading magic**, you can tweak movement speeds, adjust physics,
 ### 🔧 For Engine Developers
 *Use these instructions if you want to **modify the engine source code itself** (e.g. `main.exe`).*
 
-1. **Open your terminal** (Developer Command Prompt for VS recommended).
+1. **Open any terminal** (PowerShell, Command Prompt, or VS Code terminal).
 2. **Build the engine:**
    ```powershell
-   cmake --preset x64-debug
-   cmake --build out/build/x64-debug --config Debug --target main
+   cmake --preset zig-debug
+   cmake --build build/zig-debug
    ```
 3. **Launch the editor:**
    ```powershell
-   out/build/x64-debug/main.exe
+   build/zig-debug/main.exe
    ```
 
 > **Note:** If you are just making games, you don't need to rebuild `main.exe`.

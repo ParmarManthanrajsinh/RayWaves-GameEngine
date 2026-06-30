@@ -50,7 +50,7 @@ Imagine you send this to a friend. Here is their workflow:
 5.  **Run `build_gamelogic.bat`**.
 6.  **BOOM!** The editor hot-reloads the new speed instantly.
 
-They **do not** need Visual Studio installed. They just need the build tools (which `build_gamelogic.bat` finds automatically).
+They **do not** need Visual Studio installed! They don't need to install anything at all. The bundled Zig compiler inside `Tools/zig` handles all the compilation automatically and instantly.
 
 ---
 

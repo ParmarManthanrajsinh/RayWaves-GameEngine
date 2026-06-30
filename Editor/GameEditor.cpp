@@ -4,6 +4,7 @@
 #include "ProcessRunner.h"
 #include <imgui/imgui_stdlib.h>
 #include <imgui_internal.h>
+#include <filesystem>
 #include <cstdio>
 using Clock = std::chrono::steady_clock;
 
@@ -541,9 +542,23 @@ void GameEditor::CompileGameLogic()
         BuildMessages.clear();
     }
 
+    std::string appDir = GetApplicationDirectory();
+    std::string buildCmd;
+    
+    // Check if we are running the distributed version (where build_gamelogic.bat exists in root)
+    if (std::filesystem::exists(appDir + "/build_gamelogic.bat"))
+    {
+        // Enclose in extra quotes so cmd.exe /C handles spaces correctly
+        buildCmd = "\"\"" + appDir + "/build_gamelogic.bat\" nopause\"";
+    }
+    else
+    {
+        buildCmd = "\"\"cmake\" --build \"" + appDir + "\" --target GameLogic\"";
+    }
+    
     ProcessRunner::RunBuildCommand
     (
-        "build_gamelogic.bat nopause",
+        buildCmd.c_str(),
         [this](const std::string_view line, bool isError) 
         {
             ParseBuildLine(line);

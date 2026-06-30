@@ -18,6 +18,10 @@ int main()
     std::println("Game Engine Starting...");
     GameEditor editor;
     editor.Init(1280,720,"RayWaves");
+    
+    Image icon = LoadImage("Assets/EngineContent/icon.png");
+    SetWindowIcon(icon);
+    UnloadImage(icon);
 
     // Load logic DLL and create the map (will show default map if load fails)
     editor.b_LoadGameLogic("GameLogic.dll");

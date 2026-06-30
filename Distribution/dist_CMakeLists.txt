@@ -76,7 +76,7 @@ add_custom_command(TARGET GameLogic POST_BUILD
 # Copy raylib DLL if exists
 add_custom_command(TARGET GameLogic POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${RAYLIB_ROOT}/bin/raylib.dll"
+            "${RAYLIB_ROOT}/bin/libraylib.dll"
             ${CMAKE_SOURCE_DIR}/
 )
 

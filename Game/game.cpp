@@ -59,6 +59,10 @@ int main()
     GameEngine engine;
     engine.LaunchWindow(config.GetWindowConfig());
     
+    Image icon = LoadImage("Assets/EngineContent/icon.png");
+    SetWindowIcon(icon);
+    UnloadImage(icon);
+    
     // Set FPS based on vsync setting
     if (config.GetWindowConfig().b_Vsync) 
     {

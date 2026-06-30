@@ -56,7 +56,7 @@ static bool s_bfValidateExportFolder(std::string_view out_dir, std::vector<std::
 	}
 	
 	require(fs::path(out_dir) / "GameLogic.dll");
-	require(fs::path(out_dir) / "raylib.dll");
+	require(fs::path(out_dir) / "libraylib.dll");
 	
 	fs::path assets_path = fs::path(out_dir) / "Assets";
 	if (fs::exists(assets_path)) 
@@ -327,48 +327,48 @@ void ExportPanel::Draw(GameEditor* editor)
 
             editor->m_ExportState.m_ExportThread = std::thread([editor]() 
             {
-                fs::create_directories(editor->m_ExportState.m_ExportPath);
-                
-                s_fAppendLogLine(editor->m_ExportState.m_ExportLogs, editor->m_ExportState.m_ExportLogMutex, "Starting export process...");
-            
-                fs::path current_path = fs::current_path();
-            
-                bool b_IsDistribution = fs::exists(current_path / "game.exe") && !fs::exists(current_path / "Game" / "game.cpp");
-            
-                if (b_IsDistribution) 
+                try 
                 {
-                    s_fAppendLogLine(editor->m_ExportState.m_ExportLogs, editor->m_ExportState.m_ExportLogMutex, "Distribution environment detected - using direct file copy...");
+                    fs::create_directories(editor->m_ExportState.m_ExportPath);
+                    
+                    s_fAppendLogLine(editor->m_ExportState.m_ExportLogs, editor->m_ExportState.m_ExportLogMutex, "Starting export process...");
                 
-                    fs::path app_exe = current_path / "game.exe";
-                    fs::path game_logic_dll = current_path / "GameLogic.dll";
-                    fs::path raylib_dll = current_path / "raylib.dll";
+                    fs::path current_path = fs::current_path();
                 
-                    if (!fs::exists(app_exe)) 
+                    bool b_IsDistribution = fs::exists(current_path / "game.exe") && !fs::exists(current_path / "Game" / "game.cpp");
+                
+                    if (b_IsDistribution) 
                     {
-                        s_fAppendLogLine(editor->m_ExportState.m_ExportLogs, editor->m_ExportState.m_ExportLogMutex, "ERROR: app.exe not found in distribution!");
-                        editor->m_ExportState.m_bExportSuccess = false;
-                        editor->m_ExportState.m_bIsExporting = false;
-                        return;
-                    }
-                
-                    if (!fs::exists(game_logic_dll)) 
-                    {
-                        s_fAppendLogLine(editor->m_ExportState.m_ExportLogs, editor->m_ExportState.m_ExportLogMutex, "ERROR: GameLogic.dll not found in distribution!");
-                        editor->m_ExportState.m_bExportSuccess = false;
-                        editor->m_ExportState.m_bIsExporting = false;
-                        return;
-                    }
-                
-                    if (!fs::exists(raylib_dll)) 
-                    {
-                        s_fAppendLogLine(editor->m_ExportState.m_ExportLogs, editor->m_ExportState.m_ExportLogMutex, "ERROR: raylib.dll not found in distribution!");
-                        editor->m_ExportState.m_bExportSuccess = false;
-                        editor->m_ExportState.m_bIsExporting = false;
-                        return;
-                    }
-                
-                    try 
-                    {
+                        s_fAppendLogLine(editor->m_ExportState.m_ExportLogs, editor->m_ExportState.m_ExportLogMutex, "Distribution environment detected - using direct file copy...");
+                    
+                        fs::path app_exe = current_path / "game.exe";
+                        fs::path game_logic_dll = current_path / "GameLogic.dll";
+                        fs::path raylib_dll = current_path / "libraylib.dll";
+                    
+                        if (!fs::exists(app_exe)) 
+                        {
+                            s_fAppendLogLine(editor->m_ExportState.m_ExportLogs, editor->m_ExportState.m_ExportLogMutex, "ERROR: app.exe not found in distribution!");
+                            editor->m_ExportState.m_bExportSuccess = false;
+                            editor->m_ExportState.m_bIsExporting = false;
+                            return;
+                        }
+                    
+                        if (!fs::exists(game_logic_dll)) 
+                        {
+                            s_fAppendLogLine(editor->m_ExportState.m_ExportLogs, editor->m_ExportState.m_ExportLogMutex, "ERROR: GameLogic.dll not found in distribution!");
+                            editor->m_ExportState.m_bExportSuccess = false;
+                            editor->m_ExportState.m_bIsExporting = false;
+                            return;
+                        }
+                    
+                        if (!fs::exists(raylib_dll)) 
+                        {
+                            s_fAppendLogLine(editor->m_ExportState.m_ExportLogs, editor->m_ExportState.m_ExportLogMutex, "ERROR: libraylib.dll not found in distribution!");
+                            editor->m_ExportState.m_bExportSuccess = false;
+                            editor->m_ExportState.m_bIsExporting = false;
+                            return;
+                        }
+                    
                         fs::path export_dir = current_path / editor->m_ExportState.m_ExportPath;
                         fs::create_directories(export_dir);
                         
@@ -399,8 +399,8 @@ void ExportPanel::Draw(GameEditor* editor)
                         s_fAppendLogLine(editor->m_ExportState.m_ExportLogs, editor->m_ExportState.m_ExportLogMutex, "Copying GameLogic.dll...");
                         fs::copy_file(game_logic_dll, export_dir / "GameLogic.dll", fs::copy_options::overwrite_existing);
                         
-                        s_fAppendLogLine(editor->m_ExportState.m_ExportLogs, editor->m_ExportState.m_ExportLogMutex, "Copying raylib.dll...");
-                        fs::copy_file(raylib_dll, export_dir / "raylib.dll", fs::copy_options::overwrite_existing);
+                        s_fAppendLogLine(editor->m_ExportState.m_ExportLogs, editor->m_ExportState.m_ExportLogMutex, "Copying libraylib.dll...");
+                        fs::copy_file(raylib_dll, export_dir / "libraylib.dll", fs::copy_options::overwrite_existing);
                         
                         fs::path assets_dir = current_path / "Assets";
                         if (fs::exists(assets_dir)) 
@@ -412,7 +412,7 @@ void ExportPanel::Draw(GameEditor* editor)
                             
                             for (const auto& ENTRY : fs::directory_iterator(assets_dir))
                             {
-                                if (ENTRY.is_directory() && ENTRY.path().filename() != "EngineContent")
+                                if (ENTRY.is_directory())
                                 {
                                     fs::path dest = export_assets_dir / ENTRY.path().filename();
                                     fs::copy(ENTRY.path(), dest, fs::copy_options::recursive | fs::copy_options::overwrite_existing);
@@ -435,60 +435,61 @@ void ExportPanel::Draw(GameEditor* editor)
                         
                         s_fAppendLogLine(editor->m_ExportState.m_ExportLogs, editor->m_ExportState.m_ExportLogMutex, "Export completed successfully!");
                         editor->m_ExportState.m_bExportSuccess = true;
-                    } 
-                    catch (const std::exception& e) 
-                    {
-                        s_fAppendLogLine(editor->m_ExportState.m_ExportLogs, editor->m_ExportState.m_ExportLogMutex, std::string("ERROR: ") + e.what());
-                        editor->m_ExportState.m_bExportSuccess = false;
+                        
+                        editor->m_ExportState.m_bIsExporting = false;
+                        return;
                     }
-                    
-                    editor->m_ExportState.m_bIsExporting = false;
-                    return;
-                }
                 
-                s_fAppendLogLine(editor->m_ExportState.m_ExportLogs, editor->m_ExportState.m_ExportLogMutex, "Source environment detected - checking for running processes...");
+                    s_fAppendLogLine(editor->m_ExportState.m_ExportLogs, editor->m_ExportState.m_ExportLogMutex, "Source environment detected - checking for running processes...");
                 
-                std::stringstream check_cmd;
-                check_cmd << "powershell -Command \"Get-Process -Name 'main' -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Path\"";
+                    std::stringstream check_cmd;
+                    check_cmd << "powershell -Command \"Get-Process -Name 'main' -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Path\"";
                 
 #ifdef _WIN32
-                FILE* check_pipe = _popen(check_cmd.str().c_str(), "r");
-                if (check_pipe) 
-                {
-                    std::array<char, 1024> buffer{};
-                    bool b_FoundRunningProcess = false;
-                    while (fgets(buffer.data(), sizeof(buffer), check_pipe) != nullptr) 
+                    FILE* check_pipe = _popen(check_cmd.str().c_str(), "r");
+                    if (check_pipe) 
                     {
-                        if(std::string_view{ buffer.data() }.contains("main.exe"))
+                        std::array<char, 1024> buffer{};
+                        bool b_FoundRunningProcess = false;
+                        while (fgets(buffer.data(), sizeof(buffer), check_pipe) != nullptr) 
                         {
-                            b_FoundRunningProcess = true;
-                            s_fAppendLogLine(editor->m_ExportState.m_ExportLogs, editor->m_ExportState.m_ExportLogMutex, "WARNING: main.exe is currently running. Export may fail.");
-                            s_fAppendLogLine(editor->m_ExportState.m_ExportLogs, editor->m_ExportState.m_ExportLogMutex, "Please close the game editor before exporting for best results.");
-                            break;
+                            if(std::string_view{ buffer.data() }.contains("main.exe"))
+                            {
+                                b_FoundRunningProcess = true;
+                                s_fAppendLogLine(editor->m_ExportState.m_ExportLogs, editor->m_ExportState.m_ExportLogMutex, "WARNING: main.exe is currently running. Export may fail.");
+                                s_fAppendLogLine(editor->m_ExportState.m_ExportLogs, editor->m_ExportState.m_ExportLogMutex, "Please close the game editor before exporting for best results.");
+                                break;
+                            }
+                        }
+
+                        _pclose(check_pipe);
+                        if (!b_FoundRunningProcess) 
+                        {
+                            s_fAppendLogLine(editor->m_ExportState.m_ExportLogs, editor->m_ExportState.m_ExportLogMutex, "No conflicting processes found. Proceeding with build...");
                         }
                     }
-
-                    _pclose(check_pipe);
-                    if (!b_FoundRunningProcess) 
-                    {
-                        s_fAppendLogLine(editor->m_ExportState.m_ExportLogs, editor->m_ExportState.m_ExportLogMutex, "No conflicting processes found. Proceeding with build...");
-                    }
-                }
 #endif
                 
-                s_fAppendLogLine(editor->m_ExportState.m_ExportLogs, editor->m_ExportState.m_ExportLogMutex, "Building game runtime from source...");
+                    s_fAppendLogLine(editor->m_ExportState.m_ExportLogs, editor->m_ExportState.m_ExportLogMutex, "Building game runtime from source...");
 
-                s_fAppendLogLine(editor->m_ExportState.m_ExportLogs, editor->m_ExportState.m_ExportLogMutex, std::string("Process completed. Validating export folder: ") + editor->m_ExportState.m_ExportPath);
+                    s_fAppendLogLine(editor->m_ExportState.m_ExportLogs, editor->m_ExportState.m_ExportLogMutex, std::string("Process completed. Validating export folder: ") + editor->m_ExportState.m_ExportPath);
                 
-                bool b_Ok = s_bfValidateExportFolder(editor->m_ExportState.m_ExportPath, editor->m_ExportState.m_ExportLogs, editor->m_ExportState.m_ExportLogMutex);
-                editor->m_ExportState.m_bExportSuccess = b_Ok;
+                    bool b_Ok = s_bfValidateExportFolder(editor->m_ExportState.m_ExportPath, editor->m_ExportState.m_ExportLogs, editor->m_ExportState.m_ExportLogMutex);
+                    editor->m_ExportState.m_bExportSuccess = b_Ok;
                 
-                if (!b_Ok) 
-                {
-                    s_fAppendLogLine(editor->m_ExportState.m_ExportLogs, editor->m_ExportState.m_ExportLogMutex, "Export validation failed - check export folder contents");
+                    if (!b_Ok) 
+                    {
+                        s_fAppendLogLine(editor->m_ExportState.m_ExportLogs, editor->m_ExportState.m_ExportLogMutex, "Export validation failed - check export folder contents");
+                    }
+                
+                    editor->m_ExportState.m_bIsExporting = false;
                 }
-                
-                editor->m_ExportState.m_bIsExporting = false;
+                catch (const std::exception& e)
+                {
+                    s_fAppendLogLine(editor->m_ExportState.m_ExportLogs, editor->m_ExportState.m_ExportLogMutex, std::string("CRITICAL ERROR: ") + e.what());
+                    editor->m_ExportState.m_bExportSuccess = false;
+                    editor->m_ExportState.m_bIsExporting = false;
+                }
             });
         }
         ImGui::PopStyleColor(3);

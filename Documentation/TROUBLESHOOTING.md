@@ -8,18 +8,14 @@ Something broken? Don't panic. Here are the most common issues and how to fix th
 
 ## 🏗️ Build Issues
 
-### "Cannot open main.exe for writing" (LNK1168)
+### "Permission denied" when building main.exe
 *   **The Problem:** You are trying to rebuild the *engine core* (`main.exe`) while it is running.
 *   **The Fix:** Close the game window, *then* rebuild.
 *   **Note:** You *can* rebuild `GameLogic.dll` while the game is running. That's the whole point!
 
-### "Compiler not found" / "`cl` is not recognized"
-*   **The Problem:** Your terminal doesn't know where the C++ compiler is.
-*   **The Fix:** Use the **"Developer Command Prompt for VS 2022"** instead of the regular `cmd` or PowerShell.
-
 ### "CMake configuration failed"
-*   **The Problem:** You might be missing Visual Studio C++ tools.
-*   **The Fix:** Open the Visual Studio Installer and ensure **"Desktop development with C++"** is checked.
+*   **The Problem:** You might be using the wrong CMake preset or missing the bundled Zig compiler.
+*   **The Fix:** Ensure you are using `cmake --preset zig-debug` and that the `Tools/zig` folder exists in your project. The engine uses a bundled Zig compiler so you **do not** need Visual Studio installed!
 
 ---
 
