@@ -6,6 +6,11 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+# Enable multi-processor compilation for MSVC (drastically speeds up Visual Studio builds)
+if(MSVC)
+    add_compile_options(/MP)
+endif()
+
 # add_compile_options(/fsanitize=address)
 # add_link_options(/fsanitize=address)
 
@@ -15,6 +20,8 @@ add_compile_definitions(IMGUI_DISABLE_SSE)
 # Always build raylib from source as a SHARED library so EXE and GameLogic share the same RLGL state
 include(FetchContent)
 set(BUILD_SHARED_LIBS ON CACHE BOOL "Build shared libraries" FORCE)
+set(BUILD_EXAMPLES OFF CACHE BOOL "Disable Raylib examples to speed up build" FORCE)
+set(BUILD_TESTING OFF CACHE BOOL "Disable Raylib tests" FORCE)
 FetchContent_Declare(
     raylib
     URL https://github.com/raysan5/raylib/archive/refs/tags/6.0.tar.gz
