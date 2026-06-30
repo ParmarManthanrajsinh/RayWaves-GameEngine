@@ -4,8 +4,8 @@ REM This script uses the bundled Zig compiler for a zero-install experience
 
 echo Building GameLogic.dll...
 
-if not exist "Tools\zig\zig.exe" (
-    echo ERROR: Bundled Zig compiler not found at Tools\zig\zig.exe
+if not exist "Core\Tools\zig\zig.exe" (
+    echo ERROR: Bundled Zig compiler not found at Core\Tools\zig\zig.exe
     if "%1" NEQ "nopause" pause
     exit /b 1
 )
@@ -16,7 +16,7 @@ setlocal EnableDelayedExpansion
 set SRC_FILES=
 for %%f in (GameLogic\*.cpp) do set SRC_FILES=!SRC_FILES! %%f
 
-Tools\zig\zig.exe c++ -shared -o GameLogic.dll !SRC_FILES! -IEngine -Iraylib\include -L. -Lraylib\lib -lEngine -lraylib -std=c++23 -msse4.2 -O2
+Core\Tools\zig\zig.exe c++ -shared -o GameLogic.dll !SRC_FILES! -ICore\Engine -ICore\raylib\include -LCore -LCore\raylib\lib -lEngine -lraylib -std=c++23 -msse4.2 -O2
 endlocal
 
 if errorlevel 1 (
