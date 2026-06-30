@@ -5,6 +5,7 @@
 #include <string>
 #include <string_view>
 #include <functional>
+#include "GameState.h"
 
 class GameMap
 {
@@ -25,6 +26,9 @@ public:
     virtual void Initialize();
     virtual void Update(float delta_time);
     virtual void Draw();
+    
+    virtual void SaveState(StateBag& out) const {}
+    virtual void LoadState(const StateBag& in) {}
     
     void SetMapName(const std::string& map_name);
     std::string GetMapName() const;

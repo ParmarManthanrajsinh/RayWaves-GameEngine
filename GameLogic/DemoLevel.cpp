@@ -109,6 +109,16 @@ inline int32_t DemoLevel::PseudoRandom(int32_t X, int32_t Seed) const
     return Hash ^ (Hash >> 16);
 }
 
+void DemoLevel::SaveState(StateBag& out) const
+{
+    m_Player.SaveState(out);
+}
+
+void DemoLevel::LoadState(const StateBag& in)
+{
+    m_Player.LoadState(in);
+}
+
 void DemoLevel::Update(float DeltaTime)
 {
     m_Player.HandleInput(DeltaTime);

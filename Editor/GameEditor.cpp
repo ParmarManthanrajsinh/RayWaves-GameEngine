@@ -340,6 +340,32 @@ bool GameEditor::b_LoadGameLogic(std::string_view dll_path)
 		return false;
 	}
 
+	bool b_IsReload = (m_GameLogicDll.handle != nullptr);
+	StateBag reload_state;
+
+	if (b_IsReload && m_bPreserveStateOnReload)
+	{
+		try
+		{
+			if (m_GameEngine.GetMapManager())
+			{
+				m_GameEngine.GetMapManager()->SaveState(reload_state);
+			}
+			else if (m_GameEngine.GetMap())
+			{
+				m_GameEngine.GetMap()->SaveState(reload_state);
+			}
+		}
+		catch (const std::exception& e)
+		{
+			m_Terminal.add_text(std::string("SaveState threw an exception: ") + e.what(), term::Severity::Error);
+		}
+		catch (...)
+		{
+			m_Terminal.add_text("SaveState threw an unknown exception", term::Severity::Error);
+		}
+	}
+
 	// 4) Destroy current map to release old DLL code before unloading
 	m_GameEngine.SetMap(nullptr);
 	m_GameEngine.SetMapManager(nullptr);
@@ -387,6 +413,29 @@ bool GameEditor::b_LoadGameLogic(std::string_view dll_path)
 		fs::path(m_GameLogicPath),	
 		ec
 	);
+
+	if (b_IsReload && m_bPreserveStateOnReload)
+	{
+		try
+		{
+			if (m_GameEngine.GetMapManager())
+			{
+				m_GameEngine.GetMapManager()->LoadState(reload_state);
+			}
+			else if (m_GameEngine.GetMap())
+			{
+				m_GameEngine.GetMap()->LoadState(reload_state);
+			}
+		}
+		catch (const std::exception& e)
+		{
+			m_Terminal.add_text(std::string("LoadState threw an exception: ") + e.what(), term::Severity::Error);
+		}
+		catch (...)
+		{
+			m_Terminal.add_text("LoadState threw an unknown exception", term::Severity::Error);
+		}
+	}
 
 	return true;
 }

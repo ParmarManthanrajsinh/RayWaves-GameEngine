@@ -107,6 +107,29 @@ void MapManager::Draw()
     }
 }
 
+void MapManager::SaveState(StateBag& out) const
+{
+    out.SetString("__mapmanager_current_id", m_CurrentMapId);
+    if (m_CurrentMap)
+    {
+        m_CurrentMap->SaveState(out);
+    }
+}
+
+void MapManager::LoadState(const StateBag& in)
+{
+    std::string map_id = in.GetString("__mapmanager_current_id", "");
+    if (!map_id.empty() && b_IsMapRegistered(map_id) && !b_IsCurrentMap(map_id))
+    {
+        b_GotoMap(map_id);
+    }
+    
+    if (m_CurrentMap)
+    {
+        m_CurrentMap->LoadState(in);
+    }
+}
+
 void MapManager::SetSceneBounds(float width, float height)
 {
     // Update our own bounds first

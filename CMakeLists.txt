@@ -142,6 +142,27 @@ add_custom_command(TARGET game POST_BUILD
             $<TARGET_FILE:raylib>
             $<TARGET_FILE_DIR:game>)
 
+# ------------------------------
+# Smoke Test executable
+# ------------------------------
+add_executable(smoketest EXCLUDE_FROM_ALL
+    Tests/SmokeTest.cpp
+    Game/DllLoader.cpp
+)
+
+target_include_directories(smoketest PRIVATE
+    ${CMAKE_SOURCE_DIR}/Engine
+    ${CMAKE_SOURCE_DIR}/Game
+)
+
+target_link_libraries(smoketest PRIVATE Engine)
+
+# Copy GameLogic and raylib DLLs beside smoketest
+add_custom_command(TARGET smoketest POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:GameLogic> $<TARGET_FILE_DIR:smoketest>
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:raylib> $<TARGET_FILE_DIR:smoketest>
+)
+
 # Optional export packaging target
 add_custom_target(export_package
     COMMAND ${CMAKE_COMMAND} -E echo "Running export script..."

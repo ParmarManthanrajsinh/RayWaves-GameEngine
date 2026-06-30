@@ -67,6 +67,9 @@ public:
     void Update(float delta_time) override;
     void Draw() override;
     
+    void SaveState(StateBag& out) const override;
+    void LoadState(const StateBag& in) override;
+    
     void SetSceneBounds(float width, float height);
     Vector2 GetSceneBounds() const;
  

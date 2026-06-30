@@ -22,7 +22,7 @@ With our **hot-reloading magic**, you can tweak movement speeds, adjust physics,
 ## ✨ Features
 
 - **🔥 Limitless Hot-Reloading**  
-  Edit your C++ code and see the results in **~0.5 seconds**. No restarting. No lost state. Just flow.
+  Edit your C++ code and see the results in **~0.5 seconds**. Game state is preserved across reloads via opt-in `SaveState`/`LoadState`. No restarting. Just flow.
 
 - **🎮 Pure Raylib Power**  
   No proprietary scripting languages or complex ECS layers. It's just you and standard C++ Raylib code.

@@ -23,6 +23,7 @@
 #include "GameEditorTheme.h"
 #include "GameEngine.h"
 #include "terminal/terminal.h"
+#include "../Engine/GameState.h"
 namespace fs = std::filesystem;
 
 enum class EBuildStatus { None, Compiling, Success, Failed };
@@ -114,6 +115,7 @@ public:
     bool m_bShowExport = false;
     
     bool m_bUseOpaquePass = true;
+    bool m_bPreserveStateOnReload = true;
     
     std::string m_SelectedMapId;
 

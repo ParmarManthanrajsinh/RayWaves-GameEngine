@@ -33,6 +33,7 @@ Something broken? Don't panic. Here are the most common issues and how to fix th
 ### "Access Violation" / Crash on Reload
 *   **The Problem:** You probably have a pointer pointing to old memory, or a static variable that didn't get reset.
 *   **The Fix:**
+    *   State serialization (`SaveState`/`LoadState`) is opt-in. Pointers and GPU resources must not be serialized, they will reset.
     *   Initialize all variables in `Initialize()`, not just in the constructor.
     *   Avoid global variables in your cpp files if possible.
     *   Check your `Cleanup()` method if you are manually managing memory.

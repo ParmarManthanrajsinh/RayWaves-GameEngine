@@ -2,6 +2,7 @@
 #include <raylib.h>
 #include <vector>
 #include <cstdint>
+#include "../Engine/GameState.h"
 
 struct GroundTile;
 
@@ -20,6 +21,9 @@ public:
     void ResolveCollisions(float DeltaTime, const std::vector<GroundTile>& Tiles);
     void ClampToLevel(float LevelLeft, float LevelRight);
     void Draw();
+    
+    void SaveState(StateBag& out) const;
+    void LoadState(const StateBag& in);
     
     Vector2 GetPosition() const { return m_Position; }
     Vector2 GetVelocity() const { return m_Velocity; }

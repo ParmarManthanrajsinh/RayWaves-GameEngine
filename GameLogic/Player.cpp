@@ -47,6 +47,22 @@ void Player::Reset(Vector2 StartPosition)
     m_AttackFrame = 0;
 }
 
+void Player::SaveState(StateBag& out) const
+{
+    out.SetVector2("player_position", m_Position);
+    out.SetVector2("player_velocity", m_Velocity);
+    out.SetBool("player_grounded", m_bIsGrounded);
+    out.SetBool("player_facing_right", m_bFacingRight);
+}
+
+void Player::LoadState(const StateBag& in)
+{
+    m_Position = in.GetVector2("player_position", m_Position);
+    m_Velocity = in.GetVector2("player_velocity", m_Velocity);
+    m_bIsGrounded = in.GetBool("player_grounded", m_bIsGrounded);
+    m_bFacingRight = in.GetBool("player_facing_right", m_bFacingRight);
+}
+
 void Player::HandleInput(float DeltaTime)
 {
     // Attack input - left mouse button

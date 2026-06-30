@@ -43,5 +43,9 @@ public:
     void Initialize() override;
     void Update(float DeltaTime) override;
     void Draw() override;
+    
+    void SaveState(StateBag& out) const override;
+    void LoadState(const StateBag& in) override;
+    
     void Reset();
 };

@@ -30,6 +30,7 @@ public:
 	void ToggleFullscreen();
 	void SetWindowMode(bool fullscreen);
 	void SetMap(std::unique_ptr<GameMap> game_map);
+	GameMap* GetMap() const { return m_GameMap.get(); }
 	void DrawMap() const;
 	void UpdateMap(float delta_time) const;
 	void ResetMap();

@@ -150,5 +150,11 @@ void SceneSettingsPanel::Draw(GameEditor* editor)
         s_PrevTargetFPS = editor->m_SceneSettings.m_TargetFPS;
     }
 
+    ImGui::Spacing();
+    ImGui::Spacing();
+    ImGui::SeparatorText("Hot Reload Settings");
+    ImGui::Spacing();
+    ImGui::Checkbox("Preserve state on reload", &editor->m_bPreserveStateOnReload);
+
     ImGui::End();
 }
