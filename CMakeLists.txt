@@ -9,8 +9,8 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-add_compile_options(/fsanitize=address)
-add_link_options(/fsanitize=address)
+# add_compile_options(/fsanitize=address)
+# add_link_options(/fsanitize=address)
 
 # Always build raylib from source as a SHARED library so EXE and GameLogic share the same RLGL state
 include(FetchContent)
