@@ -62,7 +62,22 @@ void MessageLogPanel::Draw(GameEditor* editor)
     if (ImGui::Begin("Message Log", &editor->bShowMessageLog))
     {
         float content_width = ImGui::GetContentRegionAvail().x;
-        ImGui::SetCursorPosX(ImGui::GetCursorPosX() + content_width - 60.0f);
+        ImGui::SetCursorPosX(ImGui::GetCursorPosX() + content_width - 135.0f);
+        if (ImGui::Button("Copy All", ImVec2(65, 0)))
+        {
+            std::lock_guard<std::mutex> lock(editor->BuildMessagesMutex);
+            std::string all_msgs;
+            for (const auto& msg : editor->BuildMessages)
+            {
+                if (!msg.File.empty())
+                {
+                    all_msgs += msg.File + ":" + std::to_string(msg.Line) + " - ";
+                }
+                all_msgs += msg.Text + "\n";
+            }
+            ImGui::SetClipboardText(all_msgs.c_str());
+        }
+        ImGui::SameLine();
         if (ImGui::Button("Clear", ImVec2(60, 0)))
         {
             std::lock_guard<std::mutex> lock(editor->BuildMessagesMutex);
@@ -84,8 +99,10 @@ void MessageLogPanel::Draw(GameEditor* editor)
             ImGui::TableSetupColumn("Description", ImGuiTableColumnFlags_WidthStretch);
             ImGui::TableHeadersRow();
 
+            int row_id = 0;
             for (const auto& msg : local_messages)
             {
+                ImGui::PushID(row_id++);
                 ImGui::TableNextRow();
                 ImGui::TableNextColumn();
                 
@@ -124,7 +141,30 @@ void MessageLogPanel::Draw(GameEditor* editor)
                 ImGui::TableNextColumn();
                 ImGui::Dummy(ImVec2(0, 2));
                 ImGui::TextWrapped("%s", msg.Text.c_str());
+                
+                if (ImGui::IsItemHovered())
+                {
+                    ImGui::SetTooltip("Right-click to copy");
+                }
+                if (ImGui::BeginPopupContextItem("##msg_context"))
+                {
+                    if (ImGui::MenuItem("Copy Message"))
+                    {
+                        ImGui::SetClipboardText(msg.Text.c_str());
+                    }
+                    if (!msg.File.empty())
+                    {
+                        if (ImGui::MenuItem("Copy Location + Message"))
+                        {
+                            std::string full_msg = msg.File + ":" + std::to_string(msg.Line) + " - " + msg.Text;
+                            ImGui::SetClipboardText(full_msg.c_str());
+                        }
+                    }
+                    ImGui::EndPopup();
+                }
+                
                 ImGui::Dummy(ImVec2(0, 2));
+                ImGui::PopID();
             }
             ImGui::EndTable();
         }
