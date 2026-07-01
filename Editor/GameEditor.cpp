@@ -134,11 +134,10 @@ void GameEditor::Init(int width, int height, std::string_view title)
 
     // Layout persistence
 	static std::string s_LayoutPath;
-	s_LayoutPath = EditorPreferences::GetInstance().GetConfigPath();
-	std::filesystem::path dir = std::filesystem::path(s_LayoutPath).parent_path();
-	std::filesystem::path layout_file = dir / "editor_layout.ini";
+	std::filesystem::path dir = std::filesystem::path(EditorPreferences::GetInstance().GetConfigPath()).parent_path();
+	s_LayoutPath = (dir / "editor_layout.ini").string();
 
-	if (std::filesystem::exists(layout_file))
+	if (std::filesystem::exists(s_LayoutPath))
 	{
 		ImGui::GetIO().IniFilename = s_LayoutPath.c_str();
 		ImGui::LoadIniSettingsFromDisk(s_LayoutPath.c_str());
@@ -298,7 +297,9 @@ void GameEditor::Run()
 			m_bNeedsLayoutReset = false;
 			LoadEditorDefaultIni();
 			
-			static std::string s_LayoutPath = EditorPreferences::GetInstance().GetConfigPath();
+			static std::string s_LayoutPath;
+			std::filesystem::path dir = std::filesystem::path(EditorPreferences::GetInstance().GetConfigPath()).parent_path();
+			s_LayoutPath = (dir / "editor_layout.ini").string();
 			ImGui::GetIO().IniFilename = s_LayoutPath.c_str();
 		}
 
