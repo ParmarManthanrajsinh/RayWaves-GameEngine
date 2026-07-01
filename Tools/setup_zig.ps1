@@ -10,9 +10,9 @@ $ToolsDir = $PSScriptRoot
 if (-not $SkipZig) {
     $ZigTargetDir = Join-Path $ToolsDir "zig"
     if (-not (Test-Path (Join-Path $ZigTargetDir "zig.exe"))) {
-        Write-Host "Downloading Zig 0.13.0..." -ForegroundColor Cyan
+        Write-Host "Downloading Zig 0.16.0..." -ForegroundColor Cyan
         $ZigZip = Join-Path $ToolsDir "zig.zip"
-        $ZigUrl = "https://ziglang.org/download/0.13.0/zig-windows-x86_64-0.13.0.zip"
+        $ZigUrl = "https://ziglang.org/download/0.16.0/zig-x86_64-windows-0.16.0.zip"
         curl.exe -L -o "$ZigZip" "$ZigUrl"
 
         Write-Host "Extracting Zig..." -ForegroundColor Cyan
@@ -20,7 +20,7 @@ if (-not $SkipZig) {
         Remove-Item $ZigZip
 
         # Rename the extracted folder to just 'zig'
-        $ExtractedDir = Join-Path $ToolsDir "zig-windows-x86_64-0.13.0"
+        $ExtractedDir = Join-Path $ToolsDir "zig-x86_64-windows-0.16.0"
         if (Test-Path $ZigTargetDir) {
             Remove-Item -Recurse -Force $ZigTargetDir
         }
