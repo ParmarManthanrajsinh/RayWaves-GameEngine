@@ -113,6 +113,9 @@ public:
     bool m_bShowTerminal = true;
     bool m_bShowSceneSettings = false;
     bool m_bShowExport = false;
+    bool m_bShowEditorPreferences = false;
+    bool m_bNeedsThemeRebake = false;
+    bool m_bNeedsLayoutReset = false;
     
     bool m_bUseOpaquePass = true;
     bool m_bPreserveStateOnReload = true;

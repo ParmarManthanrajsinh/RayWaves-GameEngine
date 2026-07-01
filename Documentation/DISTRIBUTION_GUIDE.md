@@ -29,7 +29,7 @@ When you create a distribution, here is what your users get:
 
 | File/Folder | Purpose |
 |-------------|---------|
-| `editor.exe` | The visual game editor (renamed `app.exe` in some versions). |
+| `editor.exe` | The visual game editor. |
 | `GameLogic.dll` | The compiled game code. |
 | `game_config.ini` | Default settings (resolution, VSync, etc). |
 | `build_gamelogic.bat` | **The Magic Button.** Users click this to recompile their code. |
@@ -50,7 +50,7 @@ Imagine you send this to a friend. Here is their workflow:
 5.  **Run `build_gamelogic.bat`**.
 6.  **BOOM!** The editor hot-reloads the new speed instantly.
 
-They **do not** need Visual Studio installed. They just need the build tools (which `build_gamelogic.bat` finds automatically).
+**Important Note:** By default, creating a distribution drops the compiler to save space (yielding a lean, player-ready build). If you want your friends to have this magical "zero-install" experience where they can edit C++ without downloading any tools, you **MUST** export the game using the `-IncludeCompiler` flag (see "Customizing the Distro" below). Otherwise, they will need Zig installed system-wide on their PATH.
 
 ---
 
@@ -60,6 +60,7 @@ You can tweak how the distribution is built by editing `Distribution/distribute.
 
 ### Common Customizations
 
+*   **Include Zig Compiler:** By default, the engine's built-in Zig compiler is not included, keeping the package size small for players. Run `distribute.ps1 -IncludeCompiler` to bundle Zig so the recipient can hot-reload without any manual install.
 *   **Change Default Config:** Modify `Distribution/config.ini` to set different starting resolutions or flags.
 *   **Include Extra Assets:** Add files to `GameLogic/` before building if you want to include starter scripts.
 *   **Branding:** Change the icon or name of `editor.exe` in the script.

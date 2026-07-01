@@ -8,11 +8,16 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+# Enable multi-processor compilation for MSVC (drastically speeds up Visual Studio builds)
+if(MSVC)
+    add_compile_options(/MP)
+endif()
+
 # Build shared libs (GameLogic) and static Engine to mirror source build
 set(BUILD_SHARED_LIBS ON)
 
 # -------------------------------------
-# RAYLIB (provided via dist/raylib)
+# RAYLIB (provided via dist/Core/raylib)
 # -------------------------------------
 set(RAYLIB_ROOT "${CMAKE_SOURCE_DIR}/raylib")
 set(RAYLIB_INCLUDE_DIR "${RAYLIB_ROOT}/include")
@@ -24,26 +29,22 @@ link_directories(${RAYLIB_LIB_DIR})
 # -------------------------------------
 # SOURCES (auto-detect with CONFIGURE_DEPENDS)
 # -------------------------------------
-file(GLOB GAMELOGIC_SRC CONFIGURE_DEPENDS "GameLogic/*.cpp")
-file(GLOB ENGINE_SRC    CONFIGURE_DEPENDS "Engine/*.cpp")
+file(GLOB GAMELOGIC_SRC CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/../GameLogic/*.cpp")
+file(GLOB ENGINE_SRC    CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/Engine/*.cpp")
 
 # -------------------------------------
-# TARGETS (mirror source build: Engine static, GameLogic shared)
+# TARGETS
 # -------------------------------------
+# Build Engine from source to avoid cross-compiler ABI issues.
 add_library(Engine STATIC ${ENGINE_SRC})
-# Expose Engine headers and raylib linkage to consumers
-# (Needed so GameLogic sees Engine headers and raylib symbols)
-target_include_directories(Engine PUBLIC 
-    ${CMAKE_SOURCE_DIR}/Engine
-    ${RAYLIB_INCLUDE_DIR}
-)
+target_include_directories(Engine PUBLIC "${CMAKE_SOURCE_DIR}/Engine" "${RAYLIB_INCLUDE_DIR}")
 target_link_libraries(Engine PUBLIC raylib)
 
 add_library(GameLogic SHARED ${GAMELOGIC_SRC})
 
 target_include_directories(GameLogic PRIVATE
     ${CMAKE_SOURCE_DIR}/Engine
-    ${CMAKE_SOURCE_DIR}/GameLogic
+    ${CMAKE_SOURCE_DIR}/../GameLogic
 )
 
 target_link_libraries(GameLogic PRIVATE Engine)
@@ -58,10 +59,10 @@ endif()
 # so the DLL lands directly in the dist root, not in Release/ subfolder.
 # -------------------------------------
 set_target_properties(GameLogic PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}
-    RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_SOURCE_DIR}
-    RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_SOURCE_DIR}
-    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/..
+    RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_SOURCE_DIR}/..
+    RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_SOURCE_DIR}/..
+    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/..
     PREFIX ""
     OUTPUT_NAME "GameLogic"
 )
@@ -70,14 +71,14 @@ set_target_properties(GameLogic PROPERTIES
 add_custom_command(TARGET GameLogic POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
             $<TARGET_FILE:GameLogic>
-            ${CMAKE_SOURCE_DIR}/
+            ${CMAKE_SOURCE_DIR}/../
 )
 
 # Copy raylib DLL if exists
 add_custom_command(TARGET GameLogic POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${RAYLIB_ROOT}/bin/raylib.dll"
-            ${CMAKE_SOURCE_DIR}/
+            "${RAYLIB_ROOT}/bin/libraylib.dll"
+            ${CMAKE_SOURCE_DIR}/../
 )
 
 message(STATUS "GameLogic configured (Engine static, GameLogic shared) with automatic source detection")

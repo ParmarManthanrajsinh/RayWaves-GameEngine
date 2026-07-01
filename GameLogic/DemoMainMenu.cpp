@@ -1,6 +1,7 @@
 #include "DemoMainMenu.h"
 #include "../Engine/MapManager.h"
 #include "../Engine/raygui.h"
+#include "../Engine/GameConfig.h"
 #include <iostream>
 #include <cmath>
 
@@ -51,8 +52,8 @@ void DemoMainMenu::Update(float DeltaTime)
 
 void DemoMainMenu::Draw()
 {
-    float ScreenWidth = static_cast<float>(GetScreenWidth());
-    float ScreenHeight = static_cast<float>(GetScreenHeight());
+    float ScreenWidth = static_cast<float>(GameConfig::GetInstance().GetWindowConfig().scene_width);
+    float ScreenHeight = static_cast<float>(GameConfig::GetInstance().GetWindowConfig().scene_height);
 
 	// Draw Background
     ClearBackground(BLACK);

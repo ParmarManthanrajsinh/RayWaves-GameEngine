@@ -12,7 +12,7 @@
 #include <stdlib.h>
 #include <crtdbg.h>
 
-#ifdef _DEBUG
+#if defined(_DEBUG) && defined(_MSC_VER) && !defined(__clang__)
 #define DEBUG_NEW new(_NORMAL_BLOCK, __FILE__, __LINE__)
 #define new DEBUG_NEW
 #endif
@@ -127,10 +127,10 @@ namespace term
     {
         switch (severity) 
         {
-            case Severity::Debug: return theme.log_debug;
+            case Severity::Debug: return ImGui::GetStyle().Colors[ImGuiCol_Text];
             case Severity::Warn:  return theme.log_warn;
             case Severity::Error: return theme.log_error;
-            default:              return theme.text_default;
+            default:              return ImGui::GetStyle().Colors[ImGuiCol_Text];
         }
     }
 
@@ -179,8 +179,6 @@ namespace term
     {
         ImGui::SetNextWindowSize(ImVec2(600, 400), ImGuiCond_FirstUseEver);
 
-        ImGui::PushStyleColor(ImGuiCol_WindowBg, m_theme.window_bg);
-        ImGui::PushStyleColor(ImGuiCol_Border, m_theme.border_color);
         ImGui::PushStyleVar
         (
             ImGuiStyleVar_WindowPadding, 
@@ -212,7 +210,6 @@ namespace term
         if (!b_begin)
         {
             ImGui::PopStyleVar(2);
-            ImGui::PopStyleColor(2);
             ImGui::End();
             return;
         }
@@ -233,7 +230,6 @@ namespace term
 
         ImGui::End();
         ImGui::PopStyleVar(2);
-        ImGui::PopStyleColor(2);
     }
 
     void Terminal::render_settings_bar(const ImVec2& size) 
@@ -249,7 +245,7 @@ namespace term
         
         // Search/Filter
         ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - clear_btn_width - ImGui::GetStyle().ItemSpacing.x * 2.0f);
-        ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.08f, 0.08f, 0.09f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_FrameBg, ImGui::GetStyle().Colors[ImGuiCol_FrameBg]);
         ImGui::InputTextWithHint
         (
             "##Filter", 
@@ -272,9 +268,9 @@ namespace term
 
     void Terminal::render_log_window(const ImVec2& size) 
     {
-        // Dark, pure black background for the terminal screen
-        ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.04f, 0.04f, 0.05f, 1.0f));
-        ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.2f, 0.2f, 0.22f, 1.0f));
+        // Background for the terminal screen
+        ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::GetStyle().Colors[ImGuiCol_FrameBg]);
+        ImGui::PushStyleColor(ImGuiCol_Border, ImGui::GetStyle().Colors[ImGuiCol_Border]);
         ImGui::PushStyleVar(ImGuiStyleVar_ChildBorderSize, 1.0f);
         ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 4.0f);
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8, 8)); // padding inside child
@@ -313,7 +309,7 @@ namespace term
 
                     if (!msg.timestamp.empty())
                     {
-                        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.1f, 0.8f, 0.1f, 1.0f)); // Green timestamp
+                        ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyle().Colors[ImGuiCol_TextDisabled]); // Timestamp color
                         ImGui::TextUnformatted(msg.timestamp.c_str());
                         ImGui::PopStyleColor();
                         ImGui::SameLine(0, 10.0f);
@@ -339,7 +335,7 @@ namespace term
 
                 if (!msg.timestamp.empty())
                 {
-                    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.1f, 0.8f, 0.1f, 1.0f)); // Green timestamp
+                    ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyle().Colors[ImGuiCol_TextDisabled]); // Timestamp color
                     ImGui::TextUnformatted(msg.timestamp.c_str());
                     ImGui::PopStyleColor();
                     ImGui::SameLine(0, 10.0f);
@@ -399,8 +395,8 @@ namespace term
         
         ImGui::SameLine(0, 0);
 
-        ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.08f, 0.08f, 0.09f, 1.0f));
-        ImGui::PushStyleColor(ImGuiCol_Text, m_theme.input_text);
+        ImGui::PushStyleColor(ImGuiCol_FrameBg, ImGui::GetStyle().Colors[ImGuiCol_FrameBg]);
+        ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyle().Colors[ImGuiCol_Text]);
         ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
 
         ImGuiInputTextFlags flags = ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_CallbackHistory;

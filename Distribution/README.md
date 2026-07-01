@@ -29,7 +29,8 @@ This will:
 ### Distribution Structure
 
 The created distribution includes:
-- **`app.exe`** - The main game engine/editor executable
+- **`game.exe`** - The standalone game runtime
+- **`editor.exe`** - The visual game editor (optional)
 - **`GameLogic.dll`** - Hot-reloadable game logic
 - **`raylib.dll`** - Graphics library dependency
 - **`game_config.ini`** - Game configuration file
@@ -43,13 +44,14 @@ The created distribution includes:
 
 ## Customization
 
-- **Output Directory**: Modify `distribute.ps1` or pass parameters to change where the distribution is created
-- **Build Configuration**: Use Debug or Release builds by modifying the scripts
-- **Asset Filtering**: Edit `distribute.ps1` to change which assets are included
+- **Output Directory**: Modify `distribute.ps1` or pass parameters to change where the distribution is created.
+- **Compiler Bundling**: Pass `-IncludeCompiler` to `distribute.ps1` if you want to bundle the Zig compiler for developers (by default, it produces a lean build for players).
+- **Build Configuration**: Use Debug or Release builds by modifying the scripts.
+- **Asset Filtering**: Edit `distribute.ps1` to change which assets are included.
 
 ## Notes
 
 - The distribution is self-contained and doesn't require the original source project
 - Users can develop game logic using the provided build script
 - All necessary development tools and headers are included
-- The editor and game runtime are combined in `app.exe`
+- The editor and game runtime are split into `editor.exe` and `game.exe` respectively

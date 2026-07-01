@@ -62,6 +62,29 @@ private:
 
 ---
 
+## 💾 State Preservation (Hot-Reloading)
+
+To preserve data when the engine reloads your C++ code, you must opt-in by overriding the `SaveState` and `LoadState` virtual methods. The engine passes a `StateBag` object to safely store and retrieve primitive types. These functions are called automatically during a hot-reload transition: `SaveState` right before the old map instance is destroyed, and `LoadState` right after the new instance is constructed.
+
+| Method | Description |
+|--------|-------------|
+| `void SaveState(StateBag& out) const` | Store your variables into the `out` bag here. |
+| `void LoadState(const StateBag& in)` | Retrieve your variables from the `in` bag here. |
+
+### StateBag Methods
+
+The `StateBag` class provides safe getters and setters. Getters include a default value parameter which is returned if the key does not exist.
+
+| Method | Description |
+|--------|-------------|
+| `SetFloat(key, val)` / `GetFloat(key, def)` | Store or retrieve a `float`. |
+| `SetInt(key, val)` / `GetInt(key, def)` | Store or retrieve an `int`. |
+| `SetBool(key, val)` / `GetBool(key, def)` | Store or retrieve a `bool`. |
+| `SetString(key, val)` / `GetString(key, def)` | Store or retrieve a `std::string`. |
+| `SetVector2(key, val)` / `GetVector2(key, def)` | Store or retrieve a Raylib `Vector2`. |
+
+---
+
 ## 📦 MapManager
 
 The `MapManager` handles registration and switching of maps. You typically interact with this in `RootManager.cpp`.

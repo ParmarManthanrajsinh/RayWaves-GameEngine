@@ -1,4 +1,5 @@
 #include "GameCamera.h"
+#include "../Engine/GameConfig.h"
 
 GameCamera::GameCamera()
     : m_BoundsLeft(0)
@@ -14,7 +15,10 @@ GameCamera::GameCamera()
 void GameCamera::Initialize(Vector2 Target, float Zoom)
 {
     m_Camera.target = Target;
-    m_Camera.offset = { GetScreenWidth() / 2.0f, GetScreenHeight() / 2.0f };
+    float screen_width = static_cast<float>(GameConfig::GetInstance().GetWindowConfig().scene_width);
+    float screen_height = static_cast<float>(GameConfig::GetInstance().GetWindowConfig().scene_height);
+    
+    m_Camera.offset = { screen_width / 2.0f, screen_height / 2.0f };
     m_Camera.rotation = 0.0f;
     m_Camera.zoom = Zoom;
 }
@@ -22,12 +26,18 @@ void GameCamera::Initialize(Vector2 Target, float Zoom)
 void GameCamera::Reset(Vector2 Target)
 {
     m_Camera.target = Target;
-    m_Camera.offset = { GetScreenWidth() / 2.0f, GetScreenHeight() / 2.0f };
+    float screen_width = static_cast<float>(GameConfig::GetInstance().GetWindowConfig().scene_width);
+    float screen_height = static_cast<float>(GameConfig::GetInstance().GetWindowConfig().scene_height);
+    
+    m_Camera.offset = { screen_width / 2.0f, screen_height / 2.0f };
 }
 
 void GameCamera::FollowTarget(Vector2 Target, float DeltaTime, float SmoothSpeed)
 {
-    m_Camera.offset = { GetScreenWidth() / 2.0f, GetScreenHeight() / 2.0f };
+    float screen_width = static_cast<float>(GameConfig::GetInstance().GetWindowConfig().scene_width);
+    float screen_height = static_cast<float>(GameConfig::GetInstance().GetWindowConfig().scene_height);
+    
+    m_Camera.offset = { screen_width / 2.0f, screen_height / 2.0f };
     
     m_Camera.target.x += (Target.x - m_Camera.target.x) * SmoothSpeed * DeltaTime;
     m_Camera.target.y += (Target.y - m_Camera.target.y) * SmoothSpeed * DeltaTime;
@@ -54,8 +64,11 @@ void GameCamera::SetBounds(float Left, float Right, float Top, float Bottom)
 
 void GameCamera::ClampToBounds()
 {
-    float HalfVisibleWidth = (GetScreenWidth() / m_Camera.zoom) / 2.0f;
-    float HalfVisibleHeight = (GetScreenHeight() / m_Camera.zoom) / 2.0f;
+    float screen_width = static_cast<float>(GameConfig::GetInstance().GetWindowConfig().scene_width);
+    float screen_height = static_cast<float>(GameConfig::GetInstance().GetWindowConfig().scene_height);
+
+    float HalfVisibleWidth = (screen_width / m_Camera.zoom) / 2.0f;
+    float HalfVisibleHeight = (screen_height / m_Camera.zoom) / 2.0f;
     
     // X clamping - stay within level bounds
     float MinCamX = m_BoundsLeft + HalfVisibleWidth;

@@ -10,7 +10,7 @@ This guide assumes you are working with the **Distributed** version of the engin
 
 ## ⚡ 1 Minute Quick-Start
 
-1.  **Launch** `editor.exe` (or `app.exe`). You should see the example level.
+1.  **Launch** `editor.exe`. You should see the example level.
    
 2.  **Open** the folder in VS Code (or your favorite text editor).
 

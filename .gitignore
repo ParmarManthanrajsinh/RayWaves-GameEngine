@@ -9,3 +9,5 @@ out
 dist
 .agents
 skills-lock.json
+/Tools/zig/
+-

@@ -8,18 +8,19 @@ Something broken? Don't panic. Here are the most common issues and how to fix th
 
 ## 🏗️ Build Issues
 
-### "Cannot open main.exe for writing" (LNK1168)
+### "Permission denied" when building main.exe
 *   **The Problem:** You are trying to rebuild the *engine core* (`main.exe`) while it is running.
 *   **The Fix:** Close the game window, *then* rebuild.
 *   **Note:** You *can* rebuild `GameLogic.dll` while the game is running. That's the whole point!
 
-### "Compiler not found" / "`cl` is not recognized"
-*   **The Problem:** Your terminal doesn't know where the C++ compiler is.
-*   **The Fix:** Use the **"Developer Command Prompt for VS 2022"** instead of the regular `cmd` or PowerShell.
-
 ### "CMake configuration failed"
-*   **The Problem:** You might be missing Visual Studio C++ tools.
-*   **The Fix:** Open the Visual Studio Installer and ensure **"Desktop development with C++"** is checked.
+*   **The Problem:** You might be using the wrong CMake preset or missing the Zig compiler.
+*   **The Fix:** Ensure you are using `cmake --preset zig-debug`. The engine uses the Zig compiler which is fetched automatically on your first build, so you **do not** need Visual Studio installed!
+
+### "lld-link: error: duplicate symbol" or `std::bad_function_call` errors
+*   **The Problem:** You are trying to link `GameLogic.dll` built with one version of the Zig compiler against a precompiled `libEngine.a` built by a different version of the Zig compiler. `libc++` standard library symbols are highly version-dependent.
+*   **The Fix:** This should not happen if you use the provided `build_gamelogic.bat` script, which now compiles the `Engine/*.cpp` source files alongside your `GameLogic/*.cpp` files in a single invocation to guarantee ABI compatibility.
+*   **Known Limitation:** The secondary build path (`Core/CMakeLists.txt`) still links the precompiled `libEngine.a` and has not been updated yet. If you use CMake directly to build GameLogic instead of the batch script, you remain exposed to this cross-version ABI mismatch bug!
 
 ---
 

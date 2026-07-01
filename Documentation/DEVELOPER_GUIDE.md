@@ -36,6 +36,23 @@ Why restart when you can just keep coding?
 
 > **Pro Tip:** Press the **Restart** button in the editor toolbar if you ever get stuck or want to manually force a clean slate.
 
+### Preserving State Across Reloads
+By default, member variables reset every time the DLL is swapped. To preserve your state (like player position or health), override the `SaveState` and `LoadState` methods. Anything not explicitly saved here will be discarded.
+
+**Example (Saving Player Position):**
+```cpp
+void Player::SaveState(StateBag& out) const {
+    out.SetVector2("player_pos", m_Position);
+    out.SetBool("player_facing_right", m_bFacingRight);
+}
+
+void Player::LoadState(const StateBag& in) {
+    // The second parameter is the default value if the key doesn't exist
+    m_Position = in.GetVector2("player_pos", m_Position);
+    m_bFacingRight = in.GetBool("player_facing_right", m_bFacingRight);
+}
+```
+
 ---
 
 ## 🎨 Map Development
@@ -124,7 +141,7 @@ Want to add a new tool to the editor toolbar?
 
 ### Debugging
 - **Console Logs:** The engine prints useful info to the attached console. Keep it open!
-- **Visual Studio:** You can attach the VS debugger to `main.exe` to debug your DLL code. breakpoints *usually* work even after reloading!
+- **Debuggers:** You can attach any C++ debugger (VS Code, LLDB, Visual Studio) to `main.exe` to debug your DLL code. Breakpoints *usually* work even after reloading since Zig generates standard PDB files on Windows!
 
 ---
 

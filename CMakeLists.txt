@@ -1,20 +1,56 @@
 cmake_minimum_required(VERSION 3.10)
+
+# Check and auto-fetch Zig if necessary before compiler detection runs
+if(CMAKE_C_COMPILER MATCHES "zig-cc" OR CMAKE_CXX_COMPILER MATCHES "zig-cxx")
+    if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/Tools/zig/zig.exe")
+        message(STATUS "Zig toolchain not found. Auto-fetching...")
+        execute_process(
+            COMMAND powershell -ExecutionPolicy Bypass -File "${CMAKE_CURRENT_SOURCE_DIR}/Tools/setup_zig.ps1" -SkipRcEdit
+            WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+            RESULT_VARIABLE ZIG_FETCH_RESULT
+        )
+        if(NOT ZIG_FETCH_RESULT EQUAL 0)
+            message(FATAL_ERROR "Failed to download Zig.")
+        endif()
+    endif()
+endif()
+
 project(RayWaves)
 
-if(MSVC)
-    add_compile_options(/wd4244)
+# Auto-fetch rcedit if missing
+if(NOT EXISTS "${CMAKE_SOURCE_DIR}/Tools/rcedit.exe")
+    message(STATUS "rcedit not found. Auto-fetching...")
+    execute_process(
+        COMMAND powershell -ExecutionPolicy Bypass -File "${CMAKE_SOURCE_DIR}/Tools/setup_zig.ps1" -SkipZig
+        WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+        RESULT_VARIABLE RCEDIT_FETCH_RESULT
+    )
+    if(NOT RCEDIT_FETCH_RESULT EQUAL 0)
+        message(FATAL_ERROR "Failed to download rcedit.")
+    endif()
 endif()
+
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+# Enable multi-processor compilation for MSVC (drastically speeds up Visual Studio builds)
+if(MSVC)
+    add_compile_options(/MP)
+endif()
+
 # add_compile_options(/fsanitize=address)
 # add_link_options(/fsanitize=address)
+
+add_compile_options(-msse4.2)
+add_compile_definitions(IMGUI_DISABLE_SSE)
 
 # Always build raylib from source as a SHARED library so EXE and GameLogic share the same RLGL state
 include(FetchContent)
 set(BUILD_SHARED_LIBS ON CACHE BOOL "Build shared libraries" FORCE)
+set(BUILD_EXAMPLES OFF CACHE BOOL "Disable Raylib examples to speed up build" FORCE)
+set(BUILD_TESTING OFF CACHE BOOL "Disable Raylib tests" FORCE)
 FetchContent_Declare(
     raylib
     URL https://github.com/raysan5/raylib/archive/refs/tags/6.0.tar.gz
@@ -54,12 +90,13 @@ target_include_directories(Engine PUBLIC
     ${CMAKE_SOURCE_DIR}/Engine
 )
 target_link_libraries(Engine PUBLIC raylib)
-target_link_libraries(Engine PRIVATE Dwmapi.lib)
+target_link_libraries(Engine PRIVATE dwmapi)
 
 
 # Create GameLogic shared library (DLL)
 file(GLOB GAMELOGIC_SRC_CPP CONFIGURE_DEPENDS "GameLogic/*.cpp")
 add_library(GameLogic SHARED ${GAMELOGIC_SRC_CPP})
+set_target_properties(GameLogic PROPERTIES PREFIX "")
 # GameLogic needs Engine headers and linkage (for GameMap symbols)
 target_include_directories(GameLogic PRIVATE 
     ${CMAKE_SOURCE_DIR}/Engine
@@ -67,16 +104,18 @@ target_include_directories(GameLogic PRIVATE
 )
 target_link_libraries(GameLogic PRIVATE Engine)
 
-# Create main executable (Game Editor) without Engine sources; link against Engine
 add_executable(main WIN32
     ${GAME_SRC_CPP} 
     ${EDITOR_SRC_CPP} 
     ${RLIMGUI_SRC} 
     ${IMGUI_SRC} 
     ${TINYFILEDIALOGS}
-    Editor/app.rc
 )
+target_link_options(main PRIVATE -Wl,--subsystem,windows)
 
+add_custom_command(TARGET main POST_BUILD
+    COMMAND ${CMAKE_SOURCE_DIR}/Tools/rcedit.exe $<TARGET_FILE:main> --set-icon ${CMAKE_SOURCE_DIR}/Assets/EngineContent/icon.ico
+)
 # Add include directories for the main executable
 target_include_directories(main PRIVATE 
     ${CMAKE_SOURCE_DIR}/Editor/imgui 
@@ -90,9 +129,6 @@ target_include_directories(main PRIVATE
 # Link libraries
 # Link Engine (which brings raylib transitively)
 target_link_libraries(main PRIVATE Engine)
-if(MSVC)
-    set_target_properties(main PROPERTIES LINK_FLAGS "/ENTRY:mainCRTStartup")
-endif()
 
 # Copy GameLogic DLL beside main executable after building 'main'.
 add_custom_command(TARGET main POST_BUILD
@@ -115,12 +151,15 @@ add_custom_command(TARGET GameLogic POST_BUILD
 # ------------------------------
 # Game-only runtime executable
 # ------------------------------
-add_executable(game
+add_executable(game WIN32
     Game/game.cpp
     Game/DllLoader.cpp
-    Game/app.rc
 )
+target_link_options(game PRIVATE -Wl,--subsystem,windows)
 
+add_custom_command(TARGET game POST_BUILD
+    COMMAND ${CMAKE_SOURCE_DIR}/Tools/rcedit.exe $<TARGET_FILE:game> --set-icon ${CMAKE_SOURCE_DIR}/Assets/EngineContent/icon.ico
+)
 # Includes for game runtime
 target_include_directories(game PRIVATE
     ${CMAKE_SOURCE_DIR}/Engine

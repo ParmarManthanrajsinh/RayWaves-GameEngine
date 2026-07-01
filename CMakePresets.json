@@ -1,17 +1,54 @@
-﻿{
+{
     "version": 3,
     "configurePresets": [
         {
             "name": "windows-base",
             "hidden": true,
             "generator": "Ninja",
-            "binaryDir": "${sourceDir}/out/build/${presetName}",
-            "installDir": "${sourceDir}/out/install/${presetName}",
+            "binaryDir": "${sourceDir}/build/${presetName}",
+            "installDir": "${sourceDir}/install/${presetName}",
 
             "condition": {
                 "type": "equals",
                 "lhs": "${hostSystemName}",
                 "rhs": "Windows"
+            }
+        },
+
+        {
+            "name": "windows-zig",
+            "hidden": true,
+            "inherits": "windows-base",
+            "cacheVariables": {
+                "CMAKE_C_COMPILER": "${sourceDir}/Tools/zig-cc.bat",
+                "CMAKE_CXX_COMPILER": "${sourceDir}/Tools/zig-cxx.bat",
+                "CMAKE_SYSTEM_NAME": "Windows"
+            }
+        },
+
+        {
+            "name": "zig-debug",
+            "displayName": "Zig Debug",
+            "inherits": "windows-zig",
+            "architecture": {
+                "value": "x64",
+                "strategy": "external"
+            },
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug"
+            }
+        },
+
+        {
+            "name": "zig-release",
+            "displayName": "Zig Release",
+            "inherits": "windows-zig",
+            "architecture": {
+                "value": "x64",
+                "strategy": "external"
+            },
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release"
             }
         },
 
