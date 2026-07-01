@@ -15,6 +15,8 @@ using Clock = std::chrono::steady_clock;
 #include "Panels/SceneSettingsPanel.h"
 #include "Panels/PerformanceOverlay.h"
 #include "Panels/MessageLogPanel.h"
+#include "Panels/EditorPreferencesPanel.h"
+#include "EditorPreferences.h"
 #include <memory>
 
 bool g_bNeedsTextureRecreate = false;
@@ -44,6 +46,7 @@ GameEditor::GameEditor()
     m_Panels.push_back(std::make_unique<SceneWindow>());
     m_Panels.push_back(std::make_unique<PerformanceOverlay>());
     m_Panels.push_back(std::make_unique<MessageLogPanel>());
+    m_Panels.push_back(std::make_unique<EditorPreferencesPanel>());
 }
 
 GameEditor::~GameEditor()
@@ -81,6 +84,9 @@ GameEditor::~GameEditor()
 		m_GameLogicDll = {};
 		m_CreateGameMap = nullptr;
 	}
+
+	// Save editor preferences on exit
+	EditorPreferences::GetInstance().m_bSaveToFile();
 }
 
 void GameEditor::Init(int width, int height, std::string_view title)
@@ -102,12 +108,48 @@ void GameEditor::Init(int width, int height, std::string_view title)
 	}
 	
 	rlImGuiSetup(true);
-	rlImGuiReloadFonts();
+	
+	// Load Editor Preferences
+	EditorPreferences::GetInstance().m_bLoadFromFile();
+	const auto& prefs = EditorPreferences::GetInstance().GetPreferences();
 
-	SetEngineTheme();
-    
-    // Load default layout directly since layout saving is disabled
-    LoadEditorDefaultIni();
+	const FThemePreset* selected_preset = &GetThemePresets()[0];
+	for (const auto& preset : GetThemePresets())
+	{
+		if (preset.Name == prefs.ThemeName)
+		{
+			selected_preset = &preset;
+			break;
+		}
+	}
+
+	std::string base_font = "Assets/EngineContent/Roboto-Regular.ttf";
+	std::string mono_font = "Assets/EngineContent/Consolas-Regular.ttf";
+	if (prefs.FontFamily == "Consolas")
+	{
+		base_font = mono_font;
+	}
+
+	SetEngineTheme(*selected_preset, prefs.GuiScale, base_font, mono_font);
+
+    // Layout persistence
+	static std::string s_LayoutPath;
+	s_LayoutPath = EditorPreferences::GetInstance().GetConfigPath();
+	std::filesystem::path dir = std::filesystem::path(s_LayoutPath).parent_path();
+	std::filesystem::path layout_file = dir / "editor_layout.ini";
+
+	if (std::filesystem::exists(layout_file))
+	{
+		ImGui::GetIO().IniFilename = s_LayoutPath.c_str();
+		ImGui::LoadIniSettingsFromDisk(s_LayoutPath.c_str());
+	}
+	else
+	{
+		LoadEditorDefaultIni();
+		// Restore IniFilename since LoadEditorDefaultIni sets it to nullptr, 
+		// enabling ImGui's native auto-save layout behavior (Option A)
+		ImGui::GetIO().IniFilename = s_LayoutPath.c_str();
+	}
 
 	if (GameConfig::GetInstance().m_bLoadFromFile("config.ini"))
 	{
@@ -226,6 +268,38 @@ void GameEditor::Run()
 			EndShaderMode();
 			EndTextureMode();
 			m_SourceTexture = m_DisplayTexture.texture;
+		}
+
+		if (m_bNeedsThemeRebake)
+		{
+			m_bNeedsThemeRebake = false;
+			const auto& prefs = EditorPreferences::GetInstance().GetPreferences();
+			const FThemePreset* selected_preset = &GetThemePresets()[0];
+			for (const auto& preset : GetThemePresets())
+			{
+				if (preset.Name == prefs.ThemeName)
+				{
+					selected_preset = &preset;
+					break;
+				}
+			}
+			
+			std::string base_font = "Assets/EngineContent/Roboto-Regular.ttf";
+			std::string mono_font = "Assets/EngineContent/Consolas-Regular.ttf";
+			if (prefs.FontFamily == "Consolas")
+			{
+				base_font = mono_font;
+			}
+			SetEngineTheme(*selected_preset, prefs.GuiScale, base_font, mono_font);
+		}
+
+		if (m_bNeedsLayoutReset)
+		{
+			m_bNeedsLayoutReset = false;
+			LoadEditorDefaultIni();
+			
+			static std::string s_LayoutPath = EditorPreferences::GetInstance().GetConfigPath();
+			ImGui::GetIO().IniFilename = s_LayoutPath.c_str();
 		}
 
 		rlImGuiBegin();

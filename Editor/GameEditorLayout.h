@@ -1,4 +1,5 @@
-﻿#include<cstring>
+#pragma once
+#include<cstring>
 #include<string>
 #include<imgui.h>
 #include "rlImGui/extras/IconsFontAwesome6.h"

@@ -62,6 +62,10 @@ New-Item -ItemType Directory -Path "$DistPath/Core/raylib/bin" -Force | Out-Null
 
 Write-Host "Copying executable and dependencies..." -ForegroundColor Yellow
 
+# Try to stop running instances from the dist folder to avoid file lock errors
+Stop-Process -Name "game" -ErrorAction SilentlyContinue
+Stop-Process -Name "editor" -ErrorAction SilentlyContinue
+
 # Copy game runtime as game.exe
 Copy-Item "$BuildPath/game.exe" "$DistPath/game.exe" -Force
 
