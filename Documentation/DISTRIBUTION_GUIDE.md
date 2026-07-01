@@ -50,7 +50,7 @@ Imagine you send this to a friend. Here is their workflow:
 5.  **Run `build_gamelogic.bat`**.
 6.  **BOOM!** The editor hot-reloads the new speed instantly.
 
-They **do not** need Visual Studio installed! They don't need to install anything at all. The bundled Zig compiler inside `Tools/zig` handles all the compilation automatically and instantly.
+**Important Note:** By default, creating a distribution drops the compiler to save space (yielding a lean, player-ready build). If you want your friends to have this magical "zero-install" experience where they can edit C++ without downloading any tools, you **MUST** export the game using the `-IncludeCompiler` flag (see "Customizing the Distro" below). Otherwise, they will need Zig installed system-wide on their PATH.
 
 ---
 

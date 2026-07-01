@@ -20,7 +20,7 @@ if not exist "build\zig-release\main.exe" (
 )
 
 echo Creating distribution using PowerShell script...
-powershell.exe -ExecutionPolicy Bypass -File ".\Distribution\distribute.ps1" -OutputDir "dist" -BuildConfig "Release"
+powershell.exe -ExecutionPolicy Bypass -File ".\Distribution\distribute.ps1" -OutputDir "dist" -BuildConfig "Release" %*
 
 if errorlevel 1 (
     echo ERROR: Distribution failed.

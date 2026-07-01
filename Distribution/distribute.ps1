@@ -132,4 +132,6 @@ Write-Host "- Core/ (engine internals)" -ForegroundColor White
 Write-Host "  - raylib/ (raylib development files)" -ForegroundColor White
 Write-Host "  - CMakeLists.txt (for building GameLogic)" -ForegroundColor White
 Write-Host "  - Engine/ (engine headers)" -ForegroundColor White
-Write-Host "  - Tools/zig/ (bundled Zig compiler for zero-install hot-reloading)" -ForegroundColor White
+if ($IncludeCompiler) {
+    Write-Host "  - Tools/zig/ (bundled Zig compiler for zero-install hot-reloading)" -ForegroundColor White
+}

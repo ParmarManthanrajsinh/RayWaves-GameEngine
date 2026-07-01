@@ -22,16 +22,10 @@ DllHandle LoadDll(const char* PATH)
             return result;
         }
 
-        // Determine destination directory: use the executable 
-        std::array<char, MAX_PATH> exe_path_buffer{};
-        GetModuleFileNameA
-        (
-            nullptr, 
-            exe_path_buffer.data(), 
-            static_cast<DWORD>(exe_path_buffer.size())
-        );
-
-        fs::path exe_dir = fs::path(exe_path_buffer.data()).parent_path();
+        // Determine destination directory: use the system temporary directory
+        // This ensures we can always write the shadow copy even if the game is 
+        // deployed in a restricted directory like Program Files.
+        fs::path temp_dir = fs::temp_directory_path();
 
         // Build a unique filename: GameLogic.shadow.<pid>.<tick>.dll
         DWORD pid = GetCurrentProcessId();
@@ -46,7 +40,7 @@ DllHandle LoadDll(const char* PATH)
             + std::to_string(ticks) 
             + src_path.extension().string();
 
-        fs::path dest_path = exe_dir / unique_name;
+        fs::path dest_path = temp_dir / unique_name;
 
         // Copy to destination (overwrite not expected due to uniqueness)
         fs::copy_file
