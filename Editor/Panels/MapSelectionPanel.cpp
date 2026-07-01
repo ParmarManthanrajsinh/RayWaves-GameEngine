@@ -88,7 +88,7 @@ void MapSelectionPanel::Draw(GameEditor* editor)
                     }
                     else if (i == 0)
                     {
-                        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.9f, 0.9f, 0.9f, 0.7f));
+                        ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyle().Colors[ImGuiCol_TextDisabled]);
                     }
 
                     if (ImGui::Selectable(available_maps[i].c_str(), b_IsSelected))
@@ -134,9 +134,9 @@ void MapSelectionPanel::Draw(GameEditor* editor)
 			}
 			else if (b_IsMain)
 			{
-				ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.125f, 0.137f, 0.165f, 1.0f));
-				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.145f, 0.157f, 0.188f, 1.0f));
-				ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.165f, 0.177f, 0.208f, 1.0f));
+				ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyle().Colors[ImGuiCol_Button]);
+				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImGui::GetStyle().Colors[ImGuiCol_ButtonHovered]);
+				ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImGui::GetStyle().Colors[ImGuiCol_ButtonActive]);
 			}
 
 			std::string button_label = MAP_ID;

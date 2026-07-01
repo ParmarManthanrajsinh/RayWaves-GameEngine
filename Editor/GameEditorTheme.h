@@ -151,7 +151,10 @@ inline void SetEngineTheme
     //  APPLY COLORS
     // ════════════════════════════════════════════════════════════════════
     ImGuiStyle style;
-    ImGui::StyleColorsDark(&style);
+    if (preset.BgBase.x > 0.5f)
+        ImGui::StyleColorsLight(&style);
+    else
+        ImGui::StyleColorsDark(&style);
     
     style.Colors[ImGuiCol_Text]                 = preset.TextPrimary;
     style.Colors[ImGuiCol_TextDisabled]         = preset.TextSecondary;
@@ -236,7 +239,7 @@ inline void SetEngineTheme
     style.Colors[ImGuiCol_TableBorderStrong]    = preset.Border;
     style.Colors[ImGuiCol_TableBorderLight]     = preset.BorderLight;
     style.Colors[ImGuiCol_TableRowBg]           = ImVec4(0.0f, 0.0f, 0.0f, 0.0f);
-    style.Colors[ImGuiCol_TableRowBgAlt]        = ImVec4(1.0f, 1.0f, 1.0f, 0.02f);
+    style.Colors[ImGuiCol_TableRowBgAlt]        = ImVec4(preset.TextPrimary.x, preset.TextPrimary.y, preset.TextPrimary.z, 0.05f);
 
     // ════════════════════════════════════════════════════════════════════
     //  GEOMETRY — compact, professional (scaled)

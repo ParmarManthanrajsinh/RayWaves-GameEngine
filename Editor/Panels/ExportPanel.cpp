@@ -286,7 +286,7 @@ void ExportPanel::Draw(GameEditor* editor)
 
     ImGui::Spacing();
     
-    ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.12f, 0.16f, 0.24f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::GetStyle().Colors[ImGuiCol_FrameBgHovered]);
     ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 4.0f);
     if (ImGui::BeginChild("export_info_box", ImVec2(0, 50), false))
     {
@@ -545,8 +545,8 @@ void ExportPanel::Draw(GameEditor* editor)
     
     ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 5.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_ChildBorderSize, 1.0f);
-    ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.1f, 0.1f, 0.1f, 0.8f));
-    ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.4f, 0.4f, 0.4f, 0.5f));
+    ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::GetStyle().Colors[ImGuiCol_FrameBg]);
+    ImGui::PushStyleColor(ImGuiCol_Border, ImGui::GetStyle().Colors[ImGuiCol_Border]);
     
     if (ImGui::BeginChild("export_log", ImVec2(0, 200), true))
     {

@@ -16,8 +16,8 @@ void SceneWindow::DrawToolbarBackground()
 	ImVec2 toolbar_pos = ImGui::GetCursorScreenPos();
 	ImVec2 toolbar_size = ImVec2(ImGui::GetContentRegionAvail().x, 40.0f);
 
-	ImU32 toolbar_color_top = IM_COL32(50, 50, 55, 255);
-	ImU32 toolbar_color_bottom = IM_COL32(40, 40, 45, 255);
+	ImU32 toolbar_color_top = ImGui::GetColorU32(ImGuiCol_MenuBarBg);
+	ImU32 toolbar_color_bottom = ImGui::GetColorU32(ImGuiCol_WindowBg);
 
 	draw_list->AddRectFilledMultiColor
 	(
@@ -99,7 +99,13 @@ void SceneWindow::Draw(GameEditor* editor)
 	float button_height = 32.0f;
 	float vertical_offset = (toolbar_height - button_height) / 2.0f;
 	ImGui::SetCursorPosY(ImGui::GetCursorPosY() + vertical_offset);
-	ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 5.0f);
+	const std::string center_icon = editor->b_IsPlaying ? ICON_FA_PLAY : ICON_FA_STOP;
+	const std::string center_label = editor->b_IsPlaying ? " PLAYING" : " STOPPED";
+	float status_w = ImGui::CalcTextSize((center_icon + center_label).c_str()).x + 32.0f;
+	float spacing_x = ImGui::GetStyle().ItemSpacing.x;
+	float total_center_w = 226.0f + status_w + (6.0f * spacing_x);
+	
+	ImGui::SetCursorPosX((ImGui::GetWindowWidth() - total_center_w) * 0.5f);
 
 	// Play/Pause
 	if (editor->b_IsPlaying)
@@ -132,8 +138,8 @@ void SceneWindow::Draw(GameEditor* editor)
 	ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(16.0f, 4.0f));
 	ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 12.0f);
 
-	ImVec4 bgColor = editor->b_IsPlaying ? ImVec4(0.2f, 0.8f, 0.2f, 0.3f) : ImVec4(0.83f, 0.18f, 0.18f, 0.4f);
-	ImVec4 textColor = editor->b_IsPlaying ? ImVec4(0.4f, 1.0f, 0.4f, 1.0f) : ImVec4(1.0f, 0.6f, 0.6f, 1.0f);
+	ImVec4 bgColor = editor->b_IsPlaying ? ImVec4(0.15f, 0.6f, 0.15f, 1.0f) : ImVec4(0.7f, 0.15f, 0.15f, 1.0f);
+	ImVec4 textColor = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
 
 	ImGui::PushStyleColor(ImGuiCol_Button, bgColor);
 	ImGui::PushStyleColor(ImGuiCol_ButtonHovered, bgColor);
@@ -169,7 +175,7 @@ void SceneWindow::Draw(GameEditor* editor)
 	ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 5);
 
 	// Performance Toggle
-	const ImVec4 STATS_COLOR = editor->m_bShowPerformanceStats ? ImVec4(1.0f, 1.0f, 1.0f, 1.0f) : ImVec4(0.5f, 0.5f, 0.5f, 1.0f);
+	const ImVec4 STATS_COLOR = editor->m_bShowPerformanceStats ? ImGui::GetStyle().Colors[ImGuiCol_Text] : ImGui::GetStyle().Colors[ImGuiCol_TextDisabled];
 	ImGui::PushStyleColor(ImGuiCol_Text, STATS_COLOR);
 
 	if (s_bIconButton("perf_btn", ICON_FA_CHART_LINE, ImVec2(32, 32), "Performance Overlay")) editor->m_bShowPerformanceStats = !editor->m_bShowPerformanceStats;
@@ -177,7 +183,7 @@ void SceneWindow::Draw(GameEditor* editor)
 	ImGui::SameLine();
 
 	// Terminal Toggle
-	const ImVec4 TERM_COLOR = editor->m_bShowTerminal ? ImVec4(1.0f, 1.0f, 1.0f, 1.0f) : ImVec4(0.5f, 0.5f, 0.5f, 1.0f);
+	const ImVec4 TERM_COLOR = editor->m_bShowTerminal ? ImGui::GetStyle().Colors[ImGuiCol_Text] : ImGui::GetStyle().Colors[ImGuiCol_TextDisabled];
 	ImGui::PushStyleColor(ImGuiCol_Text, TERM_COLOR);
 	if (s_bIconButton("term_btn", ICON_FA_TERMINAL, ImVec2(32, 32), "Debug Console")) editor->m_bShowTerminal = !editor->m_bShowTerminal;
 	ImGui::PopStyleColor();
