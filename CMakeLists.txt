@@ -111,6 +111,7 @@ add_executable(main WIN32
     ${IMGUI_SRC} 
     ${TINYFILEDIALOGS}
 )
+target_link_options(main PRIVATE -Wl,--subsystem,windows)
 
 add_custom_command(TARGET main POST_BUILD
     COMMAND ${CMAKE_SOURCE_DIR}/Tools/rcedit.exe $<TARGET_FILE:main> --set-icon ${CMAKE_SOURCE_DIR}/Assets/EngineContent/icon.ico
@@ -150,10 +151,11 @@ add_custom_command(TARGET GameLogic POST_BUILD
 # ------------------------------
 # Game-only runtime executable
 # ------------------------------
-add_executable(game
+add_executable(game WIN32
     Game/game.cpp
     Game/DllLoader.cpp
 )
+target_link_options(game PRIVATE -Wl,--subsystem,windows)
 
 add_custom_command(TARGET game POST_BUILD
     COMMAND ${CMAKE_SOURCE_DIR}/Tools/rcedit.exe $<TARGET_FILE:game> --set-icon ${CMAKE_SOURCE_DIR}/Assets/EngineContent/icon.ico
