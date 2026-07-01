@@ -162,3 +162,23 @@ std::vector<std::string> ProjectManager::GetRecent()
     }
     return recent;
 }
+
+std::vector<std::string> ProjectManager::GetAvailableTemplates()
+{
+    std::vector<std::string> templates;
+    char exe_path[MAX_PATH];
+    GetModuleFileNameA(NULL, exe_path, MAX_PATH);
+    fs::path template_dir = fs::path(exe_path).parent_path() / "Templates";
+
+    if (fs::exists(template_dir) && fs::is_directory(template_dir))
+    {
+        for (const auto& entry : fs::directory_iterator(template_dir))
+        {
+            if (entry.is_directory())
+            {
+                templates.push_back(entry.path().filename().string());
+            }
+        }
+    }
+    return templates;
+}

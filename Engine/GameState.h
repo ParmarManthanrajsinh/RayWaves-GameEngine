@@ -44,6 +44,13 @@ public:
         return { GetFloat(std::string(key) + "_x", defaultValue.x), GetFloat(std::string(key) + "_y", defaultValue.y) };
     }
 
+    void Clear() {
+        m_Floats.clear();
+        m_Ints.clear();
+        m_Bools.clear();
+        m_Strings.clear();
+    }
+
 private:
     std::unordered_map<std::string, float> m_Floats;
     std::unordered_map<std::string, int> m_Ints;

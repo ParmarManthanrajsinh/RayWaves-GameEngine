@@ -7,7 +7,7 @@ GameConfig& GameConfig::GetInstance()
     return s_Instance;
 }
 
-bool GameConfig::m_bLoadFromFile(const std::string_view config_path) 
+bool GameConfig::m_bLoadFromFile(std::string_view config_path) 
 {
     std::string path_str(config_path);
     std::ifstream file(path_str);
@@ -90,7 +90,7 @@ bool GameConfig::m_bLoadFromFile(const std::string_view config_path)
     return true;
 }
 
-bool GameConfig::m_bSaveToFile(const std::string_view config_path) const 
+bool GameConfig::m_bSaveToFile(std::string_view config_path) const 
 {
     std::string path_str(config_path);
     std::ofstream file(path_str);

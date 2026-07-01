@@ -96,6 +96,20 @@ class MyLevel : public GameMap {
   - Remember that static variables persist across reloads (mostly).
   - Member variables reset every reload (giving you a fresh start).
 
+### 📁 Asset Resolution
+
+When loading textures, audio, or fonts, **do not** hardcode relative paths or absolute paths. Use the `AssetResolver` class to ensure paths correctly resolve to the currently open project's `Assets` directory:
+
+```cpp
+#include "AssetResolver.h"
+
+// Good! Resolves to the current project's Assets folder
+Texture2D tex = LoadTexture(AssetResolver::Resolve("player.png").c_str());
+
+// Bad! Will fail if you switch projects or run from a different CWD
+Texture2D badTex = LoadTexture("Assets/player.png");
+```
+
 ---
 
 ## 📂 Project Structure

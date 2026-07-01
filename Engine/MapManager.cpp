@@ -347,7 +347,7 @@ std::string MapManager::GetDebugInfo() const
     
     for (const auto& PAIR : m_MapInfo)
     {
-        const std::string_view MAP_ID = PAIR.first;
+        std::string_view MAP_ID = PAIR.first;
         const t_MapInfo& INFO = PAIR.second;
         ss << "\n  - '" << MAP_ID << "': " << INFO.description;
         ss << " [" << (INFO.b_IsLoaded ? "LOADED" : "NOT LOADED") << "]";

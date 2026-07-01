@@ -1,5 +1,6 @@
 #include "../Engine/MapManager.h"
 #include "../Engine/ProjectManager.h"
+#include "../Engine/AssetResolver.h"
 #include "../Game/DllLoader.h"
 #include "GameEditor.h"
 #include "ProcessRunner.h"
@@ -195,6 +196,11 @@ void GameEditor::RunBrowser()
 {
     Texture2D logo = LoadTexture(GetEngineContentPath("logo.png").c_str());
 
+    char newProjectName[128] = "MyNewGame";
+    char newProjectLocation[512] = "";
+    int selectedTemplateIdx = 0;
+    std::vector<std::string> templates;
+
     while (!WindowShouldClose())
     {
         if (ProjectManager::b_HasOpenProject())
@@ -238,10 +244,11 @@ void GameEditor::RunBrowser()
         {
             if (ImGui::Selectable(path.c_str(), false, 0, ImVec2(0, 30.0f)))
             {
-                ProjectManager::b_OpenProject(path);
+                OpenProject(path);
             }
         }
         ImGui::EndChild();
+
         
         ImGui::NextColumn();
         
@@ -254,7 +261,7 @@ void GameEditor::RunBrowser()
             const char* path = tinyfd_selectFolderDialog("Open Project", nullptr);
             if (path)
             {
-                ProjectManager::b_OpenProject(path);
+                OpenProject(path);
             }
         }
         
@@ -262,11 +269,73 @@ void GameEditor::RunBrowser()
         
         if (ImGui::Button("New Project", ImVec2(-1, 40.0f)))
         {
-            // TODO Phase 6
-            std::println(std::cerr, "New Project wizard not implemented yet.");
+            templates = ProjectManager::GetAvailableTemplates();
+            ImGui::OpenPopup("New Project Wizard");
         }
         
         ImGui::Spacing();
+        
+        // Modal for New Project
+        if (ImGui::BeginPopupModal("New Project Wizard", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+        {
+            ImGui::InputText("Project Name", newProjectName, sizeof(newProjectName));
+            
+            ImGui::InputText("Location", newProjectLocation, sizeof(newProjectLocation));
+            ImGui::SameLine();
+            if (ImGui::Button("Browse..."))
+            {
+                const char* folder = tinyfd_selectFolderDialog("Select Project Location", nullptr);
+                if (folder)
+                {
+                    strncpy(newProjectLocation, folder, sizeof(newProjectLocation) - 1);
+                }
+            }
+            
+            if (!templates.empty())
+            {
+                if (ImGui::BeginCombo("Template", templates[selectedTemplateIdx].c_str()))
+                {
+                    for (int i = 0; i < templates.size(); ++i)
+                    {
+                        const bool is_selected = (selectedTemplateIdx == i);
+                        if (ImGui::Selectable(templates[i].c_str(), is_selected))
+                            selectedTemplateIdx = i;
+                        if (is_selected)
+                            ImGui::SetItemDefaultFocus();
+                    }
+                    ImGui::EndCombo();
+                }
+            }
+            else
+            {
+                ImGui::TextColored(ImVec4(1, 0, 0, 1), "No templates found in dist/Templates/");
+            }
+            
+            ImGui::Spacing();
+            ImGui::Separator();
+            ImGui::Spacing();
+            
+            if (ImGui::Button("Create", ImVec2(120, 0)))
+            {
+                if (strlen(newProjectName) > 0 && strlen(newProjectLocation) > 0 && !templates.empty())
+                {
+                    fs::path fullPath = fs::path(newProjectLocation) / newProjectName;
+                    if (ProjectManager::b_CreateProject(fullPath.string(), templates[selectedTemplateIdx]))
+                    {
+                        OpenProject(fullPath.string());
+                        ImGui::CloseCurrentPopup();
+                    }
+                }
+            }
+            ImGui::SetItemDefaultFocus();
+            ImGui::SameLine();
+            if (ImGui::Button("Cancel", ImVec2(120, 0)))
+            {
+                ImGui::CloseCurrentPopup();
+            }
+            
+            ImGui::EndPopup();
+        }
         
         if (ImGui::Button("Open GitHub / Docs", ImVec2(-1, 40.0f)))
         {
@@ -283,6 +352,40 @@ void GameEditor::RunBrowser()
     }
     
     if (logo.id != 0) UnloadTexture(logo);
+}
+
+void GameEditor::OpenProject(std::string_view folderPath)
+{
+    // 1. Unload old DLL and reset map state
+    if (m_GameLogicDll.handle)
+    {
+        m_MapManager = nullptr;
+        m_GameEngine.SetMapManager(nullptr);
+        m_GameEngine.SetMap(nullptr);
+        UnloadDll(m_GameLogicDll);
+        m_GameLogicDll = {};
+        m_CreateGameMap = nullptr;
+    }
+    
+    // 2. State is tied to Map/MapManager, so it is cleared by setting them to nullptr above.
+    
+    // 3. Open project metadata
+    if (!ProjectManager::b_OpenProject(folderPath)) return;
+    
+    // 4. Set DLL path
+    m_GameLogicPath = ProjectManager::GetCurrent().m_DllPath;
+    
+    // 5. Update AssetResolver
+    AssetResolver::SetProjectAssetPath(ProjectManager::GetCurrent().m_AssetPath);
+    
+    // 6. Compile async
+    CompileGameLogic();
+    
+    // 6. Config sync
+    auto& prj = ProjectManager::GetCurrent();
+    m_SceneSettings.m_SceneWidth = prj.m_SceneWidth;
+    m_SceneSettings.m_SceneHeight = prj.m_SceneHeight;
+    m_SceneSettings.m_TargetFPS = prj.m_TargetFPS;
 }
 
 void GameEditor::Run()
@@ -796,7 +899,7 @@ void GameEditor::CompileGameLogic()
     ProcessRunner::RunBuildCommand
     (
         buildCmd.c_str(),
-        [this](const std::string_view line, bool isError) 
+        [this](std::string_view line, bool isError) 
         {
             ParseBuildLine(line);
             m_Terminal.add_text(line, isError ? term::Severity::Error : term::Severity::Debug);

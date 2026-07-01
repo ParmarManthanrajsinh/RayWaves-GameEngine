@@ -3,6 +3,14 @@
 #include "DemoLevel.h"
 #include <memory>
 
+// ==============================================================================
+// ASSET RESOLUTION:
+// When loading textures, sounds, or other files, do NOT use hardcoded paths!
+// Include "AssetResolver.h" and wrap your paths with AssetResolver::Resolve():
+// Example: LoadTexture(AssetResolver::Resolve("player.png").c_str());
+// This ensures your paths work regardless of the active project or CWD.
+// ==============================================================================
+
 // Global static instance to ensure consistency across editor and runtime
 static MapManager* s_GameMapManager = nullptr;
 

@@ -139,7 +139,7 @@ bool t_Project::m_bIsValid() const
     return fs::exists(m_SourcePath) && fs::exists(m_AssetPath);
 }
 
-bool t_Project::b_IsProjectFolder(const std::string_view folder)
+bool t_Project::b_IsProjectFolder(std::string_view folder)
 {
     return fs::exists(fs::path(folder) / "project.raywaves");
 }

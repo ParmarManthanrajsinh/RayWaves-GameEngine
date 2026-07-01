@@ -57,6 +57,7 @@ public:
     void Run();
     
     void CompileGameLogic();
+    void OpenProject(std::string_view folderPath);
     GameEngine& GetGameEngine() { return m_GameEngine; }
     MapManager* GetMapManager() { return m_MapManager; }
     term::Terminal& GetTerminal() { return m_Terminal; }

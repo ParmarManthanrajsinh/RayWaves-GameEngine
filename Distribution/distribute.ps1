@@ -107,6 +107,12 @@ Copy-Item "Distribution/dist_CMakeLists.txt" "$DistPath/Core/CMakeLists.txt" -Fo
 Copy-Item "Documentation/README_DISTRIBUTION.md" "$DistPath/Documentation/" -Force
 Copy-Item "Documentation/DISTRIBUTION_GUIDE.md" "$DistPath/Documentation/" -Force
 
+# Copy Project Templates
+if (Test-Path "Distribution/Templates") {
+    Write-Host "Copying Project Templates..." -ForegroundColor Yellow
+    Copy-Item "Distribution/Templates" "$DistPath/" -Recurse -Force
+}
+
 if ($IncludeCompiler) {
     Write-Host "Bundling Zig Compiler (Zero Install)..." -ForegroundColor Yellow
     New-Item -ItemType Directory -Path "$DistPath/Core/Tools/zig" -Force | Out-Null

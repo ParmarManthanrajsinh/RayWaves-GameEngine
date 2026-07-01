@@ -18,6 +18,8 @@ public:
     static void AddRecent(std::string_view path);
     static std::vector<std::string> GetRecent();
 
+    static std::vector<std::string> GetAvailableTemplates();
+
 private:
     static t_Project s_Current;
     static bool s_bOpen;

@@ -76,15 +76,15 @@ public:
     template<typename T>
     void RegisterMap
     (
-        const std::string_view map_id, 
-        const std::string_view description = ""
+        std::string_view map_id, 
+        std::string_view description = ""
     );
-    bool b_GotoMap(const std::string_view map_id, bool force_reload = false);
-    bool b_IsCurrentMap(const std::string_view map_id) const;
-    bool b_IsMapRegistered(const std::string_view map_id) const;
+    bool b_GotoMap(std::string_view map_id, bool force_reload = false);
+    bool b_IsCurrentMap(std::string_view map_id) const;
+    bool b_IsMapRegistered(std::string_view map_id) const;
     bool b_ReloadCurrentMap();
 
-    const std::string_view GetCurrentMapId() const { return m_CurrentMapId; }
+    std::string_view GetCurrentMapId() const { return m_CurrentMapId; }
     std::vector<std::string> GetAvailableMaps() const;
 
     void UnloadCurrentMap();
@@ -105,8 +105,8 @@ private:
 template<typename T>
 void MapManager::RegisterMap
 (
-    const std::string_view map_id, 
-    const std::string_view description
+    std::string_view map_id, 
+    std::string_view description
 )
 {
     static_assert
@@ -166,7 +166,7 @@ inline void RegisterMapAs
 (
     Manager& manager, 
     int map_id, 
-    const std::string_view desc
+    std::string_view desc
 )
 {
     manager.template RegisterMap<MapClass>(map_id, desc);

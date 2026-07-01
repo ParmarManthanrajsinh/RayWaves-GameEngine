@@ -3,6 +3,7 @@
 #include "../../Engine/ProjectManager.h"
 #include <imgui.h>
 #include <rlImGui.h>
+#include <tinyfiledialogs.h>
 
 void MainMenuBar::Draw(GameEditor* editor)
 {
@@ -10,7 +11,15 @@ void MainMenuBar::Draw(GameEditor* editor)
     {
         if (ImGui::BeginMenu("File"))
         {
-            if (ImGui::MenuItem(ICON_FA_FOLDER_OPEN " Switch Project / Close"))
+            if (ImGui::MenuItem(ICON_FA_FOLDER_OPEN " Switch Project..."))
+            {
+                const char* path = tinyfd_selectFolderDialog("Switch Project", nullptr);
+                if (path)
+                {
+                    editor->OpenProject(path);
+                }
+            }
+            if (ImGui::MenuItem(ICON_FA_XMARK " Close Project"))
             {
                 ProjectManager::CloseProject();
             }

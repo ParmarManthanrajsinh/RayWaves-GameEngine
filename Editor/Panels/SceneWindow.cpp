@@ -131,8 +131,8 @@ void SceneWindow::Draw(GameEditor* editor)
 
 	// Status Text
 	const ImVec4 COLOR = editor->b_IsPlaying ? ImVec4(0.2f, 0.8f, 0.2f, 1.0f) : ImVec4(0.8f, 0.2f, 0.2f, 1.0f);
-	const std::string_view ICON = editor->b_IsPlaying ? ICON_FA_PLAY : ICON_FA_STOP;
-	const std::string_view LABEL = editor->b_IsPlaying ? " PLAYING" : " STOPPED";
+	std::string_view ICON = editor->b_IsPlaying ? ICON_FA_PLAY : ICON_FA_STOP;
+	std::string_view LABEL = editor->b_IsPlaying ? " PLAYING" : " STOPPED";
 
 	ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0f);
 	ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(16.0f, 4.0f));

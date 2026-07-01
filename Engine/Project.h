@@ -23,9 +23,9 @@ struct t_Project
     int m_SceneHeight = 720;
     int m_TargetFPS = 60;
 
-    bool m_bLoadFromFile(const std::string_view manifest_path);
+    bool m_bLoadFromFile(std::string_view manifest_path);
     bool m_bSaveToFile() const;
     bool m_bIsValid() const;
     
-    static bool b_IsProjectFolder(const std::string_view folder);
+    static bool b_IsProjectFolder(std::string_view folder);
 };

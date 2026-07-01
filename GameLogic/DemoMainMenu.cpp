@@ -1,4 +1,5 @@
 #include "DemoMainMenu.h"
+#include "../Engine/AssetResolver.h"
 #include "../Engine/MapManager.h"
 #include "../Engine/raygui.h"
 #include "../Engine/GameConfig.h"
@@ -12,8 +13,8 @@ DemoMainMenu::DemoMainMenu()
 
 void DemoMainMenu::Initialize()
 {
-    m_TitleFont = LoadFontEx("Assets/EngineContent/Roboto-Regular.ttf", 64, 0, 0);
-    m_SelectSound = LoadSound("Assets/Sounds/menu_select.wav");
+    m_TitleFont = LoadFontEx(AssetResolver::Resolve("EngineContent/Roboto-Regular.ttf").c_str(), 64, 0, 0);
+    m_SelectSound = LoadSound(AssetResolver::Resolve("Sounds/menu_select.wav").c_str());
     
     std::cout << "[DemoMainMenu] Initialized" << std::endl;
 }
