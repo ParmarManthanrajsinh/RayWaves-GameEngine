@@ -109,9 +109,9 @@ void GameEngine::SetWindowMode(bool fullscreen)
 	}
 }
 
-void GameEngine::SetMap(std::unique_ptr<GameMap> game_map)
+void GameEngine::SetMap(GameMap* game_map)
 {
-	m_GameMap = std::move(game_map);
+	m_GameMap = game_map;
 	if (m_GameMap)
 	{
 		m_GameMap->SetSceneBounds
@@ -157,9 +157,9 @@ void GameEngine::ResetMap()
     }
 }
 
-void GameEngine::SetMapManager(std::unique_ptr<MapManager> map_manager)
+void GameEngine::SetMapManager(MapManager* map_manager)
 {
-	m_MapManager = std::move(map_manager);
+	m_MapManager = map_manager;
 	if (m_MapManager)
 	{
 		m_MapManager->SetSceneBounds
@@ -173,7 +173,7 @@ void GameEngine::SetMapManager(std::unique_ptr<MapManager> map_manager)
 
 MapManager* GameEngine::GetMapManager() const
 {
-	return m_MapManager.get();
+	return m_MapManager;
 }
 
 bool GameEngine::b_HasMapManager() const

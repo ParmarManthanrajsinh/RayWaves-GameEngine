@@ -45,7 +45,7 @@ public:
     bool b_IsPlaying;
     std::atomic<bool> b_IsCompiling;
     void Init(int width, int height, std::string_view title);
-    void LoadMap(std::unique_ptr<GameMap>& game_map);
+    void LoadMap(GameMap* game_map);
 
     // Load the game logic DLL and create/set a new GameMap from it
     bool b_LoadGameLogic(std::string_view dll_path);
@@ -133,8 +133,12 @@ private:
     // Hot-reload state
     DllHandle m_GameLogicDll;
     using CreateGameMapFunc = GameMap * (*)();
+    using DestroyGameMapFunc = void (*)(GameMap*);
+    
     CreateGameMapFunc m_CreateGameMap = nullptr;
-
+    DestroyGameMapFunc m_DestroyGameMap = nullptr;
+    
+    bool b_CompileProject(std::string_view project_dir);
     std::string m_GameLogicPath;
     fs::file_time_type m_LastLogicWriteTime{};
     bool m_bNeedsReload = false;

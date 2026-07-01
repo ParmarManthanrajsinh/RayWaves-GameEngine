@@ -16,10 +16,10 @@ class GameEngine
     int m_WindowWidth;
 	int m_WindowHeight;
 	std::string m_WindowTitle;
-	std::unique_ptr<GameMap> m_GameMap;
+	GameMap* m_GameMap = nullptr;
 	
 	// MapManager instance for advanced map management
-	std::unique_ptr<MapManager> m_MapManager;
+	MapManager* m_MapManager = nullptr;
 	
 public:
     GameEngine();
@@ -29,14 +29,14 @@ public:
 	void LaunchWindow(const t_WindowConfig& config);
 	void ToggleFullscreen();
 	void SetWindowMode(bool fullscreen);
-	void SetMap(std::unique_ptr<GameMap> game_map);
-	GameMap* GetMap() const { return m_GameMap.get(); }
+	void SetMap(GameMap* game_map);
+	GameMap* GetMap() const { return m_GameMap; }
 	void DrawMap() const;
 	void UpdateMap(float delta_time) const;
 	void ResetMap();
 	
 	// MapManager integration methods
-	void SetMapManager(std::unique_ptr<MapManager> map_manager);
+	void SetMapManager(MapManager* map_manager);
 	MapManager* GetMapManager() const;
 	bool b_HasMapManager() const;
 };

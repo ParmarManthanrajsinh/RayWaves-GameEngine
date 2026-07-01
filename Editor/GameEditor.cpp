@@ -38,6 +38,7 @@ GameEditor::GameEditor()
 	  b_IsCompiling(false),
 	  m_GameLogicDll{},
 	  m_CreateGameMap(nullptr),
+	  m_DestroyGameMap(nullptr),
 	  m_OpaqueShader({ 0 }),
 	  m_MapManager(nullptr),
 	  m_bShowPerformanceStats(false),
@@ -88,9 +89,14 @@ GameEditor::~GameEditor()
 
 	if (m_GameLogicDll.handle)
 	{
+		if (m_DestroyGameMap && m_MapManager)
+		{
+			m_DestroyGameMap(m_MapManager);
+		}
 		UnloadDll(m_GameLogicDll);
 		m_GameLogicDll = {};
 		m_CreateGameMap = nullptr;
+		m_DestroyGameMap = nullptr;
 	}
 
 	// Save editor preferences on exit
@@ -359,12 +365,17 @@ void GameEditor::OpenProject(std::string_view folderPath)
     // 1. Unload old DLL and reset map state
     if (m_GameLogicDll.handle)
     {
+        if (m_DestroyGameMap && m_MapManager)
+        {
+            m_DestroyGameMap(m_MapManager);
+        }
         m_MapManager = nullptr;
         m_GameEngine.SetMapManager(nullptr);
         m_GameEngine.SetMap(nullptr);
         UnloadDll(m_GameLogicDll);
         m_GameLogicDll = {};
         m_CreateGameMap = nullptr;
+        m_DestroyGameMap = nullptr;
     }
     
     // 2. State is tied to Map/MapManager, so it is cleared by setting them to nullptr above.
@@ -397,12 +408,17 @@ void GameEditor::Run()
 			// Cleanup current project state before opening browser
 			m_GameEngine.SetMap(nullptr);
 			m_GameEngine.SetMapManager(nullptr);
+			if (m_DestroyGameMap && m_MapManager)
+			{
+				m_DestroyGameMap(m_MapManager);
+			}
 			m_MapManager = nullptr;
 			if (m_GameLogicDll.handle)
 			{
 				UnloadDll(m_GameLogicDll);
 				m_GameLogicDll = {};
 				m_CreateGameMap = nullptr;
+				m_DestroyGameMap = nullptr;
 			}
 			m_GameLogicPath = "";
 			
@@ -580,21 +596,16 @@ void GameEditor::Close() const
 
 
 
-void GameEditor::LoadMap(std::unique_ptr<GameMap>& game_map)
+void GameEditor::LoadMap(GameMap* game_map)
 {
     if (game_map)
     {
         // Check if the loaded map is a MapManager using its internal name
         if (game_map->GetMapName() == "_RAYWAVES_MAP_MANAGER_")
         {
-            MapManager* map_manager = static_cast<MapManager*>(game_map.get());
+            MapManager* map_manager = static_cast<MapManager*>(game_map);
             // If it's a MapManager, set it using the dedicated method
-            std::unique_ptr<MapManager> owned_map_manager
-			(
-				static_cast<MapManager*>(game_map.release())
-			);
-
-            m_GameEngine.SetMapManager(std::move(owned_map_manager));
+            m_GameEngine.SetMapManager(map_manager);
             
             // Store reference for map selection UI
             m_MapManager = m_GameEngine.GetMapManager();
@@ -602,13 +613,13 @@ void GameEditor::LoadMap(std::unique_ptr<GameMap>& game_map)
         else
         {
             // Otherwise, use the regular SetMap method
-            m_GameEngine.SetMap(std::move(game_map));
+            m_GameEngine.SetMap(game_map);
             m_MapManager = nullptr; // No MapManager available
         }
     }
     else
     {
-        m_GameEngine.SetMap(std::make_unique<GameMap>());
+        m_GameEngine.SetMap(nullptr);
         m_MapManager = nullptr;
     }
 }
@@ -634,15 +645,21 @@ bool GameEditor::b_LoadGameLogic(std::string_view dll_path)
 		GetDllSymbol(new_dll, "CreateGameMap")
 	);
 
-	if (!new_factory)
+	DestroyGameMapFunc new_destroy =
+	reinterpret_cast<DestroyGameMapFunc>
+	(
+		GetDllSymbol(new_dll, "DestroyGameMap")
+	);
+
+	if (!new_factory || !new_destroy)
 	{
-		std::cerr << "Failed to get CreateGameMap from DLL" << "\n";
+		std::cerr << "Failed to get CreateGameMap/DestroyGameMap from DLL" << "\n";
 		UnloadDll(new_dll);
 		return false;
 	}
 
 	// 3) Create the new map before disturbing current state
-	std::unique_ptr<GameMap> new_map(new_factory());
+	GameMap* new_map = new_factory();
 	if (!new_map)
 	{
 		std::cerr << "CreateGameMap returned null" << "\n";
@@ -683,25 +700,27 @@ bool GameEditor::b_LoadGameLogic(std::string_view dll_path)
 	// 5) Unload old DLL (if any)
 	if (m_GameLogicDll.handle)
 	{
+		if (m_DestroyGameMap && m_MapManager)
+		{
+			m_DestroyGameMap(m_MapManager);
+		}
 		UnloadDll(m_GameLogicDll);
 		m_GameLogicDll = {};
 		m_CreateGameMap = nullptr;
+		m_DestroyGameMap = nullptr;
 	}
 
 	// 6) Swap in new DLL and map
 	m_GameLogicDll = new_dll;
 	m_CreateGameMap = new_factory;
+	m_DestroyGameMap = new_destroy;
 	
 	// Check if the loaded map is a MapManager using its internal name
 	if (new_map->GetMapName() == "_RAYWAVES_MAP_MANAGER_")
 	{
-        MapManager* map_manager = static_cast<MapManager*>(new_map.get());
+		MapManager* map_manager = static_cast<MapManager*>(new_map);
 		// If it's a MapManager, set it using the dedicated method
-		std::unique_ptr<MapManager> owned_map_manager
-		(
-			static_cast<MapManager*>(new_map.release())
-		);
-		m_GameEngine.SetMapManager(std::move(owned_map_manager));
+		m_GameEngine.SetMapManager(map_manager);
 		
 		// Store reference for map selection UI
 		m_MapManager = m_GameEngine.GetMapManager();
@@ -709,7 +728,7 @@ bool GameEditor::b_LoadGameLogic(std::string_view dll_path)
 	else
 	{
 		// Otherwise, use the regular SetMap method
-		m_GameEngine.SetMap(std::move(new_map));
+		m_GameEngine.SetMap(new_map);
 		m_MapManager = nullptr; // No MapManager available
 	}
 

@@ -2,8 +2,11 @@
 #include "DllLoader.h"
 #include "GameConfig.h"
 using CreateGameMapFunc = GameMap* (*)();
+using DestroyGameMapFunc = void (*)(GameMap*);
 
-static std::unique_ptr<GameMap> s_fLoadGameLogic
+static DestroyGameMapFunc s_DestroyGameMap = nullptr;
+
+static GameMap* s_fLoadGameLogic
 (
     std::string_view dll_path, DllHandle& out_handle
 )
@@ -24,12 +27,18 @@ static std::unique_ptr<GameMap> s_fLoadGameLogic
     (
         GetDllSymbol(out_handle, "CreateGameMap")
     );
-    if (!CreateFn)
+    
+    s_DestroyGameMap = reinterpret_cast<DestroyGameMapFunc>
+    (
+        GetDllSymbol(out_handle, "DestroyGameMap")
+    );
+    
+    if (!CreateFn || !s_DestroyGameMap)
     {
         std::println
         (
             std::cerr, 
-            "Failed to find symbol CreateGameMap in GameLogic DLL"
+            "Failed to find symbol CreateGameMap/DestroyGameMap in GameLogic DLL"
         );
         UnloadDll(out_handle);
         out_handle = {nullptr, {}};
@@ -45,7 +54,7 @@ static std::unique_ptr<GameMap> s_fLoadGameLogic
         return nullptr;
     }
 
-    return std::unique_ptr<GameMap>(raw);
+    return raw;
 }
 
 int main()
@@ -100,6 +109,14 @@ int main()
         engine.DrawMap();
         EndDrawing();
     }
+
+    if (s_DestroyGameMap && engine.GetMap())
+    {
+        s_DestroyGameMap(engine.GetMap());
+    }
+    
+    // Clear the map pointer from engine since we just destroyed it
+    engine.SetMap(nullptr);
 
     UnloadDll(game_logic_handle);
     CloseAudioDevice();

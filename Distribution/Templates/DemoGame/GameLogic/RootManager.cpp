@@ -23,3 +23,16 @@ extern "C" __declspec(dllexport) GameMap* CreateGameMap()
 
     return s_GameMapManager;
 }
+
+extern "C" __declspec(dllexport) void DestroyGameMap(GameMap* map_manager)
+{
+    if (map_manager)
+    {
+        delete map_manager;
+        if (map_manager == s_GameMapManager)
+        {
+            s_GameMapManager = nullptr;
+        }
+    }
+}
+
