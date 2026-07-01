@@ -3,7 +3,7 @@
 GameMap::GameMap()
 	: m_MapName("DefaultMap") {}
 
-GameMap::GameMap(const std::string& map_name)
+GameMap::GameMap(const std::string_view map_name)
 	: m_MapName(map_name) {}
 
 void GameMap::Initialize()
@@ -21,7 +21,7 @@ void GameMap::Draw()
     // Drawing logic for the game map
 }
 
-void GameMap::SetMapName(const std::string& map_name)
+void GameMap::SetMapName(const std::string_view map_name)
 {
     m_MapName = map_name;
 }

@@ -131,8 +131,8 @@ void SceneWindow::Draw(GameEditor* editor)
 
 	// Status Text
 	const ImVec4 COLOR = editor->b_IsPlaying ? ImVec4(0.2f, 0.8f, 0.2f, 1.0f) : ImVec4(0.8f, 0.2f, 0.2f, 1.0f);
-	const std::string& ICON = editor->b_IsPlaying ? ICON_FA_PLAY : ICON_FA_STOP;
-	const std::string& LABEL = editor->b_IsPlaying ? " PLAYING" : " STOPPED";
+	const std::string_view ICON = editor->b_IsPlaying ? ICON_FA_PLAY : ICON_FA_STOP;
+	const std::string_view LABEL = editor->b_IsPlaying ? " PLAYING" : " STOPPED";
 
 	ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0f);
 	ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(16.0f, 4.0f));
@@ -146,7 +146,7 @@ void SceneWindow::Draw(GameEditor* editor)
 	ImGui::PushStyleColor(ImGuiCol_ButtonActive, bgColor);
 	ImGui::PushStyleColor(ImGuiCol_Text, textColor);
 
-	std::string fullLabel = ICON + LABEL;
+	std::string fullLabel = std::string(ICON) + std::string(LABEL);
 	ImGui::Button(fullLabel.c_str(), ImVec2(0, 32.0f));
 
 	ImGui::PopStyleVar(3);

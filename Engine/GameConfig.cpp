@@ -7,9 +7,10 @@ GameConfig& GameConfig::GetInstance()
     return s_Instance;
 }
 
-bool GameConfig::m_bLoadFromFile(const std::string& config_path) 
+bool GameConfig::m_bLoadFromFile(const std::string_view config_path) 
 {
-    std::ifstream file(config_path);
+    std::string path_str(config_path);
+    std::ifstream file(path_str);
     if (!file.is_open()) 
     {
         std::println("Config file not found: {}. Using defaults. ",config_path);
@@ -89,9 +90,10 @@ bool GameConfig::m_bLoadFromFile(const std::string& config_path)
     return true;
 }
 
-bool GameConfig::m_bSaveToFile(const std::string& config_path) const 
+bool GameConfig::m_bSaveToFile(const std::string_view config_path) const 
 {
-    std::ofstream file(config_path);
+    std::string path_str(config_path);
+    std::ofstream file(path_str);
     if (!file.is_open()) 
     {
         std::println(std::cerr, "Failed to create config file: {}", config_path);

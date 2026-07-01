@@ -53,6 +53,7 @@ public:
     // Unload and reload the DLL, then recreate the GameMap
     bool b_ReloadGameLogic();
 
+    void RunBrowser();
     void Run();
     
     void CompileGameLogic();
@@ -135,6 +136,7 @@ private:
 
     std::string m_GameLogicPath;
     fs::file_time_type m_LastLogicWriteTime{};
+    bool m_bNeedsReload = false;
 
     float m_ReloadCheckAccum = 0.0f;
     Shader m_OpaqueShader;

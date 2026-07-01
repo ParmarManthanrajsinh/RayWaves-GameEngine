@@ -20,7 +20,7 @@ protected:
 
 public:
     GameMap(); 
-    GameMap(const std::string& map_name);
+    GameMap(const std::string_view map_name);
     virtual ~GameMap() = default;  
 
     virtual void Initialize();
@@ -30,7 +30,7 @@ public:
     virtual void SaveState(StateBag& out) const {}
     virtual void LoadState(const StateBag& in) {}
     
-    void SetMapName(const std::string& map_name);
+    void SetMapName(const std::string_view map_name);
     std::string GetMapName() const;
     void SetSceneBounds(float width, float height);
 	Vector2 GetSceneBounds() const;

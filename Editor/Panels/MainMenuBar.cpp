@@ -1,5 +1,6 @@
 #include "MainMenuBar.h"
 #include "../GameEditor.h"
+#include "../../Engine/ProjectManager.h"
 #include <imgui.h>
 #include <rlImGui.h>
 
@@ -7,6 +8,15 @@ void MainMenuBar::Draw(GameEditor* editor)
 {
     if (ImGui::BeginMainMenuBar())
     {
+        if (ImGui::BeginMenu("File"))
+        {
+            if (ImGui::MenuItem(ICON_FA_FOLDER_OPEN " Switch Project / Close"))
+            {
+                ProjectManager::CloseProject();
+            }
+            ImGui::EndMenu();
+        }
+
         if (ImGui::BeginMenu("View"))
         {
             ImGui::MenuItem(ICON_FA_TERMINAL " Console", nullptr, &editor->m_bShowTerminal);

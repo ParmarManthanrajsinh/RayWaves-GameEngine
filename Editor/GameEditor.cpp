@@ -1,4 +1,5 @@
 #include "../Engine/MapManager.h"
+#include "../Engine/ProjectManager.h"
 #include "../Game/DllLoader.h"
 #include "GameEditor.h"
 #include "ProcessRunner.h"
@@ -7,6 +8,11 @@
 #include <filesystem>
 #include <cstdio>
 using Clock = std::chrono::steady_clock;
+
+static std::string GetEngineContentPath(std::string_view sub_path)
+{
+    return std::string(GetApplicationDirectory()) + "Assets/EngineContent/" + std::string(sub_path);
+}
 
 #include "Panels/MainMenuBar.h"
 #include "Panels/SceneWindow.h"
@@ -18,6 +24,7 @@ using Clock = std::chrono::steady_clock;
 #include "Panels/EditorPreferencesPanel.h"
 #include "EditorPreferences.h"
 #include <memory>
+#include <cstdlib>
 
 bool g_bNeedsTextureRecreate = false;
 
@@ -95,7 +102,7 @@ void GameEditor::Init(int width, int height, std::string_view title)
 	SetWindowState(FLAG_WINDOW_RESIZABLE);
 	
 	// Set window icon
-	Image icon = LoadImage("Assets/EngineContent/icon.png");
+	Image icon = LoadImage(GetEngineContentPath("icon.png").c_str());
 	if (icon.data != nullptr)
 	{
 		SetWindowIcon(icon);
@@ -123,8 +130,8 @@ void GameEditor::Init(int width, int height, std::string_view title)
 		}
 	}
 
-	std::string base_font = "Assets/EngineContent/Roboto-Regular.ttf";
-	std::string mono_font = "Assets/EngineContent/Consolas-Regular.ttf";
+	std::string base_font = GetEngineContentPath("Roboto-Regular.ttf");
+	std::string mono_font = GetEngineContentPath("Consolas-Regular.ttf");
 	if (prefs.FontFamily == "Consolas")
 	{
 		base_font = mono_font;
@@ -184,10 +191,134 @@ void GameEditor::Init(int width, int height, std::string_view title)
 	m_OpaqueShader = LoadOpaqueShader();
 }
 
+void GameEditor::RunBrowser()
+{
+    Texture2D logo = LoadTexture(GetEngineContentPath("logo.png").c_str());
+
+    while (!WindowShouldClose())
+    {
+        if (ProjectManager::b_HasOpenProject())
+        {
+            break;
+        }
+
+        BeginDrawing();
+        ClearBackground(RAYWHITE);
+        
+        rlImGuiBegin();
+
+        ImGuiViewport* viewport = ImGui::GetMainViewport();
+        ImGui::SetNextWindowPos(viewport->WorkPos);
+        ImGui::SetNextWindowSize(viewport->WorkSize);
+        ImGui::SetNextWindowViewport(viewport->ID);
+        
+        ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
+        
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(40.0f, 40.0f));
+        ImGui::Begin("Project Browser", nullptr, window_flags);
+        
+        // Header
+        ImGui::Text("RayWaves Game Engine");
+        ImGui::Text("Version: %s", version.c_str());
+        
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+        
+        ImGui::Columns(2, "BrowserColumns", false);
+        ImGui::SetColumnWidth(0, viewport->WorkSize.x * 0.6f);
+        
+        // Left Column - Recent Projects
+        ImGui::Text("Recent Projects");
+        ImGui::Spacing();
+        
+        ImGui::BeginChild("RecentProjects", ImVec2(0, 0), true);
+        auto recent = ProjectManager::GetRecent();
+        for (const auto& path : recent)
+        {
+            if (ImGui::Selectable(path.c_str(), false, 0, ImVec2(0, 30.0f)))
+            {
+                ProjectManager::b_OpenProject(path);
+            }
+        }
+        ImGui::EndChild();
+        
+        ImGui::NextColumn();
+        
+        // Right Column - Actions
+        ImGui::Text("Actions");
+        ImGui::Spacing();
+        
+        if (ImGui::Button("Open Existing Project", ImVec2(-1, 40.0f)))
+        {
+            const char* path = tinyfd_selectFolderDialog("Open Project", nullptr);
+            if (path)
+            {
+                ProjectManager::b_OpenProject(path);
+            }
+        }
+        
+        ImGui::Spacing();
+        
+        if (ImGui::Button("New Project", ImVec2(-1, 40.0f)))
+        {
+            // TODO Phase 6
+            std::println(std::cerr, "New Project wizard not implemented yet.");
+        }
+        
+        ImGui::Spacing();
+        
+        if (ImGui::Button("Open GitHub / Docs", ImVec2(-1, 40.0f)))
+        {
+            std::system("start https://github.com/ParmarManthanrajsinh/RayWaves-GameEngine");
+        }
+        
+        ImGui::Columns(1);
+        
+        ImGui::End();
+        ImGui::PopStyleVar();
+        
+        rlImGuiEnd();
+        EndDrawing();
+    }
+    
+    if (logo.id != 0) UnloadTexture(logo);
+}
+
 void GameEditor::Run()
 {
 	while (!WindowShouldClose())
 	{
+		if (!ProjectManager::b_HasOpenProject())
+		{
+			// Cleanup current project state before opening browser
+			m_GameEngine.SetMap(nullptr);
+			m_GameEngine.SetMapManager(nullptr);
+			m_MapManager = nullptr;
+			if (m_GameLogicDll.handle)
+			{
+				UnloadDll(m_GameLogicDll);
+				m_GameLogicDll = {};
+				m_CreateGameMap = nullptr;
+			}
+			m_GameLogicPath = "";
+			
+			// Show browser
+			RunBrowser();
+
+			// If a new project was opened from the browser
+			if (ProjectManager::b_HasOpenProject())
+			{
+				b_LoadGameLogic(ProjectManager::GetCurrent().m_DllPath);
+				continue;
+			}
+			else
+			{
+				// User closed the window from the browser
+				break;
+			}
+		}
+
 		static auto s_LastReloadCheckTime = Clock::now();
 
 		// Periodically check for GameLogic.dll changes (e.g., every 0.5s)
@@ -350,10 +481,10 @@ void GameEditor::LoadMap(std::unique_ptr<GameMap>& game_map)
 {
     if (game_map)
     {
-        // Check if the loaded map is a MapManager
-        MapManager* map_manager = static_cast<MapManager*>(game_map.get());
-        if (map_manager)
+        // Check if the loaded map is a MapManager using its internal name
+        if (game_map->GetMapName() == "_RAYWAVES_MAP_MANAGER_")
         {
+            MapManager* map_manager = static_cast<MapManager*>(game_map.get());
             // If it's a MapManager, set it using the dedicated method
             std::unique_ptr<MapManager> owned_map_manager
 			(
@@ -458,10 +589,10 @@ bool GameEditor::b_LoadGameLogic(std::string_view dll_path)
 	m_GameLogicDll = new_dll;
 	m_CreateGameMap = new_factory;
 	
-	// Check if the loaded map is a MapManager
-	MapManager* map_manager = static_cast<MapManager*>(new_map.get());
-	if (map_manager)
+	// Check if the loaded map is a MapManager using its internal name
+	if (new_map->GetMapName() == "_RAYWAVES_MAP_MANAGER_")
 	{
+        MapManager* map_manager = static_cast<MapManager*>(new_map.get());
 		// If it's a MapManager, set it using the dedicated method
 		std::unique_ptr<MapManager> owned_map_manager
 		(
@@ -481,14 +612,8 @@ bool GameEditor::b_LoadGameLogic(std::string_view dll_path)
 
 	// Update watched timestamp 
 	// (watch the original DLL path, not the shadow)
-	std::error_code ec;
-
-	m_LastLogicWriteTime =
-	fs::last_write_time
-	(
-		fs::path(m_GameLogicPath),	
-		ec
-	);
+    std::error_code ec;
+	m_LastLogicWriteTime = fs::last_write_time(fs::path(m_GameLogicPath), ec);
 
 	if (b_IsReload && m_bPreserveStateOnReload)
 	{
@@ -617,18 +742,55 @@ void GameEditor::CompileGameLogic()
         BuildMessages.clear();
     }
 
-    std::string appDir = GetApplicationDirectory();
     std::string buildCmd;
-    
-    // Check if we are running the distributed version (where build_gamelogic.bat exists in root)
-    if (std::filesystem::exists(appDir + "/build_gamelogic.bat"))
+    std::string appDir = GetApplicationDirectory();
+
+    if (ProjectManager::b_HasOpenProject())
     {
-        // Enclose in extra quotes so cmd.exe /C handles spaces correctly
-        buildCmd = "\"\"" + appDir + "/build_gamelogic.bat\" nopause\"";
+        const auto& proj = ProjectManager::GetCurrent();
+        
+        std::string zig_exe = appDir + "Core/Tools/zig/zig.exe";
+        std::string zig_cmd = "zig"; // fallback
+        if (std::filesystem::exists(zig_exe))
+        {
+            zig_cmd = "\"" + zig_exe + "\"";
+        }
+
+        std::string src_files;
+        if (std::filesystem::exists(proj.m_SourcePath))
+        {
+            for (const auto& entry : std::filesystem::directory_iterator(proj.m_SourcePath))
+            {
+                if (entry.path().extension() == ".cpp")
+                    src_files += "\"" + entry.path().string() + "\" ";
+            }
+        }
+        std::string engine_src = appDir + "Core/Engine";
+        if (std::filesystem::exists(engine_src))
+        {
+            for (const auto& entry : std::filesystem::directory_iterator(engine_src))
+            {
+                if (entry.path().extension() == ".cpp")
+                    src_files += "\"" + entry.path().string() + "\" ";
+            }
+        }
+
+        std::string includes = "-I\"" + appDir + "Core/Engine\" -I\"" + appDir + "Core/raylib/include\"";
+        std::string libs = "-L\"" + appDir + "Core/raylib/lib\" -lraylib -ldwmapi";
+        
+        buildCmd = "\"\"" + zig_exe + "\" c++ -shared -o \"" + proj.m_DllPath + "\" " + src_files + includes + " " + libs + " -std=c++23 -msse4.2 -O2\"";
     }
     else
     {
-        buildCmd = "\"\"cmake\" --build \"" + appDir + "\" --target GameLogic\"";
+        // Dev environment or no project fallback
+        if (std::filesystem::exists(appDir + "/build_gamelogic.bat"))
+        {
+            buildCmd = "\"\"" + appDir + "/build_gamelogic.bat\" nopause\"";
+        }
+        else
+        {
+            buildCmd = "\"\"cmake\" --build \"" + appDir + "\" --target GameLogic\"";
+        }
     }
     
     ProcessRunner::RunBuildCommand
@@ -646,6 +808,7 @@ void GameEditor::CompileGameLogic()
                 m_Terminal.add_text("Build Successful.", term::Severity::Debug);
                 BuildStatus = EBuildStatus::Success;
                 NotificationTimer = 4.0f;
+				m_bNeedsReload = true; // Trigger reload after build completes
             } 
             else 
             {

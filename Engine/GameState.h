@@ -12,36 +12,36 @@
 
 class StateBag {
 public:
-    void SetFloat(const std::string& key, float value) { m_Floats[key] = value; }
-    float GetFloat(const std::string& key, float defaultValue = 0.0f) const {
-        auto it = m_Floats.find(key);
+    void SetFloat(std::string_view key, float value) { m_Floats[std::string(key)] = value; }
+    float GetFloat(std::string_view key, float defaultValue = 0.0f) const {
+        auto it = m_Floats.find(std::string(key));
         return (it != m_Floats.end()) ? it->second : defaultValue;
     }
 
-    void SetInt(const std::string& key, int value) { m_Ints[key] = value; }
-    int GetInt(const std::string& key, int defaultValue = 0) const {
-        auto it = m_Ints.find(key);
+    void SetInt(std::string_view key, int value) { m_Ints[std::string(key)] = value; }
+    int GetInt(std::string_view key, int defaultValue = 0) const {
+        auto it = m_Ints.find(std::string(key));
         return (it != m_Ints.end()) ? it->second : defaultValue;
     }
 
-    void SetBool(const std::string& key, bool value) { m_Bools[key] = value; }
-    bool GetBool(const std::string& key, bool defaultValue = false) const {
-        auto it = m_Bools.find(key);
+    void SetBool(std::string_view key, bool value) { m_Bools[std::string(key)] = value; }
+    bool GetBool(std::string_view key, bool defaultValue = false) const {
+        auto it = m_Bools.find(std::string(key));
         return (it != m_Bools.end()) ? it->second : defaultValue;
     }
 
-    void SetString(const std::string& key, const std::string& value) { m_Strings[key] = value; }
-    std::string GetString(const std::string& key, const std::string& defaultValue = "") const {
-        auto it = m_Strings.find(key);
-        return (it != m_Strings.end()) ? it->second : defaultValue;
+    void SetString(std::string_view key, std::string_view value) { m_Strings[std::string(key)] = std::string(value); }
+    std::string GetString(std::string_view key, std::string_view defaultValue = "") const {
+        auto it = m_Strings.find(std::string(key));
+        return (it != m_Strings.end()) ? it->second : std::string(defaultValue);
     }
 
-    void SetVector2(const std::string& key, Vector2 value) {
-        SetFloat(key + "_x", value.x);
-        SetFloat(key + "_y", value.y);
+    void SetVector2(std::string_view key, Vector2 value) {
+        SetFloat(std::string(key) + "_x", value.x);
+        SetFloat(std::string(key) + "_y", value.y);
     }
-    Vector2 GetVector2(const std::string& key, Vector2 defaultValue = {0.0f, 0.0f}) const {
-        return { GetFloat(key + "_x", defaultValue.x), GetFloat(key + "_y", defaultValue.y) };
+    Vector2 GetVector2(std::string_view key, Vector2 defaultValue = {0.0f, 0.0f}) const {
+        return { GetFloat(std::string(key) + "_x", defaultValue.x), GetFloat(std::string(key) + "_y", defaultValue.y) };
     }
 
 private:

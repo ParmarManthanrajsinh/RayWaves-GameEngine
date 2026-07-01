@@ -76,15 +76,15 @@ public:
     template<typename T>
     void RegisterMap
     (
-        const std::string& map_id, 
-        const std::string& description = ""
+        const std::string_view map_id, 
+        const std::string_view description = ""
     );
-    bool b_GotoMap(const std::string& map_id, bool force_reload = false);
-    bool b_IsCurrentMap(const std::string& map_id) const;
-    bool b_IsMapRegistered(const std::string& map_id) const;
+    bool b_GotoMap(const std::string_view map_id, bool force_reload = false);
+    bool b_IsCurrentMap(const std::string_view map_id) const;
+    bool b_IsMapRegistered(const std::string_view map_id) const;
     bool b_ReloadCurrentMap();
 
-    const std::string& GetCurrentMapId() const { return m_CurrentMapId; }
+    const std::string_view GetCurrentMapId() const { return m_CurrentMapId; }
     std::vector<std::string> GetAvailableMaps() const;
 
     void UnloadCurrentMap();
@@ -105,8 +105,8 @@ private:
 template<typename T>
 void MapManager::RegisterMap
 (
-    const std::string& map_id, 
-    const std::string& description
+    const std::string_view map_id, 
+    const std::string_view description
 )
 {
     static_assert
@@ -116,15 +116,15 @@ void MapManager::RegisterMap
     );
     
     // Create factory function that creates instances of type T
-    m_MapRegistry[map_id] = []() -> std::unique_ptr<GameMap> 
+    m_MapRegistry[std::string(map_id)] = []() -> std::unique_ptr<GameMap> 
     {
         return std::make_unique<T>();
     };
     
     // Store metadata
-    m_MapInfo[map_id] = 
+    m_MapInfo[std::string(map_id)] = 
     { 
-        description.empty() ? "No description" : description, false 
+        description.empty() ? "No description" : std::string(description), false 
     };
 
     std::println("[MapManager] Registered map: {} - {}", map_id, description);
@@ -166,7 +166,7 @@ inline void RegisterMapAs
 (
     Manager& manager, 
     int map_id, 
-    const std::string& desc
+    const std::string_view desc
 )
 {
     manager.template RegisterMap<MapClass>(map_id, desc);

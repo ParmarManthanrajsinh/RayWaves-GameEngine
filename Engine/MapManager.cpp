@@ -5,6 +5,7 @@ MapManager::MapManager()
     , m_CurrentMapId("")
     , m_bUsingDefaultMap(false)
 {
+    m_MapName = "_RAYWAVES_MAP_MANAGER_";
     std::println("[MapManager] Initialized - ready for map registration");
 }
 
@@ -153,7 +154,7 @@ Vector2 MapManager::GetSceneBounds() const
     return GameMap::GetSceneBounds();
 }
 
-bool MapManager::b_GotoMap(const std::string& map_id, bool force_reload)
+bool MapManager::b_GotoMap(std::string_view map_id, bool force_reload)
 {
     // Check if map is registered
     if (!b_IsMapRegistered(map_id))
@@ -194,7 +195,7 @@ bool MapManager::b_GotoMap(const std::string& map_id, bool force_reload)
     try
     {
         // Create the new map
-        auto& factory = m_MapRegistry[map_id];
+        auto& factory = m_MapRegistry[std::string(map_id)];
         auto new_map = factory();
 
         if (!new_map)
@@ -211,7 +212,7 @@ bool MapManager::b_GotoMap(const std::string& map_id, bool force_reload)
         // Created new map 
         m_CurrentMap = std::move(new_map);
         m_CurrentMapId = map_id;
-        m_MapInfo[map_id].b_IsLoaded = true;
+        m_MapInfo[std::string(map_id)].b_IsLoaded = true;
         m_bUsingDefaultMap = false;
 
         // Set up the new map with current scene bounds
@@ -269,7 +270,7 @@ bool MapManager::b_GotoMap(const std::string& map_id, bool force_reload)
 }
 
 
-bool MapManager::b_IsCurrentMap(const std::string& map_id) const
+bool MapManager::b_IsCurrentMap(std::string_view map_id) const
 {
     return m_CurrentMapId == map_id &&
            m_CurrentMap != nullptr;
@@ -288,9 +289,9 @@ std::vector<std::string> MapManager::GetAvailableMaps() const
     return maps;
 }
 
-bool MapManager::b_IsMapRegistered(const std::string& map_id) const
+bool MapManager::b_IsMapRegistered(std::string_view map_id) const
 {
-    return m_MapRegistry.find(map_id) != m_MapRegistry.end();
+    return m_MapRegistry.find(std::string(map_id)) != m_MapRegistry.end();
 }
 
 void MapManager::UnloadCurrentMap()
@@ -346,7 +347,7 @@ std::string MapManager::GetDebugInfo() const
     
     for (const auto& PAIR : m_MapInfo)
     {
-        const std::string& MAP_ID = PAIR.first;
+        const std::string_view MAP_ID = PAIR.first;
         const t_MapInfo& INFO = PAIR.second;
         ss << "\n  - '" << MAP_ID << "': " << INFO.description;
         ss << " [" << (INFO.b_IsLoaded ? "LOADED" : "NOT LOADED") << "]";

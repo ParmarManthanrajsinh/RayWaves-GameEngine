@@ -266,7 +266,7 @@ void ExportPanel::Draw(GameEditor* editor)
         ImGui::Text("Output Folder:");
 
         ImGui::TableSetColumnIndex(1);
-        std::string& current_path = editor->m_ExportState.m_ExportPath;
+        std::string current_path = std::string(editor->m_ExportState.m_ExportPath);
         if (current_path.empty()) current_path = "export";
 
         ImGui::PushItemWidth(300.0f);
