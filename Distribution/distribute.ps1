@@ -3,7 +3,8 @@
 
 param(
     [string]$BuildConfig = "Release",
-    [string]$OutputDir = "dist"
+    [string]$OutputDir = "dist",
+    [switch]$IncludeCompiler = $false
 )
 
 $ErrorActionPreference = "Stop"
@@ -102,9 +103,11 @@ Copy-Item "Distribution/dist_CMakeLists.txt" "$DistPath/Core/CMakeLists.txt" -Fo
 Copy-Item "Documentation/README_DISTRIBUTION.md" "$DistPath/Documentation/" -Force
 Copy-Item "Documentation/DISTRIBUTION_GUIDE.md" "$DistPath/Documentation/" -Force
 
-Write-Host "Bundling Zig Compiler (Zero Install)..." -ForegroundColor Yellow
-New-Item -ItemType Directory -Path "$DistPath/Core/Tools/zig" -Force | Out-Null
-Copy-Item "Tools/zig/*" "$DistPath/Core/Tools/zig/" -Recurse -Force
+if ($IncludeCompiler) {
+    Write-Host "Bundling Zig Compiler (Zero Install)..." -ForegroundColor Yellow
+    New-Item -ItemType Directory -Path "$DistPath/Core/Tools/zig" -Force | Out-Null
+    Copy-Item "Tools/zig/*" "$DistPath/Core/Tools/zig/" -Recurse -Force
+}
 
 # Copy build helper script
 Copy-Item "Distribution/build_gamelogic.bat" "$DistPath/" -Force

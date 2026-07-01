@@ -1,5 +1,34 @@
 cmake_minimum_required(VERSION 3.10)
+
+# Check and auto-fetch Zig if necessary before compiler detection runs
+if(CMAKE_C_COMPILER MATCHES "zig-cc" OR CMAKE_CXX_COMPILER MATCHES "zig-cxx")
+    if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/Tools/zig/zig.exe")
+        message(STATUS "Zig toolchain not found. Auto-fetching...")
+        execute_process(
+            COMMAND powershell -ExecutionPolicy Bypass -File "${CMAKE_CURRENT_SOURCE_DIR}/Tools/setup_zig.ps1" -SkipRcEdit
+            WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+            RESULT_VARIABLE ZIG_FETCH_RESULT
+        )
+        if(NOT ZIG_FETCH_RESULT EQUAL 0)
+            message(FATAL_ERROR "Failed to download Zig.")
+        endif()
+    endif()
+endif()
+
 project(RayWaves)
+
+# Auto-fetch rcedit if missing
+if(NOT EXISTS "${CMAKE_SOURCE_DIR}/Tools/rcedit.exe")
+    message(STATUS "rcedit not found. Auto-fetching...")
+    execute_process(
+        COMMAND powershell -ExecutionPolicy Bypass -File "${CMAKE_SOURCE_DIR}/Tools/setup_zig.ps1" -SkipZig
+        WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+        RESULT_VARIABLE RCEDIT_FETCH_RESULT
+    )
+    if(NOT RCEDIT_FETCH_RESULT EQUAL 0)
+        message(FATAL_ERROR "Failed to download rcedit.")
+    endif()
+endif()
 
 
 set(CMAKE_CXX_STANDARD 23)

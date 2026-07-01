@@ -43,9 +43,10 @@ The created distribution includes:
 
 ## Customization
 
-- **Output Directory**: Modify `distribute.ps1` or pass parameters to change where the distribution is created
-- **Build Configuration**: Use Debug or Release builds by modifying the scripts
-- **Asset Filtering**: Edit `distribute.ps1` to change which assets are included
+- **Output Directory**: Modify `distribute.ps1` or pass parameters to change where the distribution is created.
+- **Compiler Bundling**: Pass `-IncludeCompiler` to `distribute.ps1` if you want to bundle the Zig compiler for developers (by default, it produces a lean build for players).
+- **Build Configuration**: Use Debug or Release builds by modifying the scripts.
+- **Asset Filtering**: Edit `distribute.ps1` to change which assets are included.
 
 ## Notes
 

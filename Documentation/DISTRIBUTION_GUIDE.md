@@ -60,6 +60,7 @@ You can tweak how the distribution is built by editing `Distribution/distribute.
 
 ### Common Customizations
 
+*   **Include Zig Compiler:** By default, the engine's built-in Zig compiler is not included, keeping the package size small for players. Run `distribute.ps1 -IncludeCompiler` to bundle Zig so the recipient can hot-reload without any manual install.
 *   **Change Default Config:** Modify `Distribution/config.ini` to set different starting resolutions or flags.
 *   **Include Extra Assets:** Add files to `GameLogic/` before building if you want to include starter scripts.
 *   **Branding:** Change the icon or name of `editor.exe` in the script.
