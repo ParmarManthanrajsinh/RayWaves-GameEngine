@@ -81,7 +81,7 @@ Copy-Item "$BuildPath/libraylib.dll" "$DistPath/Core/raylib/bin/" -Force
 Copy-Item "$BuildPath/_deps/raylib-build/raylib/libraylib.dll.a" "$DistPath/Core/raylib/lib/libraylib.a" -Force
 Copy-Item "$BuildPath/_deps/raylib-build/raylib/include/*.h" "$DistPath/Core/raylib/include/" -Force
 
-# IMPORTANT: Copy libraylib.dll to dist root so app.exe can find it at runtime
+# IMPORTANT: Copy libraylib.dll to dist root so game.exe and editor.exe can find it at runtime
 Copy-Item "$BuildPath/libraylib.dll" "$DistPath/" -Force
 
 # Copy Assets folder

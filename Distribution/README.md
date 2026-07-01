@@ -29,7 +29,8 @@ This will:
 ### Distribution Structure
 
 The created distribution includes:
-- **`app.exe`** - The main game engine/editor executable
+- **`game.exe`** - The standalone game runtime
+- **`editor.exe`** - The visual game editor (optional)
 - **`GameLogic.dll`** - Hot-reloadable game logic
 - **`raylib.dll`** - Graphics library dependency
 - **`game_config.ini`** - Game configuration file
@@ -53,4 +54,4 @@ The created distribution includes:
 - The distribution is self-contained and doesn't require the original source project
 - Users can develop game logic using the provided build script
 - All necessary development tools and headers are included
-- The editor and game runtime are combined in `app.exe`
+- The editor and game runtime are split into `editor.exe` and `game.exe` respectively

@@ -341,13 +341,13 @@ void ExportPanel::Draw(GameEditor* editor)
                     {
                         s_fAppendLogLine(editor->m_ExportState.m_ExportLogs, editor->m_ExportState.m_ExportLogMutex, "Distribution environment detected - using direct file copy...");
                     
-                        fs::path app_exe = current_path / "game.exe";
+                        fs::path game_exe = current_path / "game.exe";
                         fs::path game_logic_dll = current_path / "GameLogic.dll";
                         fs::path raylib_dll = current_path / "libraylib.dll";
                     
-                        if (!fs::exists(app_exe)) 
+                        if (!fs::exists(game_exe)) 
                         {
-                            s_fAppendLogLine(editor->m_ExportState.m_ExportLogs, editor->m_ExportState.m_ExportLogMutex, "ERROR: app.exe not found in distribution!");
+                            s_fAppendLogLine(editor->m_ExportState.m_ExportLogs, editor->m_ExportState.m_ExportLogMutex, "ERROR: game.exe not found in distribution!");
                             editor->m_ExportState.m_bExportSuccess = false;
                             editor->m_ExportState.m_bIsExporting = false;
                             return;
@@ -374,7 +374,7 @@ void ExportPanel::Draw(GameEditor* editor)
                         
                         std::string game_exe_name = editor->m_ExportState.m_GameName + ".exe";
                         s_fAppendLogLine(editor->m_ExportState.m_ExportLogs, editor->m_ExportState.m_ExportLogMutex, "Creating game executable: " + game_exe_name);
-                        fs::copy_file(app_exe, export_dir / game_exe_name, fs::copy_options::overwrite_existing);
+                        fs::copy_file(game_exe, export_dir / game_exe_name, fs::copy_options::overwrite_existing);
                         
                         s_fAppendLogLine(editor->m_ExportState.m_ExportLogs, editor->m_ExportState.m_ExportLogMutex, "Creating game configuration...");
                         

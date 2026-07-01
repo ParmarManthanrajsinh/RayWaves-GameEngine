@@ -24,6 +24,9 @@ With our **hot-reloading magic**, you can tweak movement speeds, adjust physics,
 - **🔥 Limitless Hot-Reloading**  
   Edit your C++ code and see the results in **~0.5 seconds**. Game state is preserved across reloads via opt-in `SaveState`/`LoadState`. No restarting. Just flow.
 
+- **⚡ Zero-Install Setup**  
+  Visual Studio is no longer required! Building the engine uses the Zig compiler, which is fetched automatically on your first build.
+
 - **🎮 Pure Raylib Power**  
   No proprietary scripting languages or complex ECS layers. It's just you and standard C++ Raylib code.
 
@@ -57,9 +60,20 @@ With our **hot-reloading magic**, you can tweak movement speeds, adjust physics,
 
 1. **Open any terminal** (PowerShell, Command Prompt, or VS Code terminal).
 2. **Build the engine:**
+   There are two build paths available:
+   
+   **Recommended (Zero-Install)**  
+   Uses the Zig compiler (fetched automatically). No Visual Studio needed.
    ```powershell
    cmake --preset zig-debug
    cmake --build build/zig-debug
+   ```
+
+   **MSVC Alternative**  
+   If you already have Visual Studio installed and prefer it.
+   ```powershell
+   cmake --preset x64-debug
+   cmake --build build/x64-debug
    ```
 3. **Launch the editor:**
    ```powershell
@@ -129,9 +143,14 @@ Simply run:
 ```cmd
 Distribution\create_distribution.bat
 ```
+By default, this produces a lean package that requires system Zig to rebuild game code. If you want to bundle the Zig compiler so recipients have a "zero-install" hot-reload environment, pass `-IncludeCompiler`:
+```cmd
+Distribution\create_distribution.bat -IncludeCompiler
+```
 
 This generates a `dist/` folder with everything they need:
-- `app.exe` (The game/editor)
+- `game.exe` (Standalone runtime)
+- `editor.exe` (The visual editor)
 - `GameLogic.dll` (The moddable code)
 - All headers, scripts, and assets.
 

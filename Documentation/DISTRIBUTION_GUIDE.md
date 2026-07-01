@@ -29,7 +29,7 @@ When you create a distribution, here is what your users get:
 
 | File/Folder | Purpose |
 |-------------|---------|
-| `editor.exe` | The visual game editor (renamed `app.exe` in some versions). |
+| `editor.exe` | The visual game editor. |
 | `GameLogic.dll` | The compiled game code. |
 | `game_config.ini` | Default settings (resolution, VSync, etc). |
 | `build_gamelogic.bat` | **The Magic Button.** Users click this to recompile their code. |
