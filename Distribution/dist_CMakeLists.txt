@@ -35,14 +35,10 @@ file(GLOB ENGINE_SRC    CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/Engine/*.cpp")
 # -------------------------------------
 # TARGETS
 # -------------------------------------
-# Reuse the precompiled libEngine.a bundled in the distribution!
-# This reduces CMake build time from 3 minutes to less than 1 second.
-add_library(Engine STATIC IMPORTED)
-set_target_properties(Engine PROPERTIES IMPORTED_LOCATION "${CMAKE_SOURCE_DIR}/libEngine.a")
-
-# For imported targets, use INTERFACE for include dirs
-set_target_properties(Engine PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_SOURCE_DIR}/Engine;${RAYLIB_INCLUDE_DIR}")
-set_target_properties(Engine PROPERTIES INTERFACE_LINK_LIBRARIES "raylib")
+# Build Engine from source to avoid cross-compiler ABI issues.
+add_library(Engine STATIC ${ENGINE_SRC})
+target_include_directories(Engine PUBLIC "${CMAKE_SOURCE_DIR}/Engine" "${RAYLIB_INCLUDE_DIR}")
+target_link_libraries(Engine PUBLIC raylib)
 
 add_library(GameLogic SHARED ${GAMELOGIC_SRC})
 
