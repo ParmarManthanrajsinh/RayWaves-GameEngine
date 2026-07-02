@@ -11,6 +11,7 @@ public:
     static void CloseProject();
     static bool b_CreateProject(std::string_view target_folder, std::string_view template_name = "Empty");
     static bool b_SaveCurrentProject();
+    static void GenerateCMakeLists();
 
     static const t_Project& GetCurrent();
     static bool b_HasOpenProject();

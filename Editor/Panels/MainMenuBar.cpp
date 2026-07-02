@@ -11,6 +11,11 @@ void MainMenuBar::Draw(GameEditor* editor)
     {
         if (ImGui::BeginMenu("File"))
         {
+            if (ImGui::MenuItem(ICON_FA_FLOPPY_DISK " Save Project", "Ctrl+S"))
+            {
+                ProjectManager::b_SaveCurrentProject();
+            }
+            ImGui::Separator();
             if (ImGui::MenuItem(ICON_FA_FOLDER_OPEN " Switch Project..."))
             {
                 const char* path = tinyfd_selectFolderDialog("Switch Project", nullptr);
@@ -24,6 +29,12 @@ void MainMenuBar::Draw(GameEditor* editor)
                 ProjectManager::CloseProject();
             }
             ImGui::EndMenu();
+        }
+
+        // Global Ctrl+S shortcut (works even when menu is not focused)
+        if (ImGui::IsKeyChordPressed(ImGuiMod_Ctrl | ImGuiKey_S))
+        {
+            ProjectManager::b_SaveCurrentProject();
         }
 
         if (ImGui::BeginMenu("View"))

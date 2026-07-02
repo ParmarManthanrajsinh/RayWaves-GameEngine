@@ -1,3 +1,7 @@
 @echo off
 :: zig-cxx.bat
-"%~dp0zig\zig.exe" c++ %*
+if exist "%~dp0zig\zig.exe" (
+    "%~dp0zig\zig.exe" c++ %*
+) else (
+    zig c++ %*
+)

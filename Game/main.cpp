@@ -21,6 +21,7 @@ int main(int argc, char** argv)
     _CrtSetReportFile(_CRT_ERROR, _CRTDBG_FILE_STDERR);
 #endif
 
+    CleanupStaleShadowCopies();
     std::println("Game Engine Starting...");
     GameEditor editor;
     editor.Init(1280,720,"RayWaves");

@@ -64,7 +64,7 @@ public:
     
     bool IsWindowResized() const { return b_ResolutionChanged; } // Or ImGui function if needed
 
-    std::string version = "Raywaves v0.4.0";
+    std::string version = "Raywaves v0.6.0";
 
     RenderTexture2D m_RaylibTexture;
     RenderTexture2D m_DisplayTexture;
@@ -105,7 +105,7 @@ public:
     std::array<float, 120> m_FrameTimes{};
     size_t m_FrameOffset;
     
-    EBuildStatus BuildStatus = EBuildStatus::None;
+    std::atomic<EBuildStatus> BuildStatus = EBuildStatus::None;
     float NotificationTimer = 0.0f;
     std::vector<FBuildMessage> BuildMessages;
     std::mutex BuildMessagesMutex;
@@ -138,7 +138,6 @@ private:
     CreateGameMapFunc m_CreateGameMap = nullptr;
     DestroyGameMapFunc m_DestroyGameMap = nullptr;
     
-    bool b_CompileProject(std::string_view project_dir);
     std::string m_GameLogicPath;
     fs::file_time_type m_LastLogicWriteTime{};
     bool m_bNeedsReload = false;

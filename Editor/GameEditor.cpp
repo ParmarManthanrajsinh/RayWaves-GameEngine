@@ -27,6 +27,8 @@ static std::string GetEngineContentPath(std::string_view sub_path)
 #include <memory>
 #include <cstdlib>
 
+static std::string s_LayoutPath;
+
 bool g_bNeedsTextureRecreate = false;
 
 GameEditor::GameEditor()
@@ -147,9 +149,14 @@ void GameEditor::Init(int width, int height, std::string_view title)
 	SetEngineTheme(*selected_preset, prefs.GuiScale, base_font, mono_font);
 
     // Layout persistence
-	static std::string s_LayoutPath;
 	std::filesystem::path dir = std::filesystem::path(EditorPreferences::GetInstance().GetConfigPath()).parent_path();
 	s_LayoutPath = (dir / "editor_layout.ini").string();
+
+	if (ProjectManager::b_HasOpenProject())
+	{
+		std::filesystem::path proj_dir = ProjectManager::GetCurrent().m_RootPath;
+		s_LayoutPath = (proj_dir / ".raywaves" / "layout.ini").string();
+	}
 
 	if (std::filesystem::exists(s_LayoutPath))
 	{
@@ -159,8 +166,6 @@ void GameEditor::Init(int width, int height, std::string_view title)
 	else
 	{
 		LoadEditorDefaultIni();
-		// Restore IniFilename since LoadEditorDefaultIni sets it to nullptr, 
-		// enabling ImGui's native auto-save layout behavior (Option A)
 		ImGui::GetIO().IniFilename = s_LayoutPath.c_str();
 	}
 
@@ -294,6 +299,7 @@ void GameEditor::RunBrowser()
                 if (folder)
                 {
                     strncpy(newProjectLocation, folder, sizeof(newProjectLocation) - 1);
+                    newProjectLocation[sizeof(newProjectLocation) - 1] = '\0';
                 }
             }
             
@@ -378,7 +384,8 @@ void GameEditor::OpenProject(std::string_view folderPath)
         m_DestroyGameMap = nullptr;
     }
     
-    // 2. State is tied to Map/MapManager, so it is cleared by setting them to nullptr above.
+    // 2. StateBag is scoped to hot-reloads (local in b_LoadGameLogic). Game state lives
+    //    inside the DLL's MapManager, which was destroyed and unloaded in step 1.
     
     // 3. Open project metadata
     if (!ProjectManager::b_OpenProject(folderPath)) return;
@@ -389,14 +396,34 @@ void GameEditor::OpenProject(std::string_view folderPath)
     // 5. Update AssetResolver
     AssetResolver::SetProjectAssetPath(ProjectManager::GetCurrent().m_AssetPath);
     
-    // 6. Compile async
+    // 6. Compile async (DLL will be loaded via m_bNeedsReload when compile finishes)
     CompileGameLogic();
     
-    // 6. Config sync
+    // 7. Config sync
     auto& prj = ProjectManager::GetCurrent();
     m_SceneSettings.m_SceneWidth = prj.m_SceneWidth;
     m_SceneSettings.m_SceneHeight = prj.m_SceneHeight;
     m_SceneSettings.m_TargetFPS = prj.m_TargetFPS;
+
+    // 8. Update workspace layout path and load it
+    if (ImGui::GetIO().IniFilename) 
+    {
+        ImGui::SaveIniSettingsToDisk(ImGui::GetIO().IniFilename);
+    }
+    
+    std::filesystem::path proj_dir = ProjectManager::GetCurrent().m_RootPath;
+    s_LayoutPath = (proj_dir / ".raywaves" / "layout.ini").string();
+    ImGui::GetIO().IniFilename = s_LayoutPath.c_str();
+
+    if (std::filesystem::exists(s_LayoutPath))
+    {
+        ImGui::LoadIniSettingsFromDisk(s_LayoutPath.c_str());
+    }
+    else
+    {
+        LoadEditorDefaultIni();
+        ImGui::GetIO().IniFilename = s_LayoutPath.c_str();
+    }
 }
 
 void GameEditor::Run()
@@ -428,7 +455,8 @@ void GameEditor::Run()
 			// If a new project was opened from the browser
 			if (ProjectManager::b_HasOpenProject())
 			{
-				b_LoadGameLogic(ProjectManager::GetCurrent().m_DllPath);
+				// OpenProject() already triggered CompileGameLogic() async.
+				// DLL will be loaded via m_bNeedsReload when compile finishes.
 				continue;
 			}
 			else
@@ -436,6 +464,13 @@ void GameEditor::Run()
 				// User closed the window from the browser
 				break;
 			}
+		}
+
+		// Check if a build completed and DLL needs reloading (set by CompileGameLogic callback)
+		if (m_bNeedsReload)
+		{
+			m_bNeedsReload = false;
+			b_ReloadGameLogic();
 		}
 
 		static auto s_LastReloadCheckTime = Clock::now();
@@ -533,8 +568,8 @@ void GameEditor::Run()
 				}
 			}
 			
-			std::string base_font = "Assets/EngineContent/Roboto-Regular.ttf";
-			std::string mono_font = "Assets/EngineContent/Consolas-Regular.ttf";
+			std::string base_font = GetEngineContentPath("Roboto-Regular.ttf");
+			std::string mono_font = GetEngineContentPath("Consolas-Regular.ttf");
 			if (prefs.FontFamily == "Consolas")
 			{
 				base_font = mono_font;
@@ -547,9 +582,17 @@ void GameEditor::Run()
 			m_bNeedsLayoutReset = false;
 			LoadEditorDefaultIni();
 			
-			static std::string s_LayoutPath;
-			std::filesystem::path dir = std::filesystem::path(EditorPreferences::GetInstance().GetConfigPath()).parent_path();
-			s_LayoutPath = (dir / "editor_layout.ini").string();
+			if (ProjectManager::b_HasOpenProject())
+			{
+				std::filesystem::path proj_dir = ProjectManager::GetCurrent().m_RootPath;
+				s_LayoutPath = (proj_dir / ".raywaves" / "layout.ini").string();
+			}
+			else
+			{
+				std::filesystem::path dir = std::filesystem::path(EditorPreferences::GetInstance().GetConfigPath()).parent_path();
+				s_LayoutPath = (dir / "editor_layout.ini").string();
+			}
+			
 			ImGui::GetIO().IniFilename = s_LayoutPath.c_str();
 		}
 
@@ -870,37 +913,9 @@ void GameEditor::CompileGameLogic()
     if (ProjectManager::b_HasOpenProject())
     {
         const auto& proj = ProjectManager::GetCurrent();
+        std::filesystem::path raywaves_dir = std::filesystem::path(proj.m_RootPath) / ".raywaves";
         
-        std::string zig_exe = appDir + "Core/Tools/zig/zig.exe";
-        std::string zig_cmd = "zig"; // fallback
-        if (std::filesystem::exists(zig_exe))
-        {
-            zig_cmd = "\"" + zig_exe + "\"";
-        }
-
-        std::string src_files;
-        if (std::filesystem::exists(proj.m_SourcePath))
-        {
-            for (const auto& entry : std::filesystem::directory_iterator(proj.m_SourcePath))
-            {
-                if (entry.path().extension() == ".cpp")
-                    src_files += "\"" + entry.path().string() + "\" ";
-            }
-        }
-        std::string engine_src = appDir + "Core/Engine";
-        if (std::filesystem::exists(engine_src))
-        {
-            for (const auto& entry : std::filesystem::directory_iterator(engine_src))
-            {
-                if (entry.path().extension() == ".cpp")
-                    src_files += "\"" + entry.path().string() + "\" ";
-            }
-        }
-
-        std::string includes = "-I\"" + appDir + "Core/Engine\" -I\"" + appDir + "Core/raylib/include\"";
-        std::string libs = "-L\"" + appDir + "Core/raylib/lib\" -lraylib -ldwmapi";
-        
-        buildCmd = "\"\"" + zig_exe + "\" c++ -shared -o \"" + proj.m_DllPath + "\" " + src_files + includes + " " + libs + " -std=c++23 -msse4.2 -O2\"";
+        buildCmd = "cd /d \"" + raywaves_dir.string() + "\" && cmake -G Ninja . -B build && cmake --build build --config Release";
     }
     else
     {
@@ -914,6 +929,8 @@ void GameEditor::CompileGameLogic()
             buildCmd = "\"\"cmake\" --build \"" + appDir + "\" --target GameLogic\"";
         }
     }
+    
+    m_Terminal.add_text("Executing: " + buildCmd, term::Severity::Debug);
     
     ProcessRunner::RunBuildCommand
     (

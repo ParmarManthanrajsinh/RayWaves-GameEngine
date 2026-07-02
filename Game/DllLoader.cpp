@@ -1,6 +1,54 @@
 #include "DllLoader.h"
 #include <Windows.h>
+#include <chrono>
+#include <print>
 
+void CleanupStaleShadowCopies()
+{
+    try
+    {
+        fs::path temp_dirs[] = { 
+            fs::current_path() / ".raywaves" / "shadows",
+            fs::temp_directory_path() 
+        };
+        auto now = fs::file_time_type::clock::now();
+        int cleaned = 0;
+
+        for (const auto& temp_dir : temp_dirs)
+        {
+            if (!fs::exists(temp_dir)) continue;
+
+            for (const auto& entry : fs::directory_iterator(temp_dir))
+            {
+                if (!entry.is_regular_file()) continue;
+                
+                std::string filename = entry.path().filename().string();
+                if (filename.find(".shadow.") == std::string::npos) continue;
+                if (entry.path().extension() != ".dll") continue;
+
+                // Only delete files older than 1 hour
+                std::error_code ec;
+                auto age = now - entry.last_write_time(ec);
+                if (ec) continue;
+
+                if (age > std::chrono::hours(1))
+                {
+                    fs::remove(entry.path(), ec);
+                    if (!ec) ++cleaned;
+                }
+            }
+        }
+
+        if (cleaned > 0)
+        {
+            std::println("Cleaned up {} stale shadow DLL copies.", cleaned);
+        }
+    }
+    catch (...)
+    {
+        // Non-critical — silently ignore errors during cleanup
+    }
+}
 
 DllHandle LoadDll(const char* PATH) 
 {
@@ -22,10 +70,13 @@ DllHandle LoadDll(const char* PATH)
             return result;
         }
 
-        // Determine destination directory: use the system temporary directory
-        // This ensures we can always write the shadow copy even if the game is 
-        // deployed in a restricted directory like Program Files.
-        fs::path temp_dir = fs::temp_directory_path();
+        // Determine destination directory: use local .raywaves/shadows if it exists,
+        // otherwise fall back to the system temporary directory.
+        fs::path temp_dir = fs::current_path() / ".raywaves" / "shadows";
+        if (!fs::exists(temp_dir))
+        {
+            temp_dir = fs::temp_directory_path();
+        }
 
         // Build a unique filename: GameLogic.shadow.<pid>.<tick>.dll
         DWORD pid = GetCurrentProcessId();

@@ -10,4 +10,10 @@ dist
 .agents
 skills-lock.json
 /Tools/zig/
+
+# Build artifacts in project templates (compiled during development, shouldn't be tracked)
+Distribution/Templates/**/*.dll
+Distribution/Templates/**/*.pdb
+Distribution/Templates/**/*.lib
+
 -

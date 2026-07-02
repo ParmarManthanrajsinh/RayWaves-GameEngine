@@ -19,6 +19,7 @@
 
 #include "terminal.h"
 #include "../GameEditorTheme.h"
+#include "../../Engine/ProjectManager.h"
 
 namespace term 
 {
@@ -487,7 +488,15 @@ namespace term
                 // Early exit if terminal is shutting down
                 if (is_shutting_down()) return;
                 
-                FILE* pipe = _popen((command_str + " 2>&1").c_str(), "r");
+                // Execute in project directory if a project is open
+                std::string full_cmd = command_str + " 2>&1";
+                if (ProjectManager::b_HasOpenProject())
+                {
+                    std::string proj_dir = ProjectManager::GetCurrent().m_RootPath;
+                    full_cmd = "cd /d \"" + proj_dir + "\" && " + command_str + " 2>&1";
+                }
+                
+                FILE* pipe = _popen(full_cmd.c_str(), "r");
 
                 if (!pipe)
                 {

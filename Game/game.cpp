@@ -59,6 +59,7 @@ static GameMap* s_fLoadGameLogic
 
 int main()
 {
+    CleanupStaleShadowCopies();
     std::println("Starting game runtime...");
 
     // Load configuration

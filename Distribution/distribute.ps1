@@ -119,6 +119,10 @@ if ($IncludeCompiler) {
     Copy-Item "Tools/zig/*" "$DistPath/Core/Tools/zig/" -Recurse -Force
 }
 
+# Always copy the compiler wrappers
+New-Item -ItemType Directory -Path "$DistPath/Core/Tools" -Force | Out-Null
+Copy-Item "Tools/zig-c*.bat" "$DistPath/Core/Tools/" -Force
+
 # Copy build helper script
 Copy-Item "Distribution/build_gamelogic.bat" "$DistPath/" -Force
 

@@ -6,6 +6,7 @@
 #include "../Engine/GameState.h"
 
 typedef GameMap* (*CreateGameMapFunc)();
+typedef void (*DestroyGameMapFunc)(GameMap*);
 
 int main(int argc, char** argv) {
     std::cout << "Starting Smoke Test: 50 Hot Reloads" << std::endl;
@@ -28,15 +29,17 @@ int main(int argc, char** argv) {
         }
         std::cout << "Loaded shadow DLL: " << dll.shadow_path << std::endl;
 
-        // 3. Resolve symbol and create map
+        // 3. Resolve symbols
         CreateGameMapFunc createMap = (CreateGameMapFunc)GetDllSymbol(dll, "CreateGameMap");
-        if (!createMap) {
-            std::cerr << "Failed to find CreateGameMap symbol" << std::endl;
+        DestroyGameMapFunc destroyMap = (DestroyGameMapFunc)GetDllSymbol(dll, "DestroyGameMap");
+        if (!createMap || !destroyMap) {
+            std::cerr << "Failed to find CreateGameMap/DestroyGameMap symbols" << std::endl;
             UnloadDll(dll);
             return 1;
         }
 
-        std::unique_ptr<GameMap> map(createMap());
+        // 4. Create map via DLL factory
+        GameMap* map = createMap();
         if (map) {
             // Exercise the vtable
             map->Initialize();
@@ -45,12 +48,14 @@ int main(int argc, char** argv) {
             StateBag bag;
             map->SaveState(bag);
             map->LoadState(bag);
+
+            // 5. Destroy map via DLL destroyer BEFORE unload
+            // IMPORTANT: Must use DestroyGameMap (not delete) to avoid cross-CRT heap corruption.
+            // The object was new'd in the DLL's CRT, so it must be delete'd there too.
+            destroyMap(map);
         }
 
-        // 4. Destroy map BEFORE unload
-        map.reset();
-
-        // 5. Unload DLL (triggers shadow copy deletion)
+        // 6. Unload DLL (triggers shadow copy deletion)
         UnloadDll(dll);
         std::cout << "Unloaded successfully." << std::endl;
     }

@@ -39,6 +39,9 @@ bool t_Project::m_bLoadFromFile(std::string_view manifest_path)
     
     while (std::getline(file, line)) 
     {
+        // Strip trailing \r for files with Windows CRLF line endings
+        if (!line.empty() && line.back() == '\r') line.pop_back();
+        
         // Skip empty lines and comments
         if (line.empty() || line[0] == '#' || line[0] == ';') 
         {

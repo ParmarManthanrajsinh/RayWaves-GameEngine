@@ -68,13 +68,6 @@ With our **hot-reloading magic**, you can tweak movement speeds, adjust physics,
    cmake --preset zig-debug
    cmake --build build/zig-debug
    ```
-
-   **MSVC Alternative**  
-   If you already have Visual Studio installed and prefer it.
-   ```powershell
-   cmake --preset x64-debug
-   cmake --build build/x64-debug
-   ```
 3. **Launch the editor:**
    ```powershell
    build/zig-debug/main.exe

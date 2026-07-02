@@ -41,6 +41,14 @@ bool ProjectManager::b_OpenProject(std::string_view folder_path)
         s_Current = new_project;
         s_bOpen = true;
         AddRecent(folder_path);
+
+        // Ensure project local cache directory exists
+        fs::path raywaves_dir = fs::path(folder_path) / ".raywaves";
+        fs::create_directories(raywaves_dir / "shadows");
+        fs::create_directories(raywaves_dir / "build");
+
+        GenerateCMakeLists();
+
         return true;
     }
     return false;
@@ -154,7 +162,7 @@ std::vector<std::string> ProjectManager::GetRecent()
             std::string value(line.begin() + equal_pos + 1, line.end());
             value.erase(0, value.find_first_not_of(" \t"));
             value.erase(value.find_last_not_of(" \t") + 1);
-            if (!value.empty() && fs::exists(value))
+            if (!value.empty() && t_Project::b_IsProjectFolder(value))
             {
                 recent.push_back(value);
             }
@@ -181,4 +189,61 @@ std::vector<std::string> ProjectManager::GetAvailableTemplates()
         }
     }
     return templates;
+}
+
+void ProjectManager::GenerateCMakeLists()
+{
+    if (!b_HasOpenProject()) return;
+
+    fs::path raywaves_dir = fs::path(s_Current.m_RootPath) / ".raywaves";
+    fs::path cmake_path = raywaves_dir / "CMakeLists.txt";
+
+    char exe_path[MAX_PATH];
+    GetModuleFileNameA(NULL, exe_path, MAX_PATH);
+    fs::path engine_dir = fs::path(exe_path).parent_path();
+    std::string engine_dir_str = engine_dir.string();
+    std::replace(engine_dir_str.begin(), engine_dir_str.end(), '\\', '/');
+
+    std::ofstream file(cmake_path);
+    if (!file.is_open()) return;
+
+    fs::path tools_dir = engine_dir / "Core" / "Tools";
+    if (!fs::exists(tools_dir / "zig-cc.bat"))
+    {
+        tools_dir = engine_dir / "Tools";
+    }
+
+    std::string tools_dir_str = tools_dir.string();
+    std::replace(tools_dir_str.begin(), tools_dir_str.end(), '\\', '/');
+
+    file << "cmake_minimum_required(VERSION 3.10)\n";
+    file << "set(CMAKE_C_COMPILER \"" << tools_dir_str << "/zig-cc.bat\")\n";
+    file << "set(CMAKE_CXX_COMPILER \"" << tools_dir_str << "/zig-cxx.bat\")\n";
+    file << "project(" << s_Current.m_Name << ")\n\n";
+
+    file << "set(CMAKE_CXX_STANDARD 23)\n";
+    file << "set(CMAKE_CXX_STANDARD_REQUIRED ON)\n";
+    file << "set(CMAKE_CXX_EXTENSIONS OFF)\n\n";
+    
+    file << "add_compile_options(-msse4.2)\n\n";
+    
+    file << "set(ENGINE_DIR \"" << engine_dir_str << "\")\n";
+    file << "set(PROJECT_SRC_DIR \"${CMAKE_SOURCE_DIR}/../GameLogic\")\n\n";
+    
+    file << "add_library(GameLogic SHARED)\n\n";
+    
+    file << "file(GLOB_RECURSE SRC_FILES \"${PROJECT_SRC_DIR}/*.cpp\")\n";
+    file << "file(GLOB_RECURSE ENGINE_SRC \"${ENGINE_DIR}/Core/Engine/*.cpp\")\n";
+    file << "target_sources(GameLogic PRIVATE ${SRC_FILES} ${ENGINE_SRC})\n\n";
+    
+    file << "target_include_directories(GameLogic PRIVATE\n";
+    file << "    \"${ENGINE_DIR}/Core/Engine\"\n";
+    file << "    \"${ENGINE_DIR}/Core/raylib/include\"\n";
+    file << ")\n\n";
+    
+    file << "target_link_directories(GameLogic PRIVATE \"${ENGINE_DIR}/Core/raylib/lib\")\n";
+    file << "target_link_libraries(GameLogic PRIVATE raylib dwmapi)\n\n";
+    
+    file << "set_target_properties(GameLogic PROPERTIES RUNTIME_OUTPUT_DIRECTORY \"${CMAKE_SOURCE_DIR}/..\")\n";
+    file << "set_target_properties(GameLogic PROPERTIES LIBRARY_OUTPUT_DIRECTORY \"${CMAKE_SOURCE_DIR}/..\")\n";
 }
