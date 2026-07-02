@@ -16,4 +16,4 @@ Distribution/Templates/**/*.dll
 Distribution/Templates/**/*.pdb
 Distribution/Templates/**/*.lib
 
--
+.raywaves/

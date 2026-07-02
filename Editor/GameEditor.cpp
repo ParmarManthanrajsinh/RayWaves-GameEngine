@@ -291,6 +291,12 @@ void GameEditor::RunBrowser()
         {
             ImGui::InputText("Project Name", newProjectName, sizeof(newProjectName));
             
+            std::string sanitized = ProjectManager::SanitizeCMakeProjectName(newProjectName);
+            if (sanitized != newProjectName && strlen(newProjectName) > 0)
+            {
+                ImGui::TextDisabled("Will be created as: %s", sanitized.c_str());
+            }
+
             ImGui::InputText("Location", newProjectLocation, sizeof(newProjectLocation));
             ImGui::SameLine();
             if (ImGui::Button("Browse..."))

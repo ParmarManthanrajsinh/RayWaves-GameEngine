@@ -33,6 +33,44 @@ static fs::path GetEngineRootDirectory()
     return base_dir;
 }
 
+static fs::path ResolveToolsDirectory(const fs::path& engine_root)
+{
+    fs::path tools_dir = engine_root / "Core" / "Tools";
+    if (!fs::exists(tools_dir / "zig-cc.bat"))
+    {
+        tools_dir = engine_root / "Tools";
+    }
+    return tools_dir;
+}
+
+std::string ProjectManager::SanitizeCMakeProjectName(std::string_view name)
+{
+    std::string sanitized;
+    for (char c : name)
+    {
+        if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_')
+        {
+            sanitized += c;
+        }
+        else
+        {
+            sanitized += '_';
+        }
+    }
+
+    if (!sanitized.empty() && sanitized[0] >= '0' && sanitized[0] <= '9')
+    {
+        sanitized = "_" + sanitized;
+    }
+
+    if (sanitized.empty())
+    {
+        sanitized = "RayWavesProject";
+    }
+
+    return sanitized;
+}
+
 t_Project ProjectManager::s_Current;
 bool ProjectManager::s_bOpen = false;
 std::string ProjectManager::s_RecentPath = "";
@@ -71,7 +109,10 @@ bool ProjectManager::b_OpenProject(std::string_view folder_path)
         fs::create_directories(raywaves_dir / "shadows");
         fs::create_directories(raywaves_dir / "build");
 
-        GenerateCMakeLists();
+        if (!GenerateCMakeLists())
+        {
+            return false;
+        }
 
         return true;
     }
@@ -223,9 +264,9 @@ std::vector<std::string> ProjectManager::GetAvailableTemplates()
     return templates;
 }
 
-void ProjectManager::GenerateCMakeLists()
+bool ProjectManager::GenerateCMakeLists()
 {
-    if (!b_HasOpenProject()) return;
+    if (!b_HasOpenProject()) return false;
 
     fs::path raywaves_dir = fs::path(s_Current.m_RootPath) / ".raywaves";
     fs::path cmake_path = raywaves_dir / "CMakeLists.txt";
@@ -235,21 +276,31 @@ void ProjectManager::GenerateCMakeLists()
     std::replace(engine_dir_str.begin(), engine_dir_str.end(), '\\', '/');
 
     std::ofstream file(cmake_path);
-    if (!file.is_open()) return;
+    if (!file.is_open()) return false;
 
-    fs::path tools_dir = engine_dir / "Core" / "Tools";
-    if (!fs::exists(tools_dir / "zig-cc.bat"))
-    {
-        tools_dir = engine_dir / "Tools";
-    }
-
+    fs::path tools_dir = ResolveToolsDirectory(engine_dir);
     std::string tools_dir_str = tools_dir.string();
     std::replace(tools_dir_str.begin(), tools_dir_str.end(), '\\', '/');
 
-    file << "cmake_minimum_required(VERSION 3.10)\n";
+    file << "cmake_minimum_required(VERSION 3.10)\n\n";
+
+    file << "if(CMAKE_C_COMPILER MATCHES \"zig-cc\" OR CMAKE_CXX_COMPILER MATCHES \"zig-cxx\")\n";
+    file << "    if(NOT EXISTS \"" << tools_dir_str << "/zig/zig.exe\")\n";
+    file << "        message(STATUS \"Zig toolchain not found. Auto-fetching...\")\n";
+    file << "        execute_process(\n";
+    file << "            COMMAND powershell -ExecutionPolicy Bypass -File \"" << tools_dir_str << "/setup_zig.ps1\" -SkipRcEdit\n";
+    file << "            WORKING_DIRECTORY \"" << engine_dir_str << "\"\n";
+    file << "            RESULT_VARIABLE ZIG_FETCH_RESULT\n";
+    file << "        )\n";
+    file << "        if(NOT ZIG_FETCH_RESULT EQUAL 0)\n";
+    file << "            message(FATAL_ERROR \"Failed to download Zig.\")\n";
+    file << "        endif()\n";
+    file << "    endif()\n";
+    file << "endif()\n\n";
+
     file << "set(CMAKE_C_COMPILER \"" << tools_dir_str << "/zig-cc.bat\")\n";
     file << "set(CMAKE_CXX_COMPILER \"" << tools_dir_str << "/zig-cxx.bat\")\n";
-    file << "project(" << s_Current.m_Name << ")\n\n";
+    file << "project(" << SanitizeCMakeProjectName(s_Current.m_Name) << ")\n\n";
 
     file << "set(CMAKE_CXX_STANDARD 23)\n";
     file << "set(CMAKE_CXX_STANDARD_REQUIRED ON)\n";
@@ -277,4 +328,6 @@ void ProjectManager::GenerateCMakeLists()
     
     file << "set_target_properties(GameLogic PROPERTIES RUNTIME_OUTPUT_DIRECTORY \"${CMAKE_SOURCE_DIR}/..\")\n";
     file << "set_target_properties(GameLogic PROPERTIES LIBRARY_OUTPUT_DIRECTORY \"${CMAKE_SOURCE_DIR}/..\")\n";
+
+    return true;
 }
