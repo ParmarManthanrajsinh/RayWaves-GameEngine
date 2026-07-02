@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.10)
-set(CMAKE_C_COMPILER "D:/2D-GameEngine/dist/Tools/zig-cc.bat")
-set(CMAKE_CXX_COMPILER "D:/2D-GameEngine/dist/Tools/zig-cxx.bat")
+set(CMAKE_C_COMPILER "D:/2D-GameEngine/dist/Core/Tools/zig-cc.bat")
+set(CMAKE_CXX_COMPILER "D:/2D-GameEngine/dist/Core/Tools/zig-cxx.bat")
 project(Platformer2D)
 
 set(CMAKE_CXX_STANDARD 23)

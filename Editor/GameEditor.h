@@ -106,7 +106,7 @@ public:
     size_t m_FrameOffset;
     
     std::atomic<EBuildStatus> BuildStatus = EBuildStatus::None;
-    float NotificationTimer = 0.0f;
+    std::atomic<float> NotificationTimer = 0.0f;
     std::vector<FBuildMessage> BuildMessages;
     std::mutex BuildMessagesMutex;
     bool bShowMessageLog = false;
@@ -140,7 +140,7 @@ private:
     
     std::string m_GameLogicPath;
     fs::file_time_type m_LastLogicWriteTime{};
-    bool m_bNeedsReload = false;
+    std::atomic<bool> m_bNeedsReload = false;
 
     float m_ReloadCheckAccum = 0.0f;
     Shader m_OpaqueShader;

@@ -13,6 +13,7 @@ set(ENGINE_DIR "D:/2D-GameEngine/dist")
 set(PROJECT_SRC_DIR "${CMAKE_SOURCE_DIR}/../GameLogic")
 
 add_library(GameLogic SHARED)
+set_target_properties(GameLogic PROPERTIES PREFIX "")
 
 file(GLOB_RECURSE SRC_FILES "${PROJECT_SRC_DIR}/*.cpp")
 file(GLOB_RECURSE ENGINE_SRC "${ENGINE_DIR}/Core/Engine/*.cpp")

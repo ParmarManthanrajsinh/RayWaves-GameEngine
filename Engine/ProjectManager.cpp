@@ -230,7 +230,8 @@ void ProjectManager::GenerateCMakeLists()
     file << "set(ENGINE_DIR \"" << engine_dir_str << "\")\n";
     file << "set(PROJECT_SRC_DIR \"${CMAKE_SOURCE_DIR}/../GameLogic\")\n\n";
     
-    file << "add_library(GameLogic SHARED)\n\n";
+    file << "add_library(GameLogic SHARED)\n";
+    file << "set_target_properties(GameLogic PROPERTIES PREFIX \"\")\n\n";
     
     file << "file(GLOB_RECURSE SRC_FILES \"${PROJECT_SRC_DIR}/*.cpp\")\n";
     file << "file(GLOB_RECURSE ENGINE_SRC \"${ENGINE_DIR}/Core/Engine/*.cpp\")\n";

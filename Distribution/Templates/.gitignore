@@ -1,0 +1,9 @@
+# Ignore compiled binaries
+*.dll
+*.pdb
+*.lib
+*.obj
+*.exe
+
+# Ignore engine cache/build folders
+.raywaves/
