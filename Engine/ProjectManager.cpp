@@ -9,6 +9,30 @@
 
 namespace fs = std::filesystem;
 
+static fs::path GetEngineRootDirectory()
+{
+    char exe_path[MAX_PATH];
+    GetModuleFileNameA(NULL, exe_path, MAX_PATH);
+    fs::path base_dir = fs::path(exe_path).parent_path();
+
+    if (fs::exists(base_dir / "Core") && fs::exists(base_dir / "Templates"))
+    {
+        return base_dir;
+    }
+
+    fs::path current = base_dir;
+    while (current.has_parent_path() && current != current.parent_path())
+    {
+        if (fs::exists(current / "Distribution" / "Templates"))
+        {
+            return current;
+        }
+        current = current.parent_path();
+    }
+
+    return base_dir;
+}
+
 t_Project ProjectManager::s_Current;
 bool ProjectManager::s_bOpen = false;
 std::string ProjectManager::s_RecentPath = "";
@@ -69,10 +93,14 @@ bool ProjectManager::b_CreateProject(std::string_view target_folder, std::string
         return false;
     }
 
-    // Resolve template path relative to the executable
-    char exe_path[MAX_PATH];
-    GetModuleFileNameA(NULL, exe_path, MAX_PATH);
-    fs::path template_dir = fs::path(exe_path).parent_path() / "Templates" / template_name;
+    // Resolve template path using robust root discovery
+    fs::path root_dir = GetEngineRootDirectory();
+    fs::path template_dir = root_dir / "Templates" / template_name;
+    
+    if (!fs::exists(template_dir))
+    {
+        template_dir = root_dir / "Distribution" / "Templates" / template_name;
+    }
 
     if (!fs::exists(template_dir))
     {
@@ -174,9 +202,13 @@ std::vector<std::string> ProjectManager::GetRecent()
 std::vector<std::string> ProjectManager::GetAvailableTemplates()
 {
     std::vector<std::string> templates;
-    char exe_path[MAX_PATH];
-    GetModuleFileNameA(NULL, exe_path, MAX_PATH);
-    fs::path template_dir = fs::path(exe_path).parent_path() / "Templates";
+    fs::path root_dir = GetEngineRootDirectory();
+    fs::path template_dir = root_dir / "Templates";
+    
+    if (!fs::exists(template_dir))
+    {
+        template_dir = root_dir / "Distribution" / "Templates";
+    }
 
     if (fs::exists(template_dir) && fs::is_directory(template_dir))
     {
@@ -198,9 +230,7 @@ void ProjectManager::GenerateCMakeLists()
     fs::path raywaves_dir = fs::path(s_Current.m_RootPath) / ".raywaves";
     fs::path cmake_path = raywaves_dir / "CMakeLists.txt";
 
-    char exe_path[MAX_PATH];
-    GetModuleFileNameA(NULL, exe_path, MAX_PATH);
-    fs::path engine_dir = fs::path(exe_path).parent_path();
+    fs::path engine_dir = GetEngineRootDirectory();
     std::string engine_dir_str = engine_dir.string();
     std::replace(engine_dir_str.begin(), engine_dir_str.end(), '\\', '/');
 
