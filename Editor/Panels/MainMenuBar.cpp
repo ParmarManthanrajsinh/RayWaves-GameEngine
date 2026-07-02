@@ -4,6 +4,7 @@
 #include <imgui.h>
 #include <rlImGui.h>
 #include <tinyfiledialogs.h>
+#include "../EditorUtils.h"
 
 void MainMenuBar::Draw(GameEditor* editor)
 {
@@ -27,6 +28,12 @@ void MainMenuBar::Draw(GameEditor* editor)
             if (ImGui::MenuItem(ICON_FA_XMARK " Close Project"))
             {
                 ProjectManager::CloseProject();
+                SetWindowTitle("RayWaves");
+            }
+            ImGui::Separator();
+            if (ImGui::MenuItem(ICON_FA_FOLDER_OPEN " Open Project Folder", nullptr, false, ProjectManager::b_HasOpenProject()))
+            {
+                EditorUtils::OpenInExplorer(ProjectManager::GetCurrent().m_RootPath);
             }
             ImGui::EndMenu();
         }
@@ -66,6 +73,27 @@ void MainMenuBar::Draw(GameEditor* editor)
         {
             ImGui::MenuItem(ICON_FA_FILE_EXPORT " Export Game", nullptr, &editor->m_bShowExport);
             ImGui::EndMenu();
+        }
+
+        if (ImGui::BeginMenu("Help"))
+        {
+            if (ImGui::MenuItem(ICON_FA_GLOBE " GitHub Repository"))
+            {
+                std::system("start https://github.com/ParmarManthanrajsinh/RayWaves-GameEngine");
+            }
+            if (ImGui::MenuItem(ICON_FA_INFO " About"))
+            {
+                // TODO: Add about window
+            }
+            ImGui::EndMenu();
+        }
+
+        if (ProjectManager::b_HasOpenProject())
+        {
+            std::string projName = ProjectManager::GetCurrent().m_Name;
+            float textWidth = ImGui::CalcTextSize(projName.c_str()).x;
+            ImGui::SameLine(ImGui::GetWindowWidth() - textWidth - 20.0f);
+            ImGui::TextDisabled("%s", projName.c_str());
         }
 
         ImGui::EndMainMenuBar();

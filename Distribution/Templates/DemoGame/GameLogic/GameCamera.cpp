@@ -15,8 +15,8 @@ GameCamera::GameCamera()
 void GameCamera::Initialize(Vector2 Target, float Zoom)
 {
     m_Camera.target = Target;
-    float screen_width = static_cast<float>(GameConfig::GetInstance().GetWindowConfig().scene_width);
-    float screen_height = static_cast<float>(GameConfig::GetInstance().GetWindowConfig().scene_height);
+    float screen_width = static_cast<float>(GetScreenWidth());
+    float screen_height = static_cast<float>(GetScreenHeight());
     
     m_Camera.offset = { screen_width / 2.0f, screen_height / 2.0f };
     m_Camera.rotation = 0.0f;
@@ -26,16 +26,16 @@ void GameCamera::Initialize(Vector2 Target, float Zoom)
 void GameCamera::Reset(Vector2 Target)
 {
     m_Camera.target = Target;
-    float screen_width = static_cast<float>(GameConfig::GetInstance().GetWindowConfig().scene_width);
-    float screen_height = static_cast<float>(GameConfig::GetInstance().GetWindowConfig().scene_height);
+    float screen_width = static_cast<float>(GetScreenWidth());
+    float screen_height = static_cast<float>(GetScreenHeight());
     
     m_Camera.offset = { screen_width / 2.0f, screen_height / 2.0f };
 }
 
 void GameCamera::FollowTarget(Vector2 Target, float DeltaTime, float SmoothSpeed)
 {
-    float screen_width = static_cast<float>(GameConfig::GetInstance().GetWindowConfig().scene_width);
-    float screen_height = static_cast<float>(GameConfig::GetInstance().GetWindowConfig().scene_height);
+    float screen_width = static_cast<float>(GetScreenWidth());
+    float screen_height = static_cast<float>(GetScreenHeight());
     
     m_Camera.offset = { screen_width / 2.0f, screen_height / 2.0f };
     
@@ -64,8 +64,8 @@ void GameCamera::SetBounds(float Left, float Right, float Top, float Bottom)
 
 void GameCamera::ClampToBounds()
 {
-    float screen_width = static_cast<float>(GameConfig::GetInstance().GetWindowConfig().scene_width);
-    float screen_height = static_cast<float>(GameConfig::GetInstance().GetWindowConfig().scene_height);
+    float screen_width = static_cast<float>(GetScreenWidth());
+    float screen_height = static_cast<float>(GetScreenHeight());
 
     float HalfVisibleWidth = (screen_width / m_Camera.zoom) / 2.0f;
     float HalfVisibleHeight = (screen_height / m_Camera.zoom) / 2.0f;

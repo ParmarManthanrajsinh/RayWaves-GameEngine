@@ -19,6 +19,7 @@ public:
     static bool b_HasOpenProject();
 
     static void AddRecent(std::string_view path);
+    static void RemoveRecent(std::string_view path);
     static std::vector<std::string> GetRecent();
 
     static std::vector<std::string> GetAvailableTemplates();

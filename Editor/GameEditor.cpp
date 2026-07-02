@@ -67,10 +67,27 @@ GameEditor::~GameEditor()
 		BEFORE unloading the DLL, otherwise vtable/function code may be gone
 		when the map's destructor runs.
 	*/
+	if (m_GameLogicDll.handle)
+	{
+		if (m_DestroyGameMap && m_MapManager)
+		{
+			m_DestroyGameMap(m_MapManager);
+		}
+		UnloadDll(m_GameLogicDll);
+		m_GameLogicDll = {};
+		m_CreateGameMap = nullptr;
+		m_DestroyGameMap = nullptr;
+	}
+
 	m_MapManager = nullptr; 
 	m_GameEngine.SetMap(nullptr);
 	m_GameEngine.SetMapManager(nullptr);
 
+	m_Terminal.add_text("Shutting down...", term::Severity::Debug);
+	
+	// Save configurations on exit
+	EditorPreferences::GetInstance().m_bSaveToFile();
+	
 	if (m_RaylibTexture.id != 0) 
 	{
 		UnloadRenderTexture(m_RaylibTexture);
@@ -88,21 +105,6 @@ GameEditor::~GameEditor()
 		UnloadShader(m_OpaqueShader);
 		m_OpaqueShader.id = 0;
 	}
-
-	if (m_GameLogicDll.handle)
-	{
-		if (m_DestroyGameMap && m_MapManager)
-		{
-			m_DestroyGameMap(m_MapManager);
-		}
-		UnloadDll(m_GameLogicDll);
-		m_GameLogicDll = {};
-		m_CreateGameMap = nullptr;
-		m_DestroyGameMap = nullptr;
-	}
-
-	// Save editor preferences on exit
-	EditorPreferences::GetInstance().m_bSaveToFile();
 }
 
 void GameEditor::Init(int width, int height, std::string_view title)
@@ -251,12 +253,78 @@ void GameEditor::RunBrowser()
         
         ImGui::BeginChild("RecentProjects", ImVec2(0, 0), true);
         auto recent = ProjectManager::GetRecent();
-        for (const auto& path : recent)
+        for (size_t i = 0; i < recent.size(); ++i)
         {
-            if (ImGui::Selectable(path.c_str(), false, 0, ImVec2(0, 30.0f)))
+            const auto& path = recent[i];
+            ImGui::PushID(static_cast<int>(i));
+
+            std::filesystem::path fs_path(path);
+            std::filesystem::path manifest_path = fs_path / "project.raywaves";
+            bool exists = std::filesystem::exists(manifest_path);
+            std::string displayName = fs_path.filename().string();
+            
+            if (exists)
             {
-                OpenProject(path);
+                t_Project proj;
+                if (proj.m_bLoadFromFile(manifest_path.string()))
+                {
+                    displayName = proj.m_Name;
+                }
             }
+
+            float trashWidth = ImGui::CalcTextSize(ICON_FA_TRASH_CAN).x + ImGui::GetStyle().FramePadding.x * 2.0f;
+            float contentWidth = ImGui::GetContentRegionAvail().x - trashWidth - ImGui::GetStyle().ItemSpacing.x;
+
+            ImGui::BeginGroup();
+            
+            if (!exists)
+            {
+                ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyle().Colors[ImGuiCol_TextDisabled]);
+                displayName += " (missing)";
+            }
+
+            ImVec2 cursorPos = ImGui::GetCursorPos();
+            if (ImGui::Selectable("##recent_proj", false, exists ? 0 : ImGuiSelectableFlags_Disabled, ImVec2(contentWidth, 44.0f)))
+            {
+                if (exists) OpenProject(path);
+            }
+            
+            ImGui::SetCursorPos(ImVec2(cursorPos.x + 4.0f, cursorPos.y + 4.0f));
+            ImGui::Text("%s", displayName.c_str());
+            ImGui::SetCursorPos(ImVec2(cursorPos.x + 4.0f, cursorPos.y + 24.0f));
+            ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyle().Colors[ImGuiCol_TextDisabled]);
+            ImGui::Text("%s", path.c_str());
+            ImGui::PopStyleColor();
+
+            if (!exists) ImGui::PopStyleColor();
+
+            ImGui::EndGroup();
+
+            ImGui::SameLine();
+            
+            ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 10.0f);
+            if (ImGui::Button(ICON_FA_TRASH_CAN))
+            {
+                ImGui::OpenPopup("RemoveRecentPopup");
+            }
+            
+            if (ImGui::BeginPopup("RemoveRecentPopup"))
+            {
+                ImGui::Text("Remove from list?");
+                if (ImGui::Button("Yes", ImVec2(60, 0)))
+                {
+                    ProjectManager::RemoveRecent(path);
+                    ImGui::CloseCurrentPopup();
+                }
+                ImGui::SameLine();
+                if (ImGui::Button("No", ImVec2(60, 0)))
+                {
+                    ImGui::CloseCurrentPopup();
+                }
+                ImGui::EndPopup();
+            }
+
+            ImGui::PopID();
         }
         ImGui::EndChild();
 
@@ -396,6 +464,10 @@ void GameEditor::OpenProject(std::string_view folderPath)
     // 3. Open project metadata
     if (!ProjectManager::b_OpenProject(folderPath)) return;
     
+    // Set Window Title
+    std::string windowTitle = "RayWaves — " + ProjectManager::GetCurrent().m_Name;
+    SetWindowTitle(windowTitle.c_str());
+
     // 4. Set DLL path
     m_GameLogicPath = ProjectManager::GetCurrent().m_DllPath;
     

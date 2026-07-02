@@ -151,7 +151,11 @@ void GameEngine::UpdateMap(float dt) const
 
 void GameEngine::ResetMap()
 {
-    if (m_GameMap)
+	if (m_MapManager)
+	{
+		m_MapManager->Initialize();
+	}
+    else if (m_GameMap)
     {
         m_GameMap->Initialize();
     }

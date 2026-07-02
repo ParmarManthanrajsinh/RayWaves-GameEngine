@@ -214,6 +214,28 @@ void ProjectManager::AddRecent(std::string_view path)
     }
 }
 
+void ProjectManager::RemoveRecent(std::string_view path)
+{
+    InitializeRecentPath();
+    std::vector<std::string> recent = GetRecent();
+    
+    // Normalize path
+    std::string norm_path = fs::path(path).lexically_normal().string();
+
+    // Remove if exists
+    recent.erase(std::remove(recent.begin(), recent.end(), norm_path), recent.end());
+    
+    // Save
+    std::ofstream file(s_RecentPath);
+    if (file.is_open())
+    {
+        for (size_t i = 0; i < recent.size(); ++i)
+        {
+            file << "path" << i << "=" << recent[i] << "\n";
+        }
+    }
+}
+
 std::vector<std::string> ProjectManager::GetRecent()
 {
     InitializeRecentPath();
@@ -315,15 +337,15 @@ bool ProjectManager::GenerateCMakeLists()
     file << "set_target_properties(GameLogic PROPERTIES PREFIX \"\")\n\n";
     
     file << "file(GLOB_RECURSE SRC_FILES \"${PROJECT_SRC_DIR}/*.cpp\")\n";
-    file << "file(GLOB_RECURSE ENGINE_SRC \"${ENGINE_DIR}/Core/Engine/*.cpp\")\n";
+    file << "file(GLOB_RECURSE ENGINE_SRC \"${ENGINE_DIR}/Engine/*.cpp\")\n";
     file << "target_sources(GameLogic PRIVATE ${SRC_FILES} ${ENGINE_SRC})\n\n";
     
     file << "target_include_directories(GameLogic PRIVATE\n";
-    file << "    \"${ENGINE_DIR}/Core/Engine\"\n";
-    file << "    \"${ENGINE_DIR}/Core/raylib/include\"\n";
+    file << "    \"${ENGINE_DIR}/Engine\"\n";
+    file << "    \"${ENGINE_DIR}/raylib/include\"\n";
     file << ")\n\n";
     
-    file << "target_link_directories(GameLogic PRIVATE \"${ENGINE_DIR}/Core/raylib/lib\")\n";
+    file << "target_link_directories(GameLogic PRIVATE \"${ENGINE_DIR}/raylib/lib\")\n";
     file << "target_link_libraries(GameLogic PRIVATE raylib dwmapi)\n\n";
     
     file << "set_target_properties(GameLogic PROPERTIES RUNTIME_OUTPUT_DIRECTORY \"${CMAKE_SOURCE_DIR}/..\")\n";

@@ -316,10 +316,36 @@ namespace term
                         ImGui::SameLine(0, 10.0f);
                     }
 
+                    ImGui::PushID(i);
                     ImVec4 color = get_severity_color(msg.severity, m_theme);
                     ImGui::PushStyleColor(ImGuiCol_Text, color);
+                    
+                    // Draw invisible selectable over the line for mouse interaction
+                    ImVec2 pos = ImGui::GetCursorScreenPos();
+                    ImGui::Selectable("##line", false, ImGuiSelectableFlags_AllowOverlap);
+                    ImGui::SameLine();
+                    ImGui::SetCursorScreenPos(pos);
+                    
                     ImGui::TextUnformatted(msg.text.c_str());
                     ImGui::PopStyleColor();
+
+                    if (ImGui::BeginPopupContextItem("##terminal_context"))
+                    {
+                        if (ImGui::MenuItem("Copy Message"))
+                        {
+                            ImGui::SetClipboardText(msg.text.c_str());
+                        }
+                        if (!msg.timestamp.empty())
+                        {
+                            if (ImGui::MenuItem("Copy Timestamp + Message"))
+                            {
+                                std::string full_msg = msg.timestamp + " " + msg.text;
+                                ImGui::SetClipboardText(full_msg.c_str());
+                            }
+                        }
+                        ImGui::EndPopup();
+                    }
+                    ImGui::PopID();
                     
                     if (m_auto_wrap) ImGui::PopTextWrapPos();
                 }
@@ -342,10 +368,35 @@ namespace term
                     ImGui::SameLine(0, 10.0f);
                 }
 
+                ImGui::PushID(&msg);
                 ImVec4 color = get_severity_color(msg.severity, m_theme);
                 ImGui::PushStyleColor(ImGuiCol_Text, color);
+                
+                ImVec2 pos = ImGui::GetCursorScreenPos();
+                ImGui::Selectable("##line", false, ImGuiSelectableFlags_AllowOverlap);
+                ImGui::SameLine();
+                ImGui::SetCursorScreenPos(pos);
+                
                 ImGui::TextUnformatted(msg.text.c_str());
                 ImGui::PopStyleColor();
+
+                if (ImGui::BeginPopupContextItem("##terminal_context"))
+                {
+                    if (ImGui::MenuItem("Copy Message"))
+                    {
+                        ImGui::SetClipboardText(msg.text.c_str());
+                    }
+                    if (!msg.timestamp.empty())
+                    {
+                        if (ImGui::MenuItem("Copy Timestamp + Message"))
+                        {
+                            std::string full_msg = msg.timestamp + " " + msg.text;
+                            ImGui::SetClipboardText(full_msg.c_str());
+                        }
+                    }
+                    ImGui::EndPopup();
+                }
+                ImGui::PopID();
 
                 if (m_auto_wrap) ImGui::PopTextWrapPos();
              }

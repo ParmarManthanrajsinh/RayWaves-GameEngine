@@ -1,5 +1,6 @@
 #include "ExportPanel.h"
 #include "../GameEditor.h"
+#include "../EditorUtils.h"
 #include "../../Engine/GameConfig.h"
 #include "../../Engine/ProjectManager.h"
 #include <imgui.h>
@@ -528,6 +529,15 @@ void ExportPanel::Draw(GameEditor* editor)
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.2f, 0.8f, 0.2f, 1.0f));
         ImGui::Text("Export Complete!");
         ImGui::PopStyleColor();
+
+        ImGui::Spacing();
+        const char* btn_text = ICON_FA_FOLDER_OPEN " Open Output Folder";
+        float btn_width = ImGui::CalcTextSize(btn_text).x + ImGui::GetStyle().FramePadding.x * 2.0f;
+        ImGui::SetCursorPosX((window_width - btn_width) * 0.5f);
+        if (ImGui::Button(btn_text))
+        {
+            EditorUtils::OpenInExplorer(editor->m_ExportState.m_ExportPath);
+        }
     }
     else if (!editor->m_ExportState.m_bIsExporting && !editor->m_ExportState.m_ExportLogs.empty() && !editor->m_ExportState.m_bIsExporting)
     {
