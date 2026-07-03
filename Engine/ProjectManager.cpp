@@ -1,10 +1,4 @@
 #include <iostream>
-#include <format>
-#ifndef PRINTLN_MACROS_DEFINED
-#define PRINTLN_MACROS_DEFINED
-#define PRINTLN_ERR(fmt, ...) std::cerr << std::format(fmt __VA_OPT__(,) __VA_ARGS__) << "\n"
-#define PRINTLN_OUT(fmt, ...) std::cout << std::format(fmt __VA_OPT__(,) __VA_ARGS__) << "\n"
-#endif
 #include "ProjectManager.h"
 #include <filesystem>
 #include <fstream>
@@ -99,7 +93,7 @@ bool ProjectManager::b_OpenProject(std::string_view folder_path)
     std::string manifest_path = (fs::path(folder_path) / "project.raywaves").string();
     if (!fs::exists(manifest_path))
     {
-        PRINTLN_ERR( "Project manifest not found at: {}", manifest_path);
+        std::cerr << "Project manifest not found at: " << manifest_path << std::endl;
         return false;
     }
 
@@ -136,7 +130,7 @@ bool ProjectManager::b_CreateProject(std::string_view target_folder, std::string
     fs::path target_path = target_folder;
     if (fs::exists(target_path))
     {
-        PRINTLN_ERR( "Target folder already exists: {}", target_folder);
+        std::cerr << "Target folder already exists: " << target_folder << std::endl;
         return false;
     }
 
@@ -151,7 +145,7 @@ bool ProjectManager::b_CreateProject(std::string_view target_folder, std::string
 
     if (!fs::exists(template_dir))
     {
-        PRINTLN_ERR( "Template not found: {}", template_dir.string());
+        std::cerr << "Template not found: " << template_dir.string() << std::endl;
         return false;
     }
 
@@ -175,7 +169,7 @@ bool ProjectManager::b_CreateProject(std::string_view target_folder, std::string
     }
     catch (const std::exception& e)
     {
-        PRINTLN_ERR( "Failed to create project from template: {}", e.what());
+        std::cerr << "Failed to create project from template: " << e.what() << std::endl;
         return false;
     }
 }

@@ -1,10 +1,4 @@
 #include <iostream>
-#include <format>
-#ifndef PRINTLN_MACROS_DEFINED
-#define PRINTLN_MACROS_DEFINED
-#define PRINTLN_ERR(fmt, ...) std::cerr << std::format(fmt __VA_OPT__(,) __VA_ARGS__) << "\n"
-#define PRINTLN_OUT(fmt, ...) std::cout << std::format(fmt __VA_OPT__(,) __VA_ARGS__) << "\n"
-#endif
 #pragma once
 #include "GameMap.h"
 #include <functional>
@@ -132,7 +126,7 @@ void MapManager::RegisterMap
         description.empty() ? "No description" : std::string(description), false 
     };
 
-    PRINTLN_OUT("[MapManager] Registered map: {} - {}", map_id, description);
+    std::cout << "[MapManager] Registered map: " << map_id << "::" << description << std::endl;
 }
 /*
 +----------------------------------------------------------------+
