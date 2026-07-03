@@ -1,3 +1,4 @@
+#include <iostream>
 #include "GameEngine.h"
 #include "DllLoader.h"
 #include "GameConfig.h"
@@ -14,12 +15,7 @@ static GameMap* s_fLoadGameLogic
     out_handle = LoadDll(dll_path.data());
     if (!out_handle.handle)
     {
-        std::println
-        (
-            std::cerr, 
-            "Fatal error: failed to load GameLogic DLL: {}", 
-            dll_path
-        );
+        std::cerr << "Fatal error: failed to load GameLogic DLL: " << dll_path << "\n";
         return nullptr;
     }
 
@@ -35,11 +31,7 @@ static GameMap* s_fLoadGameLogic
     
     if (!CreateFn || !s_DestroyGameMap)
     {
-        std::println
-        (
-            std::cerr, 
-            "Failed to find symbol CreateGameMap/DestroyGameMap in GameLogic DLL"
-        );
+        std::cerr << "Failed to find symbol CreateGameMap/DestroyGameMap in GameLogic DLL" << "\n";
         UnloadDll(out_handle);
         out_handle = {nullptr, {}};
         return nullptr;
@@ -48,7 +40,7 @@ static GameMap* s_fLoadGameLogic
     GameMap* raw = CreateFn();
     if (!raw)
     {
-        std::println("CreateGameMap returned null");
+        std::cerr << "CreateGameMap returned null" << "\n";
         UnloadDll(out_handle);
         out_handle = {nullptr, {}};
         return nullptr;
@@ -60,7 +52,7 @@ static GameMap* s_fLoadGameLogic
 int main()
 {
     CleanupStaleShadowCopies();
-    std::println("Starting game runtime...");
+    std::cout << "Starting game runtime..." << "\n";
 
     // Load configuration
     GameConfig& config = GameConfig::GetInstance();
@@ -91,7 +83,7 @@ int main()
     }
     else
     {
-        std::println(std::cerr, "Running without GameLogic ( no map Loaded ).");
+        std::cerr << "Running without GameLogic ( no map Loaded )." << "\n";
     }
 
     while (!WindowShouldClose())

@@ -111,6 +111,9 @@ Copy-Item "Documentation/DISTRIBUTION_GUIDE.md" "$DistPath/Documentation/" -Forc
 if (Test-Path "Distribution/Templates") {
     Write-Host "Copying Project Templates..." -ForegroundColor Yellow
     Copy-Item "Distribution/Templates" "$DistPath/" -Recurse -Force
+    Get-ChildItem "$DistPath/Templates" -Directory -Recurse -Force |
+        Where-Object { $_.Name -eq "build" -and $_.Parent.Name -eq ".raywaves" } |
+        Remove-Item -Recurse -Force
 }
 
 if ($IncludeCompiler) {

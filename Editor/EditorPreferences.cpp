@@ -3,8 +3,6 @@
 #include <sstream>
 #include <iostream>
 #include <filesystem>
-#include <print>
-
 EditorPreferences& EditorPreferences::GetInstance()
 {
     static EditorPreferences s_Instance;
@@ -87,7 +85,7 @@ bool EditorPreferences::m_bSaveToFile() const
     std::ofstream file(config_path);
     if (!file.is_open())
     {
-        std::println(std::cerr, "Failed to create editor preferences file: {}", config_path);
+        std::cerr << "Failed to create editor preferences file: " << config_path << "\n";
         return false;
     }
 

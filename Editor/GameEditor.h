@@ -58,6 +58,8 @@ public:
     
     void CompileGameLogic();
     void OpenProject(std::string_view folderPath);
+    void CloseProject();
+    void CleanupProject();
     GameEngine& GetGameEngine() { return m_GameEngine; }
     MapManager* GetMapManager() { return m_MapManager; }
     term::Terminal& GetTerminal() { return m_Terminal; }
@@ -118,6 +120,7 @@ public:
     bool m_bShowEditorPreferences = false;
     bool m_bNeedsThemeRebake = false;
     bool m_bNeedsLayoutReset = false;
+    bool m_bNeedsIniLoad = false;
     
     bool m_bUseOpaquePass = true;
     bool m_bPreserveStateOnReload = true;

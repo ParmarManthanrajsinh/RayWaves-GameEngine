@@ -1,3 +1,4 @@
+#include <iostream>
 #include "GameMap.h"
 
 GameMap::GameMap()
@@ -69,6 +70,6 @@ void GameMap::RequestGotoMap(std::string_view map_id, bool force_reload)
     }
     else
     {
-		std::println(std::cerr, "Transition callback not set!");
+		std::cerr << "Transition callback not set!\n";
     }
 }

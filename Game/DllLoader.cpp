@@ -1,8 +1,7 @@
+#include <iostream>
 #include "DllLoader.h"
 #include <Windows.h>
 #include <chrono>
-#include <print>
-
 void CleanupStaleShadowCopies()
 {
     try
@@ -41,7 +40,7 @@ void CleanupStaleShadowCopies()
 
         if (cleaned > 0)
         {
-            std::println("Cleaned up {} stale shadow DLL copies.", cleaned);
+            std::cout << "Cleaned up " << cleaned << " stale shadow DLL copies." << "\n";
         }
     }
     catch (...)

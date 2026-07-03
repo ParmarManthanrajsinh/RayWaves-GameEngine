@@ -1,3 +1,5 @@
+#include <iostream>
+#include <format>
 #include "GameEditor.h"
 #include "GameEngine.h"
 #include "GameMap.h"
@@ -22,7 +24,7 @@ int main(int argc, char** argv)
 #endif
 
     CleanupStaleShadowCopies();
-    std::println("Game Engine Starting...");
+    std::cout << "Game Engine Starting..." << "\n";
     GameEditor editor;
     editor.Init(1280,720,"RayWaves");
     

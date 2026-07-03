@@ -1,3 +1,4 @@
+#include <iostream>
 #include "../Engine/MapManager.h"
 #include "../Engine/ProjectManager.h"
 #include "../Engine/AssetResolver.h"
@@ -118,11 +119,11 @@ void GameEditor::Init(int width, int height, std::string_view title)
 	{
 		SetWindowIcon(icon);
 		UnloadImage(icon);
-		std::println("Window icon loaded successfully from Assets / icon.png");
+		std::cout << "Window icon loaded successfully from Assets / icon.png\n";
 	} 
 	else
 	{
-		std::println("Failed to load icon from Assets/icon.png");
+		std::cout << "Failed to load icon from Assets/icon.png\n";
 	}
 	
 	rlImGuiSetup(true);
@@ -993,7 +994,9 @@ void GameEditor::CompileGameLogic()
         const auto& proj = ProjectManager::GetCurrent();
         std::filesystem::path raywaves_dir = std::filesystem::path(proj.m_RootPath) / ".raywaves";
         
-        buildCmd = "cd /d \"" + raywaves_dir.string() + "\" && cmake -G Ninja . -B build && cmake --build build --config Release";
+        // Project folders are portable, but CMake caches contain absolute paths.
+        // Try normal configure first, if it fails (e.g. moved project), fallback to --fresh.
+        buildCmd = "cd /d \"" + raywaves_dir.string() + "\" && (cmake -G Ninja . -B build || cmake --fresh -G Ninja . -B build) && cmake --build build --config Release";
     }
     else
     {

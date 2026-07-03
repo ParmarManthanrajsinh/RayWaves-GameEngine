@@ -1,3 +1,10 @@
+#include <iostream>
+#include <format>
+#ifndef PRINTLN_MACROS_DEFINED
+#define PRINTLN_MACROS_DEFINED
+#define PRINTLN_ERR(fmt, ...) std::cerr << std::format(fmt __VA_OPT__(,) __VA_ARGS__) << "\n"
+#define PRINTLN_OUT(fmt, ...) std::cout << std::format(fmt __VA_OPT__(,) __VA_ARGS__) << "\n"
+#endif
 #pragma once
 #include "GameMap.h"
 #include <functional>
@@ -5,8 +12,6 @@
 #include <unordered_map>
 #include <vector>
 #include <sstream>
-#include <print>
-
 /**
  * @brief Developer-friendly MapManager for easy game map management
  * 
@@ -127,7 +132,7 @@ void MapManager::RegisterMap
         description.empty() ? "No description" : std::string(description), false 
     };
 
-    std::println("[MapManager] Registered map: {} - {}", map_id, description);
+    PRINTLN_OUT("[MapManager] Registered map: {} - {}", map_id, description);
 }
 /*
 +----------------------------------------------------------------+

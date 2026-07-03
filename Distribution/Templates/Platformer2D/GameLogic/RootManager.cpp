@@ -1,7 +1,6 @@
+#include <iostream>
 #include "../Engine/MapManager.h"
 #include <raylib.h>
-#include <print>
-
 class PlatformerMap : public GameMap
 {
 private:
@@ -11,7 +10,7 @@ private:
 public:
     void Initialize() override 
     {
-        std::println("PlatformerMap initialized");
+        std::cout << "PlatformerMap initialized\n";
     }
 
     void Update(float delta_time) override 

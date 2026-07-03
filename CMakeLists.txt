@@ -132,10 +132,10 @@ target_include_directories(main PRIVATE
 target_link_libraries(main PRIVATE Engine)
 
 # Copy GameLogic DLL beside main executable after building 'main'.
-add_custom_command(TARGET main POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            $<TARGET_FILE:GameLogic>
-            $<TARGET_FILE_DIR:main>)
+# add_custom_command(TARGET main POST_BUILD
+#     COMMAND ${CMAKE_COMMAND} -E copy_if_different
+#             $<TARGET_FILE:GameLogic>
+#             $<TARGET_FILE_DIR:main>)
 
 # Also copy raylib DLL so both EXE and GameLogic load the same shared raylib
 add_custom_command(TARGET main POST_BUILD

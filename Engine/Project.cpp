@@ -2,8 +2,6 @@
 #include <fstream>
 #include <filesystem>
 #include <iostream>
-#include <print>
-
 namespace fs = std::filesystem;
 
 bool t_Project::m_bLoadFromFile(std::string_view manifest_path) 
@@ -12,7 +10,7 @@ bool t_Project::m_bLoadFromFile(std::string_view manifest_path)
     std::ifstream file(path_str);
     if (!file.is_open()) 
     {
-        std::println("Project manifest not found: {}", manifest_path);
+        std::cout << "Project manifest not found: " << manifest_path << "\n";
         return false;
     }
     
@@ -102,7 +100,7 @@ bool t_Project::m_bLoadFromFile(std::string_view manifest_path)
     m_AssetPath = (fs::path(m_RootPath) / m_AssetDir).string();
     m_DllPath = (fs::path(m_RootPath) / m_EntryDll).string();
     
-    std::println("Loaded project: {}", m_Name);
+    std::cout << "Loaded project: " << m_Name << "\n";
     return true;
 }
 
@@ -112,7 +110,7 @@ bool t_Project::m_bSaveToFile() const
     std::ofstream file(manifest_path);
     if (!file.is_open()) 
     {
-        std::println(std::cerr, "Failed to create project manifest: {}", manifest_path);
+        std::cerr << "Failed to create project manifest: " << manifest_path << "\n";
         return false;
     }
     
@@ -133,7 +131,7 @@ bool t_Project::m_bSaveToFile() const
     file << "targetFPS=" << m_TargetFPS << "\n";
     
     file.close();
-    std::println("Saved project manifest to: {}", manifest_path);
+    std::cout << "Saved project manifest to: " << manifest_path << "\n";
     return true;
 }
 

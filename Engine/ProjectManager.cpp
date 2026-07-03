@@ -1,9 +1,15 @@
+#include <iostream>
+#include <format>
+#ifndef PRINTLN_MACROS_DEFINED
+#define PRINTLN_MACROS_DEFINED
+#define PRINTLN_ERR(fmt, ...) std::cerr << std::format(fmt __VA_OPT__(,) __VA_ARGS__) << "\n"
+#define PRINTLN_OUT(fmt, ...) std::cout << std::format(fmt __VA_OPT__(,) __VA_ARGS__) << "\n"
+#endif
 #include "ProjectManager.h"
 #include <filesystem>
 #include <fstream>
 #include <algorithm>
 #include <iostream>
-#include <print>
 #include <windows.h>
 #include <shlobj.h>
 
@@ -93,7 +99,7 @@ bool ProjectManager::b_OpenProject(std::string_view folder_path)
     std::string manifest_path = (fs::path(folder_path) / "project.raywaves").string();
     if (!fs::exists(manifest_path))
     {
-        std::println(std::cerr, "Project manifest not found at: {}", manifest_path);
+        PRINTLN_ERR( "Project manifest not found at: {}", manifest_path);
         return false;
     }
 
@@ -130,7 +136,7 @@ bool ProjectManager::b_CreateProject(std::string_view target_folder, std::string
     fs::path target_path = target_folder;
     if (fs::exists(target_path))
     {
-        std::println(std::cerr, "Target folder already exists: {}", target_folder);
+        PRINTLN_ERR( "Target folder already exists: {}", target_folder);
         return false;
     }
 
@@ -145,13 +151,17 @@ bool ProjectManager::b_CreateProject(std::string_view target_folder, std::string
 
     if (!fs::exists(template_dir))
     {
-        std::println(std::cerr, "Template not found: {}", template_dir.string());
+        PRINTLN_ERR( "Template not found: {}", template_dir.string());
         return false;
     }
 
     try
     {
         fs::copy(template_dir, target_path, fs::copy_options::recursive);
+
+        // Older distributions may contain a generated CMake build tree. Its cache
+        // stores absolute paths from the machine that packaged the template.
+        fs::remove_all(target_path / ".raywaves" / "build");
         
         // Rewrite the manifest name
         std::string manifest_path = (target_path / "project.raywaves").string();
@@ -165,7 +175,7 @@ bool ProjectManager::b_CreateProject(std::string_view target_folder, std::string
     }
     catch (const std::exception& e)
     {
-        std::println(std::cerr, "Failed to create project from template: {}", e.what());
+        PRINTLN_ERR( "Failed to create project from template: {}", e.what());
         return false;
     }
 }
@@ -293,14 +303,19 @@ bool ProjectManager::GenerateCMakeLists()
     fs::path raywaves_dir = fs::path(s_Current.m_RootPath) / ".raywaves";
     fs::path cmake_path = raywaves_dir / "CMakeLists.txt";
 
-    fs::path engine_dir = GetEngineRootDirectory();
+    fs::path engine_root = GetEngineRootDirectory();
+    fs::path engine_dir = engine_root;
+    if (fs::exists(engine_root / "Core" / "Engine"))
+    {
+        engine_dir = engine_root / "Core";
+    }
     std::string engine_dir_str = engine_dir.string();
     std::replace(engine_dir_str.begin(), engine_dir_str.end(), '\\', '/');
 
     std::ofstream file(cmake_path);
     if (!file.is_open()) return false;
 
-    fs::path tools_dir = ResolveToolsDirectory(engine_dir);
+    fs::path tools_dir = ResolveToolsDirectory(engine_root);
     std::string tools_dir_str = tools_dir.string();
     std::replace(tools_dir_str.begin(), tools_dir_str.end(), '\\', '/');
 
@@ -311,7 +326,9 @@ bool ProjectManager::GenerateCMakeLists()
     file << "        message(STATUS \"Zig toolchain not found. Auto-fetching...\")\n";
     file << "        execute_process(\n";
     file << "            COMMAND powershell -ExecutionPolicy Bypass -File \"" << tools_dir_str << "/setup_zig.ps1\" -SkipRcEdit\n";
-    file << "            WORKING_DIRECTORY \"" << engine_dir_str << "\"\n";
+    std::string engine_root_str = engine_root.string();
+    std::replace(engine_root_str.begin(), engine_root_str.end(), '\\', '/');
+    file << "            WORKING_DIRECTORY \"" << engine_root_str << "\"\n";
     file << "            RESULT_VARIABLE ZIG_FETCH_RESULT\n";
     file << "        )\n";
     file << "        if(NOT ZIG_FETCH_RESULT EQUAL 0)\n";

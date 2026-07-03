@@ -1,13 +1,12 @@
+#include <iostream>
 #include "../Engine/MapManager.h"
 #include <raylib.h>
-#include <print>
-
 class EmptyMap : public GameMap
 {
 public:
     void Initialize() override 
     {
-        std::println("EmptyMap initialized");
+        std::cout << "EmptyMap initialized\n";
     }
 
     void Update(float delta_time) override 

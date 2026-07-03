@@ -371,7 +371,7 @@ void ExportPanel::Draw(GameEditor* editor)
                     // 1. Build the Project DLL using CMake
                     s_fAppendLogLine(editor->m_ExportState.m_ExportLogs, editor->m_ExportState.m_ExportLogMutex, "Building project GameLogic (Release)...");
                     fs::path raywaves_dir = fs::path(proj.m_RootPath) / ".raywaves";
-                    std::string build_cmd = "cd /d \"" + raywaves_dir.string() + "\" && cmake -G Ninja . -B build && cmake --build build --config Release";
+                    std::string build_cmd = "cd /d \"" + raywaves_dir.string() + "\" && (cmake -G Ninja . -B build || cmake --fresh -G Ninja . -B build) && cmake --build build --config Release";
 
                     FILE* pipe = _popen(build_cmd.c_str(), "r");
                     if (pipe)

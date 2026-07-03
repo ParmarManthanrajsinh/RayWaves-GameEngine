@@ -1,3 +1,4 @@
+#include <iostream>
 #include "GameEngine.h"
 #include "MapManager.h"
 
@@ -25,7 +26,7 @@ void GameEngine::LaunchWindow(int width, int height, std::string_view title)
 	m_WindowWidth = width;
 	m_WindowHeight = height;
 	m_WindowTitle = title;
-	std::println("Window initialized: {} ({}x{})", title, width, height);
+	std::cout << "Window initialized: " << title << " (" << width << "x" << height << ")\n";
 
 	InitWindow(width, height, title.data());
 	InitAudioDevice();
@@ -52,14 +53,7 @@ void GameEngine::LaunchWindow(const t_WindowConfig& config)
 	m_WindowHeight = config.height;
 	m_WindowTitle = config.title;
 
-	std::println
-	(
-		"Window initialized from config: {} ({}x{}) {}",
-		config.title,
-		config.width,
-		config.height,
-		config.b_Fullscreen ? "Fullscreen" : "Windowed"
-	);
+	std::cout << "Window initialized from config: " << config.title << " (" << config.width << "x" << config.height << ") " << (config.b_Fullscreen ? "Fullscreen" : "Windowed") << "\n";
 
 	// Set window flags before initialization
 	unsigned int flags = 0;
@@ -86,11 +80,11 @@ void GameEngine::ToggleFullscreen()
 	::ToggleFullscreen();
 	if (IsWindowFullscreen())
 	{
-		std::println("Switched to fullscreen mode");
+		std::cout << "Switched to fullscreen mode\n";
 	}
 	else
 	{
-		std::println("Switched to windowed mode");
+		std::cout << "Switched to windowed mode\n";
 	}
 }
 
@@ -100,12 +94,12 @@ void GameEngine::SetWindowMode(bool fullscreen)
 	if (fullscreen && !b_IsCurrentlyFullscreen)
 	{
 		::ToggleFullscreen();
-		std::println("Switched to fullscreen mode");
+		std::cout << "Switched to fullscreen mode\n";
 	}
 	else if (!fullscreen && b_IsCurrentlyFullscreen)
 	{
 		::ToggleFullscreen();
-		std::println("Switched to windowed mode");
+		std::cout << "Switched to windowed mode\n";
 	}
 }
 
@@ -155,10 +149,10 @@ void GameEngine::ResetMap()
 	{
 		m_MapManager->Initialize();
 	}
-    else if (m_GameMap)
-    {
-        m_GameMap->Initialize();
-    }
+	else if (m_GameMap)
+	{
+		m_GameMap->Initialize();
+	}
 }
 
 void GameEngine::SetMapManager(MapManager* map_manager)
