@@ -3,7 +3,7 @@
 #include "GameMap.h"
 #include <functional>
 #include <memory>
-#include <unordered_map>
+#include <map>
 #include <vector>
 /**
  * @brief Developer-friendly MapManager for easy game map management
@@ -35,8 +35,8 @@ private:
     std::unique_ptr<GameMap> m_CurrentMap;
     
     // Registry of available maps with their factory functions
-    std::unordered_map<std::string, 
-    std::function<std::unique_ptr<GameMap>()>> m_MapRegistry;
+    std::map<std::string, 
+    std::function<std::unique_ptr<GameMap>()>, std::less<>> m_MapRegistry;
     std::string m_CurrentMapId;
     std::string m_InitialMapId;
     
@@ -47,7 +47,9 @@ private:
         bool b_IsLoaded = false;
     };
 
-    std::unordered_map<std::string, t_MapInfo> m_MapInfo;
+    std::map<std::string, t_MapInfo, std::less<>> m_MapInfo;
+    mutable std::vector<std::string> m_AvailableMapsCache;
+    mutable bool m_bMapsCacheDirty = true;
     bool m_bUsingDefaultMap;
 
 public:
@@ -86,7 +88,7 @@ public:
     void SetInitialMap(std::string_view map_id) { m_InitialMapId = std::string(map_id); }
 
     std::string_view GetCurrentMapId() const { return m_CurrentMapId; }
-    std::vector<std::string> GetAvailableMaps() const;
+    const std::vector<std::string>& GetAvailableMaps() const;
 
     void UnloadCurrentMap();
     std::string GetDebugInfo() const;
@@ -128,6 +130,7 @@ void MapManager::RegisterMap
         description.empty() ? "No description" : std::string(description), false 
     };
 
+    m_bMapsCacheDirty = true;
     std::cout << "[MapManager] Registered map: " << map_id << "::" << description << std::endl;
 }
 /*

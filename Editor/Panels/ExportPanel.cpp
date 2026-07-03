@@ -565,7 +565,7 @@ void ExportPanel::Draw(GameEditor* editor)
             }
         }
     }
-    else if (!editor->m_ExportState.m_bIsExporting && !editor->m_ExportState.m_ExportLogs.empty() && !editor->m_ExportState.m_bIsExporting)
+    else if (!editor->m_ExportState.m_bIsExporting && !editor->m_ExportState.m_ExportLogs.empty())
     {
         float window_width = ImGui::GetContentRegionAvail().x;
         ImGui::SetCursorPosX((window_width - ImGui::CalcTextSize("Export Failed").x) * 0.5f);

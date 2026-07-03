@@ -147,7 +147,10 @@ void SceneWindow::Draw(GameEditor* editor)
 	ImGui::PushStyleColor(ImGuiCol_ButtonActive, bgColor);
 	ImGui::PushStyleColor(ImGuiCol_Text, textColor);
 
-	std::string fullLabel = std::string(ICON) + std::string(LABEL);
+	std::string fullLabel;
+	fullLabel.reserve(ICON.size() + LABEL.size());
+	fullLabel.append(ICON);
+	fullLabel.append(LABEL);
 	ImGui::Button(fullLabel.c_str(), ImVec2(0, 32.0f));
 
 	ImGui::PopStyleVar(3);

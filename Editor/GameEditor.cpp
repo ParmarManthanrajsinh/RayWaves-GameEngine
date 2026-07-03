@@ -590,32 +590,30 @@ void GameEditor::Run()
 			b_ReloadGameLogic();
 		}
 
-		static auto s_LastReloadCheckTime = Clock::now();
-
-		// Periodically check for GameLogic.dll changes (e.g., every 0.5s)
-		const auto CURRENT_TIME = Clock::now();
-		auto elapsed_time = std::chrono::duration<float>
-		(
-			CURRENT_TIME - s_LastReloadCheckTime
-		).count();
-
-		if (elapsed_time > 0.5f && !m_GameLogicPath.empty())
+		if (!m_GameLogicPath.empty())
 		{
-			s_LastReloadCheckTime = CURRENT_TIME;
-			std::error_code ec;
+			static auto s_LastReloadCheckTime = Clock::now();
 
-			// cache path once per check
-			const fs::path PATH(m_GameLogicPath);
+			const auto CURRENT_TIME = Clock::now();
+			auto elapsed_time = std::chrono::duration<float>(CURRENT_TIME - s_LastReloadCheckTime).count();
 
-			auto now_write = fs::last_write_time(PATH, ec);
-
-			if (!ec && now_write != m_LastLogicWriteTime)
+			if (elapsed_time > 0.5f)
 			{
-				if (m_LastLogicWriteTime != fs::file_time_type{})
+				s_LastReloadCheckTime = CURRENT_TIME;
+				std::error_code ec;
+
+				const fs::path PATH(m_GameLogicPath);
+
+				auto now_write = fs::last_write_time(PATH, ec);
+
+				if (!ec && now_write != m_LastLogicWriteTime)
 				{
-					b_ReloadGameLogic();
+					if (m_LastLogicWriteTime != fs::file_time_type{})
+					{
+						b_ReloadGameLogic();
+					}
+					m_LastLogicWriteTime = now_write;
 				}
-				m_LastLogicWriteTime = now_write;
 			}
 		}
 

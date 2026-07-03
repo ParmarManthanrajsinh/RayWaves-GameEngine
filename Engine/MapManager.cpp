@@ -196,8 +196,9 @@ bool MapManager::b_GotoMap(std::string_view map_id, bool force_reload)
     try
     {
         // Create the new map
-        auto& factory = m_MapRegistry[std::string(map_id)];
-        auto new_map = factory();
+        auto reg_it = m_MapRegistry.find(map_id);
+        if (reg_it == m_MapRegistry.end()) return false;
+        auto new_map = reg_it->second();
 
         if (!new_map)
         {
@@ -208,7 +209,8 @@ bool MapManager::b_GotoMap(std::string_view map_id, bool force_reload)
         // Created new map 
         m_CurrentMap = std::move(new_map);
         m_CurrentMapId = map_id;
-        m_MapInfo[std::string(map_id)].b_IsLoaded = true;
+        auto info_it = m_MapInfo.find(map_id);
+        if (info_it != m_MapInfo.end()) info_it->second.b_IsLoaded = true;
         m_bUsingDefaultMap = false;
 
         // Set up the new map with current scene bounds
@@ -263,22 +265,24 @@ bool MapManager::b_IsCurrentMap(std::string_view map_id) const
            m_CurrentMap != nullptr;
 }
 
-std::vector<std::string> MapManager::GetAvailableMaps() const
+const std::vector<std::string>& MapManager::GetAvailableMaps() const
 {
-    std::vector<std::string> maps;
-    maps.reserve(m_MapRegistry.size());
-    
-    for (const auto& pair : m_MapRegistry)
+    if (m_bMapsCacheDirty)
     {
-        maps.push_back(pair.first);
+        m_AvailableMapsCache.clear();
+        m_AvailableMapsCache.reserve(m_MapRegistry.size());
+        for (const auto& pair : m_MapRegistry)
+        {
+            m_AvailableMapsCache.push_back(pair.first);
+        }
+        m_bMapsCacheDirty = false;
     }
-    
-    return maps;
+    return m_AvailableMapsCache;
 }
 
 bool MapManager::b_IsMapRegistered(std::string_view map_id) const
 {
-    return m_MapRegistry.find(std::string(map_id)) != m_MapRegistry.end();
+    return m_MapRegistry.contains(map_id);
 }
 
 void MapManager::UnloadCurrentMap()
@@ -288,9 +292,10 @@ void MapManager::UnloadCurrentMap()
         std::cout << "[MapManager] Unloading map '" << m_CurrentMapId << "'" << "\n";
 
         // Mark as not loaded in metadata
-        if (m_MapInfo.find(m_CurrentMapId) != m_MapInfo.end())
+        auto info_it = m_MapInfo.find(m_CurrentMapId);
+        if (info_it != m_MapInfo.end())
         {
-            m_MapInfo[m_CurrentMapId].b_IsLoaded = false;
+            info_it->second.b_IsLoaded = false;
         }
         
         m_CurrentMap.reset();

@@ -154,13 +154,11 @@ void GameEngine::UpdateMap(float dt) const
 	if (m_MapManager)
 	{
 		m_MapManager->SetSceneBounds(static_cast<float>(m_ViewportWidth), static_cast<float>(m_ViewportHeight));
-		m_MapManager->SetProjectAssetPath(AssetResolver::GetProjectAssetPath());
 		m_MapManager->Update(dt);
 	}
 	else if (m_GameMap)
 	{
 		m_GameMap->SetSceneBounds(static_cast<float>(m_ViewportWidth), static_cast<float>(m_ViewportHeight));
-		m_GameMap->SetProjectAssetPath(AssetResolver::GetProjectAssetPath());
 		m_GameMap->Update(dt);
 	}
 }

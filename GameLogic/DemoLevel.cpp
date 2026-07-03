@@ -59,6 +59,7 @@ void DemoLevel::Reset()
     m_Camera.SetBounds(LevelLeft, LevelRight, LevelTop, LevelBottom);
 
     m_GroundTiles.clear();
+    m_GroundTiles.reserve(70);
     for (int32_t i = -10; i < 60; ++i)
     {
         m_GroundTiles.push_back
