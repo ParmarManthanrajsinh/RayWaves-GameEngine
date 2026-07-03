@@ -24,6 +24,7 @@ void MapManager::Initialize()
         // Make sure the map has proper scene bounds
         Vector2 bounds = GameMap::GetSceneBounds();
         m_CurrentMap->SetSceneBounds(bounds.x, bounds.y);
+        m_CurrentMap->SetProjectAssetPath(m_ProjectAssetPath);
 
         // Inject transition callback so the map can request transitions
         m_CurrentMap->SetTransitionCallback
@@ -39,12 +40,20 @@ void MapManager::Initialize()
     }
     else if (!m_MapRegistry.empty())
     {
-        std::cout << "[MapManager] Maps registered but none loaded yet. Use GotoMap() to load a map." << "\n";
-
-        std::cout << "[MapManager] Registered maps: ";
-        for (const auto& PAIR : m_MapRegistry)
+        if (!m_InitialMapId.empty() && b_IsMapRegistered(m_InitialMapId))
         {
-            std::cout << "'" << PAIR.first << "' " << "\n";
+            std::cout << "[MapManager] Auto-loading initial map: " << m_InitialMapId << "\n";
+            b_GotoMap(m_InitialMapId);
+        }
+        else
+        {
+            std::cout << "[MapManager] Maps registered but none loaded yet. Use GotoMap() to load a map." << "\n";
+
+            std::cout << "[MapManager] Registered maps: ";
+            for (const auto& PAIR : m_MapRegistry)
+            {
+                std::cout << "'" << PAIR.first << "' " << "\n";
+            }
         }
     }
     else
@@ -199,6 +208,7 @@ bool MapManager::b_GotoMap(std::string_view map_id, bool force_reload)
         if (m_CurrentMap)
         {
             m_CurrentMap->SetSceneBounds(bounds.x, bounds.y);
+            m_CurrentMap->SetProjectAssetPath(m_ProjectAssetPath);
 
             // Inject transition callback for map-driven transitions
             m_CurrentMap->SetTransitionCallback

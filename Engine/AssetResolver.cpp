@@ -1,5 +1,6 @@
 #include "AssetResolver.h"
 #include <filesystem>
+#include <iostream>
 
 std::string AssetResolver::s_BasePath = "";
 

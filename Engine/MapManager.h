@@ -38,6 +38,7 @@ private:
     std::unordered_map<std::string, 
     std::function<std::unique_ptr<GameMap>()>> m_MapRegistry;
     std::string m_CurrentMapId;
+    std::string m_InitialMapId;
     
     // Map metadata for better developer experience
     struct t_MapInfo 
@@ -81,6 +82,8 @@ public:
     bool b_IsCurrentMap(std::string_view map_id) const;
     bool b_IsMapRegistered(std::string_view map_id) const;
     bool b_ReloadCurrentMap();
+    
+    void SetInitialMap(std::string_view map_id) { m_InitialMapId = std::string(map_id); }
 
     std::string_view GetCurrentMapId() const { return m_CurrentMapId; }
     std::vector<std::string> GetAvailableMaps() const;

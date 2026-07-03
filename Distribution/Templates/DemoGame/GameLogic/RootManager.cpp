@@ -26,8 +26,8 @@ extern "C" __declspec(dllexport) GameMap* CreateGameMap()
         s_GameMapManager->RegisterMap<DemoMainMenu>("DemoMainMenu");
     }
 
-    // Automatically load the Main Menu
-    s_GameMapManager->b_GotoMap("DemoMainMenu");
+    // Automatically load the Main Menu when initialized
+    s_GameMapManager->SetInitialMap("DemoMainMenu");
 
     return s_GameMapManager;
 }
