@@ -278,9 +278,12 @@ void ExportPanel::Draw(GameEditor* editor)
         ImGui::SameLine();
         if (ImGui::Button("Browse", ImVec2(80.0f, 0)))
         {
-            const char* selected_path = tinyfd_saveFileDialog("Select Export Folder", fs::current_path().string().c_str(), 0, nullptr, nullptr);
-            fs::path parent_path = selected_path ? fs::path(selected_path).parent_path() : fs::current_path();
-            editor->m_ExportState.m_ExportPath = parent_path.string();
+            const char* selected_path = tinyfd_selectFolderDialog("Select Export Folder", nullptr);
+            if (selected_path)
+            {
+                fs::path parent_path = fs::path(selected_path);
+                editor->m_ExportState.m_ExportPath = parent_path.string();
+            }
         }
 
         ImGui::EndTable();

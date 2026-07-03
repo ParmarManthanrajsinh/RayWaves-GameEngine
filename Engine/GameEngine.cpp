@@ -130,6 +130,7 @@ void GameEngine::SetMap(GameMap* game_map)
 			static_cast<float>(m_WindowWidth), 
 			static_cast<float>(m_WindowHeight)
 		);
+		m_GameMap->SetProjectAssetPath(AssetResolver::GetProjectAssetPath());
 		m_GameMap->Initialize();
 	}
 }
@@ -158,6 +159,8 @@ void GameEngine::UpdateMap(float dt) const
 	}
 	else if (m_GameMap)
 	{
+		m_GameMap->SetSceneBounds(static_cast<float>(m_ViewportWidth), static_cast<float>(m_ViewportHeight));
+		m_GameMap->SetProjectAssetPath(AssetResolver::GetProjectAssetPath());
 		m_GameMap->Update(dt);
 	}
 }
@@ -184,6 +187,7 @@ void GameEngine::SetMapManager(MapManager* map_manager)
 			static_cast<float>(m_WindowWidth), 
 			static_cast<float>(m_WindowHeight)
 		);
+		m_MapManager->SetProjectAssetPath(AssetResolver::GetProjectAssetPath());
 		m_MapManager->Initialize();
 	}
 }

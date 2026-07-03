@@ -2,6 +2,7 @@
 #include "GameEngine.h"
 #include "DllLoader.h"
 #include "GameConfig.h"
+#include "../Engine/AssetResolver.h"
 using CreateGameMapFunc = GameMap* (*)();
 using DestroyGameMapFunc = void (*)(GameMap*);
 
@@ -57,6 +58,9 @@ int main()
     // Load configuration
     GameConfig& config = GameConfig::GetInstance();
     config.m_bLoadFromFile("config.ini");
+    
+    // Set Asset Resolver for standalone game
+    AssetResolver::SetProjectAssetPath("Assets");
     
     GameEngine engine;
     engine.LaunchWindow(config.GetWindowConfig());
