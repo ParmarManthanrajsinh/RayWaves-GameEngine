@@ -82,15 +82,21 @@ bool t_Project::m_bLoadFromFile(std::string_view manifest_path)
             else if (key == "assetDir") m_AssetDir = value;
             else if (key == "entryDll") m_EntryDll = value;
         }
-        else if (currentSection == "editor")
-        {
-            if (key == "cameraX") m_CameraX = std::stof(value);
-            else if (key == "cameraY") m_CameraY = std::stof(value);
-            else if (key == "lastMapId") m_LastMapId = value;
-            else if (key == "sceneWidth") m_SceneWidth = std::stoi(value);
-            else if (key == "sceneHeight") m_SceneHeight = std::stoi(value);
-            else if (key == "targetFPS") m_TargetFPS = std::stoi(value);
-        }
+		else if (currentSection == "editor")
+		{
+			auto safe_stof = [&](const std::string& v, float fallback) -> float {
+				try { return std::stof(v); } catch (...) { return fallback; }
+			};
+			auto safe_stoi = [&](const std::string& v, int fallback) -> int {
+				try { return std::stoi(v); } catch (...) { return fallback; }
+			};
+			if (key == "cameraX") m_CameraX = safe_stof(value, m_CameraX);
+			else if (key == "cameraY") m_CameraY = safe_stof(value, m_CameraY);
+			else if (key == "lastMapId") m_LastMapId = value;
+			else if (key == "sceneWidth") m_SceneWidth = safe_stoi(value, m_SceneWidth);
+			else if (key == "sceneHeight") m_SceneHeight = safe_stoi(value, m_SceneHeight);
+			else if (key == "targetFPS") m_TargetFPS = safe_stoi(value, m_TargetFPS);
+		}
     }
     
     file.close();

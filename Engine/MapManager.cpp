@@ -13,6 +13,11 @@ MapManager::MapManager()
 
 MapManager::~MapManager()
 {
+    if (m_CurrentMap)
+    {
+        m_CurrentMap->SetTransitionCallback(nullptr);
+        m_CurrentMap->SetExitCallback(nullptr);
+    }
     std::cout << "[MapManager] Destroyed - all maps cleaned up\n";
 }
 

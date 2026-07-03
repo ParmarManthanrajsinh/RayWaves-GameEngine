@@ -4,7 +4,7 @@ echo.
 
 if not exist "build\zig-release\main.exe" (
     echo [INFO] No release build found. Building first...
-    cmake --preset zig-release
+    cmake --preset zig-release -DRAYWAVES_DISTRIBUTION_BUILD=ON
     if errorlevel 1 (
         echo ERROR: CMake configuration failed!
         if "%~2" NEQ "nopause" pause

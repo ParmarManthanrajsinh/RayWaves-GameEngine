@@ -5,9 +5,11 @@
 #include <rlImGui.h>
 #include <vector>
 #include <string>
+#include "../../Engine/Profiler.h"
 
 void MapSelectionPanel::Draw(GameEditor* editor)
 {
+	SCOPED_TIMER("panel_map_selection");
 	if (!editor->GetMapManager()) 
 	{
 		return;

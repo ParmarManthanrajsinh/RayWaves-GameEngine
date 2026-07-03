@@ -18,6 +18,7 @@
 #endif
 
 #include "terminal.h"
+#include "../../Engine/Profiler.h"
 #include "../GameEditorTheme.h"
 #include "../../Engine/ProjectManager.h"
 
@@ -178,6 +179,7 @@ namespace term
 
     void Terminal::show(std::string_view window_title, bool* p_open) 
     {
+        SCOPED_TIMER("panel_terminal");
         ImGui::SetNextWindowSize(ImVec2(600, 400), ImGuiCond_FirstUseEver);
 
         ImGui::PushStyleVar

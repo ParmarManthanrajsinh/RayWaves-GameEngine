@@ -10,6 +10,7 @@
 #include <imgui_internal.h>
 #include <rlImGui.h>
 #include <cmath>
+#include "../../Engine/Profiler.h"
 
 void SceneWindow::DrawToolbarBackground()
 {
@@ -79,6 +80,7 @@ bool SceneWindow::s_bIconButton(std::string_view label, std::string_view icon, c
 
 void SceneWindow::Draw(GameEditor* editor)
 {
+	SCOPED_TIMER("panel_scene_window");
 	ImGuiStyle& style = ImGui::GetStyle();
 	style.WindowMenuButtonPosition = ImGuiDir_Left;
 

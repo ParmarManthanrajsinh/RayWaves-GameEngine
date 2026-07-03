@@ -4,9 +4,11 @@
 #include "../../Engine/GameEngine.h"
 #include <imgui.h>
 #include <rlImGui.h>
+#include "../../Engine/Profiler.h"
 
 void SceneSettingsPanel::Draw(GameEditor* editor)
 {
+	SCOPED_TIMER("panel_scene_settings");
 	if (!editor->m_bShowSceneSettings)
 	{
 		return;

@@ -35,13 +35,15 @@ public:
 	void ToggleFullscreen();
 	void SetWindowMode(bool fullscreen);
 	void SetMap(GameMap* game_map);
-	GameMap* GetMap() const { return m_GameMap; }
-	void DrawMap() const;
-	void UpdateMap(float delta_time) const;
+	GameMap* GetMap() { return m_GameMap; }
+	const GameMap* GetMap() const { return m_GameMap; }
+	void DrawMap();
+	void UpdateMap(float delta_time);
 	void ResetMap();
 	
 	// MapManager integration methods
 	void SetMapManager(MapManager* map_manager);
-	MapManager* GetMapManager() const;
+	MapManager* GetMapManager();
+	const MapManager* GetMapManager() const;
 	bool b_HasMapManager() const;
 };

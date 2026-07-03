@@ -9,16 +9,19 @@ void AssetResolver::SetProjectAssetPath(std::string_view path) {
 }
 
 std::string AssetResolver::Resolve(std::string_view relativePath) {
-    std::filesystem::path rel(relativePath);
-    
-    // If the path is already absolute, just normalize it
-    if (rel.is_absolute()) return rel.lexically_normal().string();
-    
-    // If no project asset path is set, return the relative path as-is (CWD fallback)
-    if (s_BasePath.empty()) return std::string(relativePath);
-    
-    // Normalize path to use proper directory separators
-    return (std::filesystem::path(s_BasePath) / rel).lexically_normal().string();
+    // Quick absolute check without constructing fs::path
+    if (!relativePath.empty() && (relativePath[0] == '/' || relativePath[0] == '\\'
+        || (relativePath.size() > 1 && relativePath[1] == ':')))
+    {
+        return std::filesystem::path(relativePath).lexically_normal().string();
+    }
+
+    if (s_BasePath.empty())
+    {
+        return std::string(relativePath);
+    }
+
+    return (std::filesystem::path(s_BasePath) / relativePath).lexically_normal().string();
 }
 
 std::string AssetResolver::GetProjectAssetPath() {

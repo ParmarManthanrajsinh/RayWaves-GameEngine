@@ -68,9 +68,17 @@ With our **hot-reloading magic**, you can tweak movement speeds, adjust physics,
    cmake --preset zig-debug
    cmake --build build/zig-debug
    ```
-3. **Launch the editor:**
+3. **Run tests:**
    ```powershell
-   build/zig-debug/main.exe
+   .\build\zig-release\tests.exe
+   ```
+   Or via CTest:
+   ```powershell
+   ctest --test-dir build/zig-release
+   ```
+4. **Launch the editor:**
+   ```powershell
+   build/zig-release/main.exe
    ```
 
 > **Note:** If you are just making games, you don't need to rebuild `main.exe`.
@@ -161,7 +169,7 @@ This generates a `dist/` folder with everything they need:
 
 - **Files:** Use the built-in File Explorer to browse assets.
 - **Reset:** Hit the **Restart** button in the toolbar if you want to force a full reload.
-- **Performance:** Toggle the **Performance Overlay** (sales chart icon) to check your FPS and frame times.
+- **Performance:** Toggle the **Performance Overlay** (sales chart icon) to see FPS, frame times, and per-system breakdown (Update, Draw, panels).
 - **Modes:** 
   - `main.exe` = Editor & Hot-Reloading
   - `game.exe` = Standalone Runtime (Pure Gameplay)

@@ -1,6 +1,7 @@
 #include <iostream>
 #include "../Engine/MapManager.h"
 #include "../Engine/ProjectManager.h"
+#include "../Engine/Profiler.h"
 #include "../Engine/AssetResolver.h"
 #include "../Game/DllLoader.h"
 #include "GameEditor.h"
@@ -583,6 +584,8 @@ void GameEditor::Run()
 			}
 		}
 
+		SCOPED_TIMER("frame_total");
+
 		// Check if a build completed and DLL needs reloading (set by CompileGameLogic callback)
 		if (m_bNeedsReload)
 		{
@@ -630,6 +633,7 @@ void GameEditor::Run()
 		extern bool g_bNeedsTextureRecreate;
 		if (g_bNeedsTextureRecreate)
 		{
+			SCOPED_TIMER("texture_recreate");
 			g_bNeedsTextureRecreate = false;
 			UnloadRenderTexture(m_RaylibTexture);
 			if (m_DisplayTexture.id != 0) UnloadRenderTexture(m_DisplayTexture);
@@ -712,6 +716,8 @@ void GameEditor::Run()
 			
 			ImGui::GetIO().IniFilename = s_LayoutPath.c_str();
 		}
+
+		Profiler::Get().NextFrame();
 
 		rlImGuiBegin();
 
@@ -944,6 +950,7 @@ bool GameEditor::b_LoadGameLogic(std::string_view dll_path)
 
 bool GameEditor::b_ReloadGameLogic()
 {
+	SCOPED_TIMER("dll_reload");
 	if (m_GameLogicPath.empty())
 	{
 		return false;

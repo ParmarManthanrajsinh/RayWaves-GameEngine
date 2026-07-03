@@ -5,6 +5,7 @@
 #include <rlImGui.h>
 #include <tinyfiledialogs.h>
 #include "../EditorUtils.h"
+#include "../../Engine/Profiler.h"
 
 static void SaveProjectWithSceneSettings(GameEditor* editor)
 {
@@ -18,6 +19,7 @@ static void SaveProjectWithSceneSettings(GameEditor* editor)
 
 void MainMenuBar::Draw(GameEditor* editor)
 {
+	SCOPED_TIMER("panel_menu_bar");
     if (ImGui::BeginMainMenuBar())
     {
         if (ImGui::BeginMenu("File"))

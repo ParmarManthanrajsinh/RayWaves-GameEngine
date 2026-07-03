@@ -1,150 +1,112 @@
 # RayWaves Distribution Guide
 
-*Where code changes flow like waves 🌊*
+This guide explains how to package the RayWaves engine so other developers can make games with it.
 
-This guide explains how to package the RayWaves engine so OTHER developers can make games with it.
-
-> **Note:** If you just want to *export your game* to play on another computer, check the [Developer Guide](DEVELOPER_GUIDE.md). This guide is for distributing the *engine tools* themselves.
+> **Not what you're looking for?** If you want to *export your game* to play on another computer, see the [Developer Guide](DEVELOPER_GUIDE.md). This guide is for distributing the *engine tools* themselves.
 
 ---
 
-## 🚀 The "Two-Click" Distribution
+## Quick Start
 
-Want to give a friend the entire engine so they can start coding?
+### One-Command Script (Recommended)
 
-1.  **Run the Script:**
-    ```cmd
-    Distribution\create_distribution.bat
-    ```
-2.  **Wait:** The script will build the engine, gather assets, and clean up headers.
-3.  **Done!** Check the newly created `dist/` folder.
+```cmd
+Distribution\create_distribution.bat -IncludeCompiler
+```
 
-You can now zip up `dist/` and send it to anyone!
+Script bundles compiler, strips profiler, packages everything into `dist/`.
+
+### Manual CMake Build (Equivalent)
+
+```cmd
+cmake --preset zig-release -DRAYWAVES_DISTRIBUTION_BUILD=ON
+cmake --build build\zig-release --target main game GameLogic
+Distribution\distribute.ps1 -IncludeCompiler
+```
+
+This is what the batch script does internally. Use this if you need full control.
+
+> **Warning:** Always pass both `-IncludeCompiler` AND `-DRAYWAVES_DISTRIBUTION_BUILD=ON` for a proper distribution build. Omitting either produces a package with unnecessary profiler overhead or missing compiler, forcing recipients to install Zig manually.
 
 ---
 
-## 📦 What's Inside the Box?
+## Distribution Build Internals
 
-When you create a distribution, here is what your users get:
+The script handles two critical optimizations automatically:
+
+### 1. Profiler Stripped (`-DRAYWAVES_DISTRIBUTION_BUILD=ON`)
+
+Normally the engine records per-frame timers for every system (Update, Draw, each editor panel) and displays a breakdown table in the Performance Overlay. This adds ~2-3 microseconds per frame.
+
+`RAYWAVES_DISTRIBUTION_BUILD=ON` compiles all profiling code to no-ops:
+- `SCOPED_TIMER` macro → `((void)0)` — zero instructions, zero allocations
+- `Profiler::Record`, `NextFrame`, `GetAverages` → empty functions, inlined away
+- `PerformanceOverlay` renders an empty breakdown table
+- `Profiler.cpp` compiles to an empty translation unit (entire body wrapped in `#ifndef`)
+
+The resulting binary has no profiler code, no ring buffer allocation, no timer syscalls. The distribution script sets this flag automatically.
+
+### 2. Compiler Bundled (with `-IncludeCompiler`)
+
+The Zig compiler is copied into the distribution so recipients can rebuild `GameLogic.dll` from source. Without this flag, they must install Zig manually.
+
+---
+
+## What's Inside the Box
 
 | File/Folder | Purpose |
-|-------------|---------|
-| `editor.exe` | The visual game editor. |
-| `GameLogic.dll` | The compiled game code. |
-| `game_config.ini` | Default settings (resolution, VSync, etc). |
-| `build_gamelogic.bat` | **The Magic Button.** Users click this to recompile their code. |
-| `GameLogic/` | **User Code.** Contains `Level1.cpp`, `Player.cpp`, etc. |
-| `Engine/` | **Header Files.** So users can define classes inheriting `GameMap`. |
-| `Assets/` | **Resources.** Textures, sounds, and fonts. |
+|---|---|
+| `editor.exe` | Visual game editor |
+| `GameLogic.dll` | Pre-compiled game code |
+| `game_config.ini` | Default settings (resolution, VSync) |
+| `build_gamelogic.bat` | One-click rebuild of game code |
+| `GameLogic/` | Source files — edit these to change gameplay |
+| `Engine/` | Header files for inheriting `GameMap` |
+| `Assets/` | Textures, sounds, fonts |
+| `zig/` | *(only with `-IncludeCompiler`)* Compiler for hot-reload |
 
 ---
 
-## 🎮 The End-User Experience
+## End-User Workflow
 
-Imagine you send this to a friend. Here is their workflow:
-
-1.  **Unzip** the folder.
-2.  **Open `GameLogic/Level1.cpp`** in VS Code (or Notepad++).
-3.  **Run `editor.exe`**. They see the game running.
-4.  **Edit `Level1.cpp`** (e.g., change `speed = 100` to `speed = 500`).
-5.  **Run `build_gamelogic.bat`**.
-6.  **BOOM!** The editor hot-reloads the new speed instantly.
-
-**Important Note:** By default, creating a distribution drops the compiler to save space (yielding a lean, player-ready build). If you want your friends to have this magical "zero-install" experience where they can edit C++ without downloading any tools, you **MUST** export the game using the `-IncludeCompiler` flag (see "Customizing the Distro" below). Otherwise, they will need Zig installed system-wide on their PATH.
+1. Unzip the folder
+2. Open `GameLogic/Level1.cpp` in any editor
+3. Run `editor.exe` — game runs immediately
+4. Edit code (change jump speed, add logic)
+5. Run `build_gamelogic.bat`
+6. Editor hot-reloads changes in ~0.5 seconds
 
 ---
 
-## 🛠️ Customizing the Distro
+## Customizing the Distribution
 
-You can tweak how the distribution is built by editing `Distribution/distribute.ps1`.
+Edit `Distribution/distribute.ps1` to tweak:
 
-### Common Customizations
+- **Include Zig Compiler:** `distribute.ps1 -IncludeCompiler` (same as the batch shortcut)
+- **Default config:** Modify `Distribution/config.ini`
+- **Extra assets:** Add files to `GameLogic/` before building
+- **Branding:** Change icon or name of `editor.exe` in the script
 
-*   **Include Zig Compiler:** By default, the engine's built-in Zig compiler is not included, keeping the package size small for players. Run `distribute.ps1 -IncludeCompiler` to bundle Zig so the recipient can hot-reload without any manual install.
-*   **Change Default Config:** Modify `Distribution/config.ini` to set different starting resolutions or flags.
-*   **Include Extra Assets:** Add files to `GameLogic/` before building if you want to include starter scripts.
-*   **Branding:** Change the icon or name of `editor.exe` in the script.
+To build manually with both distribution flags (profiler off + release config):
 
----
+```cmd
+cmake -B build\zig-release -DRAYWAVES_DISTRIBUTION_BUILD=ON
+cmake --build build\zig-release
+Distribution\distribute.ps1 -IncludeCompiler
+```
 
-## ✅ Checklist Before Shipping
-
-1.  **Test on a generic PC:** Try running the requested `dist/` folder on a computer that *doesn't* have your full dev environment.
-# RayWaves Distribution Guide
-
-*Where code changes flow like waves 🌊*
-
-This guide explains how to package the RayWaves engine so OTHER developers can make games with it.
-
-> **Note:** If you just want to *export your game* to play on another computer, check the [Developer Guide](DEVELOPER_GUIDE.md). This guide is for distributing the *engine tools* themselves.
+`-DRAYWAVES_DISTRIBUTION_BUILD=ON` is a CMake option (default OFF). It sets the preprocessor define `RAYWAVES_PROFILER_DISABLED` globally across all targets (main.exe, game.exe, GameLogic.dll, tests.exe). Omitting it leaves the profiler active.
 
 ---
 
-## 🚀 The "Two-Click" Distribution
+## Shipping Checklist
 
-Want to give a friend the entire engine so they can start coding?
-
-1.  **Run the Script:**
-    ```cmd
-    Distribution\create_distribution.bat
-    ```
-2.  **Wait:** The script will build the engine, gather assets, and clean up headers.
-3.  **Done!** Check the newly created `dist/` folder.
-
-You can now zip up `dist/` and send it to anyone!
+1.  **Test on a clean PC:** Run `dist/` on a computer without your dev environment
+2.  **Verify hot-reload:** Edit a file in `GameLogic/`, run `build_gamelogic.bat`, confirm editor reloads
+3.  **Verify profiler stripped:** Open Performance Overlay in editor — breakdown table shows no entries
+4.  **IncludeCompiler was used:** Check that `zig/` folder exists in `dist/`
+5.  **Docs shipped:** Confirm `README_DISTRIBUTION.md` covers the basics for end users
 
 ---
 
-## 📦 What's Inside the Box?
-
-When you create a distribution, here is what your users get:
-
-| File/Folder | Purpose |
-|-------------|---------|
-| `editor.exe` | The visual game editor. |
-| `GameLogic.dll` | The compiled game code. |
-| `game_config.ini` | Default settings (resolution, VSync, etc). |
-| `build_gamelogic.bat` | **The Magic Button.** Users click this to recompile their code. |
-| `GameLogic/` | **User Code.** Contains `Level1.cpp`, `Player.cpp`, etc. |
-| `Engine/` | **Header Files.** So users can define classes inheriting `GameMap`. |
-| `Assets/` | **Resources.** Textures, sounds, and fonts. |
-
----
-
-## 🎮 The End-User Experience
-
-Imagine you send this to a friend. Here is their workflow:
-
-1.  **Unzip** the folder.
-2.  **Open `GameLogic/Level1.cpp`** in VS Code (or Notepad++).
-3.  **Run `editor.exe`**. They see the game running.
-4.  **Edit `Level1.cpp`** (e.g., change `speed = 100` to `speed = 500`).
-5.  **Run `build_gamelogic.bat`**.
-6.  **BOOM!** The editor hot-reloads the new speed instantly.
-
-**Important Note:** By default, creating a distribution drops the compiler to save space (yielding a lean, player-ready build). If you want your friends to have this magical "zero-install" experience where they can edit C++ without downloading any tools, you **MUST** export the game using the `-IncludeCompiler` flag (see "Customizing the Distro" below). Otherwise, they will need Zig installed system-wide on their PATH.
-
----
-
-## 🛠️ Customizing the Distro
-
-You can tweak how the distribution is built by editing `Distribution/distribute.ps1`.
-
-### Common Customizations
-
-*   **Include Zig Compiler:** By default, the engine's built-in Zig compiler is not included, keeping the package size small for players. Run `distribute.ps1 -IncludeCompiler` to bundle Zig so the recipient can hot-reload without any manual install.
-*   **Change Default Config:** Modify `Distribution/config.ini` to set different starting resolutions or flags.
-*   **Include Extra Assets:** Add files to `GameLogic/` before building if you want to include starter scripts.
-*   **Branding:** Change the icon or name of `editor.exe` in the script.
-
----
-
-## ✅ Checklist Before Shipping
-
-1.  **Test on a generic PC:** Try running the requested `dist/` folder on a computer that *doesn't* have your full dev environment.
-2.  **Check Hot-Reload:** Ensure `build_gamelogic.bat` actually triggers a reload in the editor.
-3.  **Docs:** Make sure `README_DISTRIBUTION.md` (which becomes the user's `README.md`) covers the basics.
-
----
-
-*Now go share your engine with the world! 🌍*
+*Now go share your engine with the world!*

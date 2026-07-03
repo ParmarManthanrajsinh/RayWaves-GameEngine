@@ -2,6 +2,7 @@
 #include "GameEngine.h"
 #include "MapManager.h"
 #include "AssetResolver.h"
+#include "Profiler.h"
 
 #define Rectangle WinAPIRectangle
 #define CloseWindow WinAPICloseWindow
@@ -61,6 +62,8 @@ void GameEngine::LaunchWindow(int width, int height, std::string_view title)
 
 	// Windows 11 (attribute 20)
 	DwmSetWindowAttribute(hwnd, 20, &value, sizeof(value));
+
+	m_bIsRunning = true;
 }
 
 
@@ -135,8 +138,9 @@ void GameEngine::SetMap(GameMap* game_map)
 	}
 }
 
-void GameEngine::DrawMap() const
+void GameEngine::DrawMap()
 {
+	SCOPED_TIMER("game_draw");
 	// First check if we have a MapManager
 	// Otherwise, use the regular GameMap
 	if (m_MapManager)
@@ -149,8 +153,9 @@ void GameEngine::DrawMap() const
 	}
 }
 
-void GameEngine::UpdateMap(float dt) const
+void GameEngine::UpdateMap(float dt)
 {
+	SCOPED_TIMER("game_update");
 	if (m_MapManager)
 	{
 		m_MapManager->SetSceneBounds(static_cast<float>(m_ViewportWidth), static_cast<float>(m_ViewportHeight));
@@ -190,7 +195,12 @@ void GameEngine::SetMapManager(MapManager* map_manager)
 	}
 }
 
-MapManager* GameEngine::GetMapManager() const
+MapManager* GameEngine::GetMapManager()
+{
+	return m_MapManager;
+}
+
+const MapManager* GameEngine::GetMapManager() const
 {
 	return m_MapManager;
 }

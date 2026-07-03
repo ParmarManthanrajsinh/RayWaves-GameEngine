@@ -31,6 +31,14 @@ if(NOT EXISTS "${CMAKE_SOURCE_DIR}/Tools/rcedit.exe")
 endif()
 
 
+# Option: strip Profiler + SCOPED_TIMER from release builds
+# Enable with: cmake -B build/zig-release -DRAYWAVES_DISTRIBUTION_BUILD=ON
+option(RAYWAVES_DISTRIBUTION_BUILD "Strip profiler and debug tooling from release build" OFF)
+if(RAYWAVES_DISTRIBUTION_BUILD)
+    add_compile_definitions(RAYWAVES_PROFILER_DISABLED)
+    message(STATUS "Profiler disabled for distribution build")
+endif()
+
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -190,7 +198,7 @@ add_custom_command(TARGET game POST_BUILD
 # ------------------------------
 # Smoke Test executable
 # ------------------------------
-add_executable(smoketest EXCLUDE_FROM_ALL
+add_executable(smoketest
     Tests/SmokeTest.cpp
     Game/DllLoader.cpp
 )
@@ -207,6 +215,34 @@ add_custom_command(TARGET smoketest POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:GameLogic> $<TARGET_FILE_DIR:smoketest>
     COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:raylib> $<TARGET_FILE_DIR:smoketest>
 )
+
+# Unit test target
+add_executable(tests
+    Tests/main.cpp
+    Tests/GameConfig_t.cpp
+    Tests/Project_t.cpp
+    Tests/AssetResolver_t.cpp
+    Tests/StateBag_t.cpp
+    Tests/ProjectManager_t.cpp
+    Tests/Profiler_t.cpp
+    Tests/GameMap_t.cpp
+    Tests/MapManager_t.cpp
+    Tests/PerfBenchmark_t.cpp
+)
+
+target_include_directories(tests PRIVATE
+    ${CMAKE_SOURCE_DIR}/Engine
+)
+
+target_link_libraries(tests PRIVATE Engine)
+
+add_custom_command(TARGET tests POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:raylib> $<TARGET_FILE_DIR:tests>
+)
+
+enable_testing()
+add_test(NAME unit COMMAND tests WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+add_test(NAME smoke COMMAND smoketest WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 
 # Optional export packaging target
 add_custom_target(export_package

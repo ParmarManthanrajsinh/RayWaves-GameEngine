@@ -123,8 +123,15 @@ RayWaves/
 │   ├── RootManager.cpp # Registers your maps
 │   ├── Level1.cpp      # Example level
 │   └── Player.cpp      # Example class
-├── Engine/             # Core engine headers (GameMap, Config)
+├── Engine/             # Core engine headers (GameMap, Config, Profiler)
 ├── Editor/             # Editor code (main.exe source)
+├── Tests/
+│   ├── run_all.bat       # Build → test → launch
+│   ├── run_tests.bat     # Build → test only
+│   ├── doctest/          # Single-header test framework
+│   ├── GameConfig_t.cpp  # Unit tests
+│   ├── MapManager_t.cpp
+│   └── Profiler_t.cpp
 └── Distribution/       # Scripts for packaging your game
 ```
 
@@ -138,6 +145,100 @@ When you export your game, here's what happens:
 2.  **Configuring:** It generates a production `config.ini`.
 3.  **Stripping:** It removes development files (like cpp sources) to keep the download small.
 4.  **Result:** You get a clean folder ready to ZIP and upload to Itch.io or Steam.
+
+---
+
+## 🧪 Testing
+
+The engine includes unit tests and integration tests built on the doctest framework.
+
+### Running Tests
+
+Build and run all tests:
+```powershell
+cmake --build build/zig-release --target tests
+.\build\zig-release\tests.exe
+```
+
+Or via CTest (includes unit + smoke tests):
+```powershell
+ctest --test-dir build/zig-release
+```
+
+Quick shortcuts for development (run from project root):
+```powershell
+Tests\run_all.bat      # build tests → run → full build → launch editor
+Tests\run_tests.bat    # build tests → run unit + smoke only
+```
+
+### Adding a New Test
+
+1. Create `Tests/MyModule_t.cpp`:
+```cpp
+#include "doctest/doctest.h"
+#include "../Engine/MyModule.h"
+
+TEST_CASE("MyModule: does thing")
+{
+    CHECK(some_function() == expected);
+}
+```
+2. Add the file to `CMakeLists.txt` in the `tests` executable source list.
+3. Rebuild and run.
+
+### Test Coverage
+
+| Module | Test File | Cases | Status |
+|--------|-----------|-------|--------|
+| GameConfig | `GameConfig_t.cpp` | 5 | Done |
+| Project | `Project_t.cpp` | 5 | Done |
+| AssetResolver | `AssetResolver_t.cpp` | 3 | Done |
+| StateBag | `StateBag_t.cpp` | 8 | Done |
+| ProjectManager | `ProjectManager_t.cpp` | 2 | Done |
+| Profiler | `Profiler_t.cpp` | 3 | Done |
+| GameMap | `GameMap_t.cpp` | 5 | Done |
+| MapManager | `MapManager_t.cpp` | 4 | Done |
+| Perf benchmarks | `PerfBenchmark_t.cpp` | 5 | Done |
+| Smoke (DLL stress) | `SmokeTest.cpp` | 50× load/unload | Done |
+
+Total: **40 test cases**, **116 assertions**, plus **smoke test** (DLL load 50×).
+
+---
+
+## 📊 Profiling
+
+The engine includes a built-in profiler for measuring per-frame execution times.
+
+### Performance Overlay
+
+Toggle the **Performance Overlay** in the editor toolbar (chart icon). Shows:
+- FPS and average/max frame time
+- **Per-system breakdown** (Update, Draw, panels) sorted by avg time
+- 120-frame rolling window
+
+The profiler records all `SCOPED_TIMER` annotations automatically — no setup needed.
+
+### Distribution Build (Strip Profiler)
+
+For release builds, disable the profiler completely to remove overhead:
+```powershell
+cmake -B build/zig-release -DRAYWAVES_DISTRIBUTION_BUILD=ON
+cmake --build build/zig-release
+```
+
+When enabled:
+- `SCOPED_TIMER(name)` expands to `((void)0)` — zero runtime cost
+- `Profiler` class methods become no-ops
+- `PerformanceOverlay` renders an empty breakdown table
+- Full build works without changes to any source file
+
+### CSV Export (Dev Only)
+
+The profiler can dump the 120-frame ring buffer to CSV via `Profiler::SaveToFile()`:
+```cpp
+Profiler::Get().SaveToFile("profile.csv");
+```
+This is not wired to the editor UI — call from code or a debug command.
 
 ---
 
