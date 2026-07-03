@@ -345,8 +345,8 @@ void ExportPanel::Draw(GameEditor* editor)
                     fs::path current_path = fs::current_path();
                     const auto& proj = ProjectManager::GetCurrent();
                 
-                    bool b_IsDistribution = fs::exists(current_path / "demo.exe") && !fs::exists(current_path / "Game" / "game.cpp");
-                    fs::path game_exe = b_IsDistribution ? (current_path / "demo.exe") : (current_path / "build" / "zig-release" / "game.exe"); // Fallback for source environment
+                    bool b_IsDistribution = fs::exists(current_path / "Core" / "runtime.exe") && !fs::exists(current_path / "Game" / "game.cpp");
+                    fs::path game_exe = b_IsDistribution ? (current_path / "Core" / "runtime.exe") : (current_path / "build" / "zig-release" / "game.exe"); // Fallback for source environment
                     fs::path raylib_dll = b_IsDistribution ? (current_path / "libraylib.dll") : (current_path / "build" / "zig-release" / "libraylib.dll");
                     
                     if (!fs::exists(game_exe)) game_exe = current_path / "game.exe"; // Generic fallback
@@ -354,7 +354,7 @@ void ExportPanel::Draw(GameEditor* editor)
 
                     if (!fs::exists(game_exe)) 
                     {
-                        s_fAppendLogLine(editor->m_ExportState.m_ExportLogs, editor->m_ExportState.m_ExportLogMutex, "ERROR: game.exe/demo.exe not found! Please build the engine runtime first.");
+                        s_fAppendLogLine(editor->m_ExportState.m_ExportLogs, editor->m_ExportState.m_ExportLogMutex, "ERROR: runtime.exe/game.exe not found! Please build the engine runtime first.");
                         editor->m_ExportState.m_bExportSuccess = false;
                         editor->m_ExportState.m_bIsExporting = false;
                         return;

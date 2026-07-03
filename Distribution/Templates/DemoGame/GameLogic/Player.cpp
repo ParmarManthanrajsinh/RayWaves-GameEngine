@@ -1,5 +1,6 @@
 #include "Player.h"
 #include "DemoLevel.h"
+#include "../Engine/AssetResolver.h"
 #include <cmath>
 
 Player::Player()
@@ -28,8 +29,8 @@ void Player::Initialize(const char* TexturePath)
 
 void Player::LoadSounds()
 {
-    m_JumpSound = LoadSound("Assets/Sounds/jump.wav");
-    m_AttackSound = LoadSound("Assets/Sounds/attack.wav");
+    m_JumpSound = LoadSound(AssetResolver::Resolve("Sounds/jump.wav").c_str());
+    m_AttackSound = LoadSound(AssetResolver::Resolve("Sounds/attack.wav").c_str());
     
     std::cout << "[Player] Audio Device Ready: " << IsAudioDeviceReady() << std::endl;
     std::cout << "[Player] Jump Sound Loaded: " << (m_JumpSound.frameCount > 0) << std::endl;

@@ -1,6 +1,7 @@
 #include "DemoLevel.h"
+#include "../Engine/AssetResolver.h"
 #include <iostream>
-#include <cstring>
+#include <algorithm>
 #include <cmath>
 
 constexpr float TileSrcSize = 16.0f;
@@ -30,15 +31,15 @@ DemoLevel::~DemoLevel()
 
 void DemoLevel::Initialize()
 {
-    m_Player.Initialize("Assets/player.png");
-    m_TilesetTex = LoadTexture("Assets/tileset.png");
-    m_SlimeTexture = LoadTexture("Assets/slime.png");
-    m_SlimeDeathSound = LoadSound("Assets/Sounds/slime_death.wav");
+    m_Player.Initialize(AssetResolver::Resolve("player.png").c_str());
+    m_TilesetTex = LoadTexture(AssetResolver::Resolve("tileset.png").c_str());
+    m_SlimeTexture = LoadTexture(AssetResolver::Resolve("slime.png").c_str());
+    m_SlimeDeathSound = LoadSound(AssetResolver::Resolve("Sounds/slime_death.wav").c_str());
 
     m_BackgroundLayers.clear();
-    m_BackgroundLayers.emplace_back(LoadTexture("Assets/background_0.png"));
-    m_BackgroundLayers.emplace_back(LoadTexture("Assets/background_1.png"));
-    m_BackgroundLayers.emplace_back(LoadTexture("Assets/background_2.png"));
+    m_BackgroundLayers.emplace_back(LoadTexture(AssetResolver::Resolve("background_0.png").c_str()));
+    m_BackgroundLayers.emplace_back(LoadTexture(AssetResolver::Resolve("background_1.png").c_str()));
+    m_BackgroundLayers.emplace_back(LoadTexture(AssetResolver::Resolve("background_2.png").c_str()));
 
     Reset();
     std::cout << "[DemoLevel] Assets Loaded & Initialized" << std::endl;

@@ -1,4 +1,5 @@
 #include "DemoMainMenu.h"
+#include "../Engine/AssetResolver.h"
 #include "../Engine/MapManager.h"
 #include "../Engine/raygui.h"
 #include "../Engine/GameConfig.h"
@@ -13,7 +14,7 @@ DemoMainMenu::DemoMainMenu()
 void DemoMainMenu::Initialize()
 {
     m_TitleFont = GetFontDefault();
-    m_SelectSound = LoadSound("Assets/Sounds/menu_select.wav");
+    m_SelectSound = LoadSound(AssetResolver::Resolve("Sounds/menu_select.wav").c_str());
     
     std::cout << "[DemoMainMenu] Initialized" << std::endl;
 }

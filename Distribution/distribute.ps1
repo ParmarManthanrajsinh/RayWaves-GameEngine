@@ -25,8 +25,8 @@ if (-not (Test-Path $BuildPath)) {
     }
 }
 
-Write-Host "Building targets (game runtime, GameLogic, and editor)..." -ForegroundColor Yellow
-cmake --build $BuildPath --config $BuildConfig --target game GameLogic main
+Write-Host "Building targets (game runtime and editor)..." -ForegroundColor Yellow
+cmake --build $BuildPath --config $BuildConfig --target game main
 if ($LASTEXITCODE -ne 0) {
     throw "Build failed with exit code $LASTEXITCODE"
 }
@@ -34,11 +34,9 @@ if ($LASTEXITCODE -ne 0) {
 # Verify expected outputs exist before packaging
 $GameExe = Join-Path $BuildPath "game.exe"
 $EditorExe = Join-Path $BuildPath "main.exe"
-$LogicDll = Join-Path $BuildPath "GameLogic.dll"
 $RaylibDll = Join-Path $BuildPath "libraylib.dll"
 
 if (-not (Test-Path $GameExe)) { throw "Missing game.exe at $GameExe" }
-if (-not (Test-Path $LogicDll)) { throw "Missing GameLogic.dll at $LogicDll" }
 if (-not (Test-Path $RaylibDll)) { throw "Missing libraylib.dll at $RaylibDll" }
 
 # Create distribution directory structure
@@ -66,16 +64,15 @@ Write-Host "Copying executable and dependencies..." -ForegroundColor Yellow
 Stop-Process -Name "game" -ErrorAction SilentlyContinue
 Stop-Process -Name "editor" -ErrorAction SilentlyContinue
 
-# Copy game runtime as demo.exe
-Copy-Item "$BuildPath/game.exe" "$DistPath/demo.exe" -Force
+# Copy game runtime as hidden engine base for exports
+Copy-Item "$BuildPath/game.exe" "$DistPath/Core/runtime.exe" -Force
 
 # Optionally include the editor (rename to editor.exe)
 if (Test-Path "$BuildPath/main.exe") {
     Copy-Item "$BuildPath/main.exe" "$DistPath/editor.exe" -Force
 }
 
-# Copy GameLogic DLL to root
-Copy-Item "$BuildPath/GameLogic.dll" "$DistPath/" -Force
+
 
 # Copy static Engine library to root (needed for linking GameLogic with Zig)
 Copy-Item "$BuildPath/libEngine.a" "$DistPath/Core/" -Force
@@ -88,17 +85,11 @@ Copy-Item "$BuildPath/_deps/raylib-build/raylib/include/*.h" "$DistPath/Core/ray
 # IMPORTANT: Copy libraylib.dll to dist root so game.exe and editor.exe can find it at runtime
 Copy-Item "$BuildPath/libraylib.dll" "$DistPath/" -Force
 
-# Copy Assets folder
-Copy-Item "Assets/*" "$DistPath/Assets/" -Recurse -Force
-# Relocate EngineContent to Core
+# Copy Engine UI Assets
 New-Item -ItemType Directory -Path "$DistPath/Core/EngineContent" -Force | Out-Null
-Move-Item -Path "$DistPath/Assets/EngineContent/*" -Destination "$DistPath/Core/EngineContent/" -Force
-Remove-Item -Path "$DistPath/Assets/EngineContent" -Recurse -Force
+Copy-Item "Assets/EngineContent/*" "$DistPath/Core/EngineContent/" -Recurse -Force
 
 Write-Host "Creating development environment..." -ForegroundColor Yellow
-
-# Copy GameLogic source files
-Copy-Item "GameLogic/*" "$DistPath/GameLogic/" -Recurse -Force
 
 # Copy Engine headers and source files (needed for GameLogic development)
 Copy-Item "Engine/*.h" "$DistPath/Core/Engine/" -Force
@@ -126,6 +117,8 @@ if (Test-Path "Distribution/Templates") {
     }
 }
 
+
+
 if ($IncludeCompiler) {
     Write-Host "Bundling Zig Compiler (Zero Install)..." -ForegroundColor Yellow
     New-Item -ItemType Directory -Path "$DistPath/Core/Tools/zig" -Force | Out-Null
@@ -136,9 +129,6 @@ if ($IncludeCompiler) {
 New-Item -ItemType Directory -Path "$DistPath/Core/Tools" -Force | Out-Null
 Copy-Item "Tools/zig-c*.bat" "$DistPath/Core/Tools/" -Force
 
-# Copy build helper script
-Copy-Item "Distribution/build_gamelogic.bat" "$DistPath/" -Force
-
 # Copy default game configuration
 Copy-Item "Distribution/config.ini" "$DistPath/" -Force
 
@@ -147,16 +137,12 @@ Write-Host "Creating build configuration..." -ForegroundColor Yellow
 Write-Host "Distribution created successfully in '$DistPath'" -ForegroundColor Green
 Write-Host ""
 Write-Host "Distribution contents:" -ForegroundColor Cyan
-Write-Host "- demo.exe (standalone game runtime, no editor UI)" -ForegroundColor White
 if (Test-Path "$DistPath/editor.exe") {
     Write-Host "- editor.exe (RayWaves editor/IDE)" -ForegroundColor White
 }
-Write-Host "- GameLogic.dll (hot-reloadable game logic)" -ForegroundColor White
 Write-Host "- libraylib.dll (required at runtime)" -ForegroundColor White
 Write-Host "- config.ini (window and game settings)" -ForegroundColor White
-Write-Host "- build_gamelogic.bat (quick build helper)" -ForegroundColor White
-Write-Host "- GameLogic/ (source code for game development)" -ForegroundColor White
-Write-Host "- Assets/ (game assets)" -ForegroundColor White
+Write-Host "- Templates/ (project templates)" -ForegroundColor White
 Write-Host "- Documentation/ (user guides and documentation)" -ForegroundColor White
 Write-Host "- Core/ (engine internals)" -ForegroundColor White
 Write-Host "  - raylib/ (raylib development files)" -ForegroundColor White
