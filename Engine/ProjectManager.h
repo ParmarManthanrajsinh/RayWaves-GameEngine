@@ -18,7 +18,7 @@ public:
 
     static std::string SanitizeCMakeProjectName(std::string_view name);
 
-    static const t_Project& GetCurrent();
+    static t_Project& GetCurrent();
     static bool b_HasOpenProject();
 
     static void AddRecent(std::string_view path);

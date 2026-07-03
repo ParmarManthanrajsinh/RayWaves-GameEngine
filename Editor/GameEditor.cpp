@@ -193,7 +193,16 @@ void GameEditor::Init(int width, int height, std::string_view title)
 		m_SceneSettings.m_TargetFPS = CONFIG.scene_fps;
 	}
 
-	SetTargetFPS(60);
+	if (ProjectManager::b_HasOpenProject())
+	{
+		const auto& prj = ProjectManager::GetCurrent();
+		m_SceneSettings.m_SceneWidth = prj.m_SceneWidth;
+		m_SceneSettings.m_SceneHeight = prj.m_SceneHeight;
+		m_SceneSettings.m_TargetFPS = prj.m_TargetFPS;
+	}
+
+	SetTargetFPS(m_SceneSettings.m_TargetFPS);
+
 	m_Viewport = ImGui::GetMainViewport();
 
 	m_RaylibTexture = LoadRenderTexture
@@ -495,9 +504,10 @@ void GameEditor::OpenProject(std::string_view folderPath)
     auto& prj = ProjectManager::GetCurrent();
     m_SceneSettings.m_SceneWidth = prj.m_SceneWidth;
     m_SceneSettings.m_SceneHeight = prj.m_SceneHeight;
-    m_SceneSettings.m_TargetFPS = prj.m_TargetFPS;
+	m_SceneSettings.m_TargetFPS = prj.m_TargetFPS;
+	SetTargetFPS(m_SceneSettings.m_TargetFPS);
 
-    // 8. Update workspace layout path and load it
+	// 8. Update workspace layout path and load it
     if (ImGui::GetIO().IniFilename) 
     {
         ImGui::SaveIniSettingsToDisk(ImGui::GetIO().IniFilename);
@@ -733,6 +743,15 @@ void GameEditor::Close()
 	config.scene_height = m_SceneSettings.m_SceneHeight;
 	config.scene_fps = m_SceneSettings.m_TargetFPS;
 	GameConfig::GetInstance().m_bSaveToFile("config.ini");
+
+	if (ProjectManager::b_HasOpenProject())
+	{
+		auto& prj = ProjectManager::GetCurrent();
+		prj.m_SceneWidth = m_SceneSettings.m_SceneWidth;
+		prj.m_SceneHeight = m_SceneSettings.m_SceneHeight;
+		prj.m_TargetFPS = m_SceneSettings.m_TargetFPS;
+		ProjectManager::b_SaveCurrentProject();
+	}
 
 	if (m_RaylibTexture.id != 0)
 	{

@@ -2,6 +2,7 @@
 #include "SceneWindow.h"
 #include "../GameEditor.h"
 #include "../../Engine/MapManager.h"
+#include "../../Engine/ProjectManager.h"
 #include "../../Engine/GameEngine.h"
 #include "../ProcessRunner.h"
 
@@ -168,7 +169,11 @@ void SceneWindow::Draw(GameEditor* editor)
 	// Clean
 	if (s_bIconButton("clean_btn", ICON_FA_TRASH_CAN, ImVec2(32, 32), "Delete Build Folder"))
 	{
-		if (std::filesystem::exists("build")) std::filesystem::remove_all("build");
+		if (ProjectManager::b_HasOpenProject())
+		{
+			auto raywaves_build = std::filesystem::path(ProjectManager::GetCurrent().m_RootPath) / ".raywaves" / "build";
+			if (std::filesystem::exists(raywaves_build)) std::filesystem::remove_all(raywaves_build);
+		}
 	}
 
 	ImGui::SameLine();

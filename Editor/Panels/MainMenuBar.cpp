@@ -6,6 +6,16 @@
 #include <tinyfiledialogs.h>
 #include "../EditorUtils.h"
 
+static void SaveProjectWithSceneSettings(GameEditor* editor)
+{
+    if (!ProjectManager::b_HasOpenProject()) return;
+    auto& prj = ProjectManager::GetCurrent();
+    prj.m_SceneWidth = editor->m_SceneSettings.m_SceneWidth;
+    prj.m_SceneHeight = editor->m_SceneSettings.m_SceneHeight;
+    prj.m_TargetFPS = editor->m_SceneSettings.m_TargetFPS;
+    ProjectManager::b_SaveCurrentProject();
+}
+
 void MainMenuBar::Draw(GameEditor* editor)
 {
     if (ImGui::BeginMainMenuBar())
@@ -14,7 +24,7 @@ void MainMenuBar::Draw(GameEditor* editor)
         {
             if (ImGui::MenuItem(ICON_FA_FLOPPY_DISK " Save Project", "Ctrl+S"))
             {
-                ProjectManager::b_SaveCurrentProject();
+                SaveProjectWithSceneSettings(editor);
             }
             ImGui::Separator();
             if (ImGui::MenuItem(ICON_FA_FOLDER_OPEN " Switch Project..."))
@@ -40,7 +50,7 @@ void MainMenuBar::Draw(GameEditor* editor)
         // Global Ctrl+S shortcut (works even when menu is not focused)
         if (ImGui::IsKeyChordPressed(ImGuiMod_Ctrl | ImGuiKey_S))
         {
-            ProjectManager::b_SaveCurrentProject();
+            SaveProjectWithSceneSettings(editor);
         }
 
         if (ImGui::BeginMenu("View"))

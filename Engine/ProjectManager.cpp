@@ -176,7 +176,7 @@ bool ProjectManager::b_SaveCurrentProject()
     return s_Current.m_bSaveToFile();
 }
 
-const t_Project& ProjectManager::GetCurrent()
+t_Project& ProjectManager::GetCurrent()
 {
     return s_Current;
 }
