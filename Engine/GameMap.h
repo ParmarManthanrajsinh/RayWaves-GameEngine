@@ -13,6 +13,7 @@ protected:
     float m_SceneWidth = 0.0f;   
     float m_SceneHeight = 0.0f;  
 	int m_TargetFPS = 60;
+    std::string m_ProjectAssetPath;
 
     // Transition callback to request a map change via the manager
     std::function<void(std::string_view, bool)> m_TransitionCallback;
@@ -25,6 +26,8 @@ public:
     virtual void Initialize();
     virtual void Update(float delta_time);
     virtual void Draw();
+    
+    virtual void SetProjectAssetPath(const std::string& path);
     
     virtual void SaveState(StateBag& out) const {}
     virtual void LoadState(const StateBag& in) {}

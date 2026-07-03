@@ -1,6 +1,7 @@
 #include <iostream>
 #include "GameEngine.h"
 #include "MapManager.h"
+#include "AssetResolver.h"
 
 #define Rectangle WinAPIRectangle
 #define CloseWindow WinAPICloseWindow
@@ -20,6 +21,22 @@ GameEngine::GameEngine()
 	m_WindowTitle = "Game Window";
 }
 GameEngine::~GameEngine() = default;
+
+void GameEngine::SetViewportSize(int width, int height)
+{
+	m_ViewportWidth = width;
+	m_ViewportHeight = height;
+}
+
+int GameEngine::GetViewportWidth() const
+{
+	return m_ViewportWidth;
+}
+
+int GameEngine::GetViewportHeight() const
+{
+	return m_ViewportHeight;
+}
 
 void GameEngine::LaunchWindow(int width, int height, std::string_view title)
 {
@@ -135,6 +152,8 @@ void GameEngine::UpdateMap(float dt) const
 {
 	if (m_MapManager)
 	{
+		m_MapManager->SetSceneBounds(static_cast<float>(m_ViewportWidth), static_cast<float>(m_ViewportHeight));
+		m_MapManager->SetProjectAssetPath(AssetResolver::GetProjectAssetPath());
 		m_MapManager->Update(dt);
 	}
 	else if (m_GameMap)

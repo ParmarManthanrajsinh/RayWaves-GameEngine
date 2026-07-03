@@ -3,5 +3,5 @@
 
 namespace EditorUtils
 {
-    void OpenInExplorer(const std::filesystem::path& path);
+    bool OpenInExplorer(const std::filesystem::path& path);
 }

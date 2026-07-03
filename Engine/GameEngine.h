@@ -18,10 +18,17 @@ class GameEngine
 	
 	// MapManager instance for advanced map management
 	MapManager* m_MapManager = nullptr;
+	// Viewport size for camera logic
+	int m_ViewportWidth = 0;
+	int m_ViewportHeight = 0;
 	
 public:
     GameEngine();
     ~GameEngine();
+
+	void SetViewportSize(int width, int height);
+	int GetViewportWidth() const;
+	int GetViewportHeight() const;
 
 	void LaunchWindow(int width, int height, std::string_view title);
 	void LaunchWindow(const t_WindowConfig& config);

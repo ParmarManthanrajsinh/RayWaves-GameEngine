@@ -86,7 +86,7 @@ public:
     {
         std::atomic<bool> m_bIsExporting{false};
         std::atomic<bool> m_bCancelExport{false};
-        std::string m_ExportPath = "Export";
+        std::string m_ExportPath = "";
         std::string m_GameName = "MyGame";
 
         // Window configuration options

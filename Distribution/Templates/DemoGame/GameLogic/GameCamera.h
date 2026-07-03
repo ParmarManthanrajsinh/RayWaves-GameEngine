@@ -13,6 +13,7 @@ public:
     void ClampToBounds();
     void SetZoom(float Zoom);
     void SetMinZoom(float MinZoom);
+    void UpdateViewport(float width, float height);
     
     void Begin() const;
     void End() const;
@@ -24,6 +25,8 @@ public:
 private:
     Camera2D m_Camera;
     
+    float m_ViewportWidth;
+    float m_ViewportHeight;
     float m_BoundsLeft;
     float m_BoundsRight;
     float m_BoundsTop;

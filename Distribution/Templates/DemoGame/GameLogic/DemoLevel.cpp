@@ -122,6 +122,8 @@ void DemoLevel::LoadState(const StateBag& in)
 
 void DemoLevel::Update(float DeltaTime)
 {
+    m_Camera.UpdateViewport(m_SceneWidth, m_SceneHeight);
+
     m_Player.HandleInput(DeltaTime);
     m_Player.Update(DeltaTime);
     m_Player.ApplyGravity(DeltaTime, GRAVITY);

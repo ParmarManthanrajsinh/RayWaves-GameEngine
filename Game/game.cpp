@@ -96,6 +96,7 @@ int main()
         }
         
         float dt = GetFrameTime();
+        engine.SetViewportSize(GetScreenWidth(), GetScreenHeight());
         engine.UpdateMap(dt);
 
         BeginDrawing();

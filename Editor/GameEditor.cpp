@@ -601,6 +601,7 @@ void GameEditor::Run()
 		UpdatePerformanceMetrics();
 
 		float delta_time = GetFrameTime();
+        m_GameEngine.SetViewportSize(m_SceneSettings.m_SceneWidth, m_SceneSettings.m_SceneHeight);
 		if (b_IsPlaying)
 		{
 			m_GameEngine.UpdateMap(delta_time);

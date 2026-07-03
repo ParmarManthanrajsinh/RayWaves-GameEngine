@@ -1,5 +1,6 @@
 #include <iostream>
 #include "GameMap.h"
+#include "AssetResolver.h"
 
 GameMap::GameMap()
 	: m_MapName("DefaultMap") {}
@@ -20,6 +21,12 @@ void GameMap::Update(float delta_time)
 void GameMap::Draw()
 {
     // Drawing logic for the game map
+}
+
+void GameMap::SetProjectAssetPath(const std::string& path)
+{
+    m_ProjectAssetPath = path;
+    AssetResolver::SetProjectAssetPath(path);
 }
 
 void GameMap::SetMapName(std::string_view map_name)

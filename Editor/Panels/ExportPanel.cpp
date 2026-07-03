@@ -320,6 +320,9 @@ void ExportPanel::Draw(GameEditor* editor)
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.839f, 0.188f, 0.192f, 1.0f));
         ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.6f, 0.1f, 0.1f, 1.0f));
         
+        bool bCanExport = !editor->m_ExportState.m_ExportPath.empty();
+        if (!bCanExport) ImGui::BeginDisabled();
+        
         if (ImGui::Button(ICON_FA_PLAY " Start Export", ImVec2(button_width, 40.0f)))
         {
             editor->m_ExportState.m_bIsExporting = true;
@@ -328,6 +331,7 @@ void ExportPanel::Draw(GameEditor* editor)
             editor->m_ExportState.m_ExportLogs.clear();
 
             editor->m_ExportState.m_ExportThread = std::thread([editor]() 
+ 
             {
                 try 
                 {
@@ -406,6 +410,7 @@ void ExportPanel::Draw(GameEditor* editor)
                 
                     fs::path export_dir = fs::path(editor->m_ExportState.m_ExportPath);
                     if (export_dir.is_relative()) export_dir = fs::path(proj.m_RootPath) / export_dir;
+                    editor->m_ExportState.m_ExportPath = export_dir.string();
                     fs::create_directories(export_dir);
                     
                     std::string game_exe_name = editor->m_ExportState.m_GameName + ".exe";
@@ -493,6 +498,16 @@ void ExportPanel::Draw(GameEditor* editor)
                 }
             });
         }
+        
+        if (!bCanExport) 
+        {
+            ImGui::EndDisabled();
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+            {
+                ImGui::SetTooltip("Please select an export folder first.");
+            }
+        }
+        
         ImGui::PopStyleColor(3);
     }
     else
@@ -536,7 +551,10 @@ void ExportPanel::Draw(GameEditor* editor)
         ImGui::SetCursorPosX((window_width - btn_width) * 0.5f);
         if (ImGui::Button(btn_text))
         {
-            EditorUtils::OpenInExplorer(editor->m_ExportState.m_ExportPath);
+            if (!EditorUtils::OpenInExplorer(editor->m_ExportState.m_ExportPath))
+            {
+                s_fAppendLogLine(editor->m_ExportState.m_ExportLogs, editor->m_ExportState.m_ExportLogMutex, "ERROR: Failed to open output folder.");
+            }
         }
     }
     else if (!editor->m_ExportState.m_bIsExporting && !editor->m_ExportState.m_ExportLogs.empty() && !editor->m_ExportState.m_bIsExporting)
