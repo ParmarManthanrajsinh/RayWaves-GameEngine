@@ -13,7 +13,11 @@ using Clock = std::chrono::steady_clock;
 
 static std::string GetEngineContentPath(std::string_view sub_path)
 {
-    return std::string(GetApplicationDirectory()) + "Assets/EngineContent/" + std::string(sub_path);
+    std::filesystem::path root = ProjectManager::GetEngineRootDirectory();
+    std::filesystem::path core_path = root / "Core" / "EngineContent" / sub_path;
+    if (std::filesystem::exists(core_path))
+        return core_path.string();
+    return (root / "Assets" / "EngineContent" / sub_path).string();
 }
 
 #include "Panels/MainMenuBar.h"
@@ -144,12 +148,13 @@ void GameEditor::Init(int width, int height, std::string_view title)
 
 	std::string base_font = GetEngineContentPath("Roboto-Regular.ttf");
 	std::string mono_font = GetEngineContentPath("Consolas-Regular.ttf");
+	std::string icon_font = GetEngineContentPath("fa-solid-900.ttf");
 	if (prefs.FontFamily == "Consolas")
 	{
 		base_font = mono_font;
 	}
 
-	SetEngineTheme(*selected_preset, prefs.GuiScale, base_font, mono_font);
+	SetEngineTheme(*selected_preset, prefs.GuiScale, base_font, mono_font, icon_font);
 
     // Layout persistence
 	std::filesystem::path dir = std::filesystem::path(EditorPreferences::GetInstance().GetConfigPath()).parent_path();
@@ -505,6 +510,32 @@ void GameEditor::OpenProject(std::string_view folderPath)
     }
 }
 
+void GameEditor::CleanupProject()
+{
+	m_GameEngine.SetMap(nullptr);
+	m_GameEngine.SetMapManager(nullptr);
+	if (m_DestroyGameMap && m_MapManager)
+	{
+		m_DestroyGameMap(m_MapManager);
+	}
+	m_MapManager = nullptr;
+	if (m_GameLogicDll.handle)
+	{
+		UnloadDll(m_GameLogicDll);
+		m_GameLogicDll = {};
+		m_CreateGameMap = nullptr;
+		m_DestroyGameMap = nullptr;
+	}
+	m_GameLogicPath = "";
+}
+
+void GameEditor::CloseProject()
+{
+	CleanupProject();
+	ProjectManager::CloseProject();
+	SetWindowTitle("RayWaves");
+}
+
 void GameEditor::Run()
 {
 	while (!WindowShouldClose())
@@ -512,21 +543,7 @@ void GameEditor::Run()
 		if (!ProjectManager::b_HasOpenProject())
 		{
 			// Cleanup current project state before opening browser
-			m_GameEngine.SetMap(nullptr);
-			m_GameEngine.SetMapManager(nullptr);
-			if (m_DestroyGameMap && m_MapManager)
-			{
-				m_DestroyGameMap(m_MapManager);
-			}
-			m_MapManager = nullptr;
-			if (m_GameLogicDll.handle)
-			{
-				UnloadDll(m_GameLogicDll);
-				m_GameLogicDll = {};
-				m_CreateGameMap = nullptr;
-				m_DestroyGameMap = nullptr;
-			}
-			m_GameLogicPath = "";
+			CleanupProject();
 			
 			// Show browser
 			RunBrowser();
@@ -649,11 +666,12 @@ void GameEditor::Run()
 			
 			std::string base_font = GetEngineContentPath("Roboto-Regular.ttf");
 			std::string mono_font = GetEngineContentPath("Consolas-Regular.ttf");
+			std::string icon_font = GetEngineContentPath("fa-solid-900.ttf");
 			if (prefs.FontFamily == "Consolas")
 			{
 				base_font = mono_font;
 			}
-			SetEngineTheme(*selected_preset, prefs.GuiScale, base_font, mono_font);
+			SetEngineTheme(*selected_preset, prefs.GuiScale, base_font, mono_font, icon_font);
 		}
 
 		if (m_bNeedsLayoutReset)

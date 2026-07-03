@@ -76,3 +76,7 @@ You can tweak how the distribution is built by editing `Distribution/distribute.
 ---
 
 *Now go share your engine with the world! 🌍*
+
+### About demo.exe
+
+demo.exe is a standalone runtime provided for developers to quickly test their GameLogic.dll without opening the editor. It is NOT intended to be shipped to end-users as your final game. To export your finished game for players, use the 'Export Game' feature within the Editor UI, which will automatically bundle the required runtime specifically for your project.

@@ -27,8 +27,7 @@ void MainMenuBar::Draw(GameEditor* editor)
             }
             if (ImGui::MenuItem(ICON_FA_XMARK " Close Project"))
             {
-                ProjectManager::CloseProject();
-                SetWindowTitle("RayWaves");
+                editor->CloseProject();
             }
             ImGui::Separator();
             if (ImGui::MenuItem(ICON_FA_FOLDER_OPEN " Open Project Folder", nullptr, false, ProjectManager::b_HasOpenProject()))

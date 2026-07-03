@@ -12,7 +12,7 @@ DemoMainMenu::DemoMainMenu()
 
 void DemoMainMenu::Initialize()
 {
-    m_TitleFont = LoadFontEx("Assets/EngineContent/Roboto-Regular.ttf", 64, 0, 0);
+    m_TitleFont = GetFontDefault();
     m_SelectSound = LoadSound("Assets/Sounds/menu_select.wav");
     
     std::cout << "[DemoMainMenu] Initialized" << std::endl;

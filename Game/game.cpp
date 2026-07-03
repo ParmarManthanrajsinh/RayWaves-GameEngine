@@ -61,7 +61,8 @@ int main()
     GameEngine engine;
     engine.LaunchWindow(config.GetWindowConfig());
     
-    Image icon = LoadImage("Assets/EngineContent/icon.png");
+    Image icon = LoadImage("Core/EngineContent/icon.png");
+    if (icon.width == 0) icon = LoadImage("Assets/EngineContent/icon.png");
     SetWindowIcon(icon);
     UnloadImage(icon);
     

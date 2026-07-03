@@ -9,7 +9,7 @@
 
 namespace fs = std::filesystem;
 
-static fs::path GetEngineRootDirectory()
+fs::path ProjectManager::GetEngineRootDirectory()
 {
     char exe_path[MAX_PATH];
     GetModuleFileNameA(NULL, exe_path, MAX_PATH);
@@ -152,10 +152,6 @@ bool ProjectManager::b_CreateProject(std::string_view target_folder, std::string
     try
     {
         fs::copy(template_dir, target_path, fs::copy_options::recursive);
-
-        // Older distributions may contain a generated CMake build tree. Its cache
-        // stores absolute paths from the machine that packaged the template.
-        fs::remove_all(target_path / ".raywaves" / "build");
         
         // Rewrite the manifest name
         std::string manifest_path = (target_path / "project.raywaves").string();

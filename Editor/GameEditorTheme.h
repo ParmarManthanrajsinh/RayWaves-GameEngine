@@ -69,7 +69,8 @@ inline void SetEngineTheme
     const FThemePreset& preset = GetThemePresets()[0],
     float gui_scale = 1.0f,
     std::string_view base_font_path = "Assets/EngineContent/Roboto-Regular.ttf",
-    std::string_view mono_font_path = "Assets/EngineContent/Consolas-Regular.ttf"
+    std::string_view mono_font_path = "Assets/EngineContent/Consolas-Regular.ttf",
+    std::string_view icon_font_path = "Assets/EngineContent/fa-solid-900.ttf"
 )
 {
     ImGuiIO& io = ImGui::GetIO();
@@ -106,7 +107,7 @@ inline void SetEngineTheme
     icons_config.Flags |= ImFontFlags_NoLoadError;
 
     static const ImWchar icons_ranges[] = { ICON_MIN_FA, ICON_MAX_FA, 0 };
-    std::string icon_path = "Assets/EngineContent/" FONT_ICON_FILE_NAME_FAS;
+    std::string icon_path = std::string(icon_font_path);
     if (std::filesystem::exists(icon_path))
     {
         io.Fonts->AddFontFromFileTTF(icon_path.c_str(), 17.0f * gui_scale, &icons_config, icons_ranges);

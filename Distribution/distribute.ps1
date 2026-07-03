@@ -66,8 +66,8 @@ Write-Host "Copying executable and dependencies..." -ForegroundColor Yellow
 Stop-Process -Name "game" -ErrorAction SilentlyContinue
 Stop-Process -Name "editor" -ErrorAction SilentlyContinue
 
-# Copy game runtime as game.exe
-Copy-Item "$BuildPath/game.exe" "$DistPath/game.exe" -Force
+# Copy game runtime as demo.exe
+Copy-Item "$BuildPath/game.exe" "$DistPath/demo.exe" -Force
 
 # Optionally include the editor (rename to editor.exe)
 if (Test-Path "$BuildPath/main.exe") {
@@ -90,6 +90,10 @@ Copy-Item "$BuildPath/libraylib.dll" "$DistPath/" -Force
 
 # Copy Assets folder
 Copy-Item "Assets/*" "$DistPath/Assets/" -Recurse -Force
+# Relocate EngineContent to Core
+New-Item -ItemType Directory -Path "$DistPath/Core/EngineContent" -Force | Out-Null
+Move-Item -Path "$DistPath/Assets/EngineContent/*" -Destination "$DistPath/Core/EngineContent/" -Force
+Remove-Item -Path "$DistPath/Assets/EngineContent" -Recurse -Force
 
 Write-Host "Creating development environment..." -ForegroundColor Yellow
 
@@ -111,9 +115,15 @@ Copy-Item "Documentation/DISTRIBUTION_GUIDE.md" "$DistPath/Documentation/" -Forc
 if (Test-Path "Distribution/Templates") {
     Write-Host "Copying Project Templates..." -ForegroundColor Yellow
     Copy-Item "Distribution/Templates" "$DistPath/" -Recurse -Force
-    Get-ChildItem "$DistPath/Templates" -Directory -Recurse -Force |
-        Where-Object { $_.Name -eq "build" -and $_.Parent.Name -eq ".raywaves" } |
-        Remove-Item -Recurse -Force
+    # Strip local build artifacts and .raywaves folders
+    $ExcludedItems = Get-ChildItem -Path "$DistPath/Templates" -Recurse -Include *.dll,*.pdb,*.lib,*.obj,.raywaves -Force
+    if ($ExcludedItems) {
+        Write-Host "Warning: Found and removed local build artifacts/caches from templates during packaging:" -ForegroundColor Yellow
+        foreach ($item in $ExcludedItems) {
+            Write-Host "  Removing: $($item.FullName)" -ForegroundColor Yellow
+            Remove-Item -Path $item.FullName -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
 }
 
 if ($IncludeCompiler) {
@@ -137,7 +147,10 @@ Write-Host "Creating build configuration..." -ForegroundColor Yellow
 Write-Host "Distribution created successfully in '$DistPath'" -ForegroundColor Green
 Write-Host ""
 Write-Host "Distribution contents:" -ForegroundColor Cyan
-Write-Host "- game.exe (RayWaves game engine/editor)" -ForegroundColor White
+Write-Host "- demo.exe (standalone game runtime, no editor UI)" -ForegroundColor White
+if (Test-Path "$DistPath/editor.exe") {
+    Write-Host "- editor.exe (RayWaves editor/IDE)" -ForegroundColor White
+}
 Write-Host "- GameLogic.dll (hot-reloadable game logic)" -ForegroundColor White
 Write-Host "- libraylib.dll (required at runtime)" -ForegroundColor White
 Write-Host "- config.ini (window and game settings)" -ForegroundColor White

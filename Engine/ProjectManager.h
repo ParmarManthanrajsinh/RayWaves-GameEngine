@@ -1,12 +1,15 @@
 #pragma once
 #include "Project.h"
 #include <string>
+#include <filesystem>
 #include <string_view>
 #include <vector>
 
 class ProjectManager 
 {
 public:
+    static std::filesystem::path GetEngineRootDirectory();
+
     static bool b_OpenProject(std::string_view folder_path);
     static void CloseProject();
     static bool b_CreateProject(std::string_view target_folder, std::string_view template_name = "Empty");
