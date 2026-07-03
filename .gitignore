@@ -1,14 +1,18 @@
 *.exe
 *.dsym
-main
-build
 .vscode
 .vs
 .json
-out
-dist
 .agents
+.zed
+.clangd
+.clang-format
 skills-lock.json
+main
+build
+dist
+out
+/.cache
 /Tools/zig/
 
 # Build artifacts in project templates (compiled during development, shouldn't be tracked)

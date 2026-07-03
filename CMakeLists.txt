@@ -2,32 +2,32 @@ cmake_minimum_required(VERSION 3.10)
 
 # Check and auto-fetch Zig if necessary before compiler detection runs
 if(CMAKE_C_COMPILER MATCHES "zig-cc" OR CMAKE_CXX_COMPILER MATCHES "zig-cxx")
-    if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/Tools/zig/zig.exe")
-        message(STATUS "Zig toolchain not found. Auto-fetching...")
-        execute_process(
+  if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/Tools/zig/zig.exe")
+    message(STATUS "Zig toolchain not found. Auto-fetching...")
+    execute_process(
             COMMAND powershell -ExecutionPolicy Bypass -File "${CMAKE_CURRENT_SOURCE_DIR}/Tools/setup_zig.ps1" -SkipRcEdit
             WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
             RESULT_VARIABLE ZIG_FETCH_RESULT
         )
-        if(NOT ZIG_FETCH_RESULT EQUAL 0)
-            message(FATAL_ERROR "Failed to download Zig.")
-        endif()
+    if(NOT ZIG_FETCH_RESULT EQUAL 0)
+      message(FATAL_ERROR "Failed to download Zig.")
     endif()
+  endif()
 endif()
 
 project(RayWaves)
 
 # Auto-fetch rcedit if missing
 if(NOT EXISTS "${CMAKE_SOURCE_DIR}/Tools/rcedit.exe")
-    message(STATUS "rcedit not found. Auto-fetching...")
-    execute_process(
+  message(STATUS "rcedit not found. Auto-fetching...")
+  execute_process(
         COMMAND powershell -ExecutionPolicy Bypass -File "${CMAKE_SOURCE_DIR}/Tools/setup_zig.ps1" -SkipZig
         WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
         RESULT_VARIABLE RCEDIT_FETCH_RESULT
     )
-    if(NOT RCEDIT_FETCH_RESULT EQUAL 0)
-        message(FATAL_ERROR "Failed to download rcedit.")
-    endif()
+  if(NOT RCEDIT_FETCH_RESULT EQUAL 0)
+    message(FATAL_ERROR "Failed to download rcedit.")
+  endif()
 endif()
 
 
@@ -36,15 +36,12 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# Enable multi-processor compilation for MSVC (drastically speeds up Visual Studio builds)
-if(MSVC)
-    add_compile_options(/MP)
-endif()
-
 # add_compile_options(/fsanitize=address)
 # add_link_options(/fsanitize=address)
 
 add_compile_options(-msse4.2)
+add_compile_options(-fno-sanitize=all)
+add_compile_options(-Qunused-arguments)
 add_compile_definitions(IMGUI_DISABLE_SSE)
 
 # Always build raylib from source as a SHARED library so EXE and GameLogic share the same RLGL state
@@ -57,7 +54,15 @@ FetchContent_Declare(
     URL https://github.com/raysan5/raylib/archive/refs/tags/6.0.tar.gz
     DOWNLOAD_EXTRACT_TIMESTAMP True
 )
+set(CMAKE_C_FLAGS_BACKUP "${CMAKE_C_FLAGS}")
+set(CMAKE_CXX_FLAGS_BACKUP "${CMAKE_CXX_FLAGS}")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -w -Wno-unused-command-line-argument")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -w -Wno-unused-command-line-argument")
 FetchContent_MakeAvailable(raylib)
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS_BACKUP}")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS_BACKUP}")
+unset(CMAKE_C_FLAGS_BACKUP)
+unset(CMAKE_CXX_FLAGS_BACKUP)
 
 # Collect source files
 # Explicitly list Game sources for the editor to avoid pulling in game-only main
@@ -71,9 +76,9 @@ file(GLOB EDITOR_SRC_CPP  CONFIGURE_DEPENDS "Editor/*.cpp" "Editor/terminal/*.cp
 # rlImGui and ImGui sources
 set(RLIMGUI_SRC Editor/rlImGui/rlImGui.cpp)
 set(
-    IMGUI_SRC Editor/imgui/imgui.cpp 
-    Editor/imgui/imgui_draw.cpp 
-    Editor/imgui/imgui_tables.cpp 
+    IMGUI_SRC Editor/imgui/imgui.cpp
+    Editor/imgui/imgui_draw.cpp
+    Editor/imgui/imgui_tables.cpp
     Editor/imgui/imgui_widgets.cpp
     Editor/imgui/imgui_stdlib.cpp
 )
@@ -81,13 +86,13 @@ set(TINYFILEDIALOGS Editor/tinyfiledialogs/tinyfiledialogs.c)
 
 # Copy assets to the build directory
 if(EXISTS "${CMAKE_SOURCE_DIR}/Assets")
-    file(COPY ${CMAKE_SOURCE_DIR}/Assets DESTINATION ${CMAKE_BINARY_DIR})
+  file(COPY ${CMAKE_SOURCE_DIR}/Assets DESTINATION ${CMAKE_BINARY_DIR})
 endif()
 
 # Build Engine as a static library so both main and GameLogic can link to it
 add_library(Engine STATIC ${ENGINE_SRC_CPP})
 # Expose Engine headers and link raylib publicly so consumers inherit include dirs/libs
-target_include_directories(Engine PUBLIC 
+target_include_directories(Engine PUBLIC
     ${CMAKE_SOURCE_DIR}/Engine
 )
 target_link_libraries(Engine PUBLIC raylib)
@@ -99,17 +104,17 @@ file(GLOB GAMELOGIC_SRC_CPP CONFIGURE_DEPENDS "GameLogic/*.cpp")
 add_library(GameLogic SHARED ${GAMELOGIC_SRC_CPP})
 set_target_properties(GameLogic PROPERTIES PREFIX "")
 # GameLogic needs Engine headers and linkage (for GameMap symbols)
-target_include_directories(GameLogic PRIVATE 
+target_include_directories(GameLogic PRIVATE
     ${CMAKE_SOURCE_DIR}/Engine
     ${CMAKE_SOURCE_DIR}/GameLogic
 )
 target_link_libraries(GameLogic PRIVATE Engine)
 
 add_executable(main WIN32
-    ${GAME_SRC_CPP} 
-    ${EDITOR_SRC_CPP} 
-    ${RLIMGUI_SRC} 
-    ${IMGUI_SRC} 
+    ${GAME_SRC_CPP}
+    ${EDITOR_SRC_CPP}
+    ${RLIMGUI_SRC}
+    ${IMGUI_SRC}
     ${TINYFILEDIALOGS}
 )
 target_link_options(main PRIVATE -Wl,--subsystem,windows)
@@ -118,9 +123,9 @@ add_custom_command(TARGET main POST_BUILD
     COMMAND ${CMAKE_SOURCE_DIR}/Tools/rcedit.exe $<TARGET_FILE:main> --set-icon ${CMAKE_SOURCE_DIR}/Assets/EngineContent/icon.ico
 )
 # Add include directories for the main executable
-target_include_directories(main PRIVATE 
-    ${CMAKE_SOURCE_DIR}/Editor/imgui 
-    ${CMAKE_SOURCE_DIR}/Editor/rlImGui 
+target_include_directories(main PRIVATE
+    ${CMAKE_SOURCE_DIR}/Editor/imgui
+    ${CMAKE_SOURCE_DIR}/Editor/rlImGui
     ${CMAKE_SOURCE_DIR}/Editor/tinyfiledialogs
     ${CMAKE_SOURCE_DIR}/Engine
     ${CMAKE_SOURCE_DIR}/Editor

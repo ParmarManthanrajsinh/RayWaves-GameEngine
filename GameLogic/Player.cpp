@@ -4,13 +4,16 @@
 #include <cmath>
 
 Player::Player()
-    : m_Position{ 0, 0 }
+    : m_Texture{}
+    , m_Position{ 0, 0 }
     , m_Velocity{ 0, 0 }
     , m_bIsGrounded(false)
     , m_bFacingRight(true)
     , m_bIsAttacking(false)
     , m_AttackTimer(0.0f)
     , m_AttackFrame(0)
+    , m_JumpSound{}
+    , m_AttackSound{}
 {
 }
 

@@ -45,7 +45,7 @@ void DemoMainMenu::Update(float DeltaTime)
         else if (m_SelectedOption == OPTION_EXIT)
         {
             std::cout << "Exit Requested" << std::endl;
-            CloseWindow();
+            RequestExit();
         }
     }
 }

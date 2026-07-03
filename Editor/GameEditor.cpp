@@ -67,6 +67,14 @@ GameEditor::GameEditor()
 
 GameEditor::~GameEditor()
 {
+	m_ThreadCancelFlag->store(true);
+
+	// Join export thread before destroying its state
+	if (m_ExportState.m_ExportThread.joinable())
+	{
+		m_ExportState.m_ExportThread.join();
+	}
+
 	/* 
 		Ensure any GameMap instance(potentially from the DLL) is destroyed
 		BEFORE unloading the DLL, otherwise vtable/function code may be gone
@@ -540,6 +548,9 @@ void GameEditor::Run()
 {
 	while (!WindowShouldClose())
 	{
+		// Clean exit requested from DLL callback
+		if (m_bCloseRequested) CloseWindow();
+
 		if (!ProjectManager::b_HasOpenProject())
 		{
 			// Cleanup current project state before opening browser
@@ -715,7 +726,7 @@ void GameEditor::Run()
 	Close();
 }
 
-void GameEditor::Close() const
+void GameEditor::Close()
 {
 	t_WindowConfig& config = GameConfig::GetInstance().GetWindowConfig();
 	config.scene_width = m_SceneSettings.m_SceneWidth;
@@ -723,11 +734,16 @@ void GameEditor::Close() const
 	config.scene_fps = m_SceneSettings.m_TargetFPS;
 	GameConfig::GetInstance().m_bSaveToFile("config.ini");
 
-	UnloadRenderTexture(m_RaylibTexture);
+	if (m_RaylibTexture.id != 0)
+	{
+		UnloadRenderTexture(m_RaylibTexture);
+		m_RaylibTexture.id = 0;
+	}
 
 	if (m_DisplayTexture.id != 0)
 	{
 		UnloadRenderTexture(m_DisplayTexture);
+		m_DisplayTexture.id = 0;
 	}
 
 	rlImGuiShutdown();
@@ -872,6 +888,11 @@ bool GameEditor::b_LoadGameLogic(std::string_view dll_path)
 		m_GameEngine.SetMap(new_map);
 		m_MapManager = nullptr; // No MapManager available
 	}
+
+	new_map->SetExitCallback([this]()
+	{
+		m_bCloseRequested = true;
+	});
 
 	// Update watched timestamp 
 	// (watch the original DLL path, not the shadow)
@@ -1032,22 +1053,25 @@ void GameEditor::CompileGameLogic()
     
     m_Terminal.add_text("Executing: " + buildCmd, term::Severity::Debug);
     
+    auto cancel = m_ThreadCancelFlag;
     ProcessRunner::RunBuildCommand
     (
         buildCmd.c_str(),
-        [this](std::string_view line, bool isError) 
+        [this, cancel](std::string_view line, bool isError) 
         {
+            if (cancel->load()) return;
             ParseBuildLine(line);
             m_Terminal.add_text(line, isError ? term::Severity::Error : term::Severity::Debug);
         },
-        [this](bool success) 
+        [this, cancel](bool success) 
         {
+            if (cancel->load()) return;
             if (success) 
             {
                 m_Terminal.add_text("Build Successful.", term::Severity::Debug);
                 BuildStatus = EBuildStatus::Success;
                 NotificationTimer = 4.0f;
-				m_bNeedsReload = true; // Trigger reload after build completes
+				m_bNeedsReload = true;
             } 
             else 
             {

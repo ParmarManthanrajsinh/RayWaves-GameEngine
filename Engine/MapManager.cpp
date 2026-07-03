@@ -35,6 +35,14 @@ void MapManager::Initialize()
             }
         );
 
+        m_CurrentMap->SetExitCallback
+        (
+            [this]()
+            {
+                this->RequestExit();
+            }
+        );
+
         m_CurrentMap->Initialize();
         std::cout << "[MapManager] Successfully initialized with map: '" << m_CurrentMapId << "'" << "\n";
     }
@@ -218,6 +226,15 @@ bool MapManager::b_GotoMap(std::string_view map_id, bool force_reload)
                     this->b_GotoMap(std::string(id), force);
                 }
             );
+
+            m_CurrentMap->SetExitCallback
+            (
+                [this]()
+                {
+                    this->RequestExit();
+                }
+            );
+
             m_CurrentMap->Initialize();
         }
 

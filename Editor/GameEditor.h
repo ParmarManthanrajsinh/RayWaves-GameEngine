@@ -62,6 +62,7 @@ public:
     void CleanupProject();
     GameEngine& GetGameEngine() { return m_GameEngine; }
     MapManager* GetMapManager() { return m_MapManager; }
+    std::shared_ptr<std::atomic<bool>> GetThreadCancelFlag() const { return m_ThreadCancelFlag; }
     term::Terminal& GetTerminal() { return m_Terminal; }
     
     bool IsWindowResized() const { return b_ResolutionChanged; } // Or ImGui function if needed
@@ -128,7 +129,7 @@ public:
     std::string m_SelectedMapId;
 
 private:
-    void Close() const;
+    void Close();
 
     GameEngine m_GameEngine;
     ImGuiViewport* m_Viewport;
@@ -158,4 +159,7 @@ private:
 
     // UI Panels
     std::vector<std::unique_ptr<class IEditorPanel>> m_Panels;
+
+    bool m_bCloseRequested = false;
+    std::shared_ptr<std::atomic<bool>> m_ThreadCancelFlag = std::make_shared<std::atomic<bool>>(false);
 };

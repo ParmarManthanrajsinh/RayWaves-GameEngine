@@ -333,9 +333,12 @@ void ExportPanel::Draw(GameEditor* editor)
             editor->m_ExportState.m_bExportSuccess = false;
             editor->m_ExportState.m_ExportLogs.clear();
 
-            editor->m_ExportState.m_ExportThread = std::thread([editor]() 
+            auto cancel = editor->GetThreadCancelFlag();
+            editor->m_ExportState.m_ExportThread = std::thread([editor, cancel]() 
  
             {
+                if (cancel->load()) return;
+
                 try 
                 {
                     if (!ProjectManager::b_HasOpenProject())
@@ -345,6 +348,8 @@ void ExportPanel::Draw(GameEditor* editor)
                         editor->m_ExportState.m_bIsExporting = false;
                         return;
                     }
+
+                    if (cancel->load()) return;
 
                     fs::create_directories(editor->m_ExportState.m_ExportPath);
                     s_fAppendLogLine(editor->m_ExportState.m_ExportLogs, editor->m_ExportState.m_ExportLogMutex, "Starting export process...");

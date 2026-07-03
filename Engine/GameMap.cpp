@@ -69,6 +69,23 @@ void GameMap::SetTransitionCallback
     m_TransitionCallback = std::move(cb);
 }
 
+void GameMap::SetExitCallback(std::function<void()> cb)
+{
+    m_ExitCallback = std::move(cb);
+}
+
+void GameMap::RequestExit()
+{
+    if (m_ExitCallback)
+    {
+        m_ExitCallback();
+    }
+    else
+    {
+        std::cerr << "Exit callback not set!\n";
+    }
+}
+
 void GameMap::RequestGotoMap(std::string_view map_id, bool force_reload)
 {
     if (m_TransitionCallback)

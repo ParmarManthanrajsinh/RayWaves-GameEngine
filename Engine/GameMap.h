@@ -18,6 +18,9 @@ protected:
     // Transition callback to request a map change via the manager
     std::function<void(std::string_view, bool)> m_TransitionCallback;
 
+    // Exit callback so DLL can request shutdown without calling CloseWindow() directly
+    std::function<void()> m_ExitCallback;
+
 public:
     GameMap(); 
     GameMap(std::string_view map_name);
@@ -46,7 +49,12 @@ public:
         std::function<void(std::string_view, bool)> cb
     );
 
+    void SetExitCallback(std::function<void()> cb);
+
 protected:
     // Helper maps can call to request a transition (executes callback if provided)
     void RequestGotoMap(std::string_view map_id, bool force_reload = false);
+
+    // Helper maps can call to request shutdown (executes callback if provided)
+    void RequestExit();
 };

@@ -1,5 +1,4 @@
 #include <iostream>
-#include <format>
 #include "GameEditor.h"
 #include "GameEngine.h"
 #include "GameMap.h"
@@ -27,13 +26,13 @@ int main(int argc, char** argv)
     std::cout << "Game Engine Starting..." << "\n";
     GameEditor editor;
     editor.Init(1280,720,"RayWaves");
-    
+
     // Load logic DLL if a project was opened from command line
     if (ProjectManager::b_HasOpenProject())
     {
         editor.b_LoadGameLogic(ProjectManager::GetCurrent().m_DllPath);
     }
-    
+
     editor.Run();
     return 0;
 }

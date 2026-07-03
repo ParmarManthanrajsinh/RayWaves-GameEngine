@@ -41,7 +41,7 @@ namespace term
 
     Terminal::~Terminal() 
     {
-        // Ensure proper cleanup
+        m_ThreadCancelFlag->store(true);
         Shutdown();
     }
     
@@ -531,15 +531,14 @@ namespace term
 
 
         // Async execution for system commands
-        // Use shared_from_this pattern by capturing 'this' and checking shutdown flag
+        // Capture shared cancel flag so thread can check it even after Terminal destruction
+        auto cancel = m_ThreadCancelFlag;
         std::thread
         (
-            [this, command_str]() 
+            [this, cancel, command_str]() 
             {
-                // Early exit if terminal is shutting down
-                if (is_shutting_down()) return;
+                if (cancel->load()) return;
                 
-                // Execute in project directory if a project is open
                 std::string full_cmd = command_str + " 2>&1";
                 if (ProjectManager::b_HasOpenProject())
                 {
@@ -551,11 +550,12 @@ namespace term
 
                 if (!pipe)
                 {
-                    if (!is_shutting_down())
+                    if (!cancel->load())
                     {
                         char error_msg[256];
                         strerror_s(error_msg, sizeof(error_msg), errno);
-                        this->add_text(std::string("Failed to start command: ") + error_msg, Severity::Error);
+                        if (!cancel->load())
+                            this->add_text(std::string("Failed to start command: ") + error_msg, Severity::Error);
                     }
                     return;
                 }
@@ -563,21 +563,19 @@ namespace term
                 char buffer[128];
                 while (fgets(buffer, sizeof(buffer), pipe)) 
                 {
-                    // Check if terminal is shutting down
-                    if (is_shutting_down()) 
+                    if (cancel->load()) 
                     {
                         _pclose(pipe);
                         return;
                     }
                     
-                    // Remove newline
                     std::string res(buffer);
                     while (!res.empty() && (res.back() == '\n' || res.back() == '\r')) 
                     {
                         res.pop_back();
                     }
                     
-                    if (!is_shutting_down())
+                    if (!cancel->load())
                     {
                         this->add_text(res, Severity::Debug);
                     }
@@ -585,7 +583,7 @@ namespace term
                 
                 int return_code = _pclose(pipe);
 
-                if (!is_shutting_down())
+                if (!cancel->load())
                 {
                     if (return_code != 0) 
                     {
@@ -595,7 +593,8 @@ namespace term
                              std::to_string(return_code), 
                              Severity::Warn
                          );
-                    } else 
+                    }
+                    else 
                     {
                          this->add_text("Command finished.", Severity::Debug);
                     }

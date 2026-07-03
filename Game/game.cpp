@@ -84,6 +84,8 @@ int main()
     auto map = s_fLoadGameLogic("GameLogic.dll", game_logic_handle);
     if (map)
     {
+        GameMap* raw_map = map;
+        raw_map->SetExitCallback([]() { CloseWindow(); });
         engine.SetMap(std::move(map));
     }
     else

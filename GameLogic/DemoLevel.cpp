@@ -105,9 +105,9 @@ inline Rectangle DemoLevel::GetTileRect(int32_t Col, int32_t Row) const
 
 inline int32_t DemoLevel::PseudoRandom(int32_t X, int32_t Seed) const
 {
-    int32_t Hash = X * 374761393 + Seed * 668265263;
-    Hash = (Hash ^ (Hash >> 13)) * 1274126177;
-    return Hash ^ (Hash >> 16);
+    uint32_t Hash = static_cast<uint32_t>(X) * 374761393u + static_cast<uint32_t>(Seed) * 668265263u;
+    Hash = (Hash ^ (Hash >> 13)) * 1274126177u;
+    return static_cast<int32_t>(Hash ^ (Hash >> 16));
 }
 
 void DemoLevel::SaveState(StateBag& out) const
