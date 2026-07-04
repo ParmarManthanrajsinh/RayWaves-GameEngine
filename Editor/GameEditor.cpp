@@ -553,6 +553,9 @@ void GameEditor::CloseProject()
 {
 	CleanupProject();
 	ProjectManager::CloseProject();
+	m_SceneSettings.m_SceneWidth = 1280;
+	m_SceneSettings.m_SceneHeight = 720;
+	m_SceneSettings.m_TargetFPS = 60;
 	SetWindowTitle("RayWaves");
 }
 

@@ -9,10 +9,19 @@
 void SceneSettingsPanel::Draw(GameEditor* editor)
 {
 	SCOPED_TIMER("panel_scene_settings");
-	if (!editor->m_bShowSceneSettings)
-	{
-		return;
-	}
+
+    bool b_now_visible = editor->m_bShowSceneSettings;
+    if (b_now_visible && !m_bPanelVisibleLastFrame)
+    {
+        m_PrevWidth = editor->m_SceneSettings.m_SceneWidth;
+        m_PrevHeight = editor->m_SceneSettings.m_SceneHeight;
+        m_PrevTargetFPS = editor->m_SceneSettings.m_TargetFPS;
+    }
+    m_bPanelVisibleLastFrame = b_now_visible;
+    if (!b_now_visible)
+    {
+        return;
+    }
     
     ImGuiStyle& style = ImGui::GetStyle();
     ImGuiDir old_menu_pos = style.WindowMenuButtonPosition;
@@ -26,14 +35,6 @@ void SceneSettingsPanel::Draw(GameEditor* editor)
     {
         ImGui::End();
         return;
-    }
-
-    if (!m_bInitialized)
-    {
-        m_PrevWidth = editor->m_SceneSettings.m_SceneWidth;
-        m_PrevHeight = editor->m_SceneSettings.m_SceneHeight;
-        m_PrevTargetFPS = editor->m_SceneSettings.m_TargetFPS;
-        m_bInitialized = true;
     }
 
     ImGui::Spacing();

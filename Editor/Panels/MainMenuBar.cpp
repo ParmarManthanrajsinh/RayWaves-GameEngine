@@ -65,7 +65,10 @@ void MainMenuBar::Draw(GameEditor* editor)
 
         if (ImGui::BeginMenu("Settings"))
         {
-            ImGui::MenuItem(ICON_FA_GEARS " Scene Settings", nullptr, &editor->m_bShowSceneSettings);
+            if (ProjectManager::b_HasOpenProject())
+            {
+                ImGui::MenuItem(ICON_FA_GEARS " Scene Settings", nullptr, &editor->m_bShowSceneSettings);
+            }
             ImGui::MenuItem(ICON_FA_SLIDERS " Editor Preferences", nullptr, &editor->m_bShowEditorPreferences);
             ImGui::EndMenu();
         }

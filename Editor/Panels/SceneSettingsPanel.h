@@ -13,5 +13,5 @@ private:
     int m_PrevWidth = 0;
     int m_PrevHeight = 0;
     int m_PrevTargetFPS = 0;
-    bool m_bInitialized = false;
+    bool m_bPanelVisibleLastFrame = false;
 };
