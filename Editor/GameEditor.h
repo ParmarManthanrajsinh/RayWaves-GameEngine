@@ -86,7 +86,6 @@ public:
     struct m_tExportState 
     {
         std::atomic<bool> m_bIsExporting{false};
-        std::atomic<bool> m_bCancelExport{false};
         std::string m_ExportPath = "";
         std::string m_GameName = "MyGame";
 

@@ -327,7 +327,7 @@ void ExportPanel::Draw(GameEditor* editor)
         if (ImGui::Button(ICON_FA_PLAY " Start Export", ImVec2(button_width, 40.0f)))
         {
             editor->m_ExportState.m_bIsExporting = true;
-            editor->m_ExportState.m_bCancelExport = false;
+
             editor->m_ExportState.m_bExportSuccess = false;
             editor->m_ExportState.m_ExportLogs.clear();
 
@@ -535,18 +535,7 @@ void ExportPanel::Draw(GameEditor* editor)
         
         ImGui::Spacing();
         
-        float cancel_width = 100.0f;
-        ImGui::SetCursorPosX((window_width - cancel_width) * 0.5f);
-        
-        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.7f, 0.3f, 0.3f, 1.0f));
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.8f, 0.4f, 0.4f, 1.0f));
-        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.6f, 0.2f, 0.2f, 1.0f));
-        
-        if (ImGui::Button("Cancel", ImVec2(cancel_width, 30.0f)))
-        {
-            editor->m_ExportState.m_bCancelExport = true; 
-        }
-        ImGui::PopStyleColor(3);
+
     }
 
     ImGui::Spacing();
