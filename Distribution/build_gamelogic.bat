@@ -7,11 +7,11 @@ echo Building GameLogic.dll...
 set ZIG_COMPILER=
 
 if exist "%~dp0Core\Tools\zig\zig.exe" (
-    set ZIG_COMPILER="%~dp0Core\Tools\zig\zig.exe"
+    set "ZIG_COMPILER=%~dp0Core\Tools\zig\zig.exe"
     echo Using bundled Zig compiler.
 ) else (
     where zig >nul 2>nul && (
-        set ZIG_COMPILER=zig
+        set "ZIG_COMPILER=zig"
         echo Using system Zig compiler.
     )
 )
@@ -30,7 +30,7 @@ set SRC_FILES=
 for %%f in (GameLogic\*.cpp) do set SRC_FILES=!SRC_FILES! %%f
 for %%f in (Core\Engine\*.cpp) do set SRC_FILES=!SRC_FILES! %%f
 
-%ZIG_COMPILER% c++ -shared -o GameLogic.dll !SRC_FILES! -ICore\Engine -ICore\raylib\include -LCore\raylib\lib -lraylib -ldwmapi -std=c++23 -msse4.2 -O2
+"%ZIG_COMPILER%" c++ -shared -o GameLogic.dll !SRC_FILES! -ICore\Engine -ICore\raylib\include -LCore\raylib\lib -lraylib -ldwmapi -std=c++23 -msse4.2 -O2
 endlocal
 
 if errorlevel 1 (

@@ -24,7 +24,20 @@ if (-not $SkipZig) {
         if (Test-Path $ZigTargetDir) {
             Remove-Item -Recurse -Force $ZigTargetDir
         }
-        Rename-Item -Path $ExtractedDir -NewName "zig"
+        
+        $retryCount = 0
+        while ($true) {
+            try {
+                Rename-Item -Path $ExtractedDir -NewName "zig" -ErrorAction Stop
+                break
+            } catch {
+                if ($retryCount -ge 10) {
+                    throw
+                }
+                $retryCount++
+                Start-Sleep -Milliseconds 500
+            }
+        }
     } else {
         Write-Host "Zig is already downloaded." -ForegroundColor Green
     }
