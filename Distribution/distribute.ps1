@@ -33,7 +33,7 @@ if ($LASTEXITCODE -ne 0) {
 
 # Verify expected outputs exist before packaging
 $GameExe = Join-Path $BuildPath "game.exe"
-$EditorExe = Join-Path $BuildPath "main.exe"
+$EditorExe = Join-Path $BuildPath "RayWaves.exe"
 $RaylibDll = Join-Path $BuildPath "libraylib.dll"
 
 if (-not (Test-Path $GameExe)) { throw "Missing game.exe at $GameExe" }
@@ -60,16 +60,16 @@ Write-Host "Copying executable and dependencies..." -ForegroundColor Yellow
 
 # Try to stop running instances to avoid file lock errors
 # Only targets processes whose path starts with the dist or build directory
-Get-Process -Name "game","editor" -ErrorAction SilentlyContinue | Where-Object {
+Get-Process -Name "game","RayWaves" -ErrorAction SilentlyContinue | Where-Object {
     try { $_.Path -like "$DistPath*" -or $_.Path -like "$BuildPath*" } catch { $false }
 } | Stop-Process -Force -ErrorAction SilentlyContinue
 
 # Copy game runtime as hidden engine base for exports
 Copy-Item "$BuildPath/game.exe" "$DistPath/Core/runtime.exe" -Force
 
-# Optionally include the editor (rename to editor.exe)
-if (Test-Path "$BuildPath/main.exe") {
-    Copy-Item "$BuildPath/main.exe" "$DistPath/editor.exe" -Force
+# Optionally include the editor
+if (Test-Path "$BuildPath/RayWaves.exe") {
+    Copy-Item "$BuildPath/RayWaves.exe" "$DistPath/RayWaves.exe" -Force
 }
 
 
@@ -141,8 +141,8 @@ Write-Host "Creating build configuration..." -ForegroundColor Yellow
 Write-Host "Distribution created successfully in '$DistPath'" -ForegroundColor Green
 Write-Host ""
 Write-Host "Distribution contents:" -ForegroundColor Cyan
-if (Test-Path "$DistPath/editor.exe") {
-    Write-Host "- editor.exe (RayWaves editor/IDE)" -ForegroundColor White
+if (Test-Path "$DistPath/RayWaves.exe") {
+    Write-Host "- RayWaves.exe (Game Editor/IDE)" -ForegroundColor White
 }
 Write-Host "- libraylib.dll (required at runtime)" -ForegroundColor White
 Write-Host "- config.ini (window and game settings)" -ForegroundColor White

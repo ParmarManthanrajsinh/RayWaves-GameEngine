@@ -10,7 +10,7 @@ This guide helps you understand how RayWaves is structured and how to get the mo
 
 The engine is split into two distinct parts that work together:
 
-`main.exe` (The Host) | `GameLogic.dll` (The Brains)
+`RayWaves.exe` (The Host) | `GameLogic.dll` (The Brains)
 ---|---
 Handles window creation & input | Contains all gameplay code
 Manages the editor UI (ImGui) | Defines levels (`GameMaps`)
@@ -23,7 +23,7 @@ Loads/unloads the DLL | Executes `Update()` and `Draw()`
 
 Why restart when you can just keep coding?
 
-1.  **Run the Editor** (`main.exe` or `editor.exe`).
+1.  **Run the Editor** (`RayWaves.exe` or `RayWaves.exe`).
 2.  **Modify** any C++ file in `GameLogic/` (e.g. change jump height).
 3.  **Compiling...** (The editor waits).
 4.  **Reload!** The DLL is swapped, the map resets, and your changes are live.
@@ -124,7 +124,7 @@ RayWaves/
 │   ├── Level1.cpp      # Example level
 │   └── Player.cpp      # Example class
 ├── Engine/             # Core engine headers (GameMap, Config, Profiler)
-├── Editor/             # Editor code (main.exe source)
+├── Editor/             # Editor code (RayWaves.exe source)
 ├── Tests/
 │   ├── run_all.bat       # Build → test → launch
 │   ├── run_tests.bat     # Build → test only
@@ -252,11 +252,11 @@ Want to add a new tool to the editor toolbar?
 1. Open `Editor/GameEditor.cpp`.
 2. Find `DrawSceneWindow()`.
 3. Add your standard ImGui code there.
-4. Rebuild `main.exe` (requires stopping the app).
+4. Rebuild `RayWaves.exe` (requires stopping the app).
 
 ### Debugging
 - **Console Logs:** The engine prints useful info to the attached console. Keep it open!
-- **Debuggers:** You can attach any C++ debugger (VS Code, LLDB, Visual Studio) to `main.exe` to debug your DLL code. Breakpoints *usually* work even after reloading since Zig generates standard PDB files on Windows!
+- **Debuggers:** You can attach any C++ debugger (VS Code, LLDB, Visual Studio) to `RayWaves.exe` to debug your DLL code. Breakpoints *usually* work even after reloading since Zig generates standard PDB files on Windows!
 
 ---
 

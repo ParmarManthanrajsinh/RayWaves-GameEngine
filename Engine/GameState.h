@@ -15,9 +15,9 @@ struct TransparentEqual {
     bool operator()(std::string_view a, std::string_view b) const { return a == b; }
 };
 
-// Note: StateBag is allocated in the editor (main.exe) and passed by reference 
+// Note: StateBag is allocated in the editor (RayWaves.exe) and passed by reference 
 // into code running inside GameLogic.dll. Since std::string and std::unordered_map 
-// allocate memory, this relies on both main.exe and GameLogic.dll linking the 
+// allocate memory, this relies on both RayWaves.exe and GameLogic.dll linking the 
 // same CRT (C Runtime). Under MSVC's default dynamic /MD runtime, this is safe.
 // If either target is later switched to static CRT linkage (/MT), this may cause 
 // heap-corruption crashes across the DLL boundary.

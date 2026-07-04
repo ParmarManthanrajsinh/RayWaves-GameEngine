@@ -56,7 +56,7 @@ With our **hot-reloading magic**, you can tweak movement speeds, adjust physics,
 ## 🚀 Quick Start
 
 ### 🔧 For Engine Developers
-*Use these instructions if you want to **modify the engine source code itself** (e.g. `main.exe`).*
+*Use these instructions if you want to **modify the engine source code itself** (e.g. `RayWaves.exe`).*
 
 1. **Open any terminal** (PowerShell, Command Prompt, or VS Code terminal).
 2. **Build the engine:**
@@ -78,10 +78,10 @@ With our **hot-reloading magic**, you can tweak movement speeds, adjust physics,
    ```
 4. **Launch the editor:**
    ```powershell
-   build/zig-release/main.exe
+   build/zig-release/RayWaves.exe
    ```
 
-> **Note:** If you are just making games, you don't need to rebuild `main.exe`.
+> **Note:** If you are just making games, you don't need to rebuild `RayWaves.exe`.
 
 ### 🎮 For Game Developers
 *Use these instructions if you want to **make games** using RayWaves.*
@@ -89,7 +89,7 @@ With our **hot-reloading magic**, you can tweak movement speeds, adjust physics,
 👉 **[Read the Game Developer Guide](Documentation/README_DISTRIBUTION.md)**
 
 Start here to learn how to:
-- Run the engine (`editor.exe`)
+- Run the engine (`RayWaves.exe`)
 - Create levels and write game logic
 - Use hot-reloading for gameplay code
 - Export your game
@@ -99,7 +99,7 @@ Start here to learn how to:
 ## 🎮 Development Workflow
 
 ### 🔧 Engine Development
-1. **Launch the Editor** (`main.exe`).
+1. **Launch the Editor** (`RayWaves.exe`).
 2. **Modify engine internals** in `Game/`, `Editor/`, or `Engine/`.
 3. **Rebuild the engine** using CMake.
 ---
@@ -151,7 +151,7 @@ Distribution\create_distribution.bat -IncludeCompiler
 
 This generates a `dist/` folder with everything they need:
 - `game.exe` (Standalone runtime)
-- `editor.exe` (The visual editor)
+- `RayWaves.exe` (The visual editor)
 - `GameLogic.dll` (The moddable code)
 - All headers, scripts, and assets.
 
@@ -171,7 +171,7 @@ This generates a `dist/` folder with everything they need:
 - **Reset:** Hit the **Restart** button in the toolbar if you want to force a full reload.
 - **Performance:** Toggle the **Performance Overlay** (sales chart icon) to see FPS, frame times, and per-system breakdown (Update, Draw, panels).
 - **Modes:** 
-  - `main.exe` = Editor & Hot-Reloading
+  - `RayWaves.exe` = Editor & Hot-Reloading
   - `game.exe` = Standalone Runtime (Pure Gameplay)
 
 ---

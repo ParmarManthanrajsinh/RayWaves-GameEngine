@@ -30,7 +30,7 @@ This will:
 
 The created distribution includes:
 - **`game.exe`** - The standalone game runtime
-- **`editor.exe`** - The visual game editor (optional)
+- **`RayWaves.exe`** - The visual game editor (optional)
 - **`GameLogic.dll`** - Hot-reloadable game logic
 - **`raylib.dll`** - Graphics library dependency
 - **`game_config.ini`** - Game configuration file

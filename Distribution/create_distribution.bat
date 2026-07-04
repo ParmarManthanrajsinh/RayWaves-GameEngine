@@ -2,7 +2,7 @@
 echo Creating RayWaves Game Engine Distribution Package...
 echo.
 
-if not exist "build\zig-release\main.exe" (
+if not exist "build\zig-release\RayWaves.exe" (
     echo [INFO] No release build found. Building first...
     cmake --preset zig-release -DRAYWAVES_DISTRIBUTION_BUILD=ON
     if errorlevel 1 (

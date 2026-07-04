@@ -8,8 +8,8 @@ Something broken? Don't panic. Here are the most common issues and how to fix th
 
 ## 🏗️ Build Issues
 
-### "Permission denied" when building main.exe
-*   **The Problem:** You are trying to rebuild the *engine core* (`main.exe`) while it is running.
+### "Permission denied" when building RayWaves.exe
+*   **The Problem:** You are trying to rebuild the *engine core* (`RayWaves.exe`) while it is running.
 *   **The Fix:** Close the game window, *then* rebuild.
 *   **Note:** You *can* rebuild `GameLogic.dll` while the game is running. That's the whole point!
 
@@ -46,7 +46,7 @@ Something broken? Don't panic. Here are the most common issues and how to fix th
 ### Purple/Black Textures (Missing Assets)
 *   **The Problem:** Raylib can't find the file.
 *   **The Fix:**
-    *   Check the path. Is it relative to `main.exe`?
+    *   Check the path. Is it relative to `RayWaves.exe`?
     *   Did you use forward slashes? `"Assets/player.png"` ✅ vs `"Assets\player.png"` ❌
     *   Is the file actually in the `dist/Assets` folder?
 

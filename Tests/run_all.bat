@@ -19,4 +19,4 @@ cmake --build ..\build\zig-release
 if %ERRORLEVEL% neq 0 exit /b %ERRORLEVEL%
 
 echo === Launch ===
-start "" "..\build\zig-release\main.exe"
+start "" "..\build\zig-release\RayWaves.exe"

@@ -56,7 +56,7 @@ The Zig compiler is copied into the distribution so recipients can rebuild `Game
 
 | File/Folder | Purpose |
 |---|---|
-| `editor.exe` | Visual game editor |
+| `RayWaves.exe` | Visual game editor |
 | `GameLogic.dll` | Pre-compiled game code |
 | `game_config.ini` | Default settings (resolution, VSync) |
 | `build_gamelogic.bat` | One-click rebuild of game code |
@@ -71,7 +71,7 @@ The Zig compiler is copied into the distribution so recipients can rebuild `Game
 
 1. Unzip the folder
 2. Open `GameLogic/Level1.cpp` in any editor
-3. Run `editor.exe` — game runs immediately
+3. Run `RayWaves.exe` — game runs immediately
 4. Edit code (change jump speed, add logic)
 5. Run `build_gamelogic.bat`
 6. Editor hot-reloads changes in ~0.5 seconds
@@ -85,7 +85,7 @@ Edit `Distribution/distribute.ps1` to tweak:
 - **Include Zig Compiler:** `distribute.ps1 -IncludeCompiler` (same as the batch shortcut)
 - **Default config:** Modify `Distribution/config.ini`
 - **Extra assets:** Add files to `GameLogic/` before building
-- **Branding:** Change icon or name of `editor.exe` in the script
+- **Branding:** Change icon or name of `RayWaves.exe` in the script
 
 To build manually with both distribution flags (profiler off + release config):
 
@@ -95,7 +95,7 @@ cmake --build build\zig-release
 Distribution\distribute.ps1 -IncludeCompiler
 ```
 
-`-DRAYWAVES_DISTRIBUTION_BUILD=ON` is a CMake option (default OFF). It sets the preprocessor define `RAYWAVES_PROFILER_DISABLED` globally across all targets (main.exe, game.exe, GameLogic.dll, tests.exe). Omitting it leaves the profiler active.
+`-DRAYWAVES_DISTRIBUTION_BUILD=ON` is a CMake option (default OFF). It sets the preprocessor define `RAYWAVES_PROFILER_DISABLED` globally across all targets (RayWaves.exe, game.exe, GameLogic.dll, tests.exe). Omitting it leaves the profiler active.
 
 ---
 

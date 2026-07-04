@@ -133,6 +133,7 @@ add_executable(main WIN32
     ${IMGUI_SRC}
     ${TINYFILEDIALOGS}
 )
+set_target_properties(main PROPERTIES OUTPUT_NAME "RayWaves")
 target_link_options(main PRIVATE -Wl,--subsystem,windows)
 if(RAYWAVES_DISTRIBUTION_BUILD)
     target_compile_definitions(main PRIVATE RAYWAVES_PROFILER_DISABLED)

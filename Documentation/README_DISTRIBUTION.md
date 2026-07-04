@@ -4,13 +4,13 @@
 
 So you've downloaded RayWaves, or maybe your team lead sent you a zip file. Ready to make a game?
 
-This guide assumes you are working with the **Distributed** version of the engine (i.e., you have `editor.exe` and `build_gamelogic.bat`).
+This guide assumes you are working with the **Distributed** version of the engine (i.e., you have `RayWaves.exe` and `build_gamelogic.bat`).
 
 ---
 
 ## ⚡ 1 Minute Quick-Start
 
-1.  **Launch** `editor.exe`. You should see the example level.
+1.  **Launch** `RayWaves.exe`. You should see the example level.
    
 2.  **Open** the folder in VS Code (or your favorite text editor).
 
