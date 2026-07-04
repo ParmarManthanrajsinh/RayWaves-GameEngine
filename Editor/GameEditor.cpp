@@ -232,7 +232,7 @@ void GameEditor::Init(int width, int height, std::string_view title)
 
 void GameEditor::RunBrowser()
 {
-    Texture2D logo = LoadTexture(GetEngineContentPath("logo.png").c_str());
+    Texture2D logo = LoadTexture(GetEngineContentPath("icon.png").c_str());
 
     char newProjectName[128] = "MyNewGame";
     char newProjectLocation[512] = "";
@@ -247,13 +247,14 @@ void GameEditor::RunBrowser()
         }
 
         BeginDrawing();
-        ClearBackground(RAYWHITE);
+        ClearBackground(Color{ 21, 24, 30, 255 });
         
         rlImGuiBegin();
 
         ImGuiViewport* viewport = ImGui::GetMainViewport();
-        ImGui::SetNextWindowPos(viewport->WorkPos);
-        ImGui::SetNextWindowSize(viewport->WorkSize);
+        float margin = 48.0f;
+        ImGui::SetNextWindowPos(ImVec2(margin, margin), ImGuiCond_Always);
+        ImGui::SetNextWindowSize(ImVec2(viewport->Size.x - margin * 2.0f, viewport->Size.y - margin * 2.0f));
         ImGui::SetNextWindowViewport(viewport->ID);
         
         ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
@@ -261,106 +262,184 @@ void GameEditor::RunBrowser()
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(40.0f, 40.0f));
         ImGui::Begin("Project Browser", nullptr, window_flags);
         
-        // Header
-        ImGui::Text("RayWaves Game Engine");
-        ImGui::Text("Version: %s", version.c_str());
+        ImDrawList* drawList = ImGui::GetWindowDrawList();
+        ImGuiIO& io = ImGui::GetIO();
+        float contentLeft = ImGui::GetCursorScreenPos().x;
+        float contentWidth = ImGui::GetContentRegionAvail().x;
         
-        ImGui::Spacing();
-        ImGui::Separator();
-        ImGui::Spacing();
-        
-        ImGui::Columns(2, "BrowserColumns", false);
-        ImGui::SetColumnWidth(0, viewport->WorkSize.x * 0.6f);
-        
-        // Left Column - Recent Projects
-        ImGui::Text("Recent Projects");
-        ImGui::Spacing();
-        
-        ImGui::BeginChild("RecentProjects", ImVec2(0, 0), true);
-        auto recent = ProjectManager::GetRecent();
-        for (size_t i = 0; i < recent.size(); ++i)
+        // ── Header ─────────────────────────────────────────────────────
+        if (logo.id != 0)
         {
-            const auto& path = recent[i];
-            ImGui::PushID(static_cast<int>(i));
-
-            std::filesystem::path fs_path(path);
-            std::filesystem::path manifest_path = fs_path / "project.raywaves";
-            bool exists = std::filesystem::exists(manifest_path);
-            std::string displayName = fs_path.filename().string();
-            
-            if (exists)
-            {
-                t_Project proj;
-                if (proj.m_bLoadFromFile(manifest_path.string()))
-                {
-                    displayName = proj.m_Name;
-                }
-            }
-
-            float trashWidth = ImGui::CalcTextSize(ICON_FA_TRASH_CAN).x + ImGui::GetStyle().FramePadding.x * 2.0f;
-            float contentWidth = ImGui::GetContentRegionAvail().x - trashWidth - ImGui::GetStyle().ItemSpacing.x;
-
-            ImGui::BeginGroup();
-            
-            if (!exists)
-            {
-                ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyle().Colors[ImGuiCol_TextDisabled]);
-                displayName += " (missing)";
-            }
-
-            ImVec2 cursorPos = ImGui::GetCursorPos();
-            if (ImGui::Selectable("##recent_proj", false, exists ? 0 : ImGuiSelectableFlags_Disabled, ImVec2(contentWidth, 44.0f)))
-            {
-                if (exists) OpenProject(path);
-            }
-            
-            ImGui::SetCursorPos(ImVec2(cursorPos.x + 4.0f, cursorPos.y + 4.0f));
-            ImGui::Text("%s", displayName.c_str());
-            ImGui::SetCursorPos(ImVec2(cursorPos.x + 4.0f, cursorPos.y + 24.0f));
-            ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyle().Colors[ImGuiCol_TextDisabled]);
-            ImGui::Text("%s", path.c_str());
-            ImGui::PopStyleColor();
-
-            if (!exists) ImGui::PopStyleColor();
-
-            ImGui::EndGroup();
-
+            float logoY = ImGui::GetCursorPosY() + 6.0f;
+            ImGui::SetCursorPosY(logoY);
+            float lw = static_cast<float>(logo.width);
+            float lh = static_cast<float>(logo.height);
+            float maxDim = 96.0f;
+            float scale = (lw > lh) ? maxDim / lw : maxDim / lh;
+            float displayH = lh * scale;
+            rlImGuiImageSize(&logo, static_cast<int>(lw * scale), static_cast<int>(displayH));
             ImGui::SameLine();
-            
-            ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 10.0f);
-            if (ImGui::Button(ICON_FA_TRASH_CAN))
+            ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 12.0f);
+            float textGroupH = ImGui::GetTextLineHeight() * 1.5f + ImGui::GetStyle().ItemSpacing.y + ImGui::GetTextLineHeight();
+            ImGui::SetCursorPosY(logoY + (displayH - textGroupH) * 0.5f);
+        }
+        
+        // Title and version stacked next to logo
+        ImGui::BeginGroup();
+        ImGui::SetWindowFontScale(1.5f);
+        ImGui::Text("RayWaves");
+        ImGui::SetWindowFontScale(1.0f);
+        ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyle().Colors[ImGuiCol_TextDisabled]);
+        ImGui::Text("Version %s", version.c_str());
+        ImGui::PopStyleColor();
+        ImGui::EndGroup();
+        
+        // Subtle separator line under header
+        float lineY = ImGui::GetCursorScreenPos().y + 12.0f;
+        drawList->AddRectFilled(
+            ImVec2(contentLeft, lineY),
+            ImVec2(contentLeft + contentWidth, lineY + 1.0f),
+            ImGui::GetColorU32(ImGuiCol_Separator)
+        );
+        ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 24.0f);
+        
+        // ── Two columns ────────────────────────────────────────────────
+        ImGui::Columns(2, "BrowserColumns", false);
+        ImGui::SetColumnWidth(0, contentWidth * 0.6f);
+        
+        // ── Left Column — Recent Projects ──────────────────────────────
+        ImGui::PushFont(io.Fonts->Fonts[Font_Large]);
+        ImGui::Text("Recent Projects");
+        ImGui::PopFont();
+        ImGui::Spacing();
+        
+        auto recent = ProjectManager::GetRecent();
+        ImGui::BeginChild("RecentProjects", ImVec2(0, 0), true);
+        
+        if (recent.empty())
+        {
+            float childH = ImGui::GetContentRegionAvail().y;
+            float childW = ImGui::GetContentRegionAvail().x;
+            ImGui::SetCursorPos(ImVec2(childW * 0.1f, childH * 0.35f));
+            ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyle().Colors[ImGuiCol_TextDisabled]);
+            ImGui::TextWrapped("No recent projects — create or open one to get started");
+            ImGui::PopStyleColor();
+        }
+        else
+        {
+            for (size_t i = 0; i < recent.size(); ++i)
             {
-                ImGui::OpenPopup("RemoveRecentPopup");
-            }
-            
-            if (ImGui::BeginPopup("RemoveRecentPopup"))
-            {
-                ImGui::Text("Remove from list?");
-                if (ImGui::Button("Yes", ImVec2(60, 0)))
-                {
-                    ProjectManager::RemoveRecent(path);
-                    ImGui::CloseCurrentPopup();
-                }
-                ImGui::SameLine();
-                if (ImGui::Button("No", ImVec2(60, 0)))
-                {
-                    ImGui::CloseCurrentPopup();
-                }
-                ImGui::EndPopup();
-            }
+                const auto& path = recent[i];
+                ImGui::PushID(static_cast<int>(i));
 
-            ImGui::PopID();
+                std::filesystem::path fs_path(path);
+                std::filesystem::path manifest_path = fs_path / "project.raywaves";
+                bool exists = std::filesystem::exists(manifest_path);
+                std::string displayName = fs_path.filename().string();
+                
+                if (exists)
+                {
+                    t_Project proj;
+                    if (proj.m_bLoadFromFile(manifest_path.string()))
+                    {
+                        displayName = proj.m_Name;
+                    }
+                }
+                
+                float rowHeight = 48.0f;
+                float availW = ImGui::GetContentRegionAvail().x;
+                ImVec2 rowPos = ImGui::GetCursorScreenPos();
+                
+                if (!exists)
+                {
+                    ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyle().Colors[ImGuiCol_TextDisabled]);
+                    displayName += " (missing)";
+                }
+                
+                // Clickable row
+                if (ImGui::Selectable("##recent_proj", false, exists ? 0 : ImGuiSelectableFlags_Disabled, ImVec2(availW, rowHeight)))
+                {
+                    if (exists) OpenProject(path);
+                }
+                
+                bool isHovered = ImGui::IsItemHovered();
+                
+                // Folder icon
+                ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyle().Colors[ImGuiCol_TextDisabled]);
+                ImVec2 iconPos(rowPos.x + 12.0f, rowPos.y + (rowHeight - 12.0f) * 0.5f);
+                ImGui::SetCursorScreenPos(iconPos);
+                ImGui::Text(ICON_FA_FOLDER);
+                ImGui::PopStyleColor();
+                
+                // Project name
+                ImVec2 namePos(rowPos.x + 40.0f, rowPos.y + 5.0f);
+                ImGui::SetCursorScreenPos(namePos);
+                ImGui::Text("%s", displayName.c_str());
+                
+                // Path
+                ImVec2 pathPos(rowPos.x + 40.0f, rowPos.y + 25.0f);
+                ImGui::SetCursorScreenPos(pathPos);
+                ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyle().Colors[ImGuiCol_TextDisabled]);
+                ImGui::Text("%s", path.c_str());
+                ImGui::PopStyleColor();
+                
+                if (!exists) ImGui::PopStyleColor();
+                
+                // Trash button on hover
+                if (isHovered)
+                {
+                    ImGui::SetCursorScreenPos(ImVec2(rowPos.x + availW - 36.0f, rowPos.y + (rowHeight - 24.0f) * 0.5f));
+                    if (ImGui::Button(ICON_FA_TRASH_CAN))
+                    {
+                        ImGui::OpenPopup("RemoveRecentPopup");
+                    }
+                }
+                
+                if (ImGui::BeginPopup("RemoveRecentPopup"))
+                {
+                    ImGui::Text("Remove from list?");
+                    if (ImGui::Button("Yes", ImVec2(60, 0)))
+                    {
+                        ProjectManager::RemoveRecent(path);
+                        ImGui::CloseCurrentPopup();
+                    }
+                    ImGui::SameLine();
+                    if (ImGui::Button("No", ImVec2(60, 0)))
+                    {
+                        ImGui::CloseCurrentPopup();
+                    }
+                    ImGui::EndPopup();
+                }
+
+                ImGui::SetCursorScreenPos(ImVec2(rowPos.x, rowPos.y + rowHeight));
+                ImGui::PopID();
+            }
         }
         ImGui::EndChild();
-
         
         ImGui::NextColumn();
         
-        // Right Column - Actions
+        // ── Right Column — Actions ─────────────────────────────────────
+        ImGui::PushFont(io.Fonts->Fonts[Font_Large]);
         ImGui::Text("Actions");
+        ImGui::PopFont();
         ImGui::Spacing();
         
-        if (ImGui::Button("Open Existing Project", ImVec2(-1, 40.0f)))
+        // New Project — primary button
+        ImGui::PushStyleColor(ImGuiCol_Button, GetAccentColor());
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, GetAccentHoverColor());
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, GetAccentActiveColor());
+        if (ImGui::Button(ICON_FA_PLUS "  New Project", ImVec2(-1, 44.0f)))
+        {
+            templates = ProjectManager::GetAvailableTemplates();
+            ImGui::OpenPopup("New Project Wizard");
+        }
+        ImGui::PopStyleColor(3);
+        
+        ImGui::Spacing();
+        
+        // Open Existing — secondary
+        if (ImGui::Button(ICON_FA_FOLDER_OPEN "  Open Existing Project", ImVec2(-1, 44.0f)))
         {
             const char* path = tinyfd_selectFolderDialog("Open Project", nullptr);
             if (path)
@@ -369,28 +448,32 @@ void GameEditor::RunBrowser()
             }
         }
         
+        // GitHub / Docs — link-style third action
         ImGui::Spacing();
-        
-        if (ImGui::Button("New Project", ImVec2(-1, 40.0f)))
+        ImGui::PushFont(io.Fonts->Fonts[Font_Default]);
+        if (ImGui::Button(ICON_FA_BOOK "  Open GitHub / Docs", ImVec2(-1, 32.0f)))
         {
-            templates = ProjectManager::GetAvailableTemplates();
-            ImGui::OpenPopup("New Project Wizard");
+            EditorUtils::OpenURL("https://github.com/ParmarManthanrajsinh/RayWaves-GameEngine");
         }
+        ImGui::PopFont();
         
-        ImGui::Spacing();
-        
-        // Modal for New Project
+        // ── New Project Wizard ─────────────────────────────────────────
+        ImGui::SetNextWindowSizeConstraints(ImVec2(480, 0), ImVec2(FLT_MAX, FLT_MAX));
         if (ImGui::BeginPopupModal("New Project Wizard", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
         {
-            ImGui::InputText("Project Name", newProjectName, sizeof(newProjectName));
+            ImGui::Text("Project Name");
+            ImGui::InputText("##new_name", newProjectName, sizeof(newProjectName));
             
             std::string sanitized = ProjectManager::SanitizeCMakeProjectName(newProjectName);
             if (sanitized != newProjectName && strlen(newProjectName) > 0)
             {
                 ImGui::TextDisabled("Will be created as: %s", sanitized.c_str());
             }
-
-            ImGui::InputText("Location", newProjectLocation, sizeof(newProjectLocation));
+            
+            ImGui::Spacing();
+            
+            ImGui::Text("Location");
+            ImGui::InputText("##new_location", newProjectLocation, sizeof(newProjectLocation));
             ImGui::SameLine();
             if (ImGui::Button("Browse..."))
             {
@@ -401,6 +484,8 @@ void GameEditor::RunBrowser()
                     newProjectLocation[sizeof(newProjectLocation) - 1] = '\0';
                 }
             }
+            
+            ImGui::Spacing();
             
             if (!templates.empty())
             {
@@ -446,11 +531,6 @@ void GameEditor::RunBrowser()
             }
             
             ImGui::EndPopup();
-        }
-        
-        if (ImGui::Button("Open GitHub / Docs", ImVec2(-1, 40.0f)))
-        {
-            EditorUtils::OpenURL("https://github.com/ParmarManthanrajsinh/RayWaves-GameEngine");
         }
         
         ImGui::Columns(1);

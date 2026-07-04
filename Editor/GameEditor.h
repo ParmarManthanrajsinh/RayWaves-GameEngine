@@ -67,7 +67,7 @@ public:
     
     bool IsWindowResized() const { return b_ResolutionChanged; } // Or ImGui function if needed
 
-    std::string version = "Raywaves v0.6.0";
+    std::string version = "RayWaves v0.6.0";
 
     RenderTexture2D m_RaylibTexture;
     RenderTexture2D m_DisplayTexture;
