@@ -22,4 +22,17 @@ namespace EditorUtils
             return false;
         }
     }
+
+    bool OpenURL(std::string_view url)
+    {
+        std::wstring wurl(url.begin(), url.end());
+        HINSTANCE result = ShellExecuteW(nullptr, L"open", wurl.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+        return (intptr_t)result > 32;
+    }
+
+    bool IsShellSafe(std::string_view s)
+    {
+        constexpr std::string_view dangerous = "&|;$\"`'<>%!^()@#\n\r";
+        return s.find_first_of(dangerous) == std::string_view::npos;
+    }
 }

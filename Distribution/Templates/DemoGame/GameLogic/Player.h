@@ -2,7 +2,7 @@
 #include <raylib.h>
 #include <vector>
 #include <cstdint>
-#include "../Engine/GameState.h"
+#include "Engine/GameState.h"
 
 struct GroundTile;
 

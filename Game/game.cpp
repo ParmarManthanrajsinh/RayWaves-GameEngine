@@ -66,7 +66,7 @@ int main()
     engine.LaunchWindow(config.GetWindowConfig());
     
     Image icon = LoadImage("Core/EngineContent/icon.png");
-    if (icon.width == 0) icon = LoadImage("Assets/EngineContent/icon.png");
+    if (icon.width == 0) icon = LoadImage("EngineContent/icon.png");
     SetWindowIcon(icon);
     UnloadImage(icon);
     

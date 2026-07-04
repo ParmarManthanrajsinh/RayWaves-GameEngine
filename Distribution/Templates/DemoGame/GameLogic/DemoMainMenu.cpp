@@ -1,7 +1,7 @@
 #include "DemoMainMenu.h"
-#include "../Engine/AssetResolver.h"
-#include "../Engine/MapManager.h"
-#include "../Engine/raygui.h"
+#include "Engine/AssetResolver.h"
+#include "Engine/MapManager.h"
+#include "Engine/raygui.h"
 #include <iostream>
 #include <cmath>
 

@@ -147,6 +147,7 @@ private:
     std::atomic<bool> m_bNeedsReload = false;
 
     float m_ReloadCheckAccum = 0.0f;
+    std::chrono::steady_clock::time_point m_LastReloadCheckTime = std::chrono::steady_clock::now();
     Shader m_OpaqueShader;
 
     // Map selection UI

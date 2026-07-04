@@ -35,7 +35,6 @@ endif()
 # Enable with: cmake -B build/zig-release -DRAYWAVES_DISTRIBUTION_BUILD=ON
 option(RAYWAVES_DISTRIBUTION_BUILD "Strip profiler and debug tooling from release build" OFF)
 if(RAYWAVES_DISTRIBUTION_BUILD)
-    add_compile_definitions(RAYWAVES_PROFILER_DISABLED)
     message(STATUS "Profiler disabled for distribution build")
 endif()
 
@@ -92,9 +91,14 @@ set(
 )
 set(TINYFILEDIALOGS Editor/tinyfiledialogs/tinyfiledialogs.c)
 
-# Copy assets to the build directory
-if(EXISTS "${CMAKE_SOURCE_DIR}/Assets")
-  file(COPY ${CMAKE_SOURCE_DIR}/Assets DESTINATION ${CMAKE_BINARY_DIR})
+# Copy engine content to the build directory
+if(EXISTS "${CMAKE_SOURCE_DIR}/EngineContent")
+  file(COPY ${CMAKE_SOURCE_DIR}/EngineContent DESTINATION ${CMAKE_BINARY_DIR})
+endif()
+
+# Copy demo assets from the DemoGame template to the build directory
+if(EXISTS "${CMAKE_SOURCE_DIR}/Distribution/Templates/DemoGame/Assets")
+  file(COPY ${CMAKE_SOURCE_DIR}/Distribution/Templates/DemoGame/Assets DESTINATION ${CMAKE_BINARY_DIR})
 endif()
 
 # Build Engine as a static library so both main and GameLogic can link to it
@@ -108,13 +112,14 @@ target_link_libraries(Engine PRIVATE dwmapi)
 
 
 # Create GameLogic shared library (DLL)
-file(GLOB GAMELOGIC_SRC_CPP CONFIGURE_DEPENDS "GameLogic/*.cpp")
+file(GLOB GAMELOGIC_SRC_CPP CONFIGURE_DEPENDS "Distribution/Templates/DemoGame/GameLogic/*.cpp")
 add_library(GameLogic SHARED ${GAMELOGIC_SRC_CPP})
 set_target_properties(GameLogic PROPERTIES PREFIX "")
 # GameLogic needs Engine headers and linkage (for GameMap symbols)
 target_include_directories(GameLogic PRIVATE
+    ${CMAKE_SOURCE_DIR}
     ${CMAKE_SOURCE_DIR}/Engine
-    ${CMAKE_SOURCE_DIR}/GameLogic
+    ${CMAKE_SOURCE_DIR}/Distribution/Templates/DemoGame/GameLogic
 )
 target_link_libraries(GameLogic PRIVATE Engine)
 
@@ -126,9 +131,12 @@ add_executable(main WIN32
     ${TINYFILEDIALOGS}
 )
 target_link_options(main PRIVATE -Wl,--subsystem,windows)
+if(RAYWAVES_DISTRIBUTION_BUILD)
+    target_compile_definitions(main PRIVATE RAYWAVES_PROFILER_DISABLED)
+endif()
 
 add_custom_command(TARGET main POST_BUILD
-    COMMAND ${CMAKE_SOURCE_DIR}/Tools/rcedit.exe $<TARGET_FILE:main> --set-icon ${CMAKE_SOURCE_DIR}/Assets/EngineContent/icon.ico
+    COMMAND ${CMAKE_SOURCE_DIR}/Tools/rcedit.exe $<TARGET_FILE:main> --set-icon ${CMAKE_SOURCE_DIR}/EngineContent/icon.ico
 )
 # Add include directories for the main executable
 target_include_directories(main PRIVATE
@@ -170,9 +178,12 @@ add_executable(game WIN32
     Game/DllLoader.cpp
 )
 target_link_options(game PRIVATE -Wl,--subsystem,windows)
+if(RAYWAVES_DISTRIBUTION_BUILD)
+    target_compile_definitions(game PRIVATE RAYWAVES_PROFILER_DISABLED)
+endif()
 
 add_custom_command(TARGET game POST_BUILD
-    COMMAND ${CMAKE_SOURCE_DIR}/Tools/rcedit.exe $<TARGET_FILE:game> --set-icon ${CMAKE_SOURCE_DIR}/Assets/EngineContent/icon.ico
+    COMMAND ${CMAKE_SOURCE_DIR}/Tools/rcedit.exe $<TARGET_FILE:game> --set-icon ${CMAKE_SOURCE_DIR}/EngineContent/icon.ico
 )
 # Includes for game runtime
 target_include_directories(game PRIVATE
@@ -209,6 +220,9 @@ target_include_directories(smoketest PRIVATE
 )
 
 target_link_libraries(smoketest PRIVATE Engine)
+if(RAYWAVES_DISTRIBUTION_BUILD)
+    target_compile_definitions(smoketest PRIVATE RAYWAVES_PROFILER_DISABLED)
+endif()
 
 # Copy GameLogic and raylib DLLs beside smoketest
 add_custom_command(TARGET smoketest POST_BUILD

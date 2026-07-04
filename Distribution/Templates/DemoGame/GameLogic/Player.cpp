@@ -1,6 +1,6 @@
 #include "Player.h"
 #include "DemoLevel.h"
-#include "../Engine/AssetResolver.h"
+#include "Engine/AssetResolver.h"
 #include <cmath>
 
 Player::Player()

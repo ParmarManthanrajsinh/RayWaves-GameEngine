@@ -19,7 +19,7 @@ $BuildPath = "build/zig-$($BuildConfig.ToLower())"
 if (-not (Test-Path $BuildPath)) {
     Write-Host "Configuring $BuildConfig version..." -ForegroundColor Yellow
     if ($BuildConfig -ieq "Release") {
-        cmake --preset zig-release
+        cmake --preset zig-release -DRAYWAVES_DISTRIBUTION_BUILD=ON
     } else {
         cmake --preset zig-debug
     }
@@ -47,8 +47,6 @@ if (Test-Path $DistPath) {
 }
 
 New-Item -ItemType Directory -Path $DistPath -Force | Out-Null
-New-Item -ItemType Directory -Path "$DistPath/GameLogic" -Force | Out-Null
-New-Item -ItemType Directory -Path "$DistPath/Assets" -Force | Out-Null
 New-Item -ItemType Directory -Path "$DistPath/Core" -Force | Out-Null
 New-Item -ItemType Directory -Path "$DistPath/Core/Engine" -Force | Out-Null
 New-Item -ItemType Directory -Path "$DistPath/Documentation" -Force | Out-Null
@@ -60,9 +58,11 @@ New-Item -ItemType Directory -Path "$DistPath/Core/raylib/bin" -Force | Out-Null
 
 Write-Host "Copying executable and dependencies..." -ForegroundColor Yellow
 
-# Try to stop running instances from the dist folder to avoid file lock errors
-Stop-Process -Name "game" -ErrorAction SilentlyContinue
-Stop-Process -Name "editor" -ErrorAction SilentlyContinue
+# Try to stop running instances to avoid file lock errors
+# Only targets processes whose path starts with the dist or build directory
+Get-Process -Name "game","editor" -ErrorAction SilentlyContinue | Where-Object {
+    try { $_.Path -like "$DistPath*" -or $_.Path -like "$BuildPath*" } catch { $false }
+} | Stop-Process -Force -ErrorAction SilentlyContinue
 
 # Copy game runtime as hidden engine base for exports
 Copy-Item "$BuildPath/game.exe" "$DistPath/Core/runtime.exe" -Force
@@ -87,7 +87,7 @@ Copy-Item "$BuildPath/libraylib.dll" "$DistPath/" -Force
 
 # Copy Engine UI Assets
 New-Item -ItemType Directory -Path "$DistPath/Core/EngineContent" -Force | Out-Null
-Copy-Item "Assets/EngineContent/*" "$DistPath/Core/EngineContent/" -Recurse -Force
+Copy-Item "EngineContent/*" "$DistPath/Core/EngineContent/" -Recurse -Force
 
 Write-Host "Creating development environment..." -ForegroundColor Yellow
 
@@ -107,11 +107,15 @@ if (Test-Path "Distribution/Templates") {
     Write-Host "Copying Project Templates..." -ForegroundColor Yellow
     Copy-Item "Distribution/Templates" "$DistPath/" -Recurse -Force
     # Strip local build artifacts and .raywaves folders
-    $ExcludedItems = Get-ChildItem -Path "$DistPath/Templates" -Recurse -Include *.dll,*.pdb,*.lib,*.obj,.raywaves -Force
+    $ExcludedItems = Get-ChildItem -Path "$DistPath/Templates" -Recurse -Include *.dll,*.pdb,*.lib,*.obj -Force
+    $ExcludedDirs = Get-ChildItem -Path "$DistPath/Templates" -Recurse -Directory -Filter .raywaves -Force
     if ($ExcludedItems) {
-        Write-Host "Warning: Found and removed local build artifacts/caches from templates during packaging:" -ForegroundColor Yellow
         foreach ($item in $ExcludedItems) {
-            Write-Host "  Removing: $($item.FullName)" -ForegroundColor Yellow
+            Remove-Item -Path $item.FullName -Force -ErrorAction SilentlyContinue
+        }
+    }
+    if ($ExcludedDirs) {
+        foreach ($item in $ExcludedDirs) {
             Remove-Item -Path $item.FullName -Recurse -Force -ErrorAction SilentlyContinue
         }
     }

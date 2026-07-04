@@ -1,5 +1,6 @@
 *.exe
 *.dsym
+
 .vscode
 .vs
 .json
@@ -7,13 +8,16 @@
 .zed
 .clangd
 .clang-format
+.cache
+
 skills-lock.json
 main
 build
 dist
 out
-/.cache
+
 /Tools/zig/
+
 
 # Build artifacts in project templates (compiled during development, shouldn't be tracked)
 Distribution/Templates/**/*.dll

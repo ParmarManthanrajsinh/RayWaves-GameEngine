@@ -28,9 +28,13 @@ void SceneSettingsPanel::Draw(GameEditor* editor)
         return;
     }
 
-    static int s_PrevWidth = editor->m_SceneSettings.m_SceneWidth;
-    static int s_PrevHeight = editor->m_SceneSettings.m_SceneHeight;
-    static int s_PrevTargetFPS = editor->m_SceneSettings.m_TargetFPS;
+    if (!m_bInitialized)
+    {
+        m_PrevWidth = editor->m_SceneSettings.m_SceneWidth;
+        m_PrevHeight = editor->m_SceneSettings.m_SceneHeight;
+        m_PrevTargetFPS = editor->m_SceneSettings.m_TargetFPS;
+        m_bInitialized = true;
+    }
 
     ImGui::Spacing();
     ImGui::SeparatorText("Display Settings");
@@ -80,7 +84,7 @@ void SceneSettingsPanel::Draw(GameEditor* editor)
     if (editor->m_SceneSettings.m_SceneWidth > 7680) editor->m_SceneSettings.m_SceneWidth = 7680;
     if (editor->m_SceneSettings.m_SceneHeight > 4320) editor->m_SceneSettings.m_SceneHeight = 4320;
 
-    bool b_ResolutionChanged = (s_PrevWidth != editor->m_SceneSettings.m_SceneWidth || s_PrevHeight != editor->m_SceneSettings.m_SceneHeight);
+    bool b_ResolutionChanged = (m_PrevWidth != editor->m_SceneSettings.m_SceneWidth || m_PrevHeight != editor->m_SceneSettings.m_SceneHeight);
 
     extern bool g_bNeedsTextureRecreate;
     if (b_ResolutionChanged)
@@ -96,8 +100,8 @@ void SceneSettingsPanel::Draw(GameEditor* editor)
             editor->GetGameEngine().GetMapManager()->SetSceneBounds(static_cast<float>(editor->m_SceneSettings.m_SceneWidth), static_cast<float>(editor->m_SceneSettings.m_SceneHeight));
         }
 
-        s_PrevWidth = editor->m_SceneSettings.m_SceneWidth;
-        s_PrevHeight = editor->m_SceneSettings.m_SceneHeight;
+        m_PrevWidth = editor->m_SceneSettings.m_SceneWidth;
+        m_PrevHeight = editor->m_SceneSettings.m_SceneHeight;
     }
 
     ImGui::Spacing();
@@ -137,7 +141,7 @@ void SceneSettingsPanel::Draw(GameEditor* editor)
         ImGui::EndTable();
     }
 
-    editor->b_FPSChanged = (s_PrevTargetFPS != editor->m_SceneSettings.m_TargetFPS);
+    editor->b_FPSChanged = (m_PrevTargetFPS != editor->m_SceneSettings.m_TargetFPS);
 
     if (editor->b_FPSChanged)
     {
@@ -149,7 +153,7 @@ void SceneSettingsPanel::Draw(GameEditor* editor)
         {
             editor->GetGameEngine().GetMapManager()->SetTargetFPS(editor->m_SceneSettings.m_TargetFPS);
         }
-        s_PrevTargetFPS = editor->m_SceneSettings.m_TargetFPS;
+        m_PrevTargetFPS = editor->m_SceneSettings.m_TargetFPS;
     }
 
     ImGui::Spacing();

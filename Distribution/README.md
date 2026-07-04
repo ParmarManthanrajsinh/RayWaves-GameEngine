@@ -39,7 +39,7 @@ The created distribution includes:
 - **`raylib/`** - Raylib development files (headers, libs)
 - **`GameLogic/`** - Source code for game logic
 - **`Engine/`** - Engine headers for development
-- **`Assets/`** - Game assets (excluding EngineContent)
+- **`Assets/`** - Game assets
 - **`Documentation/`** - User guides and API reference
 
 ## Customization
@@ -48,10 +48,3 @@ The created distribution includes:
 - **Compiler Bundling**: Pass `-IncludeCompiler` to `distribute.ps1` if you want to bundle the Zig compiler for developers (by default, it produces a lean build for players).
 - **Build Configuration**: Use Debug or Release builds by modifying the scripts.
 - **Asset Filtering**: Edit `distribute.ps1` to change which assets are included.
-
-## Notes
-
-- The distribution is self-contained and doesn't require the original source project
-- Users can develop game logic using the provided build script
-- All necessary development tools and headers are included
-- The editor and game runtime are split into `editor.exe` and `game.exe` respectively

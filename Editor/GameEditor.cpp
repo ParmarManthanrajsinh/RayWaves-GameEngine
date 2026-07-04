@@ -5,6 +5,7 @@
 #include "../Engine/AssetResolver.h"
 #include "../Game/DllLoader.h"
 #include "GameEditor.h"
+#include "EditorUtils.h"
 #include "ProcessRunner.h"
 #include <imgui/imgui_stdlib.h>
 #include <imgui_internal.h>
@@ -18,7 +19,7 @@ static std::string GetEngineContentPath(std::string_view sub_path)
     std::filesystem::path core_path = root / "Core" / "EngineContent" / sub_path;
     if (std::filesystem::exists(core_path))
         return core_path.string();
-    return (root / "Assets" / "EngineContent" / sub_path).string();
+    return (root / "EngineContent" / sub_path).string();
 }
 
 #include "Panels/MainMenuBar.h"
@@ -449,7 +450,7 @@ void GameEditor::RunBrowser()
         
         if (ImGui::Button("Open GitHub / Docs", ImVec2(-1, 40.0f)))
         {
-            std::system("start https://github.com/ParmarManthanrajsinh/RayWaves-GameEngine");
+            EditorUtils::OpenURL("https://github.com/ParmarManthanrajsinh/RayWaves-GameEngine");
         }
         
         ImGui::Columns(1);
@@ -595,14 +596,12 @@ void GameEditor::Run()
 
 		if (!m_GameLogicPath.empty())
 		{
-			static auto s_LastReloadCheckTime = Clock::now();
-
 			const auto CURRENT_TIME = Clock::now();
-			auto elapsed_time = std::chrono::duration<float>(CURRENT_TIME - s_LastReloadCheckTime).count();
+			auto elapsed_time = std::chrono::duration<float>(CURRENT_TIME - m_LastReloadCheckTime).count();
 
 			if (elapsed_time > 0.5f)
 			{
-				s_LastReloadCheckTime = CURRENT_TIME;
+				m_LastReloadCheckTime = CURRENT_TIME;
 				std::error_code ec;
 
 				const fs::path PATH(m_GameLogicPath);
@@ -1057,10 +1056,17 @@ void GameEditor::CompileGameLogic()
     {
         const auto& proj = ProjectManager::GetCurrent();
         std::filesystem::path raywaves_dir = std::filesystem::path(proj.m_RootPath) / ".raywaves";
-        
-        // Project folders are portable, but CMake caches contain absolute paths.
-        // Try normal configure first, if it fails (e.g. moved project), fallback to --fresh.
-        buildCmd = "cd /d \"" + raywaves_dir.string() + "\" && (cmake -G Ninja . -B build || cmake --fresh -G Ninja . -B build) && cmake --build build --config Release";
+        std::string path_str = raywaves_dir.string();
+        if (!EditorUtils::IsShellSafe(path_str))
+        {
+            buildCmd = "echo ERROR: Project path contains unsafe characters.";
+        }
+        else
+        {
+            // Project folders are portable, but CMake caches contain absolute paths.
+            // Try normal configure first, if it fails (e.g. moved project), fallback to --fresh.
+            buildCmd = "cd /d \"" + path_str + "\" && (cmake -G Ninja . -B build || cmake --fresh -G Ninja . -B build) && cmake --build build --config Release";
+        }
     }
     else
     {

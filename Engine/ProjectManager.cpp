@@ -74,6 +74,7 @@ std::string ProjectManager::SanitizeCMakeProjectName(std::string_view name)
 t_Project ProjectManager::s_Current;
 bool ProjectManager::s_bOpen = false;
 std::string ProjectManager::s_RecentPath = "";
+std::recursive_mutex ProjectManager::s_Mutex;
 
 void ProjectManager::InitializeRecentPath()
 {
@@ -90,6 +91,7 @@ void ProjectManager::InitializeRecentPath()
 
 bool ProjectManager::b_OpenProject(std::string_view folder_path)
 {
+    std::lock_guard<std::recursive_mutex> lock(s_Mutex);
     std::string manifest_path = (fs::path(folder_path) / "project.raywaves").string();
     if (!fs::exists(manifest_path))
     {
@@ -121,6 +123,7 @@ bool ProjectManager::b_OpenProject(std::string_view folder_path)
 
 void ProjectManager::CloseProject()
 {
+    std::lock_guard<std::recursive_mutex> lock(s_Mutex);
     s_bOpen = false;
     s_Current = t_Project{};
 }
@@ -172,17 +175,20 @@ bool ProjectManager::b_CreateProject(std::string_view target_folder, std::string
 
 bool ProjectManager::b_SaveCurrentProject()
 {
+    std::lock_guard<std::recursive_mutex> lock(s_Mutex);
     if (!s_bOpen) return false;
     return s_Current.m_bSaveToFile();
 }
 
 t_Project& ProjectManager::GetCurrent()
 {
+    std::lock_guard<std::recursive_mutex> lock(s_Mutex);
     return s_Current;
 }
 
 bool ProjectManager::b_HasOpenProject()
 {
+    std::lock_guard<std::recursive_mutex> lock(s_Mutex);
     return s_bOpen;
 }
 
@@ -348,6 +354,7 @@ bool ProjectManager::GenerateCMakeLists()
     file << "target_sources(GameLogic PRIVATE ${SRC_FILES} ${ENGINE_SRC})\n\n";
     
     file << "target_include_directories(GameLogic PRIVATE\n";
+    file << "    \"${ENGINE_DIR}\"\n";
     file << "    \"${ENGINE_DIR}/Engine\"\n";
     file << "    \"${ENGINE_DIR}/raylib/include\"\n";
     file << ")\n\n";

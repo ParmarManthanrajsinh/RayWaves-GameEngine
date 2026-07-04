@@ -1,5 +1,5 @@
 #include "DemoLevel.h"
-#include "../Engine/AssetResolver.h"
+#include "Engine/AssetResolver.h"
 #include <iostream>
 #include <algorithm>
 #include <cmath>

@@ -4,6 +4,7 @@
 #include <filesystem>
 #include <string_view>
 #include <vector>
+#include <mutex>
 
 class ProjectManager 
 {
@@ -33,4 +34,6 @@ private:
     static std::string s_RecentPath;
 
     static void InitializeRecentPath();
+
+    static std::recursive_mutex s_Mutex;
 };

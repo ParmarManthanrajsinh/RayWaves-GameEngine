@@ -1,5 +1,5 @@
 #pragma once
-#include "../Engine/GameMap.h"
+#include "Engine/GameMap.h"
 #include "Player.h"
 #include "GameCamera.h"
 #include "Slime.h"

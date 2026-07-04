@@ -29,11 +29,14 @@ void Profiler::NextFrame()
 
 std::vector<ProfilerSnapshot> Profiler::GetAverages() const
 {
-    std::set<std::string> all_names;
     size_t count = std::min(m_FramesRecorded, k_FrameCount);
-    for (size_t i = 0; i < count; ++i)
+    size_t oldest = (m_FramesRecorded < k_FrameCount) ? 0 : (m_CurrentFrame + 1) % k_FrameCount;
+
+    std::set<std::string> all_names;
+    for (size_t j = 0; j < count; ++j)
     {
-        for (const auto& pair : m_Frames[i].m_NameToUs)
+        size_t idx = (oldest + j) % k_FrameCount;
+        for (const auto& pair : m_Frames[idx].m_NameToUs)
         {
             all_names.insert(pair.first);
         }
@@ -45,10 +48,11 @@ std::vector<ProfilerSnapshot> Profiler::GetAverages() const
         double total = 0.0;
         double max_val = 0.0;
         double last = 0.0;
-        for (size_t i = 0; i < count; ++i)
+        for (size_t j = 0; j < count; ++j)
         {
-            auto it = m_Frames[i].m_NameToUs.find(name);
-            if (it != m_Frames[i].m_NameToUs.end())
+            size_t idx = (oldest + j) % k_FrameCount;
+            auto it = m_Frames[idx].m_NameToUs.find(name);
+            if (it != m_Frames[idx].m_NameToUs.end())
             {
                 double ms = it->second / 1000.0;
                 total += ms;
@@ -67,11 +71,14 @@ bool Profiler::SaveToFile(const std::string& path) const
     std::ofstream file(path);
     if (!file.is_open()) return false;
 
-    std::set<std::string> all_names;
     size_t count = std::min(m_FramesRecorded, k_FrameCount);
-    for (size_t i = 0; i < count; ++i)
+    size_t oldest = (m_FramesRecorded < k_FrameCount) ? 0 : (m_CurrentFrame + 1) % k_FrameCount;
+
+    std::set<std::string> all_names;
+    for (size_t j = 0; j < count; ++j)
     {
-        for (const auto& pair : m_Frames[i].m_NameToUs)
+        size_t idx = (oldest + j) % k_FrameCount;
+        for (const auto& pair : m_Frames[idx].m_NameToUs)
         {
             all_names.insert(pair.first);
         }
@@ -81,13 +88,14 @@ bool Profiler::SaveToFile(const std::string& path) const
     for (const auto& name : all_names) file << "," << name << "_us";
     file << "\n";
 
-    for (size_t i = 0; i < count; ++i)
+    for (size_t j = 0; j < count; ++j)
     {
-        file << i;
+        size_t idx = (oldest + j) % k_FrameCount;
+        file << j;
         for (const auto& name : all_names)
         {
-            auto it = m_Frames[i].m_NameToUs.find(name);
-            file << "," << (it != m_Frames[i].m_NameToUs.end() ? it->second : 0);
+            auto it = m_Frames[idx].m_NameToUs.find(name);
+            file << "," << (it != m_Frames[idx].m_NameToUs.end() ? it->second : 0);
         }
         file << "\n";
     }

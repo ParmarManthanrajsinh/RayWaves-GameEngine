@@ -2,6 +2,7 @@
 #include "DllLoader.h"
 #include <Windows.h>
 #include <chrono>
+#include <random>
 void CleanupStaleShadowCopies()
 {
     try
@@ -43,9 +44,13 @@ void CleanupStaleShadowCopies()
             std::cout << "Cleaned up " << cleaned << " stale shadow DLL copies." << "\n";
         }
     }
+    catch (std::exception const& e)
+    {
+        std::cerr << "Shadow cleanup error: " << e.what() << "\n";
+    }
     catch (...)
     {
-        // Non-critical — silently ignore errors during cleanup
+        std::cerr << "Shadow cleanup: unknown error.\n";
     }
 }
 
@@ -77,6 +82,15 @@ DllHandle LoadDll(const char* PATH)
             temp_dir = fs::temp_directory_path();
         }
 
+        // Use random subdirectory to prevent symlink attacks
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        std::uniform_int_distribution<uint64_t> dis;
+        std::string rand_dir = std::to_string(dis(gen));
+        temp_dir = temp_dir / rand_dir;
+        std::error_code ec_dir;
+        fs::create_directories(temp_dir, ec_dir);
+
         // Build a unique filename: GameLogic.shadow.<pid>.<tick>.dll
         DWORD pid = GetCurrentProcessId();
         DWORD ticks = static_cast<DWORD>(GetTickCount64());
@@ -105,9 +119,17 @@ DllHandle LoadDll(const char* PATH)
         result.shadow_path = dest_path.string();
         return result;
     }
+    catch (std::exception const& e)
+    {
+        std::cerr << "Shadow copy failed: " << e.what() << ". Falling back to direct load.\n";
+        HMODULE mod = LoadLibraryA(PATH);
+        result.handle = reinterpret_cast<void*>(mod);
+        result.shadow_path = PATH;
+        return result;
+    }
     catch (...)
     {
-        // As a last resort, try direct load
+        std::cerr << "Shadow copy: unknown error. Falling back to direct load.\n";
         HMODULE mod = LoadLibraryA(PATH);
         result.handle = reinterpret_cast<void*>(mod);
         result.shadow_path = PATH;
@@ -115,7 +137,7 @@ DllHandle LoadDll(const char* PATH)
     }
 }
 
-void UnloadDll(DllHandle dll) 
+void UnloadDll(DllHandle& dll) 
 {
     if (dll.handle) 
     {
@@ -123,6 +145,7 @@ void UnloadDll(DllHandle dll)
         (
             reinterpret_cast<HMODULE>(dll.handle)
         );
+        dll.handle = nullptr;
     }
 
     // Attempt to delete the shadow copy after unloading. Ignore failures.
@@ -137,6 +160,7 @@ void UnloadDll(DllHandle dll)
             std::error_code ec;
             fs::remove(p, ec);
         }
+        dll.shadow_path.clear();
     }
 }
 

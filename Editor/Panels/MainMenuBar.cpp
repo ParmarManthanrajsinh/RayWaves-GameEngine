@@ -90,7 +90,7 @@ void MainMenuBar::Draw(GameEditor* editor)
         {
             if (ImGui::MenuItem(ICON_FA_GLOBE " GitHub Repository"))
             {
-                std::system("start https://github.com/ParmarManthanrajsinh/RayWaves-GameEngine");
+                EditorUtils::OpenURL("https://github.com/ParmarManthanrajsinh/RayWaves-GameEngine");
             }
             if (ImGui::MenuItem(ICON_FA_INFO " About"))
             {

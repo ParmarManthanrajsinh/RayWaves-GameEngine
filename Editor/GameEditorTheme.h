@@ -68,9 +68,9 @@ inline void SetEngineTheme
 (
     const FThemePreset& preset = GetThemePresets()[0],
     float gui_scale = 1.0f,
-    std::string_view base_font_path = "Assets/EngineContent/Roboto-Regular.ttf",
-    std::string_view mono_font_path = "Assets/EngineContent/Consolas-Regular.ttf",
-    std::string_view icon_font_path = "Assets/EngineContent/fa-solid-900.ttf"
+    std::string_view base_font_path = "EngineContent/Roboto-Regular.ttf",
+    std::string_view mono_font_path = "EngineContent/Consolas-Regular.ttf",
+    std::string_view icon_font_path = "EngineContent/fa-solid-900.ttf"
 )
 {
     ImGuiIO& io = ImGui::GetIO();

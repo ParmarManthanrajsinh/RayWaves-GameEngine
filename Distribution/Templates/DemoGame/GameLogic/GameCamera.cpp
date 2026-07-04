@@ -1,5 +1,5 @@
 #include "GameCamera.h"
-#include "../Engine/GameConfig.h"
+#include "Engine/GameConfig.h"
 
 GameCamera::GameCamera()
     : m_BoundsLeft(0)

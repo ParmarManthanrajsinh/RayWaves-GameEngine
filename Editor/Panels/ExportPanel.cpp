@@ -383,7 +383,15 @@ void ExportPanel::Draw(GameEditor* editor)
                     // 1. Build the Project DLL using CMake
                     s_fAppendLogLine(editor->m_ExportState.m_ExportLogs, editor->m_ExportState.m_ExportLogMutex, "Building project GameLogic (Release)...");
                     fs::path raywaves_dir = fs::path(proj.m_RootPath) / ".raywaves";
-                    std::string build_cmd = "cd /d \"" + raywaves_dir.string() + "\" && (cmake -G Ninja . -B build || cmake --fresh -G Ninja . -B build) && cmake --build build --config Release";
+                    std::string path_str = raywaves_dir.string();
+                    if (!EditorUtils::IsShellSafe(path_str))
+                    {
+                        s_fAppendLogLine(editor->m_ExportState.m_ExportLogs, editor->m_ExportState.m_ExportLogMutex, "ERROR: Project path contains unsafe characters!");
+                        editor->m_ExportState.m_bExportSuccess = false;
+                        editor->m_ExportState.m_bIsExporting = false;
+                        return;
+                    }
+                    std::string build_cmd = "cd /d \"" + path_str + "\" && (cmake -G Ninja . -B build || cmake --fresh -G Ninja . -B build) && cmake --build build --config Release";
 
                     FILE* pipe = _popen(build_cmd.c_str(), "r");
                     if (pipe)

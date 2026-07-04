@@ -9,19 +9,19 @@ void AssetResolver::SetProjectAssetPath(std::string_view path) {
 }
 
 std::string AssetResolver::Resolve(std::string_view relativePath) {
-    // Quick absolute check without constructing fs::path
-    if (!relativePath.empty() && (relativePath[0] == '/' || relativePath[0] == '\\'
-        || (relativePath.size() > 1 && relativePath[1] == ':')))
-    {
-        return std::filesystem::path(relativePath).lexically_normal().string();
-    }
-
     if (s_BasePath.empty())
-    {
         return std::string(relativePath);
-    }
 
-    return (std::filesystem::path(s_BasePath) / relativePath).lexically_normal().string();
+    std::filesystem::path base_abs = std::filesystem::absolute(s_BasePath).lexically_normal();
+    std::filesystem::path resolved = std::filesystem::absolute(std::filesystem::path(s_BasePath) / relativePath).lexically_normal();
+    std::string base_str = base_abs.string();
+    std::string resolved_str = resolved.string();
+
+    // Root-jail check: resolved path must start with asset root
+    if (resolved_str.find(base_str) != 0)
+        return std::string(relativePath);
+
+    return resolved_str;
 }
 
 std::string AssetResolver::GetProjectAssetPath() {
