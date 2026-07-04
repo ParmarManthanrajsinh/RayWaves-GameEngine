@@ -95,6 +95,9 @@ set(TINYFILEDIALOGS Editor/tinyfiledialogs/tinyfiledialogs.c)
 if(EXISTS "${CMAKE_SOURCE_DIR}/EngineContent")
   file(COPY ${CMAKE_SOURCE_DIR}/EngineContent DESTINATION ${CMAKE_BINARY_DIR})
 endif()
+if(EXISTS "${CMAKE_SOURCE_DIR}/EngineContent/config.ini")
+  file(COPY ${CMAKE_SOURCE_DIR}/EngineContent/config.ini DESTINATION ${CMAKE_BINARY_DIR})
+endif()
 
 # Copy demo assets from the DemoGame template to the build directory
 if(EXISTS "${CMAKE_SOURCE_DIR}/Distribution/Templates/DemoGame/Assets")
