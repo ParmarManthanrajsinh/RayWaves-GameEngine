@@ -49,6 +49,8 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 add_compile_options(-msse4.2)
 add_compile_options(-fno-sanitize=all)
 add_compile_options(-Qunused-arguments)
+
+
 add_compile_definitions(IMGUI_DISABLE_SSE)
 
 # Always build raylib from source as a SHARED library so EXE and GameLogic share the same RLGL state
@@ -91,8 +93,33 @@ set(GAME_SRC_CPP
     Game/main.cpp
     Game/DllLoader.cpp
 )
-file(GLOB ENGINE_SRC_CPP  CONFIGURE_DEPENDS "Engine/*.cpp")
-file(GLOB EDITOR_SRC_CPP  CONFIGURE_DEPENDS "Editor/*.cpp" "Editor/terminal/*.cpp" "Editor/Panels/*.cpp" "Editor/EditorUtils.cpp")
+set(ENGINE_SRC_CPP
+    Engine/AssetResolver.cpp
+    Engine/GameConfig.cpp
+    Engine/GameEngine.cpp
+    Engine/GameMap.cpp
+    Engine/MapManager.cpp
+    Engine/Profiler.cpp
+    Engine/Project.cpp
+    Engine/ProjectManager.cpp
+    Engine/raygui_impl.cpp
+)
+set(EDITOR_SRC_CPP
+    Editor/EditorPreferences.cpp
+    Editor/EditorUtils.cpp
+    Editor/FileAssociation.cpp
+    Editor/GameEditor.cpp
+    Editor/ProcessRunner.cpp
+    Editor/terminal/terminal.cpp
+    Editor/Panels/EditorPreferencesPanel.cpp
+    Editor/Panels/ExportPanel.cpp
+    Editor/Panels/MainMenuBar.cpp
+    Editor/Panels/MapSelectionPanel.cpp
+    Editor/Panels/MessageLogPanel.cpp
+    Editor/Panels/PerformanceOverlay.cpp
+    Editor/Panels/SceneSettingsPanel.cpp
+    Editor/Panels/SceneWindow.cpp
+)
 
 # rlImGui and ImGui sources
 set(RLIMGUI_SRC Editor/rlImGui/rlImGui.cpp)
@@ -129,7 +156,14 @@ target_link_libraries(Engine PRIVATE dwmapi)
 
 
 # Create GameLogic shared library (DLL)
-file(GLOB GAMELOGIC_SRC_CPP CONFIGURE_DEPENDS "Distribution/Templates/DemoGame/GameLogic/*.cpp")
+set(GAMELOGIC_SRC_CPP
+    Distribution/Templates/DemoGame/GameLogic/DemoLevel.cpp
+    Distribution/Templates/DemoGame/GameLogic/DemoMainMenu.cpp
+    Distribution/Templates/DemoGame/GameLogic/GameCamera.cpp
+    Distribution/Templates/DemoGame/GameLogic/Player.cpp
+    Distribution/Templates/DemoGame/GameLogic/RootManager.cpp
+    Distribution/Templates/DemoGame/GameLogic/Slime.cpp
+)
 add_library(GameLogic SHARED ${GAMELOGIC_SRC_CPP})
 set_target_properties(GameLogic PROPERTIES PREFIX "")
 # GameLogic needs Engine headers and linkage (for GameMap symbols)
@@ -259,6 +293,7 @@ add_executable(tests
     Tests/Profiler_t.cpp
     Tests/GameMap_t.cpp
     Tests/MapManager_t.cpp
+    Tests/GameEditor_t.cpp
     Tests/PerfBenchmark_t.cpp
 )
 

@@ -24,10 +24,6 @@ You'll see log lines like `"Downloading CMake (first-time setup)..."` in the Con
 - Run `Tools\setup_zig.ps1` manually from a terminal to see the exact error.
 - Once downloaded, tools are cached in `Tools/{zig,ninja,cmake}/` — subsequent compiles are fast.
 
-### "CMake build fails with no project open"
-
-If you click **Compile** from the bare launcher (no project open) on a machine without system-installed CMake, the dev-fallback branch will fail. This is a known limitation — the primary workflow (Compile with a project open) uses the bundled CMake correctly. Opening any project before compiling avoids this.
-
 ### "Permission denied" when building RayWaves.exe
 *   **The Problem:** You are trying to rebuild the *engine core* (`RayWaves.exe`) while it is running.
 *   **The Fix:** Close the game window, *then* rebuild.

@@ -99,7 +99,7 @@ Copy-Item "Engine/*.cpp" "$DistPath/Core/Engine/" -Force
 Copy-Item "Distribution/dist_CMakeLists.txt" "$DistPath/Core/CMakeLists.txt" -Force
 
 # Copy distribution documentation
-Copy-Item "Documentation/README_DISTRIBUTION.md" "$DistPath/Documentation/" -Force
+Copy-Item "Documentation/GAME_DEVELOPER_GUIDE.md" "$DistPath/Documentation/" -Force
 Copy-Item "Documentation/DISTRIBUTION_GUIDE.md" "$DistPath/Documentation/" -Force
 
 # Copy Project Templates

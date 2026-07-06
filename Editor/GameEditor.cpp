@@ -1182,8 +1182,7 @@ void GameEditor::CompileGameLogic()
                     + "\" -SkipZig -SkipRcEdit -SkipNinja";
                 std::system(fetchCmd.c_str());
             }
-            std::string cmake_path = "\"" + cmakeExe.string() + "\"";
-            build_cmd = "\"\"" + cmake_path + "\" --build \"" + app_dir + "\" --target GameLogic\"";
+            build_cmd = "\"\"" + cmakeExe.string() + "\" --build \"" + app_dir + "\" --target GameLogic\"";
         }
     }
 
