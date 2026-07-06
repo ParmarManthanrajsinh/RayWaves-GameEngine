@@ -10,6 +10,7 @@ class ProjectManager
 {
 public:
     static std::filesystem::path GetEngineRootDirectory();
+    static std::filesystem::path GetToolsDirectory();
 
     static bool b_OpenProject(std::string_view folder_path);
     static void CloseProject();

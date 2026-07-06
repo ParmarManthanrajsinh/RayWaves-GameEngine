@@ -389,7 +389,19 @@ void ExportPanel::Draw(GameEditor* editor)
                         editor->m_ExportState.m_bIsExporting = false;
                         return;
                     }
-                    std::string build_cmd = "cd /d \"" + path_str + "\" && (cmake -G Ninja . -B build || cmake --fresh -G Ninja . -B build) && cmake --build build --config Release";
+
+                    fs::path cmakeExe = ProjectManager::GetToolsDirectory() / "cmake" / "bin" / "cmake.exe";
+                    if (!fs::exists(cmakeExe))
+                    {
+                        s_fAppendLogLine(editor->m_ExportState.m_ExportLogs, editor->m_ExportState.m_ExportLogMutex, "Downloading CMake (first-time setup)...");
+                        std::string fetchCmd = "powershell -ExecutionPolicy Bypass -File \""
+                            + (ProjectManager::GetToolsDirectory() / "setup_zig.ps1").string()
+                            + "\" -SkipZig -SkipRcEdit -SkipNinja";
+                        std::system(fetchCmd.c_str());
+                    }
+
+                    std::string cmakePath = "\"" + cmakeExe.string() + "\"";
+                    std::string build_cmd = "cd /d \"" + path_str + "\" && (" + cmakePath + " -G Ninja . -B build || " + cmakePath + " --fresh -G Ninja . -B build) && " + cmakePath + " --build build --config Release";
 
                     FILE* pipe = _popen(build_cmd.c_str(), "r");
                     if (pipe)

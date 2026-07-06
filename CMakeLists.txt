@@ -71,6 +71,20 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS_BACKUP}")
 unset(CMAKE_C_FLAGS_BACKUP)
 unset(CMAKE_CXX_FLAGS_BACKUP)
 
+# Stage raylib headers + static lib alongside exe so generated
+# per-project CMakeLists.txt can find them with exe-relative path.
+set(RAYLIB_BUILD_DIR "${CMAKE_BINARY_DIR}/_deps/raylib-build/raylib")
+set(RAYLIB_STAGEDIR "${CMAKE_BINARY_DIR}/raylib")
+file(MAKE_DIRECTORY "${RAYLIB_STAGEDIR}/include" "${RAYLIB_STAGEDIR}/lib")
+file(COPY "${RAYLIB_BUILD_DIR}/include/raylib.h"   DESTINATION "${RAYLIB_STAGEDIR}/include/")
+file(COPY "${RAYLIB_BUILD_DIR}/include/raymath.h"  DESTINATION "${RAYLIB_STAGEDIR}/include/")
+file(COPY "${RAYLIB_BUILD_DIR}/include/rcamera.h"  DESTINATION "${RAYLIB_STAGEDIR}/include/")
+file(COPY "${RAYLIB_BUILD_DIR}/include/rlgl.h"     DESTINATION "${RAYLIB_STAGEDIR}/include/")
+file(COPY "${RAYLIB_BUILD_DIR}/libraylib.dll.a"    DESTINATION "${RAYLIB_STAGEDIR}/lib/")
+if(EXISTS "${RAYLIB_STAGEDIR}/lib/libraylib.dll.a" AND NOT EXISTS "${RAYLIB_STAGEDIR}/lib/libraylib.a")
+    file(RENAME "${RAYLIB_STAGEDIR}/lib/libraylib.dll.a" "${RAYLIB_STAGEDIR}/lib/libraylib.a")
+endif()
+
 # Collect source files
 # Explicitly list Game sources for the editor to avoid pulling in game-only main
 set(GAME_SRC_CPP

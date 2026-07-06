@@ -15,12 +15,28 @@ fs::path ProjectManager::GetEngineRootDirectory()
     GetModuleFileNameA(NULL, exe_path, MAX_PATH);
     fs::path base_dir = fs::path(exe_path).parent_path();
 
-    if (fs::exists(base_dir / "Core") && fs::exists(base_dir / "Templates"))
+    if (fs::exists(base_dir / "Tools" / "setup_zig.ps1"))
     {
         return base_dir;
     }
 
     fs::path current = base_dir;
+    while (current.has_parent_path() && current != current.parent_path())
+    {
+        if (fs::exists(current / "Tools" / "setup_zig.ps1"))
+        {
+            return current;
+        }
+        current = current.parent_path();
+    }
+
+    // Fallback: check for dist layout (Core/ + Templates/)
+    if (fs::exists(base_dir / "Core") && fs::exists(base_dir / "Templates"))
+    {
+        return base_dir;
+    }
+
+    current = base_dir;
     while (current.has_parent_path() && current != current.parent_path())
     {
         if (fs::exists(current / "Distribution" / "Templates"))
@@ -33,8 +49,9 @@ fs::path ProjectManager::GetEngineRootDirectory()
     return base_dir;
 }
 
-static fs::path ResolveToolsDirectory(const fs::path& engine_root)
+fs::path ProjectManager::GetToolsDirectory()
 {
+    fs::path engine_root = GetEngineRootDirectory();
     fs::path tools_dir = engine_root / "Core" / "Tools";
     if (!fs::exists(tools_dir / "zig-cc.bat"))
     {
@@ -308,10 +325,22 @@ bool ProjectManager::GenerateCMakeLists()
     std::string engine_dir_str = engine_dir.string();
     std::replace(engine_dir_str.begin(), engine_dir_str.end(), '\\', '/');
 
+    // Resolve raylib path relative to exe (staged by main build or dist layout)
+    char exe_path[MAX_PATH];
+    GetModuleFileNameA(NULL, exe_path, MAX_PATH);
+    fs::path exe_dir = fs::path(exe_path).parent_path();
+    fs::path raylib_dir = exe_dir / "raylib";
+    if (fs::exists(exe_dir / "Core" / "raylib" / "include" / "raylib.h"))
+    {
+        raylib_dir = exe_dir / "Core" / "raylib";
+    }
+    std::string raylib_dir_str = raylib_dir.string();
+    std::replace(raylib_dir_str.begin(), raylib_dir_str.end(), '\\', '/');
+
     std::ofstream file(cmake_path);
     if (!file.is_open()) return false;
 
-    fs::path tools_dir = ResolveToolsDirectory(engine_root);
+    fs::path tools_dir = GetToolsDirectory();
     std::string tools_dir_str = tools_dir.string();
     std::replace(tools_dir_str.begin(), tools_dir_str.end(), '\\', '/');
 
@@ -333,6 +362,20 @@ bool ProjectManager::GenerateCMakeLists()
     file << "    endif()\n";
     file << "endif()\n\n";
 
+    // Auto-fetch Ninja if missing
+    file << "if(NOT EXISTS \"" << tools_dir_str << "/ninja/ninja.exe\")\n";
+    file << "    message(STATUS \"Ninja not found. Auto-fetching...\")\n";
+    file << "    execute_process(\n";
+    file << "        COMMAND powershell -ExecutionPolicy Bypass -File \"" << tools_dir_str << "/setup_zig.ps1\" -SkipZig -SkipRcEdit -SkipCMake\n";
+    file << "        WORKING_DIRECTORY \"" << engine_root_str << "\"\n";
+    file << "        RESULT_VARIABLE NINJA_FETCH_RESULT\n";
+    file << "    )\n";
+    file << "    if(NOT NINJA_FETCH_RESULT EQUAL 0)\n";
+    file << "        message(FATAL_ERROR \"Failed to download Ninja.\")\n";
+    file << "    endif()\n";
+    file << "endif()\n\n";
+
+    file << "set(CMAKE_MAKE_PROGRAM \"" << tools_dir_str << "/ninja/ninja.exe\")\n";
     file << "set(CMAKE_C_COMPILER \"" << tools_dir_str << "/zig-cc.bat\")\n";
     file << "set(CMAKE_CXX_COMPILER \"" << tools_dir_str << "/zig-cxx.bat\")\n";
     file << "project(" << SanitizeCMakeProjectName(s_Current.m_Name) << ")\n\n";
@@ -344,6 +387,7 @@ bool ProjectManager::GenerateCMakeLists()
     file << "add_compile_options(-msse4.2)\n\n";
     
     file << "set(ENGINE_DIR \"" << engine_dir_str << "\")\n";
+    file << "set(RAYLIB_DIR \"" << raylib_dir_str << "\")\n";
     file << "set(PROJECT_SRC_DIR \"${CMAKE_SOURCE_DIR}/../GameLogic\")\n\n";
     
     file << "add_library(GameLogic SHARED)\n";
@@ -356,10 +400,10 @@ bool ProjectManager::GenerateCMakeLists()
     file << "target_include_directories(GameLogic PRIVATE\n";
     file << "    \"${ENGINE_DIR}\"\n";
     file << "    \"${ENGINE_DIR}/Engine\"\n";
-    file << "    \"${ENGINE_DIR}/raylib/include\"\n";
+    file << "    \"${RAYLIB_DIR}/include\"\n";
     file << ")\n\n";
     
-    file << "target_link_directories(GameLogic PRIVATE \"${ENGINE_DIR}/raylib/lib\")\n";
+    file << "target_link_directories(GameLogic PRIVATE \"${RAYLIB_DIR}/lib\")\n";
     file << "target_link_libraries(GameLogic PRIVATE raylib dwmapi)\n\n";
     
     file << "set_target_properties(GameLogic PROPERTIES RUNTIME_OUTPUT_DIRECTORY \"${CMAKE_SOURCE_DIR}/..\")\n";

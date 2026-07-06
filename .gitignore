@@ -17,6 +17,8 @@ dist
 out
 
 /Tools/zig/
+/Tools/cmake/
+/Tools/ninja/
 
 
 # Build artifacts in project templates (compiled during development, shouldn't be tracked)
