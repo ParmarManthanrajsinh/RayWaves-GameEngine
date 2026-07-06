@@ -1,80 +1,66 @@
-# User Guide (For Game Developers)
+# RayWaves Game Developer Guide
 
 *How to make games with RayWaves*
 
 > **Engine maintainer?** See [DISTRIBUTION_GUIDE.md](DISTRIBUTION_GUIDE.md) for packaging the editor itself. This guide is for end users who just want to make games.
 
-So you've downloaded RayWaves, or maybe your team lead sent you a zip file. Ready to make a game?
+---
+
+## Quick Start
+
+1. Launch `RayWaves.exe`. The Project Browser appears.
+2. Click **New Project**, pick a name and location, choose a template.
+3. Once open, the editor loads. Edit `.cpp` files in your project's `GameLogic/` folder.
+4. Click **Compile** (toolbar button). Build runs automatically.
+5. Changes hot-reload in ~0.5 seconds. No restarting.
+
+> **Tip:** Double-click a `project.raywaves` file in Explorer (after registering file association under *Tools -> Register .raywaves file association*) to skip the browser.
 
 ---
 
-## 1-Minute Quick-Start
+## Workflow
 
-1.  Launch `RayWaves.exe`. The Project Browser appears.
-2.  Click **New Project**, pick a name and location, choose a template.
-3.  Click **Open Existing Project** if you want to open an existing `.raywaves` project.
-4.  Once a project is open, the editor loads. Edit any `.cpp` file in your project's `GameLogic/` folder.
-5.  Click **Compile** (or press the toolbar button). The build runs automatically — no manual script needed.
-6.  Changes hot-reload in ~0.5 seconds. No restarting.
-
-> **Tip:** You can also double-click a `project.raywaves` file in Explorer (after registering the file association under *Tools → Register .raywaves file association*) to skip the browser and open a project directly.
-
----
-
-## The Workflow
-
-1.  **Code** in C++ (edit your project's `GameLogic/` files).
-2.  **Build** by clicking **Compile** in the editor toolbar.
-3.  **Play** — the DLL swaps instantly.
-
-You never need to close the game window to change code.
-
----
-
-## Creating Your First Level
-
-1.  Inside your project's `GameLogic/` folder, create `MyLevel.h` and `MyLevel.cpp`.
-2.  Define a class inheriting `GameMap`.
-3.  Register it in `RootManager.cpp`:
-    ```cpp
-    #include "MyLevel.h"
-    // In CreateGameMap:
-    s_GameMapManager->RegisterMap<MyLevel>("MyCoolLevel");
-    ```
-4.  Click **Compile**.
-5.  Select your new level from the dropdown in the editor.
-
----
-
-## Adding Assets
-
-Put your files in your project's `Assets/` folder.
-
-```cpp
-Texture2D myTexture = LoadTexture("Assets/my_image.png");
+```
+Code (GameLogic/*.cpp) -> Click Compile -> DLL hot-reloads -> Play instantly
 ```
 
-Always use forward slashes (`/`), even on Windows.
+You never close the game window to change code.
 
 ---
 
-## Sharing Your Game
+## Project Structure
 
-1.  Open the **Export Panel** (toolbar icon).
-2.  Choose output folder.
-3.  Click **Start Export**.
+```
+MyGame/
+├── project.raywaves      # Manifest (name, version, scene settings)
+├── Assets/                # Your textures, sounds, fonts
+├── GameLogic/             # YOUR C++ GAMEPLAY CODE
+│   ├── RootManager.cpp    # DLL entry point, map registration
+│   └── YourMap.cpp        # Any number of maps, entities, systems
+└── .raywaves/             # Auto-managed build cache (do not touch)
+```
 
-You get a standalone `.exe` that launches your game directly (no editor UI).
+See [ARCHITECTURE.md](ARCHITECTURE.md) for the full engine repo structure.
+
+---
+
+## Which Template to Start From
+
+| Template | Maps | Complexity | Use When |
+|----------|------|-----------|----------|
+| **Empty** | 1 inline map | Minimal | Learning, prototyping |
+| **Platformer2D** | 1 map + camera + movement | Low | Need scrolling camera fast |
+| **DemoGame** | Multi-map, entities, audio, parallax | Full | Reference for production game |
+
+See [GUIDE_FUNDAMENTALS.md](GUIDE_FUNDAMENTALS.md) for understanding the DLL contract, map lifecycle, StateBag, and your first map tutorial.
+
+See [GUIDE_REFERENCE.md](GUIDE_REFERENCE.md) for camera, input, audio, assets, export, and common patterns.
 
 ---
 
 ## Need Help?
 
 - **Game crashed?** Check the Console output in the editor.
-- **Compile failed?** Look at the error messages in the Console / Message Log.
+- **Compile failed?** Look at error messages in the Console / Message Log.
 - **Weird state?** Press the **Restart** button to reset the map.
-- **First compile slow?** The tools (Zig, Ninja, CMake) download automatically on first use — about 200 MB total. Internet connection required. See [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
-
----
-
-*Happy Coding!*
+- **First compile slow?** Tools download automatically on first use (~200 MB). Internet required. See [TROUBLESHOOTING.md](TROUBLESHOOTING.md).

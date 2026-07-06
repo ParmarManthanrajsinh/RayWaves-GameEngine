@@ -100,7 +100,8 @@ Copy-Item "Distribution/dist_CMakeLists.txt" "$DistPath/Core/CMakeLists.txt" -Fo
 
 # Copy distribution documentation
 Copy-Item "Documentation/GAME_DEVELOPER_GUIDE.md" "$DistPath/Documentation/" -Force
-Copy-Item "Documentation/DISTRIBUTION_GUIDE.md" "$DistPath/Documentation/" -Force
+Copy-Item "Documentation/GUIDE_FUNDAMENTALS.md" "$DistPath/Documentation/" -Force
+Copy-Item "Documentation/GUIDE_REFERENCE.md" "$DistPath/Documentation/" -Force
 
 # Copy Project Templates
 if (Test-Path "Distribution/Templates") {
