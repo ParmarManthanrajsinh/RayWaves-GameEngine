@@ -1132,8 +1132,8 @@ void GameEditor::CompileGameLogic()
         BuildMessages.clear();
     }
 
-    std::string buildCmd;
-    std::string appDir = GetApplicationDirectory();
+    std::string build_cmd;
+    std::string app_dir = GetApplicationDirectory();
 
     if (ProjectManager::b_HasOpenProject())
     {
@@ -1142,11 +1142,37 @@ void GameEditor::CompileGameLogic()
         std::string path_str = raywaves_dir.string();
         if (!EditorUtils::IsShellSafe(path_str))
         {
-            buildCmd = "echo ERROR: Project path contains unsafe characters.";
+            build_cmd = "echo ERROR: Project path contains unsafe characters.";
         }
         else
         {
             // Ensure bundled cmake exists
+            fs::path cmake_exe = ProjectManager::GetToolsDirectory() / "cmake" / "bin" / "cmake.exe";
+            if (!fs::exists(cmake_exe))
+            {
+                m_Terminal.add_text("Downloading CMake (first-time setup)...", term::Severity::Debug);
+                std::string fetch_cmd = "powershell -ExecutionPolicy Bypass -File \""
+                    + (ProjectManager::GetToolsDirectory() / "setup_zig.ps1").string()
+                    + "\" -SkipZig -SkipRcEdit -SkipNinja";
+                std::system(fetch_cmd.c_str());
+            }
+
+            std::string cmake_path = "\"" + cmake_exe.string() + "\"";
+
+            // Project folders are portable, but CMake caches contain absolute paths.
+            // Try normal configure first, if it fails (e.g. moved project), fallback to --fresh.
+            build_cmd = "cd /d \"" + path_str + "\" && (" + cmake_path + " -G Ninja . -B build || " + cmake_path + " --fresh -G Ninja . -B build) && " + cmake_path + " --build build --config Release";
+        }
+    }
+    else
+    {
+        // Dev environment or no project fallback
+        if (std::filesystem::exists(app_dir + "/build_gamelogic.bat"))
+        {
+            build_cmd = "\"\"" + app_dir + "/build_gamelogic.bat\" nopause\"";
+        }
+        else
+        {
             fs::path cmakeExe = ProjectManager::GetToolsDirectory() / "cmake" / "bin" / "cmake.exe";
             if (!fs::exists(cmakeExe))
             {
@@ -1156,33 +1182,17 @@ void GameEditor::CompileGameLogic()
                     + "\" -SkipZig -SkipRcEdit -SkipNinja";
                 std::system(fetchCmd.c_str());
             }
-
-            std::string cmakePath = "\"" + cmakeExe.string() + "\"";
-
-            // Project folders are portable, but CMake caches contain absolute paths.
-            // Try normal configure first, if it fails (e.g. moved project), fallback to --fresh.
-            buildCmd = "cd /d \"" + path_str + "\" && (" + cmakePath + " -G Ninja . -B build || " + cmakePath + " --fresh -G Ninja . -B build) && " + cmakePath + " --build build --config Release";
-        }
-    }
-    else
-    {
-        // Dev environment or no project fallback
-        if (std::filesystem::exists(appDir + "/build_gamelogic.bat"))
-        {
-            buildCmd = "\"\"" + appDir + "/build_gamelogic.bat\" nopause\"";
-        }
-        else
-        {
-            buildCmd = "\"\"cmake\" --build \"" + appDir + "\" --target GameLogic\"";
+            std::string cmake_path = "\"" + cmakeExe.string() + "\"";
+            build_cmd = "\"\"" + cmake_path + "\" --build \"" + app_dir + "\" --target GameLogic\"";
         }
     }
 
-    m_Terminal.add_text("Executing: " + buildCmd, term::Severity::Debug);
+    m_Terminal.add_text("Executing: " + build_cmd, term::Severity::Debug);
 
     auto cancel = m_ThreadCancelFlag;
     ProcessRunner::RunBuildCommand
     (
-        buildCmd.c_str(),
+        build_cmd.c_str(),
         [this, cancel](std::string_view line, bool isError)
         {
             if (cancel->load()) return;

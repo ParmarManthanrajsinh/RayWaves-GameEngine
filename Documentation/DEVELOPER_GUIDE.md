@@ -1,14 +1,10 @@
-# RayWaves Engine - Developer Guide
+# RayWaves Engine — Developer Guide
 
-*Where code changes flow like waves 🌊*
-
-This guide helps you understand how RayWaves is structured and how to get the most out of its features. Whether you're hacking on the engine core or building the next big platformer, start here.
+This guide covers engine internals, hot-reload mechanics, and the development workflow. For the engine repo / project folder layout, see [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ---
 
-## 🏗️ Architecture Overview
-
-The engine is split into two distinct parts that work together:
+## Architecture Overview
 
 `RayWaves.exe` (The Host) | `GameLogic.dll` (The Brains)
 ---|---
@@ -19,27 +15,35 @@ Loads/unloads the DLL | Executes `Update()` and `Draw()`
 
 ---
 
-## 🔥 The Hot-Reload Workflow
+## First-Time Compile
 
-Why restart when you can just keep coding?
+Zig, Ninja, and CMake are automatically downloaded the first time you click Compile (or Export) if they aren't already in `Tools/`.
 
-1.  **Run the Editor** (`RayWaves.exe` or `RayWaves.exe`).
-2.  **Modify** any C++ file in `GameLogic/` (e.g. change jump height).
-3.  **Compiling...** (The editor waits).
-4.  **Reload!** The DLL is swapped, the map resets, and your changes are live.
+- **What happens:** `Tools/setup_zig.ps1` runs behind the scenes, fetches each tool, and extracts them into `Tools/{zig,ninja,cmake}/`.
+- **Internet required:** First compile will block while downloading (~200 MB total across all three toolchains). A log line `"Downloading CMake (first-time setup)..."` appears in the Console so you know it isn't frozen.
+- **Subsequent compiles:** No download — tools are cached. Compile time is back to normal.
+- **If download fails:** Check firewall / antivirus isn't blocking `curl.exe` calls to GitHub and ziglang.org. Run `Tools/setup_zig.ps1` manually to see error details, then retry.
+
+---
+
+## The Hot-Reload Workflow
+
+1.  Run the editor (`RayWaves.exe`).
+2.  Open or create a project via the Project Browser.
+3.  Modify any C++ file in **your project's** `GameLogic/` folder (e.g. change jump height in a map).
+4.  Click **Compile** in the editor toolbar (or press the shortcut). The editor runs a CMake+Ninja build in the background.
+5.  On success, the DLL is hot-swapped in ~0.5 seconds. Your changes are live without restarting.
 
 ### How it works under the hood
-- Windows locks running DLLs, so we can't just overwrite it.
-- **Solution:** We copy `GameLogic.dll` to a temp file (e.g., `GameLogic_temp.dll`) and load *that*.
-- The original file stays unlocked, ready for your compiler to overwrite it.
-- A file watcher detects the change and triggers the reload sequence.
+- Windows locks running DLLs, so we can't just overwrite them.
+- **Solution:** We copy `GameLogic.dll` to a shadow file and load that. The original stays unlocked for the compiler to overwrite.
+- A file watcher detects the new timestamp and triggers the reload sequence.
 
-> **Pro Tip:** Press the **Restart** button in the editor toolbar if you ever get stuck or want to manually force a clean slate.
+> **Tip:** Press the **Restart** button in the toolbar if you want to force a clean map state.
 
 ### Preserving State Across Reloads
-By default, member variables reset every time the DLL is swapped. To preserve your state (like player position or health), override the `SaveState` and `LoadState` methods. Anything not explicitly saved here will be discarded.
+By default, member variables reset every reload. To preserve state (player position, health, etc.), override `SaveState`/`LoadState`. Anything not explicitly saved is discarded.
 
-**Example (Saving Player Position):**
 ```cpp
 void Player::SaveState(StateBag& out) const {
     out.SetVector2("player_pos", m_Position);
@@ -47,7 +51,6 @@ void Player::SaveState(StateBag& out) const {
 }
 
 void Player::LoadState(const StateBag& in) {
-    // The second parameter is the default value if the key doesn't exist
     m_Position = in.GetVector2("player_pos", m_Position);
     m_bFacingRight = in.GetBool("player_facing_right", m_bFacingRight);
 }
@@ -55,13 +58,36 @@ void Player::LoadState(const StateBag& in) {
 
 ---
 
-## 🎨 Map Development
+## Opening Projects
 
-Levels in RayWaves are simple C++ classes. No messy JSON files or proprietary editors—just code.
+### Project Browser
+On launch (or after closing a project), the **Project Browser** shows:
+- **Recent Projects** list (left column) — click any entry to reopen.
+- **New Project** wizard (right column) — picks a template and creates the folder structure.
+- **Open Existing Project** — folder picker to select any folder containing `project.raywaves`.
 
-### The Basic Pattern
+### Double-Click File Association
+If you register the `.raywaves` file association (menu: *Tools → Register .raywaves file association*), you can:
+- Double-click any `project.raywaves` file in Explorer to launch the editor directly into that project.
+- If the editor is already running elsewhere, a **second instance** opens (not a tab in the existing window — see limitations below).
 
-Inherit from `GameMap` and override the big three:
+The menu item shows a checkmark when the association is already registered and matches the current exe path. Re-register after moving `RayWaves.exe` to a new location.
+
+### Command Line
+```powershell
+RayWaves.exe --project "C:\path\to\project"
+RayWaves.exe "C:\path\to\project\project.raywaves"
+```
+
+Both forms work. The second is what happens when you double-click a registered `.raywaves` file.
+
+---
+
+## Map Development
+
+Levels in RayWaves are C++ classes. No JSON, no proprietary editors.
+
+### Basic Pattern
 
 ```cpp
 class MyLevel : public GameMap {
@@ -80,99 +106,57 @@ class MyLevel : public GameMap {
 ```
 
 ### Best Practices
+- **Use `delta_time`:** Multiply movement by `delta_time` for framerate-independent motion.
+- **Keep it Clean:** Logic in `Update()`, rendering in `Draw()`, loading in `Initialize()`.
+- **State:** Static variables persist across reloads; member variables reset.
 
-- **Use `delta_time`:** Multipling movement by `delta_time` makes your game run smoothly on any framerate.
-  ```cpp
-  position.x += SPEED * delta_time; // Good!
-  position.x += SPEED;              // Bad (runs faster on high FPS)
-  ```
-
-- **Keep it Clean:**
-  - Logic goes in `Update()`.
-  - Rendering goes in `Draw()`.
-  - Heavy loading goes in `Initialize()`.
-
-- **State Management:**
-  - Remember that static variables persist across reloads (mostly).
-  - Member variables reset every reload (giving you a fresh start).
-
-### 📁 Asset Resolution
-
-When loading textures, audio, or fonts, **do not** hardcode relative paths or absolute paths. Use the `AssetResolver` class to ensure paths correctly resolve to the currently open project's `Assets` directory:
+### Asset Resolution
+Use `AssetResolver` for portable paths to your project's `Assets/`:
 
 ```cpp
 #include "AssetResolver.h"
-
-// Good! Resolves to the current project's Assets folder
 Texture2D tex = LoadTexture(AssetResolver::Resolve("player.png").c_str());
-
-// Bad! Will fail if you switch projects or run from a different CWD
-Texture2D badTex = LoadTexture("Assets/player.png");
 ```
+
+Hardcoded `"Assets/player.png"` will break if the project root changes.
 
 ---
 
-## 📂 Project Structure
+## Distribution Logic
 
-Where does everything live?
+When you export your game via the Export panel:
 
-```
-RayWaves/
-├── Assets/             # Your images, audio, and fonts
-├── GameLogic/          # 👈 YOUR CODE LIVES HERE
-│   ├── RootManager.cpp # Registers your maps
-│   ├── Level1.cpp      # Example level
-│   └── Player.cpp      # Example class
-├── Engine/             # Core engine headers (GameMap, Config, Profiler)
-├── Editor/             # Editor code (RayWaves.exe source)
-├── Tests/
-│   ├── run_all.bat       # Build → test → launch
-│   ├── run_tests.bat     # Build → test only
-│   ├── doctest/          # Single-header test framework
-│   ├── GameConfig_t.cpp  # Unit tests
-│   ├── MapManager_t.cpp
-│   └── Profiler_t.cpp
-└── Distribution/       # Scripts for packaging your game
-```
+1.  **Build:** GameLogic is compiled in Release mode.
+2.  **Bundle:** `GameLogic.dll`, `raylib.dll`, `game.exe`, and `Assets/` are copied to the output folder.
+3.  **Configure:** A production-ready `config.ini` is generated.
+4.  **Result:** A standalone folder with no editor overhead.
+
+See [GAME_DEVELOPER_GUIDE.md](GAME_DEVELOPER_GUIDE.md) for end-user instructions, or [DISTRIBUTION_GUIDE.md](DISTRIBUTION_GUIDE.md) for engine maintainers who want to package the editor itself.
 
 ---
 
-## 📦 Distribution Logic
+## Testing
 
-When you export your game, here's what happens:
-
-1.  **Bundling:** The engine copies `GameLogic.dll`, `raylib.dll`, and `assets/`.
-2.  **Configuring:** It generates a production `config.ini`.
-3.  **Stripping:** It removes development files (like cpp sources) to keep the download small.
-4.  **Result:** You get a clean folder ready to ZIP and upload to Itch.io or Steam.
-
----
-
-## 🧪 Testing
-
-The engine includes unit tests and integration tests built on the doctest framework.
+Unit tests use the doctest framework.
 
 ### Running Tests
-
-Build and run all tests:
 ```powershell
 cmake --build build/zig-release --target tests
 .\build\zig-release\tests.exe
 ```
 
-Or via CTest (includes unit + smoke tests):
+Or via CTest:
 ```powershell
 ctest --test-dir build/zig-release
 ```
 
-Quick shortcuts for development (run from project root):
+Quick shortcuts:
 ```powershell
 Tests\run_all.bat      # build tests → run → full build → launch editor
 Tests\run_tests.bat    # build tests → run unit + smoke only
 ```
 
 ### Adding a New Test
-
 1. Create `Tests/MyModule_t.cpp`:
 ```cpp
 #include "doctest/doctest.h"
@@ -183,7 +167,7 @@ TEST_CASE("MyModule: does thing")
     CHECK(some_function() == expected);
 }
 ```
-2. Add the file to `CMakeLists.txt` in the `tests` executable source list.
+2. Add the file to `CMakeLists.txt` under the `tests` target.
 3. Rebuild and run.
 
 ### Test Coverage
@@ -205,59 +189,47 @@ Total: **40 test cases**, **116 assertions**, plus **smoke test** (DLL load 50×
 
 ---
 
-## 📊 Profiling
+## Profiling
 
-The engine includes a built-in profiler for measuring per-frame execution times.
-
-### Performance Overlay
-
-Toggle the **Performance Overlay** in the editor toolbar (chart icon). Shows:
-- FPS and average/max frame time
-- **Per-system breakdown** (Update, Draw, panels) sorted by avg time
-- 120-frame rolling window
-
-The profiler records all `SCOPED_TIMER` annotations automatically — no setup needed.
+Toggle the **Performance Overlay** in the editor toolbar to see FPS, frame times, and per-system breakdown.
 
 ### Distribution Build (Strip Profiler)
-
-For release builds, disable the profiler completely to remove overhead:
 ```powershell
 cmake -B build/zig-release -DRAYWAVES_DISTRIBUTION_BUILD=ON
 cmake --build build/zig-release
 ```
-
-When enabled:
-- `SCOPED_TIMER(name)` expands to `((void)0)` — zero runtime cost
-- `Profiler` class methods become no-ops
-- `PerformanceOverlay` renders an empty breakdown table
-- Full build works without changes to any source file
+When enabled, `SCOPED_TIMER` becomes a no-op and `PerformanceOverlay` renders an empty breakdown.
 
 ### CSV Export (Dev Only)
-
-The profiler can dump the 120-frame ring buffer to CSV via `Profiler::SaveToFile()`:
 ```cpp
 Profiler::Get().SaveToFile("profile.csv");
 ```
-This is not wired to the editor UI — call from code or a debug command.
 
 ---
 
-## 🧠 Advanced Tips
+## Current Limitations
 
-### User Interfaces (UI)
-Need menus, buttons or HUDs? RayWaves comes with `raygui` pre-compiled. Just `#include <raygui.h>` in your level and start drawing buttons in your `Draw()` function. **Do not** `#define RAYGUI_IMPLEMENTATION` yourself!
+- **Single project per window:** RayWaves opens one project at a time. Switching projects closes the current one. Tabbed multi-project editing is not supported.
+- **No-project fallback compile:** Triggering Compile from the bare launcher (no project open) without a system-installed CMake will fail. The primary project-compile path handles this correctly — this edge case is a known gap.
+- **Windows only:** RayWaves depends on Win32 APIs for DLL hot-reloading and file association. Cross-platform support is not planned.
+
+---
+
+## Advanced Tips
+
+### raygui
+`#include <raygui.h>` in your map code for immediate-mode UI. Do **not** `#define RAYGUI_IMPLEMENTATION` yourself.
 
 ### Customizing the Editor
-Want to add a new tool to the editor toolbar?
 1. Open `Editor/GameEditor.cpp`.
 2. Find `DrawSceneWindow()`.
-3. Add your standard ImGui code there.
-4. Rebuild `RayWaves.exe` (requires stopping the app).
+3. Add ImGui code.
+4. Rebuild `RayWaves.exe` (must close the editor first).
 
 ### Debugging
-- **Console Logs:** The engine prints useful info to the attached console. Keep it open!
-- **Debuggers:** You can attach any C++ debugger (VS Code, LLDB, Visual Studio) to `RayWaves.exe` to debug your DLL code. Breakpoints *usually* work even after reloading since Zig generates standard PDB files on Windows!
+- Attach any C++ debugger (VS Code, LLDB, Visual Studio) to `RayWaves.exe`.
+- Breakpoints usually survive DLL hot-reload because Zig generates PDB files.
 
 ---
 
-*Happy Coding! 💜*
+*Happy Coding!*

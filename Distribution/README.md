@@ -1,50 +1,13 @@
-# Distribution Files
+# Distribution Scripts
 
-This folder contains all the files needed for creating distribution packages of the RayWaves Game Engine.
+Build toolchain and packaging scripts for creating RayWaves distribution packages.
+
+See [DISTRIBUTION_GUIDE.md](../Documentation/DISTRIBUTION_GUIDE.md) for usage.
 
 ## Files
 
-- **`build_gamelogic.bat`** - Quick build script for GameLogic.dll hot-reloading
-- **`create_distribution.bat`** - Main distribution creation script
-- **`dist_CMakeLists.txt`** - CMake configuration for distributed development environment
-- **`distribute.ps1`** - PowerShell script that handles the actual packaging
-- **`game_config.ini`** - Default game configuration template
-
-## Usage
-
-### Creating a Distribution
-
-Run from the project root directory:
-
-```bash
-Distribution\create_distribution.bat
-```
-
-This will:
-1. Build the release version of the engine and game logic
-2. Create a `dist` folder with all necessary files
-3. Copy all required assets and documentation
-4. Set up a complete development environment for end users
-
-### Distribution Structure
-
-The created distribution includes:
-- **`game.exe`** - The standalone game runtime
-- **`RayWaves.exe`** - The visual game editor (optional)
-- **`GameLogic.dll`** - Hot-reloadable game logic
-- **`raylib.dll`** - Graphics library dependency
-- **`game_config.ini`** - Game configuration file
-- **`build_gamelogic.bat`** - Build script for users to modify game logic
-- **`CMakeLists.txt`** - CMake configuration for building GameLogic
-- **`raylib/`** - Raylib development files (headers, libs)
-- **`GameLogic/`** - Source code for game logic
-- **`Engine/`** - Engine headers for development
-- **`Assets/`** - Game assets
-- **`Documentation/`** - User guides and API reference
-
-## Customization
-
-- **Output Directory**: Modify `distribute.ps1` or pass parameters to change where the distribution is created.
-- **Compiler Bundling**: Pass `-IncludeCompiler` to `distribute.ps1` if you want to bundle the Zig compiler for developers (by default, it produces a lean build for players).
-- **Build Configuration**: Use Debug or Release builds by modifying the scripts.
-- **Asset Filtering**: Edit `distribute.ps1` to change which assets are included.
+- `build_gamelogic.bat` — Quick rebuild of GameLogic.dll (legacy, editor's Compile button preferred)
+- `create_distribution.bat` — One-click distribution package builder
+- `dist_CMakeLists.txt` — CMake config for distributed dev environment
+- `distribute.ps1` — PowerShell script that handles actual packaging
+- `config.ini` — Default game config template
