@@ -323,8 +323,8 @@ void DemoLevel::DrawSparkles()
         DrawCircle
         (
             static_cast<int>(SparkleX),
-            2,
             static_cast<int>(SparkleY),
+            2.0f,
             Color{ 255, 230, 180, static_cast<unsigned char>(Alpha * 200) }
         );
     }
