@@ -3,18 +3,16 @@
 #include <sstream>
 #include <iostream>
 #include <filesystem>
-#include <print>
-
 EditorPreferences& EditorPreferences::GetInstance()
 {
     static EditorPreferences s_Instance;
     return s_Instance;
 }
 
-std::string EditorPreferences::GetConfigPath() const
+std::string EditorPreferences::GetConfigPath() 
 {
     const char* appdata = std::getenv("APPDATA");
-    if (appdata)
+    if (appdata != nullptr)
     {
         std::filesystem::path dir = std::filesystem::path(appdata) / "RayWaves";
         return (dir / "editor_preferences.ini").string();
@@ -87,7 +85,7 @@ bool EditorPreferences::m_bSaveToFile() const
     std::ofstream file(config_path);
     if (!file.is_open())
     {
-        std::println(std::cerr, "Failed to create editor preferences file: {}", config_path);
+        std::cerr << "Failed to create editor preferences file: " << config_path << "\n";
         return false;
     }
 

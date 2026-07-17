@@ -1,9 +1,11 @@
+#include <iostream>
 #include "GameMap.h"
+#include "AssetResolver.h"
 
 GameMap::GameMap()
 	: m_MapName("DefaultMap") {}
 
-GameMap::GameMap(const std::string& map_name)
+GameMap::GameMap(std::string_view map_name)
 	: m_MapName(map_name) {}
 
 void GameMap::Initialize()
@@ -21,7 +23,13 @@ void GameMap::Draw()
     // Drawing logic for the game map
 }
 
-void GameMap::SetMapName(const std::string& map_name)
+void GameMap::SetProjectAssetPath(const std::string& path)
+{
+    m_ProjectAssetPath = path;
+    AssetResolver::SetProjectAssetPath(path);
+}
+
+void GameMap::SetMapName(std::string_view map_name)
 {
     m_MapName = map_name;
 }
@@ -61,6 +69,23 @@ void GameMap::SetTransitionCallback
     m_TransitionCallback = std::move(cb);
 }
 
+void GameMap::SetExitCallback(std::function<void()> cb)
+{
+    m_ExitCallback = std::move(cb);
+}
+
+void GameMap::RequestExit()
+{
+    if (m_ExitCallback)
+    {
+        m_ExitCallback();
+    }
+    else
+    {
+        std::cerr << "Exit callback not set!\n";
+    }
+}
+
 void GameMap::RequestGotoMap(std::string_view map_id, bool force_reload)
 {
     if (m_TransitionCallback)
@@ -69,6 +94,6 @@ void GameMap::RequestGotoMap(std::string_view map_id, bool force_reload)
     }
     else
     {
-		std::println(std::cerr, "Transition callback not set!");
+		std::cerr << "Transition callback not set!\n";
     }
 }

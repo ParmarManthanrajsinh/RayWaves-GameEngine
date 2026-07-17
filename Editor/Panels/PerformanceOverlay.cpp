@@ -1,10 +1,13 @@
 #include "PerformanceOverlay.h"
 #include "../GameEditor.h"
+#include "../../Engine/Profiler.h"
 #include <imgui.h>
 #include <rlImGui.h>
+#include <algorithm>
 
 void PerformanceOverlay::Draw(GameEditor* editor)
 {
+	SCOPED_TIMER("panel_perf_overlay");
 	if (!editor->m_bShowPerformanceStats)
 	{
 		return;
@@ -27,7 +30,7 @@ void PerformanceOverlay::Draw(GameEditor* editor)
 		for (float t : editor->m_FrameTimes)
 		{
 			avg_frame_time += t;
-			if (t > max_frame_time) max_frame_time = t;
+			max_frame_time = std::max(t, max_frame_time);
 		}
 		avg_frame_time /= editor->m_FrameTimes.size();
 
@@ -40,6 +43,27 @@ void PerformanceOverlay::Draw(GameEditor* editor)
 		ImGui::Separator();
 		ImGui::Text("Avg: %.2f ms", avg_frame_time);
 		ImGui::Text("Max: %.2f ms", max_frame_time);
+
+		ImGui::Separator();
+		ImGui::Text("System Breakdown (avg ms)");
+
+		auto snapshots = Profiler::Get().GetAverages();
+		std::ranges::sort(snapshots,
+			[](const ProfilerSnapshot& a, const ProfilerSnapshot& b) { return a.m_AvgMs > b.m_AvgMs; });
+
+		ImGui::Columns(3, "perf_cols", false);
+		ImGui::Text("System"); ImGui::NextColumn();
+		ImGui::Text("Avg ms"); ImGui::NextColumn();
+		ImGui::Text("Max ms"); ImGui::NextColumn();
+		ImGui::Separator();
+
+		for (const auto& s : snapshots)
+		{
+			ImGui::Text("%s", s.m_Name.c_str()); ImGui::NextColumn();
+			ImGui::Text("%.2f", s.m_AvgMs); ImGui::NextColumn();
+			ImGui::Text("%.2f", s.m_MaxMs); ImGui::NextColumn();
+		}
+		ImGui::Columns(1);
 
 		ImGui::Spacing();
 

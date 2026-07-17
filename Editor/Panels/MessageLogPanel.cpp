@@ -65,7 +65,7 @@ void MessageLogPanel::Draw(GameEditor* editor)
         ImGui::SetCursorPosX(ImGui::GetCursorPosX() + content_width - 135.0f);
         if (ImGui::Button("Copy All", ImVec2(65, 0)))
         {
-            std::lock_guard<std::mutex> lock(editor->BuildMessagesMutex);
+            std::scoped_lock lock(editor->BuildMessagesMutex);
             std::string all_msgs;
             for (const auto& msg : editor->BuildMessages)
             {
@@ -80,14 +80,14 @@ void MessageLogPanel::Draw(GameEditor* editor)
         ImGui::SameLine();
         if (ImGui::Button("Clear", ImVec2(60, 0)))
         {
-            std::lock_guard<std::mutex> lock(editor->BuildMessagesMutex);
+            std::scoped_lock lock(editor->BuildMessagesMutex);
             editor->BuildMessages.clear();
         }
         ImGui::Separator();
 
         std::vector<FBuildMessage> local_messages;
         {
-            std::lock_guard<std::mutex> lock(editor->BuildMessagesMutex);
+            std::scoped_lock lock(editor->BuildMessagesMutex);
             local_messages = editor->BuildMessages;
         }
 

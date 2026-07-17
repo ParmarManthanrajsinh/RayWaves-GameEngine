@@ -1,6 +1,6 @@
 
 <div align="center">
-  <img src="Assets/EngineContent/logo.png" alt="RayWaves Logo" width="240" style="margin-bottom: 20px;"/>
+  <img src="EngineContent/logo.png" alt="RayWaves Logo" width="240" style="margin-bottom: 20px;"/>
   <h1>RayWaves Game Engine</h1>
   <p><i><b>Where your code changes flow like waves 🌊</b></i></p>
   <p>
@@ -13,9 +13,9 @@
 
 <br>
 
-**RayWaves** is a lightweight, **code-first game engine** built on **Raylib**. It's designed for developers who love writing code but hate restarting their game to see changes. 
+**RayWaves** is a lightweight, **code-first game engine** built on **Raylib**. It's designed for developers who love writing code but hate restarting their game to see changes.
 
-With our **hot-reloading magic**, you can tweak movement speeds, adjust physics, or even add new gameplay mechanics—all while the game is still running! 
+With our **hot-reloading magic**, you can tweak movement speeds, adjust physics, or even add new gameplay mechanics—all while the game is still running!
 
 ---
 
@@ -25,7 +25,10 @@ With our **hot-reloading magic**, you can tweak movement speeds, adjust physics,
   Edit your C++ code and see the results in **~0.5 seconds**. Game state is preserved across reloads via opt-in `SaveState`/`LoadState`. No restarting. Just flow.
 
 - **⚡ Zero-Install Setup**  
-  Visual Studio is no longer required! Building the engine uses the Zig compiler, which is fetched automatically on your first build.
+  Visual Studio is no longer required! The Zig compiler, Ninja build system, and CMake are all fetched automatically on your first compile. No manual PATH setup needed.
+
+- **🔗 .raywaves File Association**  
+  Register the `.raywaves` extension via *Tools → Register .raywaves file association* in the editor menu. Double-click any `project.raywaves` file in Explorer to launch directly into that project.
 
 - **🎮 Pure Raylib Power**  
   No proprietary scripting languages or complex ECS layers. It's just you and standard C++ Raylib code.
@@ -56,7 +59,7 @@ With our **hot-reloading magic**, you can tweak movement speeds, adjust physics,
 ## 🚀 Quick Start
 
 ### 🔧 For Engine Developers
-*Use these instructions if you want to **modify the engine source code itself** (e.g. `main.exe`).*
+*Use these instructions if you want to **modify the engine source code itself** (e.g. `RayWaves.exe`).*
 
 1. **Open any terminal** (PowerShell, Command Prompt, or VS Code terminal).
 2. **Build the engine:**
@@ -68,27 +71,28 @@ With our **hot-reloading magic**, you can tweak movement speeds, adjust physics,
    cmake --preset zig-debug
    cmake --build build/zig-debug
    ```
-
-   **MSVC Alternative**  
-   If you already have Visual Studio installed and prefer it.
+3. **Run tests:**
    ```powershell
-   cmake --preset x64-debug
-   cmake --build build/x64-debug
+   .\build\zig-release\tests.exe
    ```
-3. **Launch the editor:**
+   Or via CTest:
    ```powershell
-   build/zig-debug/main.exe
+   ctest --test-dir build/zig-release
+   ```
+4. **Launch the editor:**
+   ```powershell
+   build/zig-release/RayWaves.exe
    ```
 
-> **Note:** If you are just making games, you don't need to rebuild `main.exe`.
+> **Note:** If you are just making games, you don't need to rebuild `RayWaves.exe`.
 
 ### 🎮 For Game Developers
 *Use these instructions if you want to **make games** using RayWaves.*
 
-👉 **[Read the Game Developer Guide](Documentation/README_DISTRIBUTION.md)**
+👉 **[Read the Game Developer Guide](Documentation/GAME_DEVELOPER_GUIDE.md)**
 
 Start here to learn how to:
-- Run the engine (`editor.exe`)
+- Run the engine (`RayWaves.exe`)
 - Create levels and write game logic
 - Use hot-reloading for gameplay code
 - Export your game
@@ -98,7 +102,7 @@ Start here to learn how to:
 ## 🎮 Development Workflow
 
 ### 🔧 Engine Development
-1. **Launch the Editor** (`main.exe`).
+1. **Launch the Editor** (`RayWaves.exe`).
 2. **Modify engine internals** in `Game/`, `Editor/`, or `Engine/`.
 3. **Rebuild the engine** using CMake.
 ---
@@ -141,25 +145,25 @@ Want to distribute the engine to your team?
 
 Simply run:
 ```cmd
-Distribution\create_distribution.bat
-```
-By default, this produces a lean package that requires system Zig to rebuild game code. If you want to bundle the Zig compiler so recipients have a "zero-install" hot-reload environment, pass `-IncludeCompiler`:
-```cmd
 Distribution\create_distribution.bat -IncludeCompiler
 ```
 
 This generates a `dist/` folder with everything they need:
-- `game.exe` (Standalone runtime)
-- `editor.exe` (The visual editor)
-- `GameLogic.dll` (The moddable code)
+- `RayWaves.exe` (The visual editor)
+- `Core/runtime.exe` (Standalone runtime)
+- `Core/Tools/zig`, `Core/Tools/ninja`, `Core/Tools/cmake` (Zero-install compile toolchain)
 - All headers, scripts, and assets.
+
+End users get a **zero-install** experience: unzip, run `RayWaves.exe`, create a project, click Compile. No Visual Studio, no CMake on PATH, no manual setup.
 
 ---
 
 ## 📚 Learn More
 
+- **[Architecture Overview](Documentation/ARCHITECTURE.md)** - Engine repo and project folder structure.
 - **[API Reference](Documentation/API_REFERENCE.md)** - Detailed class documentation.
 - **[Developer Guide](Documentation/DEVELOPER_GUIDE.md)** - Best practices and patterns.
+- **[Game Developer Guide](Documentation/GAME_DEVELOPER_GUIDE.md)** - End-user game creation.
 - **[Troubleshooting](Documentation/TROUBLESHOOTING.md)** - Fix common issues.
 
 ---
@@ -168,10 +172,11 @@ This generates a `dist/` folder with everything they need:
 
 - **Files:** Use the built-in File Explorer to browse assets.
 - **Reset:** Hit the **Restart** button in the toolbar if you want to force a full reload.
-- **Performance:** Toggle the **Performance Overlay** (sales chart icon) to check your FPS and frame times.
+- **Performance:** Toggle the **Performance Overlay** (chart icon) to see FPS, frame times, and per-system breakdown.
 - **Modes:** 
-  - `main.exe` = Editor & Hot-Reloading
+  - `RayWaves.exe` = Editor & Hot-Reloading
   - `game.exe` = Standalone Runtime (Pure Gameplay)
+- **Double-click:** Register `.raywaves` file association under *Tools → Register .raywaves file association* to open projects by double-clicking `project.raywaves` in Explorer.
 
 ---
 

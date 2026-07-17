@@ -1,3 +1,4 @@
+#include <iostream>
 #include "GameConfig.h"
 
 
@@ -7,12 +8,13 @@ GameConfig& GameConfig::GetInstance()
     return s_Instance;
 }
 
-bool GameConfig::m_bLoadFromFile(const std::string& config_path) 
+bool GameConfig::m_bLoadFromFile(std::string_view config_path) 
 {
-    std::ifstream file(config_path);
+    std::string path_str(config_path);
+    std::ifstream file(path_str);
     if (!file.is_open()) 
     {
-        std::println("Config file not found: {}. Using defaults. ",config_path);
+        std::cout << "Config file not found: " << config_path << ". Using defaults.\n";
         return false;
     }
     
@@ -26,75 +28,80 @@ bool GameConfig::m_bLoadFromFile(const std::string& config_path)
         }
         
         // Find the equals sign
-        auto equal_pos = line.find('=');
-        if (equal_pos == std::string::npos)
-        {
-            continue;
-        }
+	auto equal_pos = line.find('=');
+	if (equal_pos == std::string::npos)
+	{
+		continue;
+	}
 
-        std::string key(line.begin(), line.begin() + equal_pos);
-        std::string value(line.begin() + equal_pos + 1, line.end());
-        
-        // Trim whitespace
-        key.erase(0, key.find_first_not_of(" \t"));
-        key.erase(key.find_last_not_of(" \t") + 1);
-        value.erase(0, value.find_first_not_of(" \t"));
-        value.erase(value.find_last_not_of(" \t") + 1);
-        
-        // Parse configuration values
-        if (key == "width") 
-        {
-            m_WindowConfig.width = std::stoi(value);
-        } 
-        else if (key == "height") 
-        {
-            m_WindowConfig.height = std::stoi(value);
-        } 
-        else if (key == "b_Fullscreen") 
-        {
-            m_WindowConfig.b_Fullscreen = (value == "true" || value == "1");
-        } 
-        else if (key == "b_Resizable") 
-        {
-            m_WindowConfig.b_Resizable = (value == "true" || value == "1");
-        } 
-        else if (key == "b_Vsync") 
-        {
-            m_WindowConfig.b_Vsync = (value == "true" || value == "1");
-        } 
-        else if (key == "target_fps") 
-        {
-            m_WindowConfig.target_fps = std::stoi(value);
-        }
-        else if (key == "title") 
-        {
-            m_WindowConfig.title = value;
-        }
-        else if (key == "scene_width")
-        {
-            m_WindowConfig.scene_width = std::stoi(value);
-        }
-        else if (key == "scene_height")
-        {
-            m_WindowConfig.scene_height = std::stoi(value);
-        }
-        else if (key == "scene_fps")
-        {
-            m_WindowConfig.scene_fps = std::stoi(value);
-        }
+	std::string key(line.begin(), line.begin() + equal_pos);
+	std::string value(line.begin() + equal_pos + 1, line.end());
+	
+	// Trim whitespace
+	key.erase(0, key.find_first_not_of(" \t"));
+	key.erase(key.find_last_not_of(" \t") + 1);
+	value.erase(0, value.find_first_not_of(" \t"));
+	value.erase(value.find_last_not_of(" \t") + 1);
+	
+	// Parse configuration values
+	auto safe_stoi = [&](const std::string& v, int fallback) -> int {
+		try { return std::stoi(v); } catch (...) { return fallback; }
+	};
+	
+	if (key == "width") 
+	{
+		m_WindowConfig.width = safe_stoi(value, m_WindowConfig.width);
+	} 
+	else if (key == "height") 
+	{
+		m_WindowConfig.height = safe_stoi(value, m_WindowConfig.height);
+	} 
+	else if (key == "b_Fullscreen") 
+	{
+		m_WindowConfig.b_Fullscreen = (value == "true" || value == "1");
+	} 
+	else if (key == "b_Resizable") 
+	{
+		m_WindowConfig.b_Resizable = (value == "true" || value == "1");
+	} 
+	else if (key == "b_Vsync") 
+	{
+		m_WindowConfig.b_Vsync = (value == "true" || value == "1");
+	} 
+	else if (key == "target_fps") 
+	{
+		m_WindowConfig.target_fps = safe_stoi(value, m_WindowConfig.target_fps);
+	}
+	else if (key == "title") 
+	{
+		m_WindowConfig.title = value;
+	}
+	else if (key == "scene_width")
+	{
+		m_WindowConfig.scene_width = safe_stoi(value, m_WindowConfig.scene_width);
+	}
+	else if (key == "scene_height")
+	{
+		m_WindowConfig.scene_height = safe_stoi(value, m_WindowConfig.scene_height);
+	}
+	else if (key == "scene_fps")
+	{
+		m_WindowConfig.scene_fps = safe_stoi(value, m_WindowConfig.scene_fps);
+	}
     }
     
     file.close();
-    std::println("Loaded configuration from: {}", config_path);
+    std::cout << "Loaded configuration from: " << config_path << "\n";
     return true;
 }
 
-bool GameConfig::m_bSaveToFile(const std::string& config_path) const 
+bool GameConfig::m_bSaveToFile(std::string_view config_path) const 
 {
-    std::ofstream file(config_path);
+    std::string path_str(config_path);
+    std::ofstream file(path_str);
     if (!file.is_open()) 
     {
-        std::println(std::cerr, "Failed to create config file: {}", config_path);
+        std::cerr << "Failed to create config file: " << config_path << "\n";
         return false;
     }
     
@@ -115,7 +122,7 @@ bool GameConfig::m_bSaveToFile(const std::string& config_path) const
     file << "scene_fps=" << m_WindowConfig.scene_fps << "\n";
     
     file.close();
-    std::println("Saved configuration to: {}", config_path);
+    std::cout << "Saved configuration to: " << config_path << "\n";
     return true;
 }
 

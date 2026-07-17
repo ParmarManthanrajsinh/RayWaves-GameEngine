@@ -1,6 +1,58 @@
+#include <iostream>
 #include "DllLoader.h"
 #include <Windows.h>
+#include <chrono>
+#include <random>
+void CleanupStaleShadowCopies()
+{
+    try
+    {
+        fs::path temp_dirs[] = { 
+            fs::current_path() / ".raywaves" / "shadows",
+            fs::temp_directory_path() 
+        };
+        auto now = fs::file_time_type::clock::now();
+        int cleaned = 0;
 
+        for (const auto& temp_dir : temp_dirs)
+        {
+            if (!fs::exists(temp_dir)) continue;
+
+            for (const auto& entry : fs::directory_iterator(temp_dir))
+            {
+                if (!entry.is_regular_file()) continue;
+                
+                std::string filename = entry.path().filename().string();
+                if (!filename.contains(".shadow.")) continue;
+                if (entry.path().extension() != ".dll") continue;
+
+                // Only delete files older than 1 hour
+                std::error_code ec;
+                auto age = now - entry.last_write_time(ec);
+                if (ec) continue;
+
+                if (age > std::chrono::hours(1))
+                {
+                    fs::remove(entry.path(), ec);
+                    if (!ec) ++cleaned;
+                }
+            }
+        }
+
+        if (cleaned > 0)
+        {
+            std::cout << "Cleaned up " << cleaned << " stale shadow DLL copies." << "\n";
+        }
+    }
+    catch (std::exception const& e)
+    {
+        std::cerr << "Shadow cleanup error: " << e.what() << "\n";
+    }
+    catch (...)
+    {
+        std::cerr << "Shadow cleanup: unknown error.\n";
+    }
+}
 
 DllHandle LoadDll(const char* PATH) 
 {
@@ -22,14 +74,26 @@ DllHandle LoadDll(const char* PATH)
             return result;
         }
 
-        // Determine destination directory: use the system temporary directory
-        // This ensures we can always write the shadow copy even if the game is 
-        // deployed in a restricted directory like Program Files.
-        fs::path temp_dir = fs::temp_directory_path();
+        // Determine destination directory: use local .raywaves/shadows if it exists,
+        // otherwise fall back to the system temporary directory.
+        fs::path temp_dir = fs::current_path() / ".raywaves" / "shadows";
+        if (!fs::exists(temp_dir))
+        {
+            temp_dir = fs::temp_directory_path();
+        }
+
+        // Use random subdirectory to prevent symlink attacks
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        std::uniform_int_distribution<uint64_t> dis;
+        std::string rand_dir = std::to_string(dis(gen));
+        temp_dir = temp_dir / rand_dir;
+        std::error_code ec_dir;
+        fs::create_directories(temp_dir, ec_dir);
 
         // Build a unique filename: GameLogic.shadow.<pid>.<tick>.dll
         DWORD pid = GetCurrentProcessId();
-        DWORD ticks = static_cast<DWORD>(GetTickCount64());
+        auto ticks = static_cast<DWORD>(GetTickCount64());
 
         // stem() will return file name without extention
         std::string base_name = src_path.stem().string();
@@ -55,9 +119,17 @@ DllHandle LoadDll(const char* PATH)
         result.shadow_path = dest_path.string();
         return result;
     }
+    catch (std::exception const& e)
+    {
+        std::cerr << "Shadow copy failed: " << e.what() << ". Falling back to direct load.\n";
+        HMODULE mod = LoadLibraryA(PATH);
+        result.handle = reinterpret_cast<void*>(mod);
+        result.shadow_path = PATH;
+        return result;
+    }
     catch (...)
     {
-        // As a last resort, try direct load
+        std::cerr << "Shadow copy: unknown error. Falling back to direct load.\n";
         HMODULE mod = LoadLibraryA(PATH);
         result.handle = reinterpret_cast<void*>(mod);
         result.shadow_path = PATH;
@@ -65,14 +137,15 @@ DllHandle LoadDll(const char* PATH)
     }
 }
 
-void UnloadDll(DllHandle dll) 
+void UnloadDll(DllHandle& dll) 
 {
-    if (dll.handle) 
+    if (dll.handle != nullptr) 
     {
         FreeLibrary
         (
             reinterpret_cast<HMODULE>(dll.handle)
         );
+        dll.handle = nullptr;
     }
 
     // Attempt to delete the shadow copy after unloading. Ignore failures.
@@ -82,17 +155,18 @@ void UnloadDll(DllHandle dll)
         
         // Only delete if it looks like one of our shadow copies
         std::string filename = p.filename().string();
-        if (filename.find(".shadow.") != std::string::npos)
+        if (filename.contains(".shadow."))
         {
             std::error_code ec;
             fs::remove(p, ec);
         }
+        dll.shadow_path.clear();
     }
 }
 
-void* GetDllSymbol(DllHandle dll, const char* SYMBOL_NAME) 
+void* GetDllSymbol(const DllHandle& dll, const char* SYMBOL_NAME) 
 {
-    if (!dll.handle)
+    if (dll.handle == nullptr)
     {
         return nullptr;
     }

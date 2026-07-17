@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <iostream>
+#include <utility>
 #include <vector>
 #include <array>
 #include <mutex>
@@ -8,8 +9,8 @@
 #include <chrono>
 #include <ctime>
 #include <imgui_internal.h>
-#define _CRTDBG_MAP_ALLOC
-#include <stdlib.h>
+#define CRTDBG_MAP_ALLOC
+#include <cstdlib>
 #include <crtdbg.h>
 
 #if defined(_DEBUG) && defined(_MSC_VER) && !defined(__clang__)
@@ -18,7 +19,9 @@
 #endif
 
 #include "terminal.h"
+#include "../../Engine/Profiler.h"
 #include "../GameEditorTheme.h"
+#include "../../Engine/ProjectManager.h"
 
 namespace term 
 {
@@ -34,13 +37,13 @@ namespace term
     Terminal::Terminal() 
     {
         // Register this instance for Raylib callbacks
-        std::lock_guard<std::mutex> lock(s_callback_mutex);
+        std::scoped_lock lock(s_callback_mutex);
         s_callback_instance = this;
     }
 
     Terminal::~Terminal() 
     {
-        // Ensure proper cleanup
+        m_ThreadCancelFlag->store(true);
         Shutdown();
     }
     
@@ -51,7 +54,7 @@ namespace term
         
         // Unregister from callbacks
         {
-            std::lock_guard<std::mutex> lock(s_callback_mutex);
+            std::scoped_lock lock(s_callback_mutex);
             if (s_callback_instance == this) 
             {
                 s_callback_instance = nullptr;
@@ -59,12 +62,12 @@ namespace term
         }
         
         // Restore streams before deleting buffers
-        if (m_old_cout) 
+        if (m_old_cout != nullptr) 
         {
             std::cout.rdbuf(m_old_cout);
             m_old_cout = nullptr;
         }
-        if (m_old_cerr) 
+        if (m_old_cerr != nullptr) 
         {
             std::cerr.rdbuf(m_old_cerr);
             m_old_cerr = nullptr;
@@ -98,8 +101,8 @@ namespace term
     void Terminal::RaylibLogCallback(int logLevel, const char* text, va_list args) 
     {
         // Thread-safe access to terminal instance
-        std::lock_guard<std::mutex> lock(s_callback_mutex);
-        if (!s_callback_instance) return;
+        std::scoped_lock lock(s_callback_mutex);
+        if (s_callback_instance == nullptr) return;
 
         // Thread-safe buffer (on stack)
         char buffer[1024];
@@ -157,7 +160,7 @@ namespace term
     {
         if (is_shutting_down()) return;
         
-        std::lock_guard<std::mutex> lock(m_mutex);
+        std::scoped_lock lock(m_mutex);
         
         // Limit log size
         if (m_messages.size() >= m_max_log_size) 
@@ -171,12 +174,13 @@ namespace term
 
     void Terminal::clear() 
     {
-        std::lock_guard<std::mutex> lock(m_mutex);
+        std::scoped_lock lock(m_mutex);
         m_messages.clear();
     }
 
     void Terminal::show(std::string_view window_title, bool* p_open) 
     {
+        SCOPED_TIMER("panel_terminal");
         ImGui::SetNextWindowSize(ImVec2(600, 400), ImGuiCond_FirstUseEver);
 
         ImGui::PushStyleVar
@@ -216,14 +220,14 @@ namespace term
 
         ImGui::SetWindowFontScale(m_theme.font_scale);
 
-        float footer_height = ImGui::GetFrameHeight() + m_theme.item_spacing * 2.0f;
-        float settings_height = ImGui::GetFrameHeight() + m_theme.item_spacing * 2.0f;
+        float footer_height = ImGui::GetFrameHeight() + (m_theme.item_spacing * 2.0f);
+        float settings_height = ImGui::GetFrameHeight() + (m_theme.item_spacing * 2.0f);
         ImVec2 avail = ImGui::GetContentRegionAvail();
         
         render_settings_bar(ImVec2(avail.x, settings_height));
 
         float log_height = avail.y - footer_height - settings_height;
-        if (log_height < 50) log_height = 50;
+        log_height = std::max<float>(log_height, 50);
 
         render_log_window(ImVec2(avail.x, log_height));
         render_input_bar(ImVec2(avail.x, footer_height));
@@ -241,10 +245,10 @@ namespace term
         ImGui::PushStyleColor(ImGuiCol_ButtonActive, m_theme.button_active);
         ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
 
-        float clear_btn_width = ImGui::CalcTextSize(ICON_FA_TRASH_CAN " Clear Log").x + ImGui::GetStyle().FramePadding.x * 2.0f;
+        float clear_btn_width = ImGui::CalcTextSize(ICON_FA_TRASH_CAN " Clear Log").x + (ImGui::GetStyle().FramePadding.x * 2.0f);
         
         // Search/Filter
-        ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - clear_btn_width - ImGui::GetStyle().ItemSpacing.x * 2.0f);
+        ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - clear_btn_width - (ImGui::GetStyle().ItemSpacing.x * 2.0f));
         ImGui::PushStyleColor(ImGuiCol_FrameBg, ImGui::GetStyle().Colors[ImGuiCol_FrameBg]);
         ImGui::InputTextWithHint
         (
@@ -278,7 +282,7 @@ namespace term
         ImGuiWindowFlags flags = ImGuiWindowFlags_HorizontalScrollbar;
         if (!m_auto_wrap) flags |= ImGuiWindowFlags_AlwaysHorizontalScrollbar;
 
-        ImGui::BeginChild("##LogWindow", ImVec2(size.x, size.y), true, flags);
+        ImGui::BeginChild("##LogWindow", ImVec2(size.x, size.y), 1, flags);
         
         // Push Consolas Mono font
         ImGuiIO& io = ImGui::GetIO();
@@ -287,7 +291,7 @@ namespace term
             ImGui::PushFont(io.Fonts->Fonts[Font_MonoSmall]);
         }
 
-        std::lock_guard<std::mutex> lock(m_mutex);
+        std::scoped_lock lock(m_mutex);
         
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4, 4));
 
@@ -296,7 +300,7 @@ namespace term
         if (!has_filter) 
         {
             ImGuiListClipper clipper;
-            clipper.Begin((int)m_messages.size());
+            clipper.Begin(static_cast<int>(m_messages.size()));
             while (clipper.Step()) 
             {
                 for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; i++) 
@@ -315,10 +319,36 @@ namespace term
                         ImGui::SameLine(0, 10.0f);
                     }
 
+                    ImGui::PushID(i);
                     ImVec4 color = get_severity_color(msg.severity, m_theme);
                     ImGui::PushStyleColor(ImGuiCol_Text, color);
+                    
+                    // Draw invisible selectable over the line for mouse interaction
+                    ImVec2 pos = ImGui::GetCursorScreenPos();
+                    ImGui::Selectable("##line", false, ImGuiSelectableFlags_AllowOverlap);
+                    ImGui::SameLine();
+                    ImGui::SetCursorScreenPos(pos);
+                    
                     ImGui::TextUnformatted(msg.text.c_str());
                     ImGui::PopStyleColor();
+
+                    if (ImGui::BeginPopupContextItem("##terminal_context"))
+                    {
+                        if (ImGui::MenuItem("Copy Message"))
+                        {
+                            ImGui::SetClipboardText(msg.text.c_str());
+                        }
+                        if (!msg.timestamp.empty())
+                        {
+                            if (ImGui::MenuItem("Copy Timestamp + Message"))
+                            {
+                                std::string full_msg = msg.timestamp + " " + msg.text;
+                                ImGui::SetClipboardText(full_msg.c_str());
+                            }
+                        }
+                        ImGui::EndPopup();
+                    }
+                    ImGui::PopID();
                     
                     if (m_auto_wrap) ImGui::PopTextWrapPos();
                 }
@@ -341,10 +371,35 @@ namespace term
                     ImGui::SameLine(0, 10.0f);
                 }
 
+                ImGui::PushID(&msg);
                 ImVec4 color = get_severity_color(msg.severity, m_theme);
                 ImGui::PushStyleColor(ImGuiCol_Text, color);
+                
+                ImVec2 pos = ImGui::GetCursorScreenPos();
+                ImGui::Selectable("##line", false, ImGuiSelectableFlags_AllowOverlap);
+                ImGui::SameLine();
+                ImGui::SetCursorScreenPos(pos);
+                
                 ImGui::TextUnformatted(msg.text.c_str());
                 ImGui::PopStyleColor();
+
+                if (ImGui::BeginPopupContextItem("##terminal_context"))
+                {
+                    if (ImGui::MenuItem("Copy Message"))
+                    {
+                        ImGui::SetClipboardText(msg.text.c_str());
+                    }
+                    if (!msg.timestamp.empty())
+                    {
+                        if (ImGui::MenuItem("Copy Timestamp + Message"))
+                        {
+                            std::string full_msg = msg.timestamp + " " + msg.text;
+                            ImGui::SetClipboardText(full_msg.c_str());
+                        }
+                    }
+                    ImGui::EndPopup();
+                }
+                ImGui::PopID();
 
                 if (m_auto_wrap) ImGui::PopTextWrapPos();
              }
@@ -377,7 +432,7 @@ namespace term
         
         // Text filtering only
         if (m_filter_buf[0] == '\0') return true;
-        return msg.text.find(m_filter_buf) != std::string::npos;
+        return msg.text.contains(m_filter_buf);
     }
 
     void Terminal::render_input_bar(const ImVec2& size) 
@@ -403,7 +458,7 @@ namespace term
         
         auto callback = [](ImGuiInputTextCallbackData* data) -> int 
             {
-            Terminal* term = (Terminal*)data->UserData;
+            auto* term = static_cast<Terminal*>(data->UserData);
             
             if (data->EventFlag == ImGuiInputTextFlags_CallbackHistory) 
             {
@@ -412,12 +467,12 @@ namespace term
                     if (!term->m_history.empty()) 
                     {
                         term->m_history_pos++;
-                         if (term->m_history_pos >= (int)term->m_history.size()) term->m_history_pos = (int)term->m_history.size() - 1;
+                         if (std::cmp_greater_equal(term->m_history_pos ,term->m_history.size())) term->m_history_pos = static_cast<int>(term->m_history.size()) - 1;
                     }
                 } else if (data->EventKey == ImGuiKey_DownArrow) 
                 {
                      term->m_history_pos--;
-                     if (term->m_history_pos < -1) term->m_history_pos = -1;
+                     term->m_history_pos = std::max(term->m_history_pos, -1);
                 }
                 
                 if 
@@ -426,7 +481,7 @@ namespace term
                     term->m_history_pos < term->m_history.size()
                 ) 
                 {
-                    int idx = (int)term->m_history.size() - 1 - term->m_history_pos;
+                    int idx = static_cast<int>(term->m_history.size()) - 1 - term->m_history_pos;
                     data->DeleteChars(0, data->BufTextLen);
                     data->InsertChars(0, term->m_history[idx].c_str());
                 }
@@ -465,7 +520,7 @@ namespace term
 
     void Terminal::execute_command(std::string_view cmd) 
     {
-        m_history.push_back(std::string(cmd));
+        m_history.emplace_back(cmd);
         add_text(std::string("> ") + std::string(cmd), Severity::Debug);
         
         std::string command_str(cmd);
@@ -479,23 +534,31 @@ namespace term
 
 
         // Async execution for system commands
-        // Use shared_from_this pattern by capturing 'this' and checking shutdown flag
+        // Capture shared cancel flag so thread can check it even after Terminal destruction
+        auto cancel = m_ThreadCancelFlag;
         std::thread
         (
-            [this, command_str]() 
+            [this, cancel, command_str]() 
             {
-                // Early exit if terminal is shutting down
-                if (is_shutting_down()) return;
+                if (cancel->load()) return;
                 
-                FILE* pipe = _popen((command_str + " 2>&1").c_str(), "r");
+                std::string full_cmd = command_str + " 2>&1";
+                if (ProjectManager::b_HasOpenProject())
+                {
+                    std::string proj_dir = ProjectManager::GetCurrent().m_RootPath;
+                    full_cmd = "cd /d \"" + proj_dir + "\" && " + command_str + " 2>&1";
+                }
+                
+                FILE* pipe = _popen(full_cmd.c_str(), "r");
 
                 if (!pipe)
                 {
-                    if (!is_shutting_down())
+                    if (!cancel->load())
                     {
                         char error_msg[256];
                         strerror_s(error_msg, sizeof(error_msg), errno);
-                        this->add_text(std::string("Failed to start command: ") + error_msg, Severity::Error);
+                        if (!cancel->load())
+                            this->add_text(std::string("Failed to start command: ") + error_msg, Severity::Error);
                     }
                     return;
                 }
@@ -503,21 +566,19 @@ namespace term
                 char buffer[128];
                 while (fgets(buffer, sizeof(buffer), pipe)) 
                 {
-                    // Check if terminal is shutting down
-                    if (is_shutting_down()) 
+                    if (cancel->load()) 
                     {
                         _pclose(pipe);
                         return;
                     }
                     
-                    // Remove newline
                     std::string res(buffer);
                     while (!res.empty() && (res.back() == '\n' || res.back() == '\r')) 
                     {
                         res.pop_back();
                     }
                     
-                    if (!is_shutting_down())
+                    if (!cancel->load())
                     {
                         this->add_text(res, Severity::Debug);
                     }
@@ -525,7 +586,7 @@ namespace term
                 
                 int return_code = _pclose(pipe);
 
-                if (!is_shutting_down())
+                if (!cancel->load())
                 {
                     if (return_code != 0) 
                     {
@@ -535,7 +596,8 @@ namespace term
                              std::to_string(return_code), 
                              Severity::Warn
                          );
-                    } else 
+                    }
+                    else 
                     {
                          this->add_text("Command finished.", Severity::Debug);
                     }

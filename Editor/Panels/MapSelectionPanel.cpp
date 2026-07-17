@@ -5,10 +5,12 @@
 #include <rlImGui.h>
 #include <vector>
 #include <string>
+#include "../../Engine/Profiler.h"
 
 void MapSelectionPanel::Draw(GameEditor* editor)
 {
-	if (!editor->GetMapManager()) 
+	SCOPED_TIMER("panel_map_selection");
+	if (editor->GetMapManager() == nullptr) 
 	{
 		return;
 	}
@@ -16,7 +18,7 @@ void MapSelectionPanel::Draw(GameEditor* editor)
     
     ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 4.0f);
     ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::GetStyle().Colors[ImGuiCol_FrameBg]);
-    ImGui::BeginChild("map_status_box", ImVec2(0, 80), false, ImGuiWindowFlags_NoScrollbar);
+    ImGui::BeginChild("map_status_box", ImVec2(0, 80), 0, ImGuiWindowFlags_NoScrollbar);
     ImGui::SetCursorPos(ImVec2(10, 10));
     ImGui::TextDisabled("Map Status");
     
@@ -25,10 +27,13 @@ void MapSelectionPanel::Draw(GameEditor* editor)
     
     ImGui::SetCursorPos(ImVec2(10, 40));
     ImGui::Text("Current Map:");
-    ImGui::SameLine(ImGui::GetContentRegionAvail().x - ImGui::CalcTextSize(editor->GetMapManager()->GetCurrentMapId().c_str()).x - 5);
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.839f, 0.188f, 0.192f, 1.0f));
-    ImGui::Text("%s", editor->GetMapManager()->GetCurrentMapId().c_str());
-    ImGui::PopStyleColor();
+    {
+        std::string_view curId = editor->GetMapManager()->GetCurrentMapId();
+        ImGui::SameLine(ImGui::GetContentRegionAvail().x - ImGui::CalcTextSize(curId.data(), curId.data() + curId.size()).x - 5);
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.839f, 0.188f, 0.192f, 1.0f));
+        ImGui::Text("%.*s", static_cast<int>(curId.size()), curId.data());
+        ImGui::PopStyleColor();
+    }
     ImGui::EndChild();
     ImGui::PopStyleColor();
     ImGui::PopStyleVar();
@@ -36,7 +41,7 @@ void MapSelectionPanel::Draw(GameEditor* editor)
 	ImGui::Spacing();
     ImGui::Spacing();
 
-	std::vector<std::string> available_maps = editor->GetMapManager()->GetAvailableMaps();
+	const auto& available_maps = editor->GetMapManager()->GetAvailableMaps();
 
 	if (available_maps.empty())
 	{
@@ -51,7 +56,7 @@ void MapSelectionPanel::Draw(GameEditor* editor)
 		ImGui::Spacing();
 
 		static int s_SelectedIndex = 0;
-		std::string curr_map_id = editor->GetMapManager()->GetCurrentMapId();
+		std::string curr_map_id(editor->GetMapManager()->GetCurrentMapId());
 
 		for (int i = 0; i < available_maps.size(); i++)
 		{

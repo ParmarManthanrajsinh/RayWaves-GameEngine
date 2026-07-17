@@ -3,7 +3,6 @@
 #include <fstream>
 #include <sstream>
 #include <iostream>
-#include <print>
 #include <filesystem>
 
 struct t_WindowConfig 
@@ -26,10 +25,10 @@ class GameConfig
 {
 public:
     static GameConfig& GetInstance();
-    bool m_bLoadFromFile(const std::string& config_path = "config.ini");
+    bool m_bLoadFromFile(std::string_view config_path = "config.ini");
     bool m_bSaveToFile
     (
-        const std::string& config_path = "config.ini"
+        std::string_view config_path = "config.ini"
     ) const;
     
     t_WindowConfig& GetWindowConfig() { return m_WindowConfig; }

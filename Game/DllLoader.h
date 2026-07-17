@@ -19,5 +19,9 @@ struct DllHandle
 };
 
 DllHandle LoadDll(const char* path);
-void UnloadDll(DllHandle dll);
-void* GetDllSymbol(DllHandle dll, const char* SYMBOL_NAME);
+void UnloadDll(DllHandle& dll);
+void* GetDllSymbol(const DllHandle& dll, const char* SYMBOL_NAME);
+
+// Sweep stale .shadow. DLL copies from %TEMP% left behind by crashes.
+// Call once at engine startup.
+void CleanupStaleShadowCopies();

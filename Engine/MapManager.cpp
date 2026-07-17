@@ -1,26 +1,35 @@
+#include <iostream>
+#include <sstream>
 #include "MapManager.h"
 
 MapManager::MapManager()
     : m_CurrentMap(nullptr)
-    , m_CurrentMapId("")
-    , m_bUsingDefaultMap(false)
+    , 
+     m_bUsingDefaultMap(false)
 {
-    std::println("[MapManager] Initialized - ready for map registration");
+    m_MapName = "_RAYWAVES_MAP_MANAGER_";
+    std::cout << "[MapManager] Initialized - ready for map registration\n";
 }
 
 MapManager::~MapManager()
 {
-    std::println("[MapManager] Destroyed - all maps cleaned up");
+    if (m_CurrentMap)
+    {
+        m_CurrentMap->SetTransitionCallback(nullptr);
+        m_CurrentMap->SetExitCallback(nullptr);
+    }
+    std::cout << "[MapManager] Destroyed - all maps cleaned up\n";
 }
 
 void MapManager::Initialize()
 {
-    std::println("[MapManager] MapManager initialized - waiting for map registration");
+    std::cout << "[MapManager] MapManager initialized - waiting for map registration\n";
     if (m_CurrentMap)
     {
         // Make sure the map has proper scene bounds
         Vector2 bounds = GameMap::GetSceneBounds();
         m_CurrentMap->SetSceneBounds(bounds.x, bounds.y);
+        m_CurrentMap->SetProjectAssetPath(m_ProjectAssetPath);
 
         // Inject transition callback so the map can request transitions
         m_CurrentMap->SetTransitionCallback
@@ -31,28 +40,38 @@ void MapManager::Initialize()
             }
         );
 
+        m_CurrentMap->SetExitCallback
+        (
+            [this]()
+            {
+                this->RequestExit();
+            }
+        );
+
         m_CurrentMap->Initialize();
-        std::println("[MapManager] Successfully initialized with map: {}'", m_CurrentMapId);
+        std::cout << "[MapManager] Successfully initialized with map: '" << m_CurrentMapId << "'" << "\n";
     }
     else if (!m_MapRegistry.empty())
     {
-        std::println
-        (
-            "[MapManager] Maps registered but none loaded yet. Use GotoMap() to load a map."
-        );
-
-        std::print("[MapManager] Registered maps: ");
-        for (const auto& PAIR : m_MapRegistry)
+        if (!m_InitialMapId.empty() && b_IsMapRegistered(m_InitialMapId))
         {
-            std::println("'{}' ", PAIR.first);
+            std::cout << "[MapManager] Auto-loading initial map: " << m_InitialMapId << "\n";
+            b_GotoMap(m_InitialMapId);
+        }
+        else
+        {
+            std::cout << "[MapManager] Maps registered but none loaded yet. Use GotoMap() to load a map." << "\n";
+
+            std::cout << "[MapManager] Registered maps: ";
+            for (const auto& PAIR : m_MapRegistry)
+            {
+                std::cout << "'" << PAIR.first << "' " << "\n";
+            }
         }
     }
     else
     {
-        std::println
-        (
-            "[MapManager] No maps registered yet. Register maps using RegisterMap<YourMap>()"
-        );
+        std::cout << "[MapManager] No maps registered yet. Register maps using RegisterMap<YourMap>()" << "\n";
     }
 }
 
@@ -153,65 +172,50 @@ Vector2 MapManager::GetSceneBounds() const
     return GameMap::GetSceneBounds();
 }
 
-bool MapManager::b_GotoMap(const std::string& map_id, bool force_reload)
+bool MapManager::b_GotoMap(std::string_view map_id, bool force_reload)
 {
     // Check if map is registered
     if (!b_IsMapRegistered(map_id))
     {
-        std::println
-        (
-            std::cerr,
-            "[MapManager] Error: Map '{}' is not registered!",
-            map_id
-        );
+        std::cerr << "[MapManager] Error: Map '" << map_id << "' is not registered!" << "\n";
 
-        std::print(std::cerr, "[MapManager] Available maps: ");
-        for (const auto& available_map : GetAvailableMaps())
+        auto maps = GetAvailableMaps();
+        std::cerr << "[MapManager] Available maps: ";
+        for (const auto& available_map : maps)
         {
-            std::print(std::cerr, "'{}' ", available_map);
+            std::cerr << "'" << available_map << "' " << "\n";
         }
-        std::print(std::cerr, "\n");
+        std::cerr << "\n";
         return false;
     }
 
     // If it's the same map and we don't want to force reload, just return true
     if (m_CurrentMapId == map_id && !force_reload)
     {
-        std::println
-        (
-            "[MapManager] Map '{}' is already loaded",
-            map_id
-        );
+        std::cout << "[MapManager] Map '" << map_id << "' is already loaded" << "\n";
         return true;
     }
 
-    std::println
-    (
-        "[MapManager] Switching to map: '{}'",
-        map_id
-    );
+    std::cout << "[MapManager] Switching to map: '" << map_id << "'" << "\n";
 
     try
     {
         // Create the new map
-        auto& factory = m_MapRegistry[map_id];
-        auto new_map = factory();
+        auto reg_it = m_MapRegistry.find(map_id);
+        if (reg_it == m_MapRegistry.end()) return false;
+        auto new_map = reg_it->second();
 
         if (!new_map)
         {
-            std::println
-            (
-                std::cerr,
-                "[MapManager] Error: Factory for map '{}' returned null!",
-                map_id
-            );
+            std::cerr << "[MapManager] Error: Factory for map '" << map_id << "' returned null!" << "\n";
             return false;
         }
 
         // Created new map 
         m_CurrentMap = std::move(new_map);
         m_CurrentMapId = map_id;
-        m_MapInfo[map_id].b_IsLoaded = true;
+        auto info_it = m_MapInfo.find(map_id);
+        if (info_it != m_MapInfo.end()) info_it->second.b_IsLoaded = true;
         m_bUsingDefaultMap = false;
 
         // Set up the new map with current scene bounds
@@ -219,6 +223,7 @@ bool MapManager::b_GotoMap(const std::string& map_id, bool force_reload)
         if (m_CurrentMap)
         {
             m_CurrentMap->SetSceneBounds(bounds.x, bounds.y);
+            m_CurrentMap->SetProjectAssetPath(m_ProjectAssetPath);
 
             // Inject transition callback for map-driven transitions
             m_CurrentMap->SetTransitionCallback
@@ -228,81 +233,74 @@ bool MapManager::b_GotoMap(const std::string& map_id, bool force_reload)
                     this->b_GotoMap(std::string(id), force);
                 }
             );
+
+            m_CurrentMap->SetExitCallback
+            (
+                [this]()
+                {
+                    this->RequestExit();
+                }
+            );
+
             m_CurrentMap->Initialize();
         }
 
-        std::println
-        (
-            "[MapManager] Successfully loaded map: '{}'",
-            map_id
-        );
+        std::cout << "[MapManager] Successfully loaded map: '" << map_id << "'" << "\n";
 
-        std::println
-        (
-            "[MapManager] Current map Id: '{}'",
-            m_CurrentMapId
-        );
+        std::cout << "[MapManager] Current map Id: '" << m_CurrentMapId << "'" << "\n";
 
         return true;
     }
     catch (const std::exception& e)
     {
-        std::println
-        (
-            std::cerr,
-            "[MapManager] Error creating map '{}': {}",
-            map_id,
-            e.what()
-        );
+        std::cerr << "[MapManager] Error creating map '" << map_id << "': " << e.what() << "\n";
         return false;
     }
     catch (...)
     {
-        std::println
-        (
-            std::cerr,
-            "[MapManager] Unknown error creating map '{}'",
-            map_id
-        );
+        std::cerr << "[MapManager] Unknown error creating map '" << map_id << "'\n";
         return false;
     }
 }
 
 
-bool MapManager::b_IsCurrentMap(const std::string& map_id) const
+bool MapManager::b_IsCurrentMap(std::string_view map_id) const
 {
     return m_CurrentMapId == map_id &&
            m_CurrentMap != nullptr;
 }
 
-std::vector<std::string> MapManager::GetAvailableMaps() const
+const std::vector<std::string>& MapManager::GetAvailableMaps() const
 {
-    std::vector<std::string> maps;
-    maps.reserve(m_MapRegistry.size());
-    
-    for (const auto& pair : m_MapRegistry)
+    if (m_bMapsCacheDirty)
     {
-        maps.push_back(pair.first);
+        m_AvailableMapsCache.clear();
+        m_AvailableMapsCache.reserve(m_MapRegistry.size());
+        for (const auto& pair : m_MapRegistry)
+        {
+            m_AvailableMapsCache.push_back(pair.first);
+        }
+        m_bMapsCacheDirty = false;
     }
-    
-    return maps;
+    return m_AvailableMapsCache;
 }
 
-bool MapManager::b_IsMapRegistered(const std::string& map_id) const
+bool MapManager::b_IsMapRegistered(std::string_view map_id) const
 {
-    return m_MapRegistry.find(map_id) != m_MapRegistry.end();
+    return m_MapRegistry.contains(map_id);
 }
 
 void MapManager::UnloadCurrentMap()
 {
     if (m_CurrentMap)
     {
-        std::println("[MapManager] Unloading map '{}'", m_CurrentMapId);
+        std::cout << "[MapManager] Unloading map '" << m_CurrentMapId << "'" << "\n";
 
         // Mark as not loaded in metadata
-        if (m_MapInfo.find(m_CurrentMapId) != m_MapInfo.end())
+        auto info_it = m_MapInfo.find(m_CurrentMapId);
+        if (info_it != m_MapInfo.end())
         {
-            m_MapInfo[m_CurrentMapId].b_IsLoaded = false;
+            info_it->second.b_IsLoaded = false;
         }
         
         m_CurrentMap.reset();
@@ -311,7 +309,7 @@ void MapManager::UnloadCurrentMap()
     }
     else
     {
-        std::println("[MapManager] No map to unload");
+        std::cout << "[MapManager] No map to unload" << "\n";
     }
 }
 
@@ -319,12 +317,12 @@ bool MapManager::b_ReloadCurrentMap()
 {
     if (m_CurrentMapId.empty())
     {
-        std::println("[MapManager] No current map to reload");
+        std::cout << "[MapManager] No current map to reload" << "\n";
         return false;
     }
     
     std::string map_to_reload = m_CurrentMapId;
-    std::println("[MapManager] Reloading map: '{}'", map_to_reload);
+    std::cout << "[MapManager] Reloading map: '" << map_to_reload << "'" << "\n";
     
     return b_GotoMap(map_to_reload, true);
 }
@@ -346,7 +344,7 @@ std::string MapManager::GetDebugInfo() const
     
     for (const auto& PAIR : m_MapInfo)
     {
-        const std::string& MAP_ID = PAIR.first;
+        std::string_view MAP_ID = PAIR.first;
         const t_MapInfo& INFO = PAIR.second;
         ss << "\n  - '" << MAP_ID << "': " << INFO.description;
         ss << " [" << (INFO.b_IsLoaded ? "LOADED" : "NOT LOADED") << "]";
@@ -362,6 +360,6 @@ std::string MapManager::GetDebugInfo() const
 
 void MapManager::LoadDefaultMap()
 {
-    std::println("[MapManager] No default map available in Engine library");
-    std::println("[MapManager] Register and load your own maps using RegisterMap<YourMap>()");
+    std::cout << "[MapManager] No default map available in Engine library" << "\n";
+    std::cout << "[MapManager] Register and load your own maps using RegisterMap<YourMap>()" << "\n";
 }

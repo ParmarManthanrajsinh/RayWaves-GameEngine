@@ -19,26 +19,24 @@ $BuildPath = "build/zig-$($BuildConfig.ToLower())"
 if (-not (Test-Path $BuildPath)) {
     Write-Host "Configuring $BuildConfig version..." -ForegroundColor Yellow
     if ($BuildConfig -ieq "Release") {
-        cmake --preset zig-release
+        cmake --preset zig-release -DRAYWAVES_DISTRIBUTION_BUILD=ON
     } else {
         cmake --preset zig-debug
     }
 }
 
-Write-Host "Building targets (game runtime, GameLogic, and editor)..." -ForegroundColor Yellow
-cmake --build $BuildPath --config $BuildConfig --target game GameLogic main
+Write-Host "Building targets (game runtime and editor)..." -ForegroundColor Yellow
+cmake --build $BuildPath --config $BuildConfig --target game main
 if ($LASTEXITCODE -ne 0) {
     throw "Build failed with exit code $LASTEXITCODE"
 }
 
 # Verify expected outputs exist before packaging
 $GameExe = Join-Path $BuildPath "game.exe"
-$EditorExe = Join-Path $BuildPath "main.exe"
-$LogicDll = Join-Path $BuildPath "GameLogic.dll"
+$EditorExe = Join-Path $BuildPath "RayWaves.exe"
 $RaylibDll = Join-Path $BuildPath "libraylib.dll"
 
 if (-not (Test-Path $GameExe)) { throw "Missing game.exe at $GameExe" }
-if (-not (Test-Path $LogicDll)) { throw "Missing GameLogic.dll at $LogicDll" }
 if (-not (Test-Path $RaylibDll)) { throw "Missing libraylib.dll at $RaylibDll" }
 
 # Create distribution directory structure
@@ -49,8 +47,6 @@ if (Test-Path $DistPath) {
 }
 
 New-Item -ItemType Directory -Path $DistPath -Force | Out-Null
-New-Item -ItemType Directory -Path "$DistPath/GameLogic" -Force | Out-Null
-New-Item -ItemType Directory -Path "$DistPath/Assets" -Force | Out-Null
 New-Item -ItemType Directory -Path "$DistPath/Core" -Force | Out-Null
 New-Item -ItemType Directory -Path "$DistPath/Core/Engine" -Force | Out-Null
 New-Item -ItemType Directory -Path "$DistPath/Documentation" -Force | Out-Null
@@ -62,20 +58,21 @@ New-Item -ItemType Directory -Path "$DistPath/Core/raylib/bin" -Force | Out-Null
 
 Write-Host "Copying executable and dependencies..." -ForegroundColor Yellow
 
-# Try to stop running instances from the dist folder to avoid file lock errors
-Stop-Process -Name "game" -ErrorAction SilentlyContinue
-Stop-Process -Name "editor" -ErrorAction SilentlyContinue
+# Try to stop running instances to avoid file lock errors
+# Only targets processes whose path starts with the dist or build directory
+Get-Process -Name "game","RayWaves" -ErrorAction SilentlyContinue | Where-Object {
+    try { $_.Path -like "$DistPath*" -or $_.Path -like "$BuildPath*" } catch { $false }
+} | Stop-Process -Force -ErrorAction SilentlyContinue
 
-# Copy game runtime as game.exe
-Copy-Item "$BuildPath/game.exe" "$DistPath/game.exe" -Force
+# Copy game runtime as hidden engine base for exports
+Copy-Item "$BuildPath/game.exe" "$DistPath/Core/runtime.exe" -Force
 
-# Optionally include the editor (rename to editor.exe)
-if (Test-Path "$BuildPath/main.exe") {
-    Copy-Item "$BuildPath/main.exe" "$DistPath/editor.exe" -Force
+# Optionally include the editor
+if (Test-Path "$BuildPath/RayWaves.exe") {
+    Copy-Item "$BuildPath/RayWaves.exe" "$DistPath/RayWaves.exe" -Force
 }
 
-# Copy GameLogic DLL to root
-Copy-Item "$BuildPath/GameLogic.dll" "$DistPath/" -Force
+
 
 # Copy static Engine library to root (needed for linking GameLogic with Zig)
 Copy-Item "$BuildPath/libEngine.a" "$DistPath/Core/" -Force
@@ -88,13 +85,11 @@ Copy-Item "$BuildPath/_deps/raylib-build/raylib/include/*.h" "$DistPath/Core/ray
 # IMPORTANT: Copy libraylib.dll to dist root so game.exe and editor.exe can find it at runtime
 Copy-Item "$BuildPath/libraylib.dll" "$DistPath/" -Force
 
-# Copy Assets folder
-Copy-Item "Assets/*" "$DistPath/Assets/" -Recurse -Force
+# Copy Engine UI Assets
+New-Item -ItemType Directory -Path "$DistPath/Core/EngineContent" -Force | Out-Null
+Copy-Item "EngineContent/*" "$DistPath/Core/EngineContent/" -Recurse -Force
 
 Write-Host "Creating development environment..." -ForegroundColor Yellow
-
-# Copy GameLogic source files
-Copy-Item "GameLogic/*" "$DistPath/GameLogic/" -Recurse -Force
 
 # Copy Engine headers and source files (needed for GameLogic development)
 Copy-Item "Engine/*.h" "$DistPath/Core/Engine/" -Force
@@ -104,8 +99,30 @@ Copy-Item "Engine/*.cpp" "$DistPath/Core/Engine/" -Force
 Copy-Item "Distribution/dist_CMakeLists.txt" "$DistPath/Core/CMakeLists.txt" -Force
 
 # Copy distribution documentation
-Copy-Item "Documentation/README_DISTRIBUTION.md" "$DistPath/Documentation/" -Force
-Copy-Item "Documentation/DISTRIBUTION_GUIDE.md" "$DistPath/Documentation/" -Force
+Copy-Item "Documentation/GAME_DEVELOPER_GUIDE.md" "$DistPath/Documentation/" -Force
+Copy-Item "Documentation/GUIDE_FUNDAMENTALS.md" "$DistPath/Documentation/" -Force
+Copy-Item "Documentation/GUIDE_REFERENCE.md" "$DistPath/Documentation/" -Force
+
+# Copy Project Templates
+if (Test-Path "Distribution/Templates") {
+    Write-Host "Copying Project Templates..." -ForegroundColor Yellow
+    Copy-Item "Distribution/Templates" "$DistPath/" -Recurse -Force
+    # Strip local build artifacts and .raywaves folders
+    $ExcludedItems = Get-ChildItem -Path "$DistPath/Templates" -Recurse -Include *.dll,*.pdb,*.lib,*.obj -Force
+    $ExcludedDirs = Get-ChildItem -Path "$DistPath/Templates" -Recurse -Directory -Filter .raywaves -Force
+    if ($ExcludedItems) {
+        foreach ($item in $ExcludedItems) {
+            Remove-Item -Path $item.FullName -Force -ErrorAction SilentlyContinue
+        }
+    }
+    if ($ExcludedDirs) {
+        foreach ($item in $ExcludedDirs) {
+            Remove-Item -Path $item.FullName -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+}
+
+
 
 if ($IncludeCompiler) {
     Write-Host "Bundling Zig Compiler (Zero Install)..." -ForegroundColor Yellow
@@ -113,8 +130,29 @@ if ($IncludeCompiler) {
     Copy-Item "Tools/zig/*" "$DistPath/Core/Tools/zig/" -Recurse -Force
 }
 
-# Copy build helper script
-Copy-Item "Distribution/build_gamelogic.bat" "$DistPath/" -Force
+# Always copy the compiler wrappers and setup script
+New-Item -ItemType Directory -Path "$DistPath/Core/Tools" -Force | Out-Null
+Copy-Item "Tools/zig-c*.bat" "$DistPath/Core/Tools/" -Force
+Copy-Item "Tools/setup_zig.ps1" "$DistPath/Core/Tools/" -Force
+
+# Bundle rcedit
+if (Test-Path "Tools/rcedit.exe") {
+    Write-Host "Bundling rcedit..." -ForegroundColor Yellow
+    Copy-Item "Tools/rcedit.exe" "$DistPath/Core/Tools/" -Force
+}
+
+# Bundle Ninja (required for CMake generator)
+if (Test-Path "Tools/ninja/ninja.exe") {
+    Write-Host "Bundling Ninja..." -ForegroundColor Yellow
+    New-Item -ItemType Directory -Path "$DistPath/Core/Tools/ninja" -Force | Out-Null
+    Copy-Item "Tools/ninja/ninja.exe" "$DistPath/Core/Tools/ninja/" -Force
+}
+
+# Bundle CMake (required for building GameLogic)
+if (Test-Path "Tools/cmake/bin/cmake.exe") {
+    Write-Host "Bundling CMake..." -ForegroundColor Yellow
+    Copy-Item "Tools/cmake" "$DistPath/Core/Tools/cmake" -Recurse -Force
+}
 
 # Copy default game configuration
 Copy-Item "Distribution/config.ini" "$DistPath/" -Force
@@ -124,13 +162,12 @@ Write-Host "Creating build configuration..." -ForegroundColor Yellow
 Write-Host "Distribution created successfully in '$DistPath'" -ForegroundColor Green
 Write-Host ""
 Write-Host "Distribution contents:" -ForegroundColor Cyan
-Write-Host "- game.exe (RayWaves game engine/editor)" -ForegroundColor White
-Write-Host "- GameLogic.dll (hot-reloadable game logic)" -ForegroundColor White
+if (Test-Path "$DistPath/RayWaves.exe") {
+    Write-Host "- RayWaves.exe (Game Editor/IDE)" -ForegroundColor White
+}
 Write-Host "- libraylib.dll (required at runtime)" -ForegroundColor White
 Write-Host "- config.ini (window and game settings)" -ForegroundColor White
-Write-Host "- build_gamelogic.bat (quick build helper)" -ForegroundColor White
-Write-Host "- GameLogic/ (source code for game development)" -ForegroundColor White
-Write-Host "- Assets/ (game assets)" -ForegroundColor White
+Write-Host "- Templates/ (project templates)" -ForegroundColor White
 Write-Host "- Documentation/ (user guides and documentation)" -ForegroundColor White
 Write-Host "- Core/ (engine internals)" -ForegroundColor White
 Write-Host "  - raylib/ (raylib development files)" -ForegroundColor White
@@ -139,3 +176,5 @@ Write-Host "  - Engine/ (engine headers)" -ForegroundColor White
 if ($IncludeCompiler) {
     Write-Host "  - Tools/zig/ (bundled Zig compiler for zero-install hot-reloading)" -ForegroundColor White
 }
+Write-Host "  - Tools/ninja/ (bundled Ninja build system)" -ForegroundColor White
+Write-Host "  - Tools/cmake/ (bundled CMake build system)" -ForegroundColor White

@@ -43,7 +43,7 @@ namespace ProcessRunner
 
             void Close()
             {
-                if (h)
+                if (h != nullptr)
                 {
                     CloseHandle(h);
                     h = nullptr;
@@ -57,9 +57,9 @@ namespace ProcessRunner
 
     void RunBuildCommand
     (
-        const std::string_view cmd,
-        std::function<void(const std::string_view, bool)> on_output,
-        std::function<void(bool)> on_complete
+        std::string_view cmd,
+        const std::function<void(std::string_view, bool)>& on_output,
+        const std::function<void(bool)>& on_complete
     )
     {
         std::thread([cmd_str = std::string(cmd), on_output, on_complete]()

@@ -43,6 +43,7 @@ target_link_libraries(Engine PUBLIC raylib)
 add_library(GameLogic SHARED ${GAMELOGIC_SRC})
 
 target_include_directories(GameLogic PRIVATE
+    ${CMAKE_SOURCE_DIR}/..
     ${CMAKE_SOURCE_DIR}/Engine
     ${CMAKE_SOURCE_DIR}/../GameLogic
 )

@@ -50,6 +50,7 @@ namespace term
         // Thread safety
         std::mutex m_mutex;
         std::atomic<bool> m_is_shutting_down{false};
+        std::shared_ptr<std::atomic<bool>> m_ThreadCancelFlag = std::make_shared<std::atomic<bool>>(false);
 
         // Logs
         std::deque<Message> m_messages;

@@ -2,9 +2,7 @@
 
 #include "GameMap.h"
 #include "GameConfig.h"
-#include <memory>
 #include <string>
-#include <print>
 class MapManager;
 
 class GameEngine
@@ -16,27 +14,36 @@ class GameEngine
     int m_WindowWidth;
 	int m_WindowHeight;
 	std::string m_WindowTitle;
-	std::unique_ptr<GameMap> m_GameMap;
+	GameMap* m_GameMap = nullptr;
 	
 	// MapManager instance for advanced map management
-	std::unique_ptr<MapManager> m_MapManager;
+	MapManager* m_MapManager = nullptr;
+	// Viewport size for camera logic
+	int m_ViewportWidth = 0;
+	int m_ViewportHeight = 0;
 	
 public:
     GameEngine();
     ~GameEngine();
 
+	void SetViewportSize(int width, int height);
+	int GetViewportWidth() const;
+	int GetViewportHeight() const;
+
 	void LaunchWindow(int width, int height, std::string_view title);
 	void LaunchWindow(const t_WindowConfig& config);
-	void ToggleFullscreen();
-	void SetWindowMode(bool fullscreen);
-	void SetMap(std::unique_ptr<GameMap> game_map);
-	GameMap* GetMap() const { return m_GameMap.get(); }
-	void DrawMap() const;
-	void UpdateMap(float delta_time) const;
+	static void ToggleFullscreen();
+	static void SetWindowMode(bool fullscreen);
+	void SetMap(GameMap* game_map);
+	GameMap* GetMap() { return m_GameMap; }
+	const GameMap* GetMap() const { return m_GameMap; }
+	void DrawMap();
+	void UpdateMap(float delta_time);
 	void ResetMap();
 	
 	// MapManager integration methods
-	void SetMapManager(std::unique_ptr<MapManager> map_manager);
-	MapManager* GetMapManager() const;
+	void SetMapManager(MapManager* map_manager);
+	MapManager* GetMapManager();
+	const MapManager* GetMapManager() const;
 	bool b_HasMapManager() const;
 };

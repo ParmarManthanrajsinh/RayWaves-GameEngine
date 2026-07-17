@@ -1,0 +1,15 @@
+[project]
+name=Platformer2D
+version=1.0.0
+engineVersion=0.6.0
+sourceDir=GameLogic
+assetDir=Assets
+entryDll=GameLogic.dll
+
+[editor]
+cameraX=0
+cameraY=0
+lastMapId=
+sceneWidth=1280
+sceneHeight=720
+targetFPS=60

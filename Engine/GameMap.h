@@ -1,6 +1,5 @@
 #pragma once
 #include <iostream>
-#include <print>
 #include <raylib.h>
 #include <string>
 #include <string_view>
@@ -14,23 +13,29 @@ protected:
     float m_SceneWidth = 0.0f;   
     float m_SceneHeight = 0.0f;  
 	int m_TargetFPS = 60;
+    std::string m_ProjectAssetPath;
 
     // Transition callback to request a map change via the manager
     std::function<void(std::string_view, bool)> m_TransitionCallback;
 
+    // Exit callback so DLL can request shutdown without calling CloseWindow() directly
+    std::function<void()> m_ExitCallback;
+
 public:
     GameMap(); 
-    GameMap(const std::string& map_name);
+    GameMap(std::string_view map_name);
     virtual ~GameMap() = default;  
 
     virtual void Initialize();
     virtual void Update(float delta_time);
     virtual void Draw();
     
+    virtual void SetProjectAssetPath(const std::string& path);
+    
     virtual void SaveState(StateBag& out) const {}
     virtual void LoadState(const StateBag& in) {}
     
-    void SetMapName(const std::string& map_name);
+    void SetMapName(std::string_view map_name);
     std::string GetMapName() const;
     void SetSceneBounds(float width, float height);
 	Vector2 GetSceneBounds() const;
@@ -44,7 +49,12 @@ public:
         std::function<void(std::string_view, bool)> cb
     );
 
+    void SetExitCallback(std::function<void()> cb);
+
 protected:
     // Helper maps can call to request a transition (executes callback if provided)
     void RequestGotoMap(std::string_view map_id, bool force_reload = false);
+
+    // Helper maps can call to request shutdown (executes callback if provided)
+    void RequestExit();
 };

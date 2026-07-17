@@ -1,78 +1,118 @@
 # RayWaves Distribution Guide
 
-*Where code changes flow like waves 🌊*
+*For engine maintainers — how to package the engine for other developers.*
 
-This guide explains how to package the RayWaves engine so OTHER developers can make games with it.
-
-> **Note:** If you just want to *export your game* to play on another computer, check the [Developer Guide](DEVELOPER_GUIDE.md). This guide is for distributing the *engine tools* themselves.
+> **End-user looking to make a game?** See [GAME_DEVELOPER_GUIDE.md](GAME_DEVELOPER_GUIDE.md).
 
 ---
 
-## 🚀 The "Two-Click" Distribution
+## Quick Start
 
-Want to give a friend the entire engine so they can start coding?
+### One-Command Script (Recommended)
 
-1.  **Run the Script:**
-    ```cmd
-    Distribution\create_distribution.bat
-    ```
-2.  **Wait:** The script will build the engine, gather assets, and clean up headers.
-3.  **Done!** Check the newly created `dist/` folder.
+```cmd
+Distribution\create_distribution.bat -IncludeCompiler
+```
 
-You can now zip up `dist/` and send it to anyone!
+Bundles compiler + build tools (Zig, Ninja, CMake), strips profiler, packages everything into `dist/`.
+
+### Manual CMake Build (Equivalent)
+
+```cmd
+cmake --preset zig-release -DRAYWAVES_DISTRIBUTION_BUILD=ON
+cmake --build build\zig-release --target main game GameLogic
+Distribution\distribute.ps1 -IncludeCompiler
+```
+
+> **Warning:** Always pass `-IncludeCompiler` AND `-DRAYWAVES_DISTRIBUTION_BUILD=ON` for a proper distribution. Omitting either produces a package with profiler overhead or missing compiler/build tools.
 
 ---
 
-## 📦 What's Inside the Box?
+## Distribution Build Internals
 
-When you create a distribution, here is what your users get:
+### 1. Profiler Stripped (`-DRAYWAVES_DISTRIBUTION_BUILD=ON`)
+
+With this flag:
+- `SCOPED_TIMER` macro → `((void)0)` — zero runtime cost
+- `Profiler::Record`, `NextFrame`, `GetAverages` → empty, inlined away
+- `PerformanceOverlay` renders an empty breakdown
+- `Profiler.cpp` compiles to an empty translation unit
+
+### 2. Build Tools Bundled (with `-IncludeCompiler`)
+
+The distribution script copies these into `dist/Core/Tools/`:
+
+| Tool | Location | Purpose |
+|------|----------|---------|
+| Zig | `Tools/zig/` | C++ compiler for GameLogic |
+| Ninja | `Tools/ninja/ninja.exe` | Build system (CMake generator) |
+| CMake | `Tools/cmake/` | Build system orchestrator (includes required `share/` modules) |
+| rcedit | `Tools/rcedit.exe` | Icon embedding (used during engine builds, not by end users) |
+
+The `setup_zig.ps1` script and compiler wrappers (`zig-cc.bat`, `zig-cxx.bat`) are also copied so that auto-fetch works on first run if any tool is missing. Recipients get zero-install compilation — no PATH setup required.
+
+---
+
+## What's Inside the Box
 
 | File/Folder | Purpose |
-|-------------|---------|
-| `editor.exe` | The visual game editor. |
-| `GameLogic.dll` | The compiled game code. |
-| `game_config.ini` | Default settings (resolution, VSync, etc). |
-| `build_gamelogic.bat` | **The Magic Button.** Users click this to recompile their code. |
-| `GameLogic/` | **User Code.** Contains `Level1.cpp`, `Player.cpp`, etc. |
-| `Engine/` | **Header Files.** So users can define classes inheriting `GameMap`. |
-| `Assets/` | **Resources.** Textures, sounds, and fonts. |
+|---|---|
+| `RayWaves.exe` | Visual game editor |
+| `Core/runtime.exe` | Standalone game player (used by Export) |
+| `Core/Engine/` | Header files for inheriting `GameMap` |
+| `Core/raylib/` | Raylib dev files (headers, libs, DLL) |
+| `Core/CMakeLists.txt` | CMake config for building GameLogic |
+| `Core/Tools/zig/` | Zig compiler (zero-install) |
+| `Core/Tools/ninja/` | Ninja build system |
+| `Core/Tools/cmake/` | CMake build system |
+| `Core/Tools/setup_zig.ps1` | Auto-fetch script for tool updates |
+| `Core/Tools/zig-cc.bat` | Compiler wrapper scripts |
+| `GameLogic.dll` | Pre-compiled game code |
+| `build_gamelogic.bat` | One-click rebuild script |
+| `Templates/` | Project templates (Empty, DemoGame) |
+| `config.ini` | Default game settings |
+| `Documentation/` | User guides and API reference |
+
+See [Distribution/README.md](../Distribution/README.md) (stub redirect) for the raw script inventory.
 
 ---
 
-## 🎮 The End-User Experience
+## End-User Workflow
 
-Imagine you send this to a friend. Here is their workflow:
-
-1.  **Unzip** the folder.
-2.  **Open `GameLogic/Level1.cpp`** in VS Code (or Notepad++).
-3.  **Run `editor.exe`**. They see the game running.
-4.  **Edit `Level1.cpp`** (e.g., change `speed = 100` to `speed = 500`).
-5.  **Run `build_gamelogic.bat`**.
-6.  **BOOM!** The editor hot-reloads the new speed instantly.
-
-**Important Note:** By default, creating a distribution drops the compiler to save space (yielding a lean, player-ready build). If you want your friends to have this magical "zero-install" experience where they can edit C++ without downloading any tools, you **MUST** export the game using the `-IncludeCompiler` flag (see "Customizing the Distro" below). Otherwise, they will need Zig installed system-wide on their PATH.
+1. Unzip the distribution.
+2. Run `RayWaves.exe`.
+3. Create a new project or open an existing one via the Project Browser.
+4. Edit code in your project's `GameLogic/` folder.
+5. Click **Compile** in the editor toolbar — changes hot-reload in ~0.5 s.
+6. Export your game via the **Export Panel**.
 
 ---
 
-## 🛠️ Customizing the Distro
+## Customizing the Distribution
 
-You can tweak how the distribution is built by editing `Distribution/distribute.ps1`.
+Edit `Distribution/distribute.ps1` to tweak:
 
-### Common Customizations
+- **Bundled tools:** `-IncludeCompiler` includes Zig, Ninja, CMake (recommended).
+- **Default config:** Modify `Distribution/config.ini`.
+- **Branding:** Change icon or name in the script.
 
-*   **Include Zig Compiler:** By default, the engine's built-in Zig compiler is not included, keeping the package size small for players. Run `distribute.ps1 -IncludeCompiler` to bundle Zig so the recipient can hot-reload without any manual install.
-*   **Change Default Config:** Modify `Distribution/config.ini` to set different starting resolutions or flags.
-*   **Include Extra Assets:** Add files to `GameLogic/` before building if you want to include starter scripts.
-*   **Branding:** Change the icon or name of `editor.exe` in the script.
-
----
-
-## ✅ Checklist Before Shipping
-
-1.  **Test on a generic PC:** Try running the requested `dist/` folder on a computer that *doesn't* have your full dev environment.
-2.  **Check Hot-Reload:** Ensure `build_gamelogic.bat` actually triggers a reload in the editor.
-3.  **Docs:** Make sure `README_DISTRIBUTION.md` (which becomes the user's `README.md`) covers the basics.
+Build manually:
+```cmd
+cmake -B build\zig-release -DRAYWAVES_DISTRIBUTION_BUILD=ON
+cmake --build build\zig-release
+Distribution\distribute.ps1 -IncludeCompiler
+```
 
 ---
 
-*Now go share your engine with the world! 🌍*
+## Shipping Checklist
+
+1.  **Test on a clean PC:** Run `dist/` on a computer without any dev tools.
+2.  **Verify hot-reload:** Edit a file in your project's `GameLogic/`, click Compile, confirm editor reloads.
+3.  **Verify profiler stripped:** Open Performance Overlay — breakdown table shows no entries.
+4.  **Tools bundled:** Confirm `dist/Core/Tools/{zig,ninja,cmake}` exist.
+5.  **Docs shipped:** Confirm `GAME_DEVELOPER_GUIDE.md` is included.
+
+---
+
+*Now go share your engine with the world!*

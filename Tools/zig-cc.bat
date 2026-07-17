@@ -1,3 +1,7 @@
 @echo off
 :: zig-cc.bat
-"%~dp0zig\zig.exe" cc %*
+if exist "%~dp0zig\zig.exe" (
+    "%~dp0zig\zig.exe" cc %*
+) else (
+    zig cc %*
+)

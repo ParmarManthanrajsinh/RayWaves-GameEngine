@@ -1,22 +1,22 @@
+#include <iostream>
 #include "GameEngine.h"
 #include "DllLoader.h"
 #include "GameConfig.h"
+#include "../Engine/AssetResolver.h"
 using CreateGameMapFunc = GameMap* (*)();
+using DestroyGameMapFunc = void (*)(GameMap*);
 
-static std::unique_ptr<GameMap> s_fLoadGameLogic
+static DestroyGameMapFunc s_DestroyGameMap = nullptr;
+
+static GameMap* s_fLoadGameLogic
 (
     std::string_view dll_path, DllHandle& out_handle
 )
 {
     out_handle = LoadDll(dll_path.data());
-    if (!out_handle.handle)
+    if (out_handle.handle == nullptr)
     {
-        std::println
-        (
-            std::cerr, 
-            "Fatal error: failed to load GameLogic DLL: {}", 
-            dll_path
-        );
+        std::cerr << "Fatal error: failed to load GameLogic DLL: " << dll_path << "\n";
         return nullptr;
     }
 
@@ -24,44 +24,48 @@ static std::unique_ptr<GameMap> s_fLoadGameLogic
     (
         GetDllSymbol(out_handle, "CreateGameMap")
     );
-    if (!CreateFn)
+    
+    s_DestroyGameMap = reinterpret_cast<DestroyGameMapFunc>
+    (
+        GetDllSymbol(out_handle, "DestroyGameMap")
+    );
+    
+    if ((CreateFn == nullptr) || (s_DestroyGameMap == nullptr))
     {
-        std::println
-        (
-            std::cerr, 
-            "Failed to find symbol CreateGameMap in GameLogic DLL"
-        );
+        std::cerr << "Failed to find symbol CreateGameMap/DestroyGameMap in GameLogic DLL" << "\n";
         UnloadDll(out_handle);
         out_handle = {nullptr, {}};
         return nullptr;
     }
 
     GameMap* raw = CreateFn();
-    if (!raw)
+    if (raw == nullptr)
     {
-        std::println("CreateGameMap returned null");
+        std::cerr << "CreateGameMap returned null" << "\n";
         UnloadDll(out_handle);
         out_handle = {nullptr, {}};
         return nullptr;
     }
 
-    return std::unique_ptr<GameMap>(raw);
+    return raw;
 }
 
 int main()
 {
-    std::println("Starting game runtime...");
+    CleanupStaleShadowCopies();
+    std::cout << "Starting game runtime..." << "\n";
 
     // Load configuration
     GameConfig& config = GameConfig::GetInstance();
     config.m_bLoadFromFile("config.ini");
     
+    // Set Asset Resolver for standalone game
+    AssetResolver::SetProjectAssetPath("Assets");
+    
     GameEngine engine;
     engine.LaunchWindow(config.GetWindowConfig());
     
-    Image icon = LoadImage("Assets/EngineContent/icon.png");
-    SetWindowIcon(icon);
-    UnloadImage(icon);
+
     
     // Set FPS based on vsync setting
     if (config.GetWindowConfig().b_Vsync) 
@@ -74,14 +78,16 @@ int main()
     }
 
     DllHandle game_logic_handle{nullptr, {}};
-    auto map = s_fLoadGameLogic("GameLogic.dll", game_logic_handle);
-    if (map)
+    auto *map = s_fLoadGameLogic("GameLogic.dll", game_logic_handle);
+    if (map != nullptr)
     {
-        engine.SetMap(std::move(map));
+        GameMap* raw_map = map;
+        raw_map->SetExitCallback([]() { CloseWindow(); });
+        engine.SetMap(map);
     }
     else
     {
-        std::println(std::cerr, "Running without GameLogic ( no map Loaded ).");
+        std::cerr << "Running without GameLogic ( no map Loaded )." << "\n";
     }
 
     while (!WindowShouldClose())
@@ -89,10 +95,11 @@ int main()
         // Handle Alt+Enter for fullscreen toggle
         if (IsKeyDown(KEY_LEFT_ALT) && IsKeyPressed(KEY_ENTER))
         {
-            engine.ToggleFullscreen();
+            GameEngine::ToggleFullscreen();
         }
         
         float dt = GetFrameTime();
+        engine.SetViewportSize(GetScreenWidth(), GetScreenHeight());
         engine.UpdateMap(dt);
 
         BeginDrawing();
@@ -100,6 +107,14 @@ int main()
         engine.DrawMap();
         EndDrawing();
     }
+
+    if ((s_DestroyGameMap != nullptr) && (engine.GetMap() != nullptr))
+    {
+        s_DestroyGameMap(engine.GetMap());
+    }
+    
+    // Clear the map pointer from engine since we just destroyed it
+    engine.SetMap(nullptr);
 
     UnloadDll(game_logic_handle);
     CloseAudioDevice();

@@ -1,12 +1,10 @@
+#include <iostream>
 #pragma once
 #include "GameMap.h"
 #include <functional>
 #include <memory>
-#include <unordered_map>
+#include <map>
 #include <vector>
-#include <sstream>
-#include <print>
-
 /**
  * @brief Developer-friendly MapManager for easy game map management
  * 
@@ -37,9 +35,10 @@ private:
     std::unique_ptr<GameMap> m_CurrentMap;
     
     // Registry of available maps with their factory functions
-    std::unordered_map<std::string, 
-    std::function<std::unique_ptr<GameMap>()>> m_MapRegistry;
+    std::map<std::string, 
+    std::function<std::unique_ptr<GameMap>()>, std::less<>> m_MapRegistry;
     std::string m_CurrentMapId;
+    std::string m_InitialMapId;
     
     // Map metadata for better developer experience
     struct t_MapInfo 
@@ -48,7 +47,9 @@ private:
         bool b_IsLoaded = false;
     };
 
-    std::unordered_map<std::string, t_MapInfo> m_MapInfo;
+    std::map<std::string, t_MapInfo, std::less<>> m_MapInfo;
+    mutable std::vector<std::string> m_AvailableMapsCache;
+    mutable bool m_bMapsCacheDirty = true;
     bool m_bUsingDefaultMap;
 
 public:
@@ -76,16 +77,18 @@ public:
     template<typename T>
     void RegisterMap
     (
-        const std::string& map_id, 
-        const std::string& description = ""
+        std::string_view map_id, 
+        std::string_view description = ""
     );
-    bool b_GotoMap(const std::string& map_id, bool force_reload = false);
-    bool b_IsCurrentMap(const std::string& map_id) const;
-    bool b_IsMapRegistered(const std::string& map_id) const;
+    bool b_GotoMap(std::string_view map_id, bool force_reload = false);
+    bool b_IsCurrentMap(std::string_view map_id) const;
+    bool b_IsMapRegistered(std::string_view map_id) const;
     bool b_ReloadCurrentMap();
+    
+    void SetInitialMap(std::string_view map_id) { m_InitialMapId = std::string(map_id); }
 
-    const std::string& GetCurrentMapId() const { return m_CurrentMapId; }
-    std::vector<std::string> GetAvailableMaps() const;
+    std::string_view GetCurrentMapId() const { return m_CurrentMapId; }
+    const std::vector<std::string>& GetAvailableMaps() const;
 
     void UnloadCurrentMap();
     std::string GetDebugInfo() const;
@@ -93,7 +96,7 @@ public:
     
 private:
 
-    void LoadDefaultMap();
+    static void LoadDefaultMap();
 };
 
 /*
@@ -105,8 +108,8 @@ private:
 template<typename T>
 void MapManager::RegisterMap
 (
-    const std::string& map_id, 
-    const std::string& description
+    std::string_view map_id, 
+    std::string_view description
 )
 {
     static_assert
@@ -116,18 +119,19 @@ void MapManager::RegisterMap
     );
     
     // Create factory function that creates instances of type T
-    m_MapRegistry[map_id] = []() -> std::unique_ptr<GameMap> 
+    m_MapRegistry[std::string(map_id)] = []() -> std::unique_ptr<GameMap> 
     {
         return std::make_unique<T>();
     };
     
     // Store metadata
-    m_MapInfo[map_id] = 
+    m_MapInfo[std::string(map_id)] = 
     { 
-        description.empty() ? "No description" : description, false 
+        description.empty() ? "No description" : std::string(description), false 
     };
 
-    std::println("[MapManager] Registered map: {} - {}", map_id, description);
+    m_bMapsCacheDirty = true;
+    std::cout << "[MapManager] Registered map: " << map_id << "::" << description << std::endl;
 }
 /*
 +----------------------------------------------------------------+
@@ -166,7 +170,7 @@ inline void RegisterMapAs
 (
     Manager& manager, 
     int map_id, 
-    const std::string& desc
+    std::string_view desc
 )
 {
     manager.template RegisterMap<MapClass>(map_id, desc);

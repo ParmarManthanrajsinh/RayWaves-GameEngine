@@ -2,6 +2,7 @@
 #include "SceneWindow.h"
 #include "../GameEditor.h"
 #include "../../Engine/MapManager.h"
+#include "../../Engine/ProjectManager.h"
 #include "../../Engine/GameEngine.h"
 #include "../ProcessRunner.h"
 
@@ -9,6 +10,8 @@
 #include <imgui_internal.h>
 #include <rlImGui.h>
 #include <cmath>
+#include <numbers>
+#include "../../Engine/Profiler.h"
 
 void SceneWindow::DrawToolbarBackground()
 {
@@ -47,8 +50,8 @@ void SceneWindow::s_fDrawSpinner(float radius, float thickness, const unsigned i
 	vars.inv_num_segments = 1.0f / static_cast<float>(c_NUM_SEGMENTS);
 	vars.time_x8 = vars.time * 8.0f;
 
-	vars.a_min = 3.14159f * 2.0f * vars.start * vars.inv_num_segments;
-	vars.a_max = 3.14159f * 2.0f * static_cast<float>(c_NUM_SEGMENTS - 3) * vars.inv_num_segments;
+	vars.a_min = std::numbers::pi_v<float> * 2.0f * vars.start * vars.inv_num_segments;
+	vars.a_max = std::numbers::pi_v<float> * 2.0f * static_cast<float>(c_NUM_SEGMENTS - 3) * vars.inv_num_segments;
 	vars.angle_range = vars.a_max - vars.a_min;
 
 	const ImVec2 CENTER = ImVec2(pos.x + radius, pos.y + radius);
@@ -56,11 +59,11 @@ void SceneWindow::s_fDrawSpinner(float radius, float thickness, const unsigned i
 
 	for (int i = 0; i < c_NUM_SEGMENTS; ++i)
 	{
-		const float A = vars.a_min + (static_cast<float>(i) * vars.inv_num_segments) * vars.angle_range;
+		const float A = vars.a_min + ((static_cast<float>(i) * vars.inv_num_segments) * vars.angle_range);
 		const float ANGLE = A + vars.time_x8;
-		DrawList->PathLineTo(ImVec2(vars.centre_x + cosf(ANGLE) * radius, vars.centre_y + sinf(ANGLE) * radius));
+		DrawList->PathLineTo(ImVec2(vars.centre_x + (cosf(ANGLE) * radius), vars.centre_y + (sinf(ANGLE) * radius)));
 	}
-	DrawList->PathStroke(color, false, thickness);
+	DrawList->PathStroke(color, 0, thickness);
 }
 
 bool SceneWindow::s_bIconButton(std::string_view label, std::string_view icon, const ImVec2& size, std::string_view tooltip)
@@ -78,13 +81,14 @@ bool SceneWindow::s_bIconButton(std::string_view label, std::string_view icon, c
 
 void SceneWindow::Draw(GameEditor* editor)
 {
+	SCOPED_TIMER("panel_scene_window");
 	ImGuiStyle& style = ImGui::GetStyle();
 	style.WindowMenuButtonPosition = ImGuiDir_Left;
 
 	ImGui::Begin(ICON_FA_IMAGE " Scene", nullptr, ImGuiWindowFlags_NoTitleBar);
 
 	ImGuiDockNode* node = ImGui::DockBuilderGetNode(0x00000001);
-	if (node)
+	if (node != nullptr)
 	{
 		node->LocalFlags |= ImGuiDockNodeFlags_HiddenTabBar;
 	}
@@ -131,8 +135,8 @@ void SceneWindow::Draw(GameEditor* editor)
 
 	// Status Text
 	const ImVec4 COLOR = editor->b_IsPlaying ? ImVec4(0.2f, 0.8f, 0.2f, 1.0f) : ImVec4(0.8f, 0.2f, 0.2f, 1.0f);
-	const std::string& ICON = editor->b_IsPlaying ? ICON_FA_PLAY : ICON_FA_STOP;
-	const std::string& LABEL = editor->b_IsPlaying ? " PLAYING" : " STOPPED";
+	std::string_view ICON = editor->b_IsPlaying ? ICON_FA_PLAY : ICON_FA_STOP;
+	std::string_view LABEL = editor->b_IsPlaying ? " PLAYING" : " STOPPED";
 
 	ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0f);
 	ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(16.0f, 4.0f));
@@ -146,7 +150,10 @@ void SceneWindow::Draw(GameEditor* editor)
 	ImGui::PushStyleColor(ImGuiCol_ButtonActive, bgColor);
 	ImGui::PushStyleColor(ImGuiCol_Text, textColor);
 
-	std::string fullLabel = ICON + LABEL;
+	std::string fullLabel;
+	fullLabel.reserve(ICON.size() + LABEL.size());
+	fullLabel.append(ICON);
+	fullLabel.append(LABEL);
 	ImGui::Button(fullLabel.c_str(), ImVec2(0, 32.0f));
 
 	ImGui::PopStyleVar(3);
@@ -168,7 +175,11 @@ void SceneWindow::Draw(GameEditor* editor)
 	// Clean
 	if (s_bIconButton("clean_btn", ICON_FA_TRASH_CAN, ImVec2(32, 32), "Delete Build Folder"))
 	{
-		if (std::filesystem::exists("build")) std::filesystem::remove_all("build");
+		if (ProjectManager::b_HasOpenProject())
+		{
+			auto raywaves_build = std::filesystem::path(ProjectManager::GetCurrent().m_RootPath) / ".raywaves" / "build";
+			if (std::filesystem::exists(raywaves_build)) std::filesystem::remove_all(raywaves_build);
+		}
 	}
 
 	ImGui::SameLine();
@@ -190,7 +201,7 @@ void SceneWindow::Draw(GameEditor* editor)
 	ImGui::SameLine();
 
 	// Compile
-	float button_sz = 32.0f + ImGui::GetStyle().FramePadding.x * 2.0f;
+	float button_sz = 32.0f + (ImGui::GetStyle().FramePadding.x * 2.0f);
 	float status_sz = 0.0f;
 
 	if (editor->b_IsCompiling) status_sz = 20.0f + ImGui::GetStyle().ItemSpacing.x + ImGui::CalcTextSize("Compiling...").x + ImGui::GetStyle().ItemSpacing.x;
@@ -230,7 +241,7 @@ void SceneWindow::Draw(GameEditor* editor)
 	ImGui::PopStyleVar(3);
 
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
-	ImGui::BeginChild("ViewportArea", ImVec2(0, 0), false, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+	ImGui::BeginChild("ViewportArea", ImVec2(0, 0), 0, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
 
 	rlImGuiImageRenderTextureFit(editor->m_bUseOpaquePass ? &editor->m_DisplayTexture : &editor->m_RaylibTexture, true);
 

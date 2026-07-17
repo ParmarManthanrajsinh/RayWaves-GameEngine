@@ -8,8 +8,24 @@ Something broken? Don't panic. Here are the most common issues and how to fix th
 
 ## 🏗️ Build Issues
 
-### "Permission denied" when building main.exe
-*   **The Problem:** You are trying to rebuild the *engine core* (`main.exe`) while it is running.
+### "First compile is slow / downloading something"
+
+This is normal the first time. RayWaves automatically downloads three build tools:
+- Zig compiler (~170 MB)
+- Ninja (~285 KB)
+- CMake (~50 MB)
+
+**Total: ~220 MB.**
+
+You'll see log lines like `"Downloading CMake (first-time setup)..."` in the Console so you know it isn't frozen.
+
+**If download fails:**
+- Check firewall / antivirus isn't blocking `curl.exe` calls to GitHub and ziglang.org.
+- Run `Tools\setup_zig.ps1` manually from a terminal to see the exact error.
+- Once downloaded, tools are cached in `Tools/{zig,ninja,cmake}/` — subsequent compiles are fast.
+
+### "Permission denied" when building RayWaves.exe
+*   **The Problem:** You are trying to rebuild the *engine core* (`RayWaves.exe`) while it is running.
 *   **The Fix:** Close the game window, *then* rebuild.
 *   **Note:** You *can* rebuild `GameLogic.dll` while the game is running. That's the whole point!
 
@@ -46,7 +62,7 @@ Something broken? Don't panic. Here are the most common issues and how to fix th
 ### Purple/Black Textures (Missing Assets)
 *   **The Problem:** Raylib can't find the file.
 *   **The Fix:**
-    *   Check the path. Is it relative to `main.exe`?
+    *   Check the path. Is it relative to `RayWaves.exe`?
     *   Did you use forward slashes? `"Assets/player.png"` ✅ vs `"Assets\player.png"` ❌
     *   Is the file actually in the `dist/Assets` folder?
 

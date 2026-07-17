@@ -8,8 +8,8 @@ namespace ProcessRunner
     // Returns void immediately (detached thread)
     void RunBuildCommand
     (
-        const std::string_view cmd,
-        std::function<void(const std::string_view, bool)> on_output, 
-        std::function<void(bool)> on_complete
+        std::string_view cmd,
+        const std::function<void(std::string_view, bool)>& on_output, 
+        const std::function<void(bool)>& on_complete
     );
 }
