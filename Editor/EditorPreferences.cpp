@@ -9,10 +9,10 @@ EditorPreferences& EditorPreferences::GetInstance()
     return s_Instance;
 }
 
-std::string EditorPreferences::GetConfigPath() const
+std::string EditorPreferences::GetConfigPath() 
 {
     const char* appdata = std::getenv("APPDATA");
-    if (appdata)
+    if (appdata != nullptr)
     {
         std::filesystem::path dir = std::filesystem::path(appdata) / "RayWaves";
         return (dir / "editor_preferences.ini").string();

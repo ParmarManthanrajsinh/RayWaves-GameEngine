@@ -10,6 +10,7 @@ struct t_Project
     std::string m_SourceDir = "GameLogic";
     std::string m_AssetDir = "Assets";
     std::string m_EntryDll = "GameLogic.dll";
+    std::string m_IconPath = "";
     
     std::string m_SourcePath;
     std::string m_AssetPath;

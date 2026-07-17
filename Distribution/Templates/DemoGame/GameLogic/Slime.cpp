@@ -102,14 +102,14 @@ void Slime::Draw()
     // Position is center of slime, draw centered
     Rectangle Dest = 
     { 
-        m_Position.x - RENDER_SIZE / 2.0f, 
-        m_Position.y - RENDER_SIZE / 2.0f,
+        m_Position.x - (RENDER_SIZE / 2.0f), 
+        m_Position.y - (RENDER_SIZE / 2.0f),
         RENDER_SIZE, 
         RENDER_SIZE 
     };
     
     // Fade out during death
-    Color TintColor = WHITE;
+    auto TintColor = WHITE;
     if (m_bIsDying)
     {
         float Alpha = 1.0f - (static_cast<float>(m_DeathFrame) / DEATH_FRAME_COUNT);
@@ -139,8 +139,8 @@ Rectangle Slime::GetHitbox() const
     float HitboxHeight = RENDER_SIZE * 0.7f;
     return 
     { 
-        m_Position.x - HitboxWidth / 2.0f, 
-        m_Position.y - HitboxHeight / 2.0f, 
+        m_Position.x - (HitboxWidth / 2.0f), 
+        m_Position.y - (HitboxHeight / 2.0f), 
         HitboxWidth, 
         HitboxHeight 
     };

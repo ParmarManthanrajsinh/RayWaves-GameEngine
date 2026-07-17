@@ -1,9 +1,9 @@
+#include <algorithm>
 #include <iostream>
 #include "ProjectManager.h"
 #include <filesystem>
 #include <fstream>
 #include <algorithm>
-#include <iostream>
 #include <windows.h>
 #include <shlobj.h>
 
@@ -12,7 +12,7 @@ namespace fs = std::filesystem;
 fs::path ProjectManager::GetEngineRootDirectory()
 {
     char exe_path[MAX_PATH];
-    GetModuleFileNameA(NULL, exe_path, MAX_PATH);
+    GetModuleFileNameA(nullptr, exe_path, MAX_PATH);
     fs::path base_dir = fs::path(exe_path).parent_path();
 
     if (fs::exists(base_dir / "Tools" / "setup_zig.ps1"))
@@ -90,7 +90,7 @@ std::string ProjectManager::SanitizeCMakeProjectName(std::string_view name)
 
 t_Project ProjectManager::s_Current;
 bool ProjectManager::s_bOpen = false;
-std::string ProjectManager::s_RecentPath = "";
+std::string ProjectManager::s_RecentPath;
 std::recursive_mutex ProjectManager::s_Mutex;
 
 void ProjectManager::InitializeRecentPath()
@@ -98,7 +98,7 @@ void ProjectManager::InitializeRecentPath()
     if (!s_RecentPath.empty()) return;
     
     char path[MAX_PATH];
-    if (SUCCEEDED(SHGetFolderPathA(NULL, CSIDL_APPDATA, NULL, 0, path)))
+    if (SUCCEEDED(SHGetFolderPathA(nullptr, CSIDL_APPDATA, nullptr, 0, path)))
     {
         fs::path dir = fs::path(path) / "RayWaves";
         if (!fs::exists(dir)) fs::create_directories(dir);
@@ -108,11 +108,11 @@ void ProjectManager::InitializeRecentPath()
 
 bool ProjectManager::b_OpenProject(std::string_view folder_path)
 {
-    std::lock_guard<std::recursive_mutex> lock(s_Mutex);
+    std::scoped_lock lock(s_Mutex);
     std::string manifest_path = (fs::path(folder_path) / "project.raywaves").string();
     if (!fs::exists(manifest_path))
     {
-        std::cerr << "Project manifest not found at: " << manifest_path << std::endl;
+        std::cerr << "Project manifest not found at: " << manifest_path << '\n';
         return false;
     }
 
@@ -128,19 +128,14 @@ bool ProjectManager::b_OpenProject(std::string_view folder_path)
         fs::create_directories(raywaves_dir / "shadows");
         fs::create_directories(raywaves_dir / "build");
 
-        if (!GenerateCMakeLists())
-        {
-            return false;
-        }
-
-        return true;
+        return GenerateCMakeLists();
     }
     return false;
 }
 
 void ProjectManager::CloseProject()
 {
-    std::lock_guard<std::recursive_mutex> lock(s_Mutex);
+    std::scoped_lock lock(s_Mutex);
     s_bOpen = false;
     s_Current = t_Project{};
 }
@@ -150,7 +145,7 @@ bool ProjectManager::b_CreateProject(std::string_view target_folder, std::string
     fs::path target_path = target_folder;
     if (fs::exists(target_path))
     {
-        std::cerr << "Target folder already exists: " << target_folder << std::endl;
+        std::cerr << "Target folder already exists: " << target_folder << '\n';
         return false;
     }
 
@@ -165,7 +160,7 @@ bool ProjectManager::b_CreateProject(std::string_view target_folder, std::string
 
     if (!fs::exists(template_dir))
     {
-        std::cerr << "Template not found: " << template_dir.string() << std::endl;
+        std::cerr << "Template not found: " << template_dir.string() << '\n';
         return false;
     }
 
@@ -185,27 +180,27 @@ bool ProjectManager::b_CreateProject(std::string_view target_folder, std::string
     }
     catch (const std::exception& e)
     {
-        std::cerr << "Failed to create project from template: " << e.what() << std::endl;
+        std::cerr << "Failed to create project from template: " << e.what() << '\n';
         return false;
     }
 }
 
 bool ProjectManager::b_SaveCurrentProject()
 {
-    std::lock_guard<std::recursive_mutex> lock(s_Mutex);
+    std::scoped_lock lock(s_Mutex);
     if (!s_bOpen) return false;
     return s_Current.m_bSaveToFile();
 }
 
 t_Project& ProjectManager::GetCurrent()
 {
-    std::lock_guard<std::recursive_mutex> lock(s_Mutex);
+    std::scoped_lock lock(s_Mutex);
     return s_Current;
 }
 
 bool ProjectManager::b_HasOpenProject()
 {
-    std::lock_guard<std::recursive_mutex> lock(s_Mutex);
+    std::scoped_lock lock(s_Mutex);
     return s_bOpen;
 }
 
@@ -218,7 +213,7 @@ void ProjectManager::AddRecent(std::string_view path)
     std::string norm_path = fs::path(path).lexically_normal().string();
 
     // Remove if already exists
-    recent.erase(std::remove(recent.begin(), recent.end(), norm_path), recent.end());
+    std::erase(recent, norm_path);
     
     // Insert at front
     recent.insert(recent.begin(), norm_path);
@@ -246,7 +241,7 @@ void ProjectManager::RemoveRecent(std::string_view path)
     std::string norm_path = fs::path(path).lexically_normal().string();
 
     // Remove if exists
-    recent.erase(std::remove(recent.begin(), recent.end(), norm_path), recent.end());
+    std::erase(recent, norm_path);
     
     // Save
     std::ofstream file(s_RecentPath);
@@ -323,11 +318,11 @@ bool ProjectManager::GenerateCMakeLists()
         engine_dir = engine_root / "Core";
     }
     std::string engine_dir_str = engine_dir.string();
-    std::replace(engine_dir_str.begin(), engine_dir_str.end(), '\\', '/');
+    std::ranges::replace(engine_dir_str, '\\', '/');
 
     // Resolve raylib path relative to exe (staged by main build or dist layout)
     char exe_path[MAX_PATH];
-    GetModuleFileNameA(NULL, exe_path, MAX_PATH);
+    GetModuleFileNameA(nullptr, exe_path, MAX_PATH);
     fs::path exe_dir = fs::path(exe_path).parent_path();
     fs::path raylib_dir = exe_dir / "raylib";
     if (fs::exists(exe_dir / "Core" / "raylib" / "include" / "raylib.h"))
@@ -335,14 +330,14 @@ bool ProjectManager::GenerateCMakeLists()
         raylib_dir = exe_dir / "Core" / "raylib";
     }
     std::string raylib_dir_str = raylib_dir.string();
-    std::replace(raylib_dir_str.begin(), raylib_dir_str.end(), '\\', '/');
+    std::ranges::replace(raylib_dir_str, '\\', '/');
 
     std::ofstream file(cmake_path);
     if (!file.is_open()) return false;
 
     fs::path tools_dir = GetToolsDirectory();
     std::string tools_dir_str = tools_dir.string();
-    std::replace(tools_dir_str.begin(), tools_dir_str.end(), '\\', '/');
+    std::ranges::replace(tools_dir_str, '\\', '/');
 
     file << "cmake_minimum_required(VERSION 3.10)\n\n";
 
@@ -352,7 +347,7 @@ bool ProjectManager::GenerateCMakeLists()
     file << "        execute_process(\n";
     file << "            COMMAND powershell -ExecutionPolicy Bypass -File \"" << tools_dir_str << "/setup_zig.ps1\" -SkipRcEdit\n";
     std::string engine_root_str = engine_root.string();
-    std::replace(engine_root_str.begin(), engine_root_str.end(), '\\', '/');
+    std::ranges::replace(engine_root_str, '\\', '/');
     file << "            WORKING_DIRECTORY \"" << engine_root_str << "\"\n";
     file << "            RESULT_VARIABLE ZIG_FETCH_RESULT\n";
     file << "        )\n";

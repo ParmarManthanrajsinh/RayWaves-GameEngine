@@ -36,7 +36,8 @@
 
 #include "imgui.h"
 
-#include <math.h>
+#include <cmath>
+#include <cmath>
 #include <map>
 #include <limits>
 #include <cstdint>
@@ -72,12 +73,12 @@ struct ImGui_ImplRaylib_Data
 
 ImGui_ImplRaylib_Data* ImGui_ImplRaylib_GetBackendData()
 {
-    return ImGui::GetCurrentContext() ? static_cast<ImGui_ImplRaylib_Data*>(ImGui::GetPlatformIO().Renderer_RenderState) : nullptr;
+    return (ImGui::GetCurrentContext() != nullptr) ? static_cast<ImGui_ImplRaylib_Data*>(ImGui::GetPlatformIO().Renderer_RenderState) : nullptr;
 }
 
 void ImGui_ImplRaylib_CreateBackendData()
 {
-	if (!ImGui::GetCurrentContext() || ImGui::GetPlatformIO().Renderer_RenderState)
+	if ((ImGui::GetCurrentContext() == nullptr) || (ImGui::GetPlatformIO().Renderer_RenderState != nullptr))
 		return;
 
 	ImGui::GetPlatformIO().Renderer_RenderState = MemAlloc(sizeof(ImGui_ImplRaylib_Data));
@@ -85,16 +86,16 @@ void ImGui_ImplRaylib_CreateBackendData()
 
 void ImGui_ImplRaylib_FreeBackendData()
 {
-    if (!ImGui::GetCurrentContext())
+    if (ImGui::GetCurrentContext() == nullptr)
         return;
 
     MemFree(ImGui::GetPlatformIO().Renderer_RenderState);
 }
 
-void ReloadFonts(void)
+void ReloadFonts()
 {
     auto* platData = ImGui_ImplRaylib_GetBackendData();
-    if (!platData)
+    if (platData == nullptr)
         return;
 
     ImGuiPlatformIO& platIo = ImGui::GetPlatformIO();
@@ -116,12 +117,12 @@ void ReloadFonts(void)
     io.Fonts->TexID = static_cast<ImTextureID>(platData->FontTexture.id);
 }
 
-static const char* GetClipTextCallback(ImGuiContext*)
+static const char* GetClipTextCallback(ImGuiContext* /*unused*/)
 {
     return GetClipboardText();
 }
 
-static void SetClipTextCallback(ImGuiContext*, const char* text)
+static void SetClipTextCallback(ImGuiContext* /*unused*/, const char* text)
 {
     SetClipboardText(text);
 }
@@ -130,11 +131,11 @@ static void ImGuiNewFrame(float deltaTime)
 {
     ImGuiIO& io = ImGui::GetIO();
 	auto* platData = ImGui_ImplRaylib_GetBackendData();
-    if (!platData)
+    if (platData == nullptr)
     {
         ImGui_ImplRaylib_CreateBackendData();
         platData = ImGui_ImplRaylib_GetBackendData();
-        if (!platData)
+        if (platData == nullptr)
             return;
     }
 
@@ -147,16 +148,16 @@ static void ImGuiNewFrame(float deltaTime)
     if (IsWindowFullscreen())
     {
         int monitor = GetCurrentMonitor();
-        io.DisplaySize.x = float(GetMonitorWidth(monitor));
-        io.DisplaySize.y = float(GetMonitorHeight(monitor));
+        io.DisplaySize.x = static_cast<float>(GetMonitorWidth(monitor));
+        io.DisplaySize.y = static_cast<float>(GetMonitorHeight(monitor));
     }
     else
     {
-        io.DisplaySize.x = float(GetScreenWidth());
-        io.DisplaySize.y = float(GetScreenHeight());
+        io.DisplaySize.x = static_cast<float>(GetScreenWidth());
+        io.DisplaySize.y = static_cast<float>(GetScreenHeight());
     }
 
-#if !defined(__APPLE__)
+#ifndef __APPLE__
     if (!IsWindowState(FLAG_WINDOW_HIGHDPI))
         resolutionScale = Vector2{ 1,1 };
 #endif
@@ -172,7 +173,7 @@ static void ImGuiNewFrame(float deltaTime)
 
     io.DeltaTime = deltaTime;
 
-    if (ImGui::GetIO().BackendFlags & ImGuiBackendFlags_HasMouseCursors)
+    if ((ImGui::GetIO().BackendFlags & ImGuiBackendFlags_HasMouseCursors) != 0)
     {
         if ((io.ConfigFlags & ImGuiConfigFlags_NoMouseCursorChange) == 0)
         {
@@ -188,7 +189,7 @@ static void ImGuiNewFrame(float deltaTime)
                 {
                     ShowCursor();
 
-                    if (!(io.ConfigFlags & ImGuiConfigFlags_NoMouseCursorChange))
+                    if ((io.ConfigFlags & ImGuiConfigFlags_NoMouseCursorChange) == 0)
                     {
                         SetMouseCursor((imgui_cursor > -1 && imgui_cursor < ImGuiMouseCursor_COUNT) ? MouseCursorMap[imgui_cursor] : MOUSE_CURSOR_DEFAULT);
                     }
@@ -200,7 +201,7 @@ static void ImGuiNewFrame(float deltaTime)
 
 static void ImGuiTriangleVert(ImDrawVert& idx_vert)
 {
-    Color *c = reinterpret_cast<Color*>(&idx_vert.col);
+    auto *c = reinterpret_cast<Color*>(&idx_vert.col);
     rlColor4ub(c->r, c->g, c->b, c->a);
     rlTexCoord2f(idx_vert.uv.x, idx_vert.uv.y);
     rlVertex2f(idx_vert.pos.x, idx_vert.pos.y);
@@ -211,7 +212,7 @@ static void ImGuiRenderTriangles(unsigned int count, int indexStart, const ImVec
     if (count < 3)
         return;
 
-    unsigned int textureId = static_cast<unsigned int>(texturePtr);
+    auto textureId = static_cast<unsigned int>(texturePtr);
 
     rlBegin(RL_TRIANGLES);
     rlSetTexture(textureId);
@@ -239,7 +240,7 @@ static void EnableScissor(float x, float y, float width, float height)
     ImGuiIO& io = ImGui::GetIO();
 
     ImVec2 scale = io.DisplayFramebufferScale;
-#if !defined(__APPLE__)
+#ifndef __APPLE__
     if (!IsWindowState(FLAG_WINDOW_HIGHDPI))
     {
         scale.x = 1;
@@ -247,13 +248,13 @@ static void EnableScissor(float x, float y, float width, float height)
     }
 #endif
 
-    rlScissor((int)(x * scale.x),
-        int((io.DisplaySize.y - (int)(y + height)) * scale.y),
-        (int)(width * scale.x),
-        (int)(height * scale.y));
+    rlScissor(static_cast<int>(x * scale.x),
+        static_cast<int>((io.DisplaySize.y - static_cast<int>(y + height)) * scale.y),
+        static_cast<int>(width * scale.x),
+        static_cast<int>(height * scale.y));
 }
 
-static void SetupMouseCursors(void)
+static void SetupMouseCursors()
 {
     MouseCursorMap[ImGuiMouseCursor_Arrow] = MOUSE_CURSOR_ARROW;
     MouseCursorMap[ImGuiMouseCursor_TextInput] = MOUSE_CURSOR_IBEAM;
@@ -266,7 +267,7 @@ static void SetupMouseCursors(void)
     MouseCursorMap[ImGuiMouseCursor_NotAllowed] = MOUSE_CURSOR_NOT_ALLOWED;
 }
 
-void SetupFontAwesome(void)
+void SetupFontAwesome()
 {
 #ifndef NO_FONT_AWESOME
     static const ImWchar icons_ranges[] = { ICON_MIN_FA, ICON_MAX_FA, 0 };
@@ -285,7 +286,7 @@ void SetupFontAwesome(void)
     ImGuiIO& io = ImGui::GetIO();
 
     float size = FONT_AWESOME_ICON_SIZE;
-#if !defined(__APPLE__)
+#ifndef __APPLE__
     if (!IsWindowState(FLAG_WINDOW_HIGHDPI))
         size *= GetWindowScaleDPI().y;
 
@@ -298,7 +299,7 @@ void SetupFontAwesome(void)
 
 }
 
-void SetupBackend(void)
+void SetupBackend()
 {
     ImGuiIO& io = ImGui::GetIO();
     io.BackendPlatformName = "imgui_impl_raylib";
@@ -331,7 +332,7 @@ void rlImGuiEndInitImGui(void)
     SetupBackend();
 }
 
-static void SetupKeymap(void)
+static void SetupKeymap()
 {
     if (!RaylibKeyMap.empty())
         return;
@@ -444,7 +445,7 @@ static void SetupKeymap(void)
     RaylibKeyMap[KEY_KP_EQUAL] = ImGuiKey_KeypadEqual;
 }
 
-static void SetupGlobals(void)
+static void SetupGlobals()
 {
     LastFrameFocused = IsWindowFocused();
     LastControlPressed = false;
@@ -467,7 +468,7 @@ void rlImGuiBeginInitImGui(void)
 	static constexpr int DefaultFonSize = 13;
 
     defaultConfig.SizePixels = DefaultFonSize;
-#if !defined(__APPLE__)
+#ifndef __APPLE__
 	if (!IsWindowState(FLAG_WINDOW_HIGHDPI))
         defaultConfig.SizePixels = ceilf(defaultConfig.SizePixels * GetWindowScaleDPI().y);
 
@@ -533,65 +534,65 @@ void rlImGuiShutdown(void)
 
 void rlImGuiImage(const Texture* image)
 {
-    if (!image)
+    if (image == nullptr)
         return;
     
-    if (GlobalContext)
+    if (GlobalContext != nullptr)
         ImGui::SetCurrentContext(GlobalContext);
     
-    ImGui::Image(ImTextureID(image->id), ImVec2(float(image->width), float(image->height)));
+    ImGui::Image(static_cast<ImTextureID>(image->id), ImVec2(static_cast<float>(image->width), static_cast<float>(image->height)));
 }
 
 bool rlImGuiImageButton(const char* name, const Texture* image)
 {
-    if (!image)
+    if (image == nullptr)
         return false;
     
-    if (GlobalContext)
+    if (GlobalContext != nullptr)
         ImGui::SetCurrentContext(GlobalContext);
     
-    return ImGui::ImageButton(name, ImTextureID(image->id), ImVec2(float(image->width), float(image->height)));
+    return ImGui::ImageButton(name, static_cast<ImTextureID>(image->id), ImVec2(static_cast<float>(image->width), static_cast<float>(image->height)));
 }
 
 bool rlImGuiImageButtonSize(const char* name, const Texture* image, Vector2 size)
 {
-    if (!image)
+    if (image == nullptr)
         return false;
     
-    if (GlobalContext)
+    if (GlobalContext != nullptr)
         ImGui::SetCurrentContext(GlobalContext);
    
-    return ImGui::ImageButton(name, ImTextureID(image->id), ImVec2(size.x, size.y));
+    return ImGui::ImageButton(name, static_cast<ImTextureID>(image->id), ImVec2(size.x, size.y));
 }
 
 void rlImGuiImageSize(const Texture* image, int width, int height)
 {
-    if (!image)
+    if (image == nullptr)
         return;
     
-    if (GlobalContext)
+    if (GlobalContext != nullptr)
         ImGui::SetCurrentContext(GlobalContext);
     
-    ImGui::Image(ImTextureID(image->id), ImVec2(float(width), float(height)));
+    ImGui::Image(static_cast<ImTextureID>(image->id), ImVec2(static_cast<float>(width), static_cast<float>(height)));
 }
 
 void rlImGuiImageSizeV(const Texture* image, Vector2 size)
 {
-    if (!image)
+    if (image == nullptr)
         return;
     
-    if (GlobalContext)
+    if (GlobalContext != nullptr)
         ImGui::SetCurrentContext(GlobalContext);
     
-    ImGui::Image(ImTextureID(image->id), ImVec2(size.x, size.y));
+    ImGui::Image(static_cast<ImTextureID>(image->id), ImVec2(size.x, size.y));
 }
 
 void rlImGuiImageRect(const Texture* image, int destWidth, int destHeight, Rectangle sourceRect)
 {
-    if (!image)
+    if (image == nullptr)
         return;
     
-    if (GlobalContext)
+    if (GlobalContext != nullptr)
         ImGui::SetCurrentContext(GlobalContext);
     
     ImVec2 uv0;
@@ -600,45 +601,45 @@ void rlImGuiImageRect(const Texture* image, int destWidth, int destHeight, Recta
     if (sourceRect.width < 0)
     {
         uv0.x = -sourceRect.x / image->width;
-        uv1.x = (uv0.x - float(fabs(sourceRect.width) / image->width));
+        uv1.x = (uv0.x - static_cast<float>(std::fabs(sourceRect.width) / image->width));
     }
     else
     {
         uv0.x = sourceRect.x / image->width;
-        uv1.x = uv0.x + float(sourceRect.width / image->width);
+        uv1.x = uv0.x + (sourceRect.width / image->width);
     }
 
     if (sourceRect.height < 0)
     {
         uv0.y = -sourceRect.y / image->height;
-        uv1.y = (uv0.y - fabsf(sourceRect.height) / image->height);
+        uv1.y = (uv0.y - (fabsf(sourceRect.height) / image->height));
     }
     else
     {
         uv0.y = sourceRect.y / image->height;
-        uv1.y = uv0.y + sourceRect.height / image->height;
+        uv1.y = uv0.y + (sourceRect.height / image->height);
     }
 
-    ImGui::Image((ImTextureID)image->id, ImVec2(float(destWidth), float(destHeight)), uv0, uv1);
+    ImGui::Image(static_cast<ImTextureID>(image->id), ImVec2(static_cast<float>(destWidth), static_cast<float>(destHeight)), uv0, uv1);
 }
 
 void rlImGuiImageRenderTexture(const RenderTexture* image)
 {
-    if (!image)
+    if (image == nullptr)
         return;
     
-    if (GlobalContext)
+    if (GlobalContext != nullptr)
         ImGui::SetCurrentContext(GlobalContext);
     
-    rlImGuiImageRect(&image->texture, image->texture.width, image->texture.height, Rectangle{ 0,0, float(image->texture.width), -float(image->texture.height) });
+    rlImGuiImageRect(&image->texture, image->texture.width, image->texture.height, Rectangle{ 0,0, static_cast<float>(image->texture.width), -static_cast<float>(image->texture.height) });
 }
 
 void rlImGuiImageRenderTextureFit(const RenderTexture* image, bool center)
 {
-    if (!image)
+    if (image == nullptr)
         return;
     
-    if (GlobalContext)
+    if (GlobalContext != nullptr)
         ImGui::SetCurrentContext(GlobalContext);
 
     ImVec2 area = ImGui::GetContentRegionAvail();
@@ -651,21 +652,21 @@ void rlImGuiImageRenderTextureFit(const RenderTexture* image, bool center)
         scale = area.y / image->texture.height;
     }
 
-    int sizeX = int(image->texture.width * scale);
-    int sizeY = int(image->texture.height * scale);
+    int sizeX = static_cast<int>(image->texture.width * scale);
+    int sizeY = static_cast<int>(image->texture.height * scale);
 
     if (center)
     {
         ImGui::SetCursorPosX(0);
-        ImGui::SetCursorPosX(area.x/2 - sizeX/2);
-        ImGui::SetCursorPosY(ImGui::GetCursorPosY() + (area.y / 2 - sizeY / 2));
+        ImGui::SetCursorPosX((area.x/2) - (sizeX/2));
+        ImGui::SetCursorPosY(ImGui::GetCursorPosY() + ((area.y / 2) - (sizeY / 2)));
     }
 
-    rlImGuiImageRect(&image->texture, sizeX, sizeY, Rectangle{ 0,0, float(image->texture.width), -float(image->texture.height) });
+    rlImGuiImageRect(&image->texture, sizeX, sizeY, Rectangle{ 0,0, static_cast<float>(image->texture.width), -static_cast<float>(image->texture.height) });
 }
 
 // raw ImGui backend API
-bool ImGui_ImplRaylib_Init(void)
+bool ImGui_ImplRaylib_Init()
 {
     SetupGlobals();
 
@@ -678,7 +679,7 @@ bool ImGui_ImplRaylib_Init(void)
     return true;
 }
 
-void ImGui_ImplRaylib_BuildFontAtlas(void)
+void ImGui_ImplRaylib_BuildFontAtlas()
 {
     ReloadFonts();
 }
@@ -689,7 +690,7 @@ void ImGui_ImplRaylib_Shutdown()
 
     auto* plat = ImGui_ImplRaylib_GetBackendData();
 
-    if (plat && IsTextureValid(plat->FontTexture))
+    if ((plat != nullptr) && IsTextureValid(plat->FontTexture))
     {
         UnloadTexture(plat->FontTexture);
     }
@@ -697,7 +698,7 @@ void ImGui_ImplRaylib_Shutdown()
     ImGui_ImplRaylib_FreeBackendData();
 }
 
-void ImGui_ImplRaylib_NewFrame(void)
+void ImGui_ImplRaylib_NewFrame()
 {
     ImGuiNewFrame(GetFrameTime());
 }
@@ -748,7 +749,7 @@ void HandleGamepadStickEvent(ImGuiIO& io, GamepadAxis axis, ImGuiKey negKey, ImG
     io.AddKeyAnalogEvent(posKey, axisValue > deadZone, axisValue > deadZone ? axisValue : 0);
 }
 
-bool ImGui_ImplRaylib_ProcessEvents(void) 
+bool ImGui_ImplRaylib_ProcessEvents() 
 {
     ImGuiIO& io = ImGui::GetIO();
 
@@ -800,7 +801,7 @@ bool ImGui_ImplRaylib_ProcessEvents(void)
 
     bool processsMouse = focused;
 
-#if defined(RLIMGUI_ALWAYS_TRACK_MOUSE)
+#ifdef RLIMGUI_ALWAYS_TRACK_MOUSE
     processsMouse = true;
 #endif
 
@@ -808,7 +809,7 @@ bool ImGui_ImplRaylib_ProcessEvents(void)
     {
         if (!io.WantSetMousePos)
         {
-            io.AddMousePosEvent(float(GetMouseX()), float(GetMouseY()));
+            io.AddMousePosEvent(static_cast<float>(GetMouseX()), static_cast<float>(GetMouseY()));
         }
 
         auto setMouseEvent = [&io](int rayMouse, int imGuiMouse)
@@ -835,7 +836,7 @@ bool ImGui_ImplRaylib_ProcessEvents(void)
         io.AddMousePosEvent(std::numeric_limits<float>::min(), std::numeric_limits<float>::min());
     }
 
-    if (io.ConfigFlags & ImGuiConfigFlags_NavEnableGamepad && IsGamepadAvailable(0))
+    if (((io.ConfigFlags & ImGuiConfigFlags_NavEnableGamepad) != 0) && IsGamepadAvailable(0))
     {
         HandleGamepadButtonEvent(io, GAMEPAD_BUTTON_LEFT_FACE_UP, ImGuiKey_GamepadDpadUp);
         HandleGamepadButtonEvent(io, GAMEPAD_BUTTON_LEFT_FACE_RIGHT, ImGuiKey_GamepadDpadRight);

@@ -8,7 +8,7 @@ public:
     using GameMap::GameMap;
 
     void Initialize() override {}
-    void Update(float) override {}
+    void Update(float /*delta_time*/) override {}
     void Draw() override {}
     void SaveState(StateBag& out) const override { out = m_SavedState; }
     void LoadState(const StateBag& in) override { m_SavedState = in; }

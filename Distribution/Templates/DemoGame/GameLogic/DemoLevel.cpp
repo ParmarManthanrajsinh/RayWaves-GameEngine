@@ -42,7 +42,7 @@ void DemoLevel::Initialize()
     m_BackgroundLayers.emplace_back(LoadTexture(AssetResolver::Resolve("background_2.png").c_str()));
 
     Reset();
-    std::cout << "[DemoLevel] Assets Loaded & Initialized" << std::endl;
+    std::cout << "[DemoLevel] Assets Loaded & Initialized" << '\n';
 }
 
 void DemoLevel::Reset()
@@ -92,7 +92,7 @@ void DemoLevel::Reset()
     m_Slimes.push_back(Slime3);
 }
 
-inline Rectangle DemoLevel::GetTileRect(int32_t Col, int32_t Row) const
+inline Rectangle DemoLevel::GetTileRect(int32_t Col, int32_t Row) 
 {
     return 
     { 
@@ -103,9 +103,9 @@ inline Rectangle DemoLevel::GetTileRect(int32_t Col, int32_t Row) const
     };
 }
 
-inline int32_t DemoLevel::PseudoRandom(int32_t X, int32_t Seed) const
+inline int32_t DemoLevel::PseudoRandom(int32_t X, int32_t Seed) 
 {
-    int32_t Hash = X * 374761393 + Seed * 668265263;
+    int32_t Hash = (X * 374761393) + (Seed * 668265263);
     Hash = (Hash ^ (Hash >> 13)) * 1274126177;
     return Hash ^ (Hash >> 16);
 }
@@ -129,8 +129,8 @@ void DemoLevel::Update(float DeltaTime)
     m_Player.ApplyGravity(DeltaTime, GRAVITY);
     m_Player.ResolveCollisions(DeltaTime, m_GroundTiles);
     
-    float LevelLeft = -10.0f * TileRenderSize + 32.0f;
-    float LevelRight = 60.0f * TileRenderSize - 32.0f;
+    float LevelLeft = (-10.0f * TileRenderSize) + 32.0f;
+    float LevelRight = (60.0f * TileRenderSize) - 32.0f;
     m_Player.ClampToLevel(LevelLeft, LevelRight);
     
     m_Camera.FollowTarget(m_Player.GetPosition(), DeltaTime, 5.0f);
@@ -204,7 +204,7 @@ void DemoLevel::DrawBackground()
         
         float Overlap = 64.0f;
         float Offset = (FloorY - ScaledH) - (GroundCamY * (1.0f - Speed)) + Overlap;
-        float BgY = CamTarget.y * (1.0f - Speed) + Offset;
+        float BgY = (CamTarget.y * (1.0f - Speed)) + Offset;
         
         for (int32_t k = -1; k <= 2; ++k)
         {
@@ -212,7 +212,7 @@ void DemoLevel::DrawBackground()
             (
                 Tex,
                 { 0, 0, static_cast<float>(Tex.width), static_cast<float>(Tex.height) },
-                { AlignedX + k * ScaledW, BgY, ScaledW, ScaledH },
+                { AlignedX + (k * ScaledW), BgY, ScaledW, ScaledH },
                 { 0, 0 },
                 0,
                 WHITE
@@ -313,18 +313,18 @@ void DemoLevel::DrawSparkles()
     for (int32_t s = 0; s < 12; ++s)
     {
         float SparkleX = 
-            50.0f + s * 120.0f + static_cast<float>(sin(Time * 0.5 + s)) * 8.0f;
+            50.0f + (s * 120.0f) + (static_cast<float>(sin((Time * 0.5) + s)) * 8.0f);
 
         float SparkleY = 
-            280.0f + static_cast<float>(cos(Time * 0.3 + s * 0.7)) * 40.0f;
+            280.0f + (static_cast<float>(cos((Time * 0.3) + (s * 0.7))) * 40.0f);
 
-        float Alpha = (static_cast<float>(sin(Time * 2.0 + s)) + 1.0f) * 0.4f;
+        float Alpha = (static_cast<float>(sin((Time * 2.0) + s)) + 1.0f) * 0.4f;
         
         DrawCircle
         (
             static_cast<int>(SparkleX),
-            static_cast<int>(SparkleY),
             2,
+            static_cast<int>(SparkleY),
             Color{ 255, 230, 180, static_cast<unsigned char>(Alpha * 200) }
         );
     }

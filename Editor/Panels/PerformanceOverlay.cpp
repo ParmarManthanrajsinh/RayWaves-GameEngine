@@ -30,7 +30,7 @@ void PerformanceOverlay::Draw(GameEditor* editor)
 		for (float t : editor->m_FrameTimes)
 		{
 			avg_frame_time += t;
-			if (t > max_frame_time) max_frame_time = t;
+			max_frame_time = std::max(t, max_frame_time);
 		}
 		avg_frame_time /= editor->m_FrameTimes.size();
 
@@ -48,7 +48,7 @@ void PerformanceOverlay::Draw(GameEditor* editor)
 		ImGui::Text("System Breakdown (avg ms)");
 
 		auto snapshots = Profiler::Get().GetAverages();
-		std::sort(snapshots.begin(), snapshots.end(),
+		std::ranges::sort(snapshots,
 			[](const ProfilerSnapshot& a, const ProfilerSnapshot& b) { return a.m_AvgMs > b.m_AvgMs; });
 
 		ImGui::Columns(3, "perf_cols", false);

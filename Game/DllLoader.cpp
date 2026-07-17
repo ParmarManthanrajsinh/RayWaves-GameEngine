@@ -23,7 +23,7 @@ void CleanupStaleShadowCopies()
                 if (!entry.is_regular_file()) continue;
                 
                 std::string filename = entry.path().filename().string();
-                if (filename.find(".shadow.") == std::string::npos) continue;
+                if (!filename.contains(".shadow.")) continue;
                 if (entry.path().extension() != ".dll") continue;
 
                 // Only delete files older than 1 hour
@@ -93,7 +93,7 @@ DllHandle LoadDll(const char* PATH)
 
         // Build a unique filename: GameLogic.shadow.<pid>.<tick>.dll
         DWORD pid = GetCurrentProcessId();
-        DWORD ticks = static_cast<DWORD>(GetTickCount64());
+        auto ticks = static_cast<DWORD>(GetTickCount64());
 
         // stem() will return file name without extention
         std::string base_name = src_path.stem().string();
@@ -139,7 +139,7 @@ DllHandle LoadDll(const char* PATH)
 
 void UnloadDll(DllHandle& dll) 
 {
-    if (dll.handle) 
+    if (dll.handle != nullptr) 
     {
         FreeLibrary
         (
@@ -155,7 +155,7 @@ void UnloadDll(DllHandle& dll)
         
         // Only delete if it looks like one of our shadow copies
         std::string filename = p.filename().string();
-        if (filename.find(".shadow.") != std::string::npos)
+        if (filename.contains(".shadow."))
         {
             std::error_code ec;
             fs::remove(p, ec);
@@ -164,9 +164,9 @@ void UnloadDll(DllHandle& dll)
     }
 }
 
-void* GetDllSymbol(DllHandle dll, const char* SYMBOL_NAME) 
+void* GetDllSymbol(const DllHandle& dll, const char* SYMBOL_NAME) 
 {
-    if (!dll.handle)
+    if (dll.handle == nullptr)
     {
         return nullptr;
     }

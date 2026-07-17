@@ -38,6 +38,20 @@ if(RAYWAVES_DISTRIBUTION_BUILD)
     message(STATUS "Profiler disabled for distribution build")
 endif()
 
+option(ENABLE_CLANG_TIDY "Run clang-tidy static analysis during build" OFF)
+if(ENABLE_CLANG_TIDY)
+    find_program(CLANG_TIDY clang-tidy
+        HINTS "C:/Program Files/LLVM/bin"
+        NO_CMAKE_PATH NO_CMAKE_ENVIRONMENT_PATH
+    )
+    if(CLANG_TIDY)
+        set(CMAKE_CXX_CLANG_TIDY "${CLANG_TIDY}")
+        message(STATUS "clang-tidy enabled: ${CLANG_TIDY}")
+    else()
+        message(WARNING "ENABLE_CLANG_TIDY=ON but clang-tidy not found in PATH")
+    endif()
+endif()
+
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -78,13 +92,16 @@ unset(CMAKE_CXX_FLAGS_BACKUP)
 set(RAYLIB_BUILD_DIR "${CMAKE_BINARY_DIR}/_deps/raylib-build/raylib")
 set(RAYLIB_STAGEDIR "${CMAKE_BINARY_DIR}/raylib")
 file(MAKE_DIRECTORY "${RAYLIB_STAGEDIR}/include" "${RAYLIB_STAGEDIR}/lib")
-file(COPY "${RAYLIB_BUILD_DIR}/include/raylib.h"   DESTINATION "${RAYLIB_STAGEDIR}/include/")
-file(COPY "${RAYLIB_BUILD_DIR}/include/raymath.h"  DESTINATION "${RAYLIB_STAGEDIR}/include/")
-file(COPY "${RAYLIB_BUILD_DIR}/include/rcamera.h"  DESTINATION "${RAYLIB_STAGEDIR}/include/")
-file(COPY "${RAYLIB_BUILD_DIR}/include/rlgl.h"     DESTINATION "${RAYLIB_STAGEDIR}/include/")
-file(COPY "${RAYLIB_BUILD_DIR}/libraylib.dll.a"    DESTINATION "${RAYLIB_STAGEDIR}/lib/")
-if(EXISTS "${RAYLIB_STAGEDIR}/lib/libraylib.dll.a" AND NOT EXISTS "${RAYLIB_STAGEDIR}/lib/libraylib.a")
-    file(RENAME "${RAYLIB_STAGEDIR}/lib/libraylib.dll.a" "${RAYLIB_STAGEDIR}/lib/libraylib.a")
+foreach(HDR raylib.h raymath.h rcamera.h rlgl.h)
+    if(EXISTS "${RAYLIB_BUILD_DIR}/include/${HDR}")
+        file(COPY "${RAYLIB_BUILD_DIR}/include/${HDR}" DESTINATION "${RAYLIB_STAGEDIR}/include/")
+    endif()
+endforeach()
+if(EXISTS "${RAYLIB_BUILD_DIR}/libraylib.dll.a")
+    file(COPY "${RAYLIB_BUILD_DIR}/libraylib.dll.a" DESTINATION "${RAYLIB_STAGEDIR}/lib/")
+    if(EXISTS "${RAYLIB_STAGEDIR}/lib/libraylib.dll.a" AND NOT EXISTS "${RAYLIB_STAGEDIR}/lib/libraylib.a")
+        file(RENAME "${RAYLIB_STAGEDIR}/lib/libraylib.dll.a" "${RAYLIB_STAGEDIR}/lib/libraylib.a")
+    endif()
 endif()
 
 # Collect source files
@@ -180,6 +197,7 @@ add_executable(main WIN32
     ${RLIMGUI_SRC}
     ${IMGUI_SRC}
     ${TINYFILEDIALOGS}
+    EngineContent/app.rc
 )
 set_target_properties(main PROPERTIES OUTPUT_NAME "RayWaves")
 target_link_options(main PRIVATE -Wl,--subsystem,windows)
@@ -228,6 +246,7 @@ add_custom_command(TARGET GameLogic POST_BUILD
 add_executable(game WIN32
     Game/game.cpp
     Game/DllLoader.cpp
+    EngineContent/app.rc
 )
 target_link_options(game PRIVATE -Wl,--subsystem,windows)
 if(RAYWAVES_DISTRIBUTION_BUILD)

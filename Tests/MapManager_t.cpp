@@ -6,7 +6,7 @@ public:
     using GameMap::GameMap;
 
     void Initialize() override { m_Initialized = true; }
-    void Update(float) override {}
+    void Update(float /*delta_time*/) override {}
     void Draw() override {}
     void SaveState(StateBag& out) const override {}
     void LoadState(const StateBag& in) override {}

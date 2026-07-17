@@ -1,0 +1,16 @@
+HeaderFilterRegex: 'Engine/|Editor/|Game/|Distribution/|Tests/(?!doctest)'
+Checks: >
+  bugprone-*,
+  performance-*,
+  modernize-*,
+  readability-*,
+  -modernize-use-trailing-return-type,
+  -readability-magic-numbers,
+  -readability-avoid-const-params-in-decls,
+  -readability-uppercase-literal-suffix,
+  -readability-identifier-naming,
+  -readability-braces-around-statements,
+  -modernize-use-designated-initializers,
+  -modernize-use-starts-ends-with,
+  -modernize-use-using,
+  -bugprone-throwing-static-initialization

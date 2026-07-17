@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <iostream>
+#include <utility>
 #include <vector>
 #include <array>
 #include <mutex>
@@ -8,8 +9,8 @@
 #include <chrono>
 #include <ctime>
 #include <imgui_internal.h>
-#define _CRTDBG_MAP_ALLOC
-#include <stdlib.h>
+#define CRTDBG_MAP_ALLOC
+#include <cstdlib>
 #include <crtdbg.h>
 
 #if defined(_DEBUG) && defined(_MSC_VER) && !defined(__clang__)
@@ -36,7 +37,7 @@ namespace term
     Terminal::Terminal() 
     {
         // Register this instance for Raylib callbacks
-        std::lock_guard<std::mutex> lock(s_callback_mutex);
+        std::scoped_lock lock(s_callback_mutex);
         s_callback_instance = this;
     }
 
@@ -53,7 +54,7 @@ namespace term
         
         // Unregister from callbacks
         {
-            std::lock_guard<std::mutex> lock(s_callback_mutex);
+            std::scoped_lock lock(s_callback_mutex);
             if (s_callback_instance == this) 
             {
                 s_callback_instance = nullptr;
@@ -61,12 +62,12 @@ namespace term
         }
         
         // Restore streams before deleting buffers
-        if (m_old_cout) 
+        if (m_old_cout != nullptr) 
         {
             std::cout.rdbuf(m_old_cout);
             m_old_cout = nullptr;
         }
-        if (m_old_cerr) 
+        if (m_old_cerr != nullptr) 
         {
             std::cerr.rdbuf(m_old_cerr);
             m_old_cerr = nullptr;
@@ -100,8 +101,8 @@ namespace term
     void Terminal::RaylibLogCallback(int logLevel, const char* text, va_list args) 
     {
         // Thread-safe access to terminal instance
-        std::lock_guard<std::mutex> lock(s_callback_mutex);
-        if (!s_callback_instance) return;
+        std::scoped_lock lock(s_callback_mutex);
+        if (s_callback_instance == nullptr) return;
 
         // Thread-safe buffer (on stack)
         char buffer[1024];
@@ -159,7 +160,7 @@ namespace term
     {
         if (is_shutting_down()) return;
         
-        std::lock_guard<std::mutex> lock(m_mutex);
+        std::scoped_lock lock(m_mutex);
         
         // Limit log size
         if (m_messages.size() >= m_max_log_size) 
@@ -173,7 +174,7 @@ namespace term
 
     void Terminal::clear() 
     {
-        std::lock_guard<std::mutex> lock(m_mutex);
+        std::scoped_lock lock(m_mutex);
         m_messages.clear();
     }
 
@@ -219,14 +220,14 @@ namespace term
 
         ImGui::SetWindowFontScale(m_theme.font_scale);
 
-        float footer_height = ImGui::GetFrameHeight() + m_theme.item_spacing * 2.0f;
-        float settings_height = ImGui::GetFrameHeight() + m_theme.item_spacing * 2.0f;
+        float footer_height = ImGui::GetFrameHeight() + (m_theme.item_spacing * 2.0f);
+        float settings_height = ImGui::GetFrameHeight() + (m_theme.item_spacing * 2.0f);
         ImVec2 avail = ImGui::GetContentRegionAvail();
         
         render_settings_bar(ImVec2(avail.x, settings_height));
 
         float log_height = avail.y - footer_height - settings_height;
-        if (log_height < 50) log_height = 50;
+        log_height = std::max<float>(log_height, 50);
 
         render_log_window(ImVec2(avail.x, log_height));
         render_input_bar(ImVec2(avail.x, footer_height));
@@ -244,10 +245,10 @@ namespace term
         ImGui::PushStyleColor(ImGuiCol_ButtonActive, m_theme.button_active);
         ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
 
-        float clear_btn_width = ImGui::CalcTextSize(ICON_FA_TRASH_CAN " Clear Log").x + ImGui::GetStyle().FramePadding.x * 2.0f;
+        float clear_btn_width = ImGui::CalcTextSize(ICON_FA_TRASH_CAN " Clear Log").x + (ImGui::GetStyle().FramePadding.x * 2.0f);
         
         // Search/Filter
-        ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - clear_btn_width - ImGui::GetStyle().ItemSpacing.x * 2.0f);
+        ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - clear_btn_width - (ImGui::GetStyle().ItemSpacing.x * 2.0f));
         ImGui::PushStyleColor(ImGuiCol_FrameBg, ImGui::GetStyle().Colors[ImGuiCol_FrameBg]);
         ImGui::InputTextWithHint
         (
@@ -281,7 +282,7 @@ namespace term
         ImGuiWindowFlags flags = ImGuiWindowFlags_HorizontalScrollbar;
         if (!m_auto_wrap) flags |= ImGuiWindowFlags_AlwaysHorizontalScrollbar;
 
-        ImGui::BeginChild("##LogWindow", ImVec2(size.x, size.y), true, flags);
+        ImGui::BeginChild("##LogWindow", ImVec2(size.x, size.y), 1, flags);
         
         // Push Consolas Mono font
         ImGuiIO& io = ImGui::GetIO();
@@ -290,7 +291,7 @@ namespace term
             ImGui::PushFont(io.Fonts->Fonts[Font_MonoSmall]);
         }
 
-        std::lock_guard<std::mutex> lock(m_mutex);
+        std::scoped_lock lock(m_mutex);
         
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4, 4));
 
@@ -299,7 +300,7 @@ namespace term
         if (!has_filter) 
         {
             ImGuiListClipper clipper;
-            clipper.Begin((int)m_messages.size());
+            clipper.Begin(static_cast<int>(m_messages.size()));
             while (clipper.Step()) 
             {
                 for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; i++) 
@@ -431,7 +432,7 @@ namespace term
         
         // Text filtering only
         if (m_filter_buf[0] == '\0') return true;
-        return msg.text.find(m_filter_buf) != std::string::npos;
+        return msg.text.contains(m_filter_buf);
     }
 
     void Terminal::render_input_bar(const ImVec2& size) 
@@ -457,7 +458,7 @@ namespace term
         
         auto callback = [](ImGuiInputTextCallbackData* data) -> int 
             {
-            Terminal* term = (Terminal*)data->UserData;
+            auto* term = static_cast<Terminal*>(data->UserData);
             
             if (data->EventFlag == ImGuiInputTextFlags_CallbackHistory) 
             {
@@ -466,12 +467,12 @@ namespace term
                     if (!term->m_history.empty()) 
                     {
                         term->m_history_pos++;
-                         if (term->m_history_pos >= (int)term->m_history.size()) term->m_history_pos = (int)term->m_history.size() - 1;
+                         if (std::cmp_greater_equal(term->m_history_pos ,term->m_history.size())) term->m_history_pos = static_cast<int>(term->m_history.size()) - 1;
                     }
                 } else if (data->EventKey == ImGuiKey_DownArrow) 
                 {
                      term->m_history_pos--;
-                     if (term->m_history_pos < -1) term->m_history_pos = -1;
+                     term->m_history_pos = std::max(term->m_history_pos, -1);
                 }
                 
                 if 
@@ -480,7 +481,7 @@ namespace term
                     term->m_history_pos < term->m_history.size()
                 ) 
                 {
-                    int idx = (int)term->m_history.size() - 1 - term->m_history_pos;
+                    int idx = static_cast<int>(term->m_history.size()) - 1 - term->m_history_pos;
                     data->DeleteChars(0, data->BufTextLen);
                     data->InsertChars(0, term->m_history[idx].c_str());
                 }
@@ -519,7 +520,7 @@ namespace term
 
     void Terminal::execute_command(std::string_view cmd) 
     {
-        m_history.push_back(std::string(cmd));
+        m_history.emplace_back(cmd);
         add_text(std::string("> ") + std::string(cmd), Severity::Debug);
         
         std::string command_str(cmd);

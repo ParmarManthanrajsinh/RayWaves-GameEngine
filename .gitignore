@@ -6,10 +6,9 @@
 .json
 .agents
 .zed
-.clangd
-.clang-format
 .cache
 
+opencode.json
 skills-lock.json
 main
 build

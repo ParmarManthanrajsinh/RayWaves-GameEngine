@@ -2,7 +2,7 @@
 #include <filesystem>
 #include <iostream>
 
-std::string AssetResolver::s_BasePath = "";
+std::string AssetResolver::s_BasePath;
 
 void AssetResolver::SetProjectAssetPath(std::string_view path) {
     s_BasePath = std::string(path);

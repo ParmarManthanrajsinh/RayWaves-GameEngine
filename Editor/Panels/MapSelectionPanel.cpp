@@ -10,7 +10,7 @@
 void MapSelectionPanel::Draw(GameEditor* editor)
 {
 	SCOPED_TIMER("panel_map_selection");
-	if (!editor->GetMapManager()) 
+	if (editor->GetMapManager() == nullptr) 
 	{
 		return;
 	}
@@ -18,7 +18,7 @@ void MapSelectionPanel::Draw(GameEditor* editor)
     
     ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 4.0f);
     ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::GetStyle().Colors[ImGuiCol_FrameBg]);
-    ImGui::BeginChild("map_status_box", ImVec2(0, 80), false, ImGuiWindowFlags_NoScrollbar);
+    ImGui::BeginChild("map_status_box", ImVec2(0, 80), 0, ImGuiWindowFlags_NoScrollbar);
     ImGui::SetCursorPos(ImVec2(10, 10));
     ImGui::TextDisabled("Map Status");
     
@@ -31,7 +31,7 @@ void MapSelectionPanel::Draw(GameEditor* editor)
         std::string_view curId = editor->GetMapManager()->GetCurrentMapId();
         ImGui::SameLine(ImGui::GetContentRegionAvail().x - ImGui::CalcTextSize(curId.data(), curId.data() + curId.size()).x - 5);
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.839f, 0.188f, 0.192f, 1.0f));
-        ImGui::Text("%.*s", (int)curId.size(), curId.data());
+        ImGui::Text("%.*s", static_cast<int>(curId.size()), curId.data());
         ImGui::PopStyleColor();
     }
     ImGui::EndChild();

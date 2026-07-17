@@ -33,7 +33,7 @@ void MainMenuBar::Draw(GameEditor* editor)
             if (ImGui::MenuItem(ICON_FA_FOLDER_OPEN " Switch Project..."))
             {
                 const char* path = tinyfd_selectFolderDialog("Switch Project", nullptr);
-                if (path)
+                if (path != nullptr)
                 {
                     editor->OpenProject(path);
                 }
@@ -68,7 +68,7 @@ void MainMenuBar::Draw(GameEditor* editor)
         {
             if (ProjectManager::b_HasOpenProject())
             {
-                ImGui::MenuItem(ICON_FA_GEARS " Scene Settings", nullptr, &editor->m_bShowSceneSettings);
+                ImGui::MenuItem(ICON_FA_GEARS " Project Settings", nullptr, &editor->m_bShowSceneSettings);
             }
             ImGui::MenuItem(ICON_FA_SLIDERS " Editor Preferences", nullptr, &editor->m_bShowEditorPreferences);
             ImGui::EndMenu();

@@ -135,6 +135,12 @@ New-Item -ItemType Directory -Path "$DistPath/Core/Tools" -Force | Out-Null
 Copy-Item "Tools/zig-c*.bat" "$DistPath/Core/Tools/" -Force
 Copy-Item "Tools/setup_zig.ps1" "$DistPath/Core/Tools/" -Force
 
+# Bundle rcedit
+if (Test-Path "Tools/rcedit.exe") {
+    Write-Host "Bundling rcedit..." -ForegroundColor Yellow
+    Copy-Item "Tools/rcedit.exe" "$DistPath/Core/Tools/" -Force
+}
+
 # Bundle Ninja (required for CMake generator)
 if (Test-Path "Tools/ninja/ninja.exe") {
     Write-Host "Bundling Ninja..." -ForegroundColor Yellow

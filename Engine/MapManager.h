@@ -96,7 +96,7 @@ public:
     
 private:
 
-    void LoadDefaultMap();
+    static void LoadDefaultMap();
 };
 
 /*

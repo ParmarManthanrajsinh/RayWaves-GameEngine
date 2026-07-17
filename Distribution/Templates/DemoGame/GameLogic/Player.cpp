@@ -1,6 +1,7 @@
 #include "Player.h"
 #include "DemoLevel.h"
 #include "Engine/AssetResolver.h"
+#include <algorithm>
 #include <cmath>
 
 Player::Player()
@@ -32,9 +33,9 @@ void Player::LoadSounds()
     m_JumpSound = LoadSound(AssetResolver::Resolve("Sounds/jump.wav").c_str());
     m_AttackSound = LoadSound(AssetResolver::Resolve("Sounds/attack.wav").c_str());
     
-    std::cout << "[Player] Audio Device Ready: " << IsAudioDeviceReady() << std::endl;
-    std::cout << "[Player] Jump Sound Loaded: " << (m_JumpSound.frameCount > 0) << std::endl;
-    std::cout << "[Player] Attack Sound Loaded: " << (m_AttackSound.frameCount > 0) << std::endl;
+    std::cout << "[Player] Audio Device Ready: " << IsAudioDeviceReady() << '\n';
+    std::cout << "[Player] Jump Sound Loaded: " << (m_JumpSound.frameCount > 0) << '\n';
+    std::cout << "[Player] Attack Sound Loaded: " << (m_AttackSound.frameCount > 0) << '\n';
 }
 
 void Player::Reset(Vector2 StartPosition)
@@ -130,7 +131,7 @@ void Player::ApplyGravity(float DeltaTime, float Gravity)
 void Player::ResolveCollisions(float DeltaTime, const std::vector<GroundTile>& Tiles)
 {
     // Horizontal collision
-    float NextX = m_Position.x + m_Velocity.x * DeltaTime;
+    float NextX = m_Position.x + (m_Velocity.x * DeltaTime);
     Rectangle NextHitboxX = { NextX - HITBOX_OFFSET_X, m_Position.y - HITBOX_OFFSET_Y, HITBOX_WIDTH, HITBOX_HEIGHT };
     
     bool bHitX = false;
@@ -158,7 +159,7 @@ void Player::ResolveCollisions(float DeltaTime, const std::vector<GroundTile>& T
     }
 
     // Vertical collision
-    float NextY = m_Position.y + m_Velocity.y * DeltaTime;
+    float NextY = m_Position.y + (m_Velocity.y * DeltaTime);
     Rectangle NextHitboxY = { m_Position.x - HITBOX_OFFSET_X, NextY - HITBOX_OFFSET_Y, HITBOX_WIDTH, HITBOX_HEIGHT };
     
     m_bIsGrounded = false;
@@ -191,14 +192,8 @@ void Player::ResolveCollisions(float DeltaTime, const std::vector<GroundTile>& T
 
 void Player::ClampToLevel(float LevelLeft, float LevelRight)
 {
-    if (m_Position.x < LevelLeft)
-    {
-        m_Position.x = LevelLeft;
-    }
-    if (m_Position.x > LevelRight)
-    {
-        m_Position.x = LevelRight;
-    }
+    m_Position.x = std::max(m_Position.x, LevelLeft);
+    m_Position.x = std::min(m_Position.x, LevelRight);
 }
 
 void Player::Draw()

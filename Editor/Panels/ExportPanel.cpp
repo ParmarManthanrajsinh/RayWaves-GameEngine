@@ -7,13 +7,12 @@
 #include <imgui_stdlib.h>
 #include <rlImGui.h>
 #include <tinyfiledialogs.h>
+#include <algorithm>
 #include <filesystem>
 #include <fstream>
 #include <array>
-
-#ifdef _WIN32
-#include <stdio.h>
-#endif
+#include <regex>
+#include <chrono>
 
 namespace fs = std::filesystem;
 
@@ -122,6 +121,34 @@ void ExportPanel::Draw(GameEditor* editor)
         ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyle().Colors[ImGuiCol_TextDisabled]);
         ImGui::Text("%s.exe", editor->m_ExportState.m_GameName.c_str());
         ImGui::PopStyleColor();
+
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(0);
+        ImGui::AlignTextToFramePadding();
+        ImGui::Text("Game Icon:");
+
+        ImGui::TableSetColumnIndex(1);
+        std::string current_icon = ProjectManager::GetCurrent().m_IconPath;
+        if (current_icon.empty()) current_icon = "Default (RayWaves Icon)";
+        
+        ImGui::TextUnformatted(current_icon.c_str());
+        ImGui::SameLine();
+        if (ImGui::Button("Browse##icon", ImVec2(80.0f, 0)))
+        {
+            const char* filters[] = { "*.ico" };
+            const char* selected = tinyfd_openFileDialog("Select Icon", nullptr, 1, filters, "Icon Files (*.ico)", 0);
+            if (selected != nullptr)
+            {
+                ProjectManager::GetCurrent().m_IconPath = selected;
+                ProjectManager::b_SaveCurrentProject();
+            }
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Clear##icon", ImVec2(80.0f, 0)))
+        {
+            ProjectManager::GetCurrent().m_IconPath = "";
+            ProjectManager::b_SaveCurrentProject();
+        }
 
         ImGui::EndTable();
     }
@@ -245,12 +272,12 @@ void ExportPanel::Draw(GameEditor* editor)
         ImGui::EndTable();
     }
 
-    if (editor->m_ExportState.m_WindowWidth < 320) editor->m_ExportState.m_WindowWidth = 320;
-    if (editor->m_ExportState.m_WindowHeight < 240) editor->m_ExportState.m_WindowHeight = 240;
-    if (editor->m_ExportState.m_WindowWidth > 7680) editor->m_ExportState.m_WindowWidth = 7680;
-    if (editor->m_ExportState.m_WindowHeight > 4320) editor->m_ExportState.m_WindowHeight = 4320;
-    if (editor->m_ExportState.m_TargetFPS < 0) editor->m_ExportState.m_TargetFPS = 0;
-    if (editor->m_ExportState.m_TargetFPS > 1000) editor->m_ExportState.m_TargetFPS = 1000;
+    editor->m_ExportState.m_WindowWidth = std::max(editor->m_ExportState.m_WindowWidth, 320);
+    editor->m_ExportState.m_WindowHeight = std::max(editor->m_ExportState.m_WindowHeight, 240);
+    editor->m_ExportState.m_WindowWidth = std::min(editor->m_ExportState.m_WindowWidth, 7680);
+    editor->m_ExportState.m_WindowHeight = std::min(editor->m_ExportState.m_WindowHeight, 4320);
+    editor->m_ExportState.m_TargetFPS = std::max(editor->m_ExportState.m_TargetFPS, 0);
+    editor->m_ExportState.m_TargetFPS = std::min(editor->m_ExportState.m_TargetFPS, 1000);
 
     ImGui::Spacing();
     ImGui::Spacing();
@@ -277,7 +304,7 @@ void ExportPanel::Draw(GameEditor* editor)
         if (ImGui::Button("Browse", ImVec2(80.0f, 0)))
         {
             const char* selected_path = tinyfd_selectFolderDialog("Select Export Folder", nullptr);
-            if (selected_path)
+            if (selected_path != nullptr)
             {
                 fs::path parent_path = fs::path(selected_path);
                 editor->m_ExportState.m_ExportPath = parent_path.string();
@@ -291,7 +318,7 @@ void ExportPanel::Draw(GameEditor* editor)
     
     ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::GetStyle().Colors[ImGuiCol_FrameBgHovered]);
     ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 4.0f);
-    if (ImGui::BeginChild("export_info_box", ImVec2(0, 50), false))
+    if (ImGui::BeginChild("export_info_box", ImVec2(0, 50), 0))
     {
         ImGui::SetCursorPos(ImVec2(10, 10));
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.4f, 0.6f, 1.0f, 1.0f));
@@ -500,6 +527,39 @@ void ExportPanel::Draw(GameEditor* editor)
                         s_fAppendLogLine(editor->m_ExportState.m_ExportLogs, editor->m_ExportState.m_ExportLogMutex, "No Assets folder found - skipping asset copy");
                     }
                     
+                    std::string customIcon = proj.m_IconPath;
+                    if (customIcon.empty())
+                    {
+                        fs::path root = ProjectManager::GetEngineRootDirectory();
+                        fs::path defaultIcon = root / "Core" / "EngineContent" / "raylib.ico";
+                        if (!fs::exists(defaultIcon)) defaultIcon = root / "EngineContent" / "raylib.ico";
+                        customIcon = defaultIcon.string();
+                    }
+
+                    if (!customIcon.empty() && fs::exists(customIcon))
+                    {
+                        fs::path rceditExe = ProjectManager::GetToolsDirectory() / "rcedit.exe";
+                        if (fs::exists(rceditExe))
+                        {
+                            std::string exePath = (export_dir / game_exe_name).string();
+                            // cmd.exe /c strips first+last " when string starts with ". Wrap entire command in outer quotes.
+                            std::string cmd = "\"\"" + rceditExe.string() + "\" \"" + exePath + "\" --set-icon \"" + customIcon + "\"\"";
+                            s_fAppendLogLine(editor->m_ExportState.m_ExportLogs, editor->m_ExportState.m_ExportLogMutex, "Icon cmd: " + cmd);
+                            int rc = std::system(cmd.c_str());
+                            s_fAppendLogLine(editor->m_ExportState.m_ExportLogs, editor->m_ExportState.m_ExportLogMutex, "rcedit exit code: " + std::to_string(rc));
+                        }
+                        else
+                        {
+                            s_fAppendLogLine(editor->m_ExportState.m_ExportLogs, editor->m_ExportState.m_ExportLogMutex, "WARNING: rcedit.exe not found at: " + rceditExe.string());
+                        }
+                    }
+                    else
+                    {
+                        s_fAppendLogLine(editor->m_ExportState.m_ExportLogs, editor->m_ExportState.m_ExportLogMutex, "WARNING: No icon found. customIcon=" + customIcon + " exists=" + (fs::exists(customIcon) ? "true" : "false"));
+                    }
+                    
+
+                    
                     s_fAppendLogLine(editor->m_ExportState.m_ExportLogs, editor->m_ExportState.m_ExportLogMutex, std::string("Process completed. Validating export folder: ") + export_dir.string());
                 
                     bool b_Ok = s_bfValidateExportFolder(export_dir.string(), editor->m_ExportState.m_ExportLogs, editor->m_ExportState.m_ExportLogMutex);
@@ -562,7 +622,7 @@ void ExportPanel::Draw(GameEditor* editor)
 
         ImGui::Spacing();
         const char* btn_text = ICON_FA_FOLDER_OPEN " Open Output Folder";
-        float btn_width = ImGui::CalcTextSize(btn_text).x + ImGui::GetStyle().FramePadding.x * 2.0f;
+        float btn_width = ImGui::CalcTextSize(btn_text).x + (ImGui::GetStyle().FramePadding.x * 2.0f);
         ImGui::SetCursorPosX((window_width - btn_width) * 0.5f);
         if (ImGui::Button(btn_text))
         {
@@ -591,7 +651,7 @@ void ExportPanel::Draw(GameEditor* editor)
     ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::GetStyle().Colors[ImGuiCol_FrameBg]);
     ImGui::PushStyleColor(ImGuiCol_Border, ImGui::GetStyle().Colors[ImGuiCol_Border]);
     
-    if (ImGui::BeginChild("export_log", ImVec2(0, 200), true))
+    if (ImGui::BeginChild("export_log", ImVec2(0, 200), 1))
     {
         std::scoped_lock lk(editor->m_ExportState.m_ExportLogMutex);
         

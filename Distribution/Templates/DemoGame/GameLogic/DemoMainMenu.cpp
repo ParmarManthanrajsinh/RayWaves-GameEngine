@@ -15,13 +15,13 @@ void DemoMainMenu::Initialize()
     m_TitleFont = GetFontDefault();
     m_SelectSound = LoadSound(AssetResolver::Resolve("Sounds/menu_select.wav").c_str());
     
-    std::cout << "[DemoMainMenu] Initialized" << std::endl;
+    std::cout << "[DemoMainMenu] Initialized" << '\n';
 }
 
 void DemoMainMenu::Update(float DeltaTime)
 {
     m_Time += DeltaTime;
-    m_PulseScale = 1.0f + sin(m_Time * 3.0f) * 0.05f;
+    m_PulseScale = 1.0f + (sin(m_Time * 3.0f) * 0.05f);
 
     // Navigation
     if (IsKeyPressed(KEY_DOWN) || IsKeyPressed(KEY_S))
@@ -44,7 +44,7 @@ void DemoMainMenu::Update(float DeltaTime)
         }
         else if (m_SelectedOption == OPTION_EXIT)
         {
-            std::cout << "Exit Requested" << std::endl;
+            std::cout << "Exit Requested" << '\n';
             CloseWindow();
         }
     }
@@ -92,7 +92,7 @@ void DemoMainMenu::Draw()
 
     // PLAY GAME
     if (m_SelectedOption == 0) GuiSetState(STATE_FOCUSED);
-    if (GuiButton(Rectangle{ (ScreenWidth - btnWidth) / 2.0f, StartY, btnWidth, btnHeight }, "PLAY GAME"))
+    if (GuiButton(Rectangle{ (ScreenWidth - btnWidth) / 2.0f, StartY, btnWidth, btnHeight }, "PLAY GAME") != 0)
     {
         PlaySound(m_SelectSound);
         RequestGotoMap("DemoLevel");
@@ -101,9 +101,9 @@ void DemoMainMenu::Draw()
 
     // EXIT
     if (m_SelectedOption == 1) GuiSetState(STATE_FOCUSED);
-    if (GuiButton(Rectangle{ (ScreenWidth - btnWidth) / 2.0f, StartY + Padding, btnWidth, btnHeight }, "EXIT"))
+    if (GuiButton(Rectangle{ (ScreenWidth - btnWidth) / 2.0f, StartY + Padding, btnWidth, btnHeight }, "EXIT") != 0)
     {
-        std::cout << "Exit Requested" << std::endl;
+        std::cout << "Exit Requested" << '\n';
         CloseWindow();
     }
     GuiSetState(STATE_NORMAL);
