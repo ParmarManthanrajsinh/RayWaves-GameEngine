@@ -37,7 +37,6 @@
 #include "imgui.h"
 
 #include <cmath>
-#include <cmath>
 #include <map>
 #include <limits>
 #include <cstdint>

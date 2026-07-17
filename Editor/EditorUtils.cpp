@@ -18,7 +18,7 @@ namespace EditorUtils
         }
         
         
-            std::cerr << "Failed to open path: directory does not exist. Path: " << path.string() << std::endl;
+            std::cerr << "Failed to open path: directory does not exist. Path: " << path.string() << '\n';
             return false;
        
     }

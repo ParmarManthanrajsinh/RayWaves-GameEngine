@@ -898,13 +898,13 @@ bool GameEditor::b_LoadGameLogic(std::string_view dll_path)
 	}
 
 	// 2) Get factory
-	CreateGameMapFunc new_factory =
+	auto new_factory =
 	reinterpret_cast<CreateGameMapFunc>
 	(
 		GetDllSymbol(new_dll, "CreateGameMap")
 	);
 
-	DestroyGameMapFunc new_destroy =
+	auto new_destroy =
 	reinterpret_cast<DestroyGameMapFunc>
 	(
 		GetDllSymbol(new_dll, "DestroyGameMap")

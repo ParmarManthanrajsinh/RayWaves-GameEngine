@@ -51,7 +51,7 @@ void GameEngine::LaunchWindow(int width, int height, std::string_view title)
 	InitWindow(width, height, title.data());
 	InitAudioDevice();
 
-	HWND hwnd = (HWND)GetWindowHandle();
+	HWND hwnd = static_cast<HWND>(GetWindowHandle());
 	BOOL value = TRUE;
 
 	if (hwnd == nullptr) 
@@ -67,8 +67,8 @@ void GameEngine::LaunchWindow(int width, int height, std::string_view title)
 
 	// Extract and set icon from executable
 	char exePath[MAX_PATH];
-	GetModuleFileNameA(NULL, exePath, MAX_PATH);
-	HICON hIcon = ExtractIconA(GetModuleHandle(NULL), exePath, 0);
+	GetModuleFileNameA(nullptr, exePath, MAX_PATH);
+	HICON hIcon = ExtractIconA(GetModuleHandle(nullptr), exePath, 0);
 	if (hIcon != nullptr && hIcon != (HICON)1)
 	{
 		SendMessage(hwnd, WM_SETICON, ICON_BIG, (LPARAM)hIcon);
@@ -100,7 +100,7 @@ void GameEngine::LaunchWindow(const t_WindowConfig& config)
 	InitWindow(config.width, config.height, config.title.c_str());
 	InitAudioDevice();
 
-	HWND hwnd = (HWND)GetWindowHandle();
+	HWND hwnd = static_cast<HWND>(GetWindowHandle());
 	if (hwnd != nullptr)
 	{
 		BOOL value = TRUE;
@@ -108,8 +108,8 @@ void GameEngine::LaunchWindow(const t_WindowConfig& config)
 		DwmSetWindowAttribute(hwnd, 20, &value, sizeof(value));
 
 		char exePath[MAX_PATH];
-		GetModuleFileNameA(NULL, exePath, MAX_PATH);
-		HICON hIcon = ExtractIconA(GetModuleHandle(NULL), exePath, 0);
+		GetModuleFileNameA(nullptr, exePath, MAX_PATH);
+		HICON hIcon = ExtractIconA(GetModuleHandle(nullptr), exePath, 0);
 		if (hIcon != nullptr && hIcon != (HICON)1)
 		{
 			SendMessage(hwnd, WM_SETICON, ICON_BIG, (LPARAM)hIcon);

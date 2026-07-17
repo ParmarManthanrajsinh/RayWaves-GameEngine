@@ -157,9 +157,9 @@ if(EXISTS "${CMAKE_SOURCE_DIR}/EngineContent/config.ini")
   file(COPY ${CMAKE_SOURCE_DIR}/EngineContent/config.ini DESTINATION ${CMAKE_BINARY_DIR})
 endif()
 
-# Copy demo assets from the DemoGame template to the build directory
-if(EXISTS "${CMAKE_SOURCE_DIR}/Distribution/Templates/DemoGame/Assets")
-  file(COPY ${CMAKE_SOURCE_DIR}/Distribution/Templates/DemoGame/Assets DESTINATION ${CMAKE_BINARY_DIR})
+# Copy demo assets from the SlimeQuest template to the build directory
+if(EXISTS "${CMAKE_SOURCE_DIR}/Distribution/Templates/SlimeQuest/Assets")
+  file(COPY ${CMAKE_SOURCE_DIR}/Distribution/Templates/SlimeQuest/Assets DESTINATION ${CMAKE_BINARY_DIR})
 endif()
 
 # Build Engine as a static library so both main and GameLogic can link to it
@@ -174,12 +174,12 @@ target_link_libraries(Engine PRIVATE dwmapi)
 
 # Create GameLogic shared library (DLL)
 set(GAMELOGIC_SRC_CPP
-    Distribution/Templates/DemoGame/GameLogic/DemoLevel.cpp
-    Distribution/Templates/DemoGame/GameLogic/DemoMainMenu.cpp
-    Distribution/Templates/DemoGame/GameLogic/GameCamera.cpp
-    Distribution/Templates/DemoGame/GameLogic/Player.cpp
-    Distribution/Templates/DemoGame/GameLogic/RootManager.cpp
-    Distribution/Templates/DemoGame/GameLogic/Slime.cpp
+    Distribution/Templates/SlimeQuest/GameLogic/DemoLevel.cpp
+    Distribution/Templates/SlimeQuest/GameLogic/DemoMainMenu.cpp
+    Distribution/Templates/SlimeQuest/GameLogic/GameCamera.cpp
+    Distribution/Templates/SlimeQuest/GameLogic/Player.cpp
+    Distribution/Templates/SlimeQuest/GameLogic/RootManager.cpp
+    Distribution/Templates/SlimeQuest/GameLogic/Slime.cpp
 )
 add_library(GameLogic SHARED ${GAMELOGIC_SRC_CPP})
 set_target_properties(GameLogic PROPERTIES PREFIX "")
@@ -187,7 +187,7 @@ set_target_properties(GameLogic PROPERTIES PREFIX "")
 target_include_directories(GameLogic PRIVATE
     ${CMAKE_SOURCE_DIR}
     ${CMAKE_SOURCE_DIR}/Engine
-    ${CMAKE_SOURCE_DIR}/Distribution/Templates/DemoGame/GameLogic
+    ${CMAKE_SOURCE_DIR}/Distribution/Templates/SlimeQuest/GameLogic
 )
 target_link_libraries(GameLogic PRIVATE Engine)
 

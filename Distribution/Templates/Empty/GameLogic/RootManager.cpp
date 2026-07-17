@@ -1,24 +1,5 @@
-#include <iostream>
 #include "../Engine/MapManager.h"
-#include <raylib.h>
-class EmptyMap : public GameMap
-{
-public:
-    void Initialize() override 
-    {
-        std::cout << "EmptyMap initialized\n";
-    }
-
-    void Update(float delta_time) override 
-    {
-    }
-
-    void Draw() override 
-    {
-        ClearBackground(RAYWHITE);
-        DrawText("Empty Project", 10, 10, 20, DARKGRAY);
-    }
-};
+#include "EmptyMap.h"
 
 static MapManager* s_GameMapManager = nullptr;
 
@@ -45,4 +26,3 @@ extern "C" __declspec(dllexport) void DestroyGameMap(GameMap* map_manager)
         }
     }
 }
-

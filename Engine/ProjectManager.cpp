@@ -3,7 +3,6 @@
 #include "ProjectManager.h"
 #include <filesystem>
 #include <fstream>
-#include <algorithm>
 #include <windows.h>
 #include <shlobj.h>
 
@@ -370,7 +369,7 @@ bool ProjectManager::GenerateCMakeLists()
     file << "    endif()\n";
     file << "endif()\n\n";
 
-    file << "set(CMAKE_MAKE_PROGRAM \"" << tools_dir_str << "/ninja/ninja.exe\")\n";
+    file << "set(CMAKE_MAKE_PROGRAM \"" << tools_dir_str << "/ninja/ninja.exe\" CACHE FILEPATH \"Build program\" FORCE)\n";
     file << "set(CMAKE_C_COMPILER \"" << tools_dir_str << "/zig-cc.bat\")\n";
     file << "set(CMAKE_CXX_COMPILER \"" << tools_dir_str << "/zig-cxx.bat\")\n";
     file << "project(" << SanitizeCMakeProjectName(s_Current.m_Name) << ")\n\n";

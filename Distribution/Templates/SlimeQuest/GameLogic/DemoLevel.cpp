@@ -175,7 +175,7 @@ void DemoLevel::Draw()
     DrawSparkles();
     DrawSlimes();
     m_Player.Draw();
-    m_Camera.End();
+    GameCamera::End();
 }
 
 void DemoLevel::DrawBackground()
