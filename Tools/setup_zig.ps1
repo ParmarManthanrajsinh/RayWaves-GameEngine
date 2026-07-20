@@ -16,9 +16,11 @@ if (-not $SkipZig) {
         $ZigZip = Join-Path $ToolsDir "zig.zip"
         $ZigUrl = "https://ziglang.org/download/0.16.0/zig-x86_64-windows-0.16.0.zip"
         curl.exe -L -o "$ZigZip" "$ZigUrl"
+        if ($LASTEXITCODE -ne 0) { throw "Failed to download Zig" }
 
         Write-Host "Extracting Zig..." -ForegroundColor Cyan
         tar.exe -xf "$ZigZip" -C "$ToolsDir"
+        if ($LASTEXITCODE -ne 0) { throw "Failed to extract Zig" }
         Remove-Item $ZigZip
 
         $ExtractedDir = Join-Path $ToolsDir "zig-x86_64-windows-0.16.0"
@@ -50,6 +52,7 @@ if (-not $SkipRcEdit) {
         Write-Host "Downloading rcedit..." -ForegroundColor Cyan
         $RceditUrl = "https://github.com/electron/rcedit/releases/download/v2.0.0/rcedit-x64.exe"
         curl.exe -L -o "$RceditExe" "$RceditUrl"
+        if ($LASTEXITCODE -ne 0) { throw "Failed to download rcedit" }
     } else {
         Write-Host "rcedit is already downloaded." -ForegroundColor Green
     }
@@ -62,10 +65,12 @@ if (-not $SkipNinja) {
         $NinjaZip = Join-Path $ToolsDir "ninja.zip"
         $NinjaUrl = "https://github.com/ninja-build/ninja/releases/download/v1.13.2/ninja-win.zip"
         curl.exe -L -o "$NinjaZip" "$NinjaUrl"
+        if ($LASTEXITCODE -ne 0) { throw "Failed to download Ninja" }
 
         New-Item -ItemType Directory -Force -Path (Join-Path $ToolsDir "ninja") | Out-Null
         Write-Host "Extracting Ninja..." -ForegroundColor Cyan
         tar.exe -xf "$NinjaZip" -C (Join-Path $ToolsDir "ninja")
+        if ($LASTEXITCODE -ne 0) { throw "Failed to extract Ninja" }
         Remove-Item $NinjaZip
     } else {
         Write-Host "Ninja is already downloaded." -ForegroundColor Green
@@ -79,9 +84,11 @@ if (-not $SkipCMake) {
         $CMakeZip = Join-Path $ToolsDir "cmake.zip"
         $CMakeUrl = "https://github.com/Kitware/CMake/releases/download/v4.3.4/cmake-4.3.4-windows-x86_64.zip"
         curl.exe -L -o "$CMakeZip" "$CMakeUrl"
+        if ($LASTEXITCODE -ne 0) { throw "Failed to download CMake" }
 
         Write-Host "Extracting CMake..." -ForegroundColor Cyan
         tar.exe -xf "$CMakeZip" -C "$ToolsDir"
+        if ($LASTEXITCODE -ne 0) { throw "Failed to extract CMake" }
         Remove-Item $CMakeZip
 
         $ExtractedDir = Join-Path $ToolsDir "cmake-4.3.4-windows-x86_64"
@@ -94,6 +101,10 @@ if (-not $SkipCMake) {
             Rename-Item -Path $ExtractedDir -NewName "cmake" -ErrorAction SilentlyContinue
             $retry++
         } while ((Test-Path $ExtractedDir) -and $retry -lt 10)
+        
+        if (Test-Path $ExtractedDir) {
+            throw "Failed to rename extracted CMake directory"
+        }
     } else {
         Write-Host "CMake is already downloaded." -ForegroundColor Green
     }

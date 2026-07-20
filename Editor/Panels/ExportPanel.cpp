@@ -476,17 +476,18 @@ void ExportPanel::Draw(GameEditor* editor)
                     std::ofstream config_file(config_path.string());
                     if (config_file.is_open())
                     {
-                        GameConfig::GetInstance().ApplyExportSettings
-                        (
-                            editor->m_ExportState.m_WindowWidth,
-                            editor->m_ExportState.m_WindowHeight,
-                            editor->m_ExportState.m_bFullscreen,
-                            editor->m_ExportState.m_bResizable,
-                            editor->m_ExportState.m_bVSync,
-                            editor->m_ExportState.m_TargetFPS
-                        );
+                        std::ostringstream ss;
+                        ss << "# Game Configuration File\n"
+                           << "# Window Settings\n"
+                           << "width=" << editor->m_ExportState.m_WindowWidth << "\n"
+                           << "height=" << editor->m_ExportState.m_WindowHeight << "\n"
+                           << "b_Fullscreen=" << (editor->m_ExportState.m_bFullscreen ? "true" : "false") << "\n"
+                           << "b_Resizable=" << (editor->m_ExportState.m_bResizable ? "true" : "false") << "\n"
+                           << "b_Vsync=" << (editor->m_ExportState.m_bVSync ? "true" : "false") << "\n"
+                           << "target_fps=" << editor->m_ExportState.m_TargetFPS << "\n"
+                           << "title=" << editor->m_ExportState.m_GameName << "\n";
 
-                        config_file << GameConfig::GetInstance().GenerateConfigString();
+                        config_file << ss.str();
                         config_file.close();
                     }
                     

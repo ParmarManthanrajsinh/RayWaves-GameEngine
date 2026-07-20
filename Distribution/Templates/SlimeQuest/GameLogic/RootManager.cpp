@@ -38,11 +38,11 @@ extern "C" __declspec(dllexport) void DestroyGameMap(GameMap* map_manager)
     // Deleting it will call the virtual destructor and clean up all maps & textures
     if (map_manager != nullptr)
     {
-        delete map_manager;
         if (map_manager == s_GameMapManager)
         {
             s_GameMapManager = nullptr;
         }
+        delete map_manager;
     }
 }
 
