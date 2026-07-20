@@ -485,6 +485,9 @@ void ExportPanel::Draw(GameEditor* editor)
                            << "b_Resizable=" << (editor->m_ExportState.m_bResizable ? "true" : "false") << "\n"
                            << "b_Vsync=" << (editor->m_ExportState.m_bVSync ? "true" : "false") << "\n"
                            << "target_fps=" << editor->m_ExportState.m_TargetFPS << "\n"
+                           << "scene_width=" << proj.m_SceneWidth << "\n"
+                           << "scene_height=" << proj.m_SceneHeight << "\n"
+                           << "scene_fps=" << proj.m_TargetFPS << "\n"
                            << "title=" << editor->m_ExportState.m_GameName << "\n";
 
                         config_file << ss.str();

@@ -12,7 +12,6 @@ DemoMainMenu::DemoMainMenu()
 
 DemoMainMenu::~DemoMainMenu()
 {
-    if (m_TitleFont.texture.id != 0) UnloadFont(m_TitleFont);
     if (m_SelectSound.stream.buffer != nullptr) UnloadSound(m_SelectSound);
 }
 
