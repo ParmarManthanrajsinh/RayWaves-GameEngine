@@ -68,7 +68,7 @@ void Slime::Update(float DeltaTime)
     }
 }
 
-void Slime::Draw()
+void Slime::Draw() const
 {
     if (!m_bIsAlive && !m_bIsDying)
     {
@@ -81,14 +81,14 @@ void Slime::Draw()
     if (m_bIsDying)
     {
         // Death animation - row 4 (5th row, 0-indexed)
-        FrameX = (m_DeathFrame < DEATH_FRAME_COUNT ? m_DeathFrame : DEATH_FRAME_COUNT - 1) * FRAME_WIDTH;
-        FrameY = 4 * FRAME_HEIGHT;  // 5th row for death
+        FrameX = static_cast<float>((m_DeathFrame < DEATH_FRAME_COUNT ? m_DeathFrame : DEATH_FRAME_COUNT - 1) * FRAME_WIDTH);
+        FrameY = static_cast<float>(4 * FRAME_HEIGHT);  // 5th row for death
     }
     else
     {
         // Idle animation - row 0 (first row)
-        FrameX = m_CurrentFrame * FRAME_WIDTH;
-        FrameY = 0;
+        FrameX = static_cast<float>(m_CurrentFrame * FRAME_WIDTH);
+        FrameY = 0.0f;
     }
     
     Rectangle Source = { FrameX, FrameY, FRAME_WIDTH, FRAME_HEIGHT };
@@ -146,6 +146,7 @@ Rectangle Slime::GetHitbox() const
     };
 }
 
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
 void Slime::SetPatrolBounds(float Left, float Right)
 {
     m_PatrolLeft = Left;

@@ -137,6 +137,77 @@ namespace term
         }
     }
 
+    void Terminal::parse_ansi(Message& msg) const
+    {
+        std::string_view text = msg.text;
+        msg.spans.clear();
+
+        size_t pos = 0;
+        std::optional<ImVec4> current_color = std::nullopt;
+
+        while (pos < text.length())
+        {
+            size_t esc_pos = text.find("\x1b[", pos);
+            if (esc_pos == std::string_view::npos)
+            {
+                if (pos < text.length()) msg.spans.push_back({current_color, std::string(text.substr(pos))});
+                break;
+            }
+
+            if (esc_pos > pos)
+            {
+                msg.spans.push_back({current_color, std::string(text.substr(pos, esc_pos - pos))});
+            }
+
+            size_t m_pos = text.find('m', esc_pos);
+            if (m_pos == std::string_view::npos)
+            {
+                msg.spans.push_back({current_color, std::string(text.substr(esc_pos))});
+                break;
+            }
+
+            std::string_view code_str = text.substr(esc_pos + 2, m_pos - (esc_pos + 2));
+            int code = 0;
+            if (!code_str.empty())
+            {
+                try { code = std::stoi(std::string(code_str)); } catch(...) {}
+            }
+
+            if (code == 0) current_color = std::nullopt;
+            else if (code >= 30 && code <= 37)
+            {
+                switch (code)
+                {
+                    case 30: current_color = m_theme.ansi_30; break;
+                    case 31: current_color = m_theme.ansi_31; break;
+                    case 32: current_color = m_theme.ansi_32; break;
+                    case 33: current_color = m_theme.ansi_33; break;
+                    case 34: current_color = m_theme.ansi_34; break;
+                    case 35: current_color = m_theme.ansi_35; break;
+                    case 36: current_color = m_theme.ansi_36; break;
+                    case 37: current_color = m_theme.ansi_37; break;
+                }
+            }
+            else if (code >= 90 && code <= 97)
+            {
+                switch (code)
+                {
+                    case 90: current_color = m_theme.ansi_90; break;
+                    case 91: current_color = m_theme.ansi_91; break;
+                    case 92: current_color = m_theme.ansi_92; break;
+                    case 93: current_color = m_theme.ansi_93; break;
+                    case 94: current_color = m_theme.ansi_94; break;
+                    case 95: current_color = m_theme.ansi_95; break;
+                    case 96: current_color = m_theme.ansi_96; break;
+                    case 97: current_color = m_theme.ansi_97; break;
+                }
+            }
+            pos = m_pos + 1;
+        }
+
+        if (msg.spans.empty()) msg.spans.push_back({std::nullopt, msg.text});
+    }
+
     void Terminal::add_text(std::string_view text, Severity severity) 
     {
         if (is_shutting_down()) return;
@@ -156,10 +227,13 @@ namespace term
         add_message(msg);
     }
 
-    void Terminal::add_message(const Message& msg) 
+    void Terminal::add_message(const Message& msg_in) 
     {
         if (is_shutting_down()) return;
         
+        Message msg = msg_in;
+        parse_ansi(msg);
+
         std::scoped_lock lock(m_mutex);
         
         // Limit log size
@@ -284,6 +358,35 @@ namespace term
 
         ImGui::BeginChild("##LogWindow", ImVec2(size.x, size.y), 1, flags);
         
+        if (ImGui::IsWindowFocused() && ImGui::GetIO().KeyCtrl)
+        {
+            if (ImGui::IsKeyPressed(ImGuiKey_A))
+            {
+                std::scoped_lock lock(m_mutex);
+                if (!m_messages.empty())
+                {
+                    m_select_anchor = 0;
+                    m_select_head = static_cast<int>(m_messages.size()) - 1;
+                }
+            }
+            else if (ImGui::IsKeyPressed(ImGuiKey_C))
+            {
+                if (m_select_anchor != -1 && m_select_head != -1)
+                {
+                    std::string clip;
+                    std::scoped_lock lock(m_mutex);
+                    int start = std::min(m_select_anchor, m_select_head);
+                    int end = std::max(m_select_anchor, m_select_head);
+                    for (int i = start; i <= end && i < m_messages.size(); i++)
+                    {
+                        for (const auto& span : m_messages[i].spans) clip += span.text;
+                        clip += "\n";
+                    }
+                    if (!clip.empty()) ImGui::SetClipboardText(clip.c_str());
+                }
+            }
+        }
+
         // Push Consolas Mono font
         ImGuiIO& io = ImGui::GetIO();
         if (Font_MonoSmall < io.Fonts->Fonts.Size)
@@ -320,29 +423,60 @@ namespace term
                     }
 
                     ImGui::PushID(i);
-                    ImVec4 color = get_severity_color(msg.severity, m_theme);
-                    ImGui::PushStyleColor(ImGuiCol_Text, color);
                     
-                    // Draw invisible selectable over the line for mouse interaction
+                    bool is_selected = (m_select_anchor != -1 && m_select_head != -1 && i >= std::min(m_select_anchor, m_select_head) && i <= std::max(m_select_anchor, m_select_head));
+                    
+                    if (is_selected)
+                    {
+                        ImGui::GetWindowDrawList()->AddRectFilled(
+                            ImGui::GetCursorScreenPos(),
+                            ImVec2(ImGui::GetCursorScreenPos().x + ImGui::GetContentRegionAvail().x, ImGui::GetCursorScreenPos().y + ImGui::GetTextLineHeight()),
+                            ImGui::GetColorU32(m_theme.selection_bg)
+                        );
+                    }
+                    
                     ImVec2 pos = ImGui::GetCursorScreenPos();
-                    ImGui::Selectable("##line", false, ImGuiSelectableFlags_AllowOverlap);
+                    ImGui::Selectable("##line", is_selected, ImGuiSelectableFlags_AllowOverlap);
+                    if (ImGui::IsItemHovered())
+                    {
+                        if (ImGui::IsMouseClicked(ImGuiMouseButton_Left))
+                        {
+                            m_select_anchor = i;
+                            m_select_head = i;
+                        }
+                        else if (ImGui::IsMouseDown(ImGuiMouseButton_Left))
+                        {
+                            if (m_select_anchor != -1) m_select_head = i;
+                        }
+                    }
+                    
                     ImGui::SameLine();
                     ImGui::SetCursorScreenPos(pos);
                     
-                    ImGui::TextUnformatted(msg.text.c_str());
-                    ImGui::PopStyleColor();
+                    ImVec4 default_color = get_severity_color(msg.severity, m_theme);
+                    for (size_t span_idx = 0; span_idx < msg.spans.size(); span_idx++)
+                    {
+                        if (span_idx > 0) ImGui::SameLine(0, 0);
+                        const auto& span = msg.spans[span_idx];
+                        ImGui::PushStyleColor(ImGuiCol_Text, span.color.value_or(default_color));
+                        ImGui::TextUnformatted(span.text.c_str());
+                        ImGui::PopStyleColor();
+                    }
 
                     if (ImGui::BeginPopupContextItem("##terminal_context"))
                     {
                         if (ImGui::MenuItem("Copy Message"))
                         {
-                            ImGui::SetClipboardText(msg.text.c_str());
+                            std::string plain;
+                            for (const auto& span : msg.spans) plain += span.text;
+                            ImGui::SetClipboardText(plain.c_str());
                         }
                         if (!msg.timestamp.empty())
                         {
                             if (ImGui::MenuItem("Copy Timestamp + Message"))
                             {
-                                std::string full_msg = msg.timestamp + " " + msg.text;
+                                std::string full_msg = msg.timestamp + " ";
+                                for (const auto& span : msg.spans) full_msg += span.text;
                                 ImGui::SetClipboardText(full_msg.c_str());
                             }
                         }
@@ -372,28 +506,36 @@ namespace term
                 }
 
                 ImGui::PushID(&msg);
-                ImVec4 color = get_severity_color(msg.severity, m_theme);
-                ImGui::PushStyleColor(ImGuiCol_Text, color);
                 
                 ImVec2 pos = ImGui::GetCursorScreenPos();
                 ImGui::Selectable("##line", false, ImGuiSelectableFlags_AllowOverlap);
                 ImGui::SameLine();
                 ImGui::SetCursorScreenPos(pos);
                 
-                ImGui::TextUnformatted(msg.text.c_str());
-                ImGui::PopStyleColor();
+                ImVec4 default_color = get_severity_color(msg.severity, m_theme);
+                for (size_t span_idx = 0; span_idx < msg.spans.size(); span_idx++)
+                {
+                    if (span_idx > 0) ImGui::SameLine(0, 0);
+                    const auto& span = msg.spans[span_idx];
+                    ImGui::PushStyleColor(ImGuiCol_Text, span.color.value_or(default_color));
+                    ImGui::TextUnformatted(span.text.c_str());
+                    ImGui::PopStyleColor();
+                }
 
                 if (ImGui::BeginPopupContextItem("##terminal_context"))
                 {
                     if (ImGui::MenuItem("Copy Message"))
                     {
-                        ImGui::SetClipboardText(msg.text.c_str());
+                        std::string plain;
+                        for (const auto& span : msg.spans) plain += span.text;
+                        ImGui::SetClipboardText(plain.c_str());
                     }
                     if (!msg.timestamp.empty())
                     {
                         if (ImGui::MenuItem("Copy Timestamp + Message"))
                         {
-                            std::string full_msg = msg.timestamp + " " + msg.text;
+                            std::string full_msg = msg.timestamp + " ";
+                            for (const auto& span : msg.spans) full_msg += span.text;
                             ImGui::SetClipboardText(full_msg.c_str());
                         }
                     }
@@ -535,7 +677,7 @@ namespace term
 
         // Async execution for system commands
         // Capture shared cancel flag so thread can check it even after Terminal destruction
-        auto cancel = m_ThreadCancelFlag;
+        auto& cancel = m_ThreadCancelFlag;
         std::thread
         (
             [this, cancel, command_str]() 

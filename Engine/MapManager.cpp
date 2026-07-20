@@ -11,6 +11,7 @@ MapManager::MapManager()
     std::cout << "[MapManager] Initialized - ready for map registration\n";
 }
 
+// NOLINTNEXTLINE(bugprone-exception-escape)
 MapManager::~MapManager()
 {
     if (m_CurrentMap)
@@ -34,9 +35,9 @@ void MapManager::Initialize()
         // Inject transition callback so the map can request transitions
         m_CurrentMap->SetTransitionCallback
         (
-            [this](std::string_view id, bool force)
+            [this](std::string_view map_id, bool force)
             {
-                this->b_GotoMap(std::string(id), force);
+                this->b_GotoMap(std::string(map_id), force);
             }
         );
 
@@ -135,9 +136,9 @@ void MapManager::SaveState(StateBag& out) const
     }
 }
 
-void MapManager::LoadState(const StateBag& in)
+void MapManager::LoadState(const StateBag& in_state)
 {
-    std::string map_id = in.GetString("__mapmanager_current_id", "");
+    std::string map_id = in_state.GetString("__mapmanager_current_id", "");
     if (!map_id.empty() && b_IsMapRegistered(map_id) && !b_IsCurrentMap(map_id))
     {
         b_GotoMap(map_id);
@@ -145,7 +146,7 @@ void MapManager::LoadState(const StateBag& in)
     
     if (m_CurrentMap)
     {
-        m_CurrentMap->LoadState(in);
+        m_CurrentMap->LoadState(in_state);
     }
 }
 
@@ -228,9 +229,9 @@ bool MapManager::b_GotoMap(std::string_view map_id, bool force_reload)
             // Inject transition callback for map-driven transitions
             m_CurrentMap->SetTransitionCallback
             (
-                [this](std::string_view id, bool force)
+                [this](std::string_view request_id, bool force)
                 {
-                    this->b_GotoMap(std::string(id), force);
+                    this->b_GotoMap(std::string(request_id), force);
                 }
             );
 
@@ -329,33 +330,33 @@ bool MapManager::b_ReloadCurrentMap()
 
 std::string MapManager::GetDebugInfo() const
 {
-    std::stringstream ss;
-    ss << "=== MapManager Debug Info ===\n";
+    std::stringstream debug_info;
+    debug_info << "=== MapManager Debug Info ===\n";
 
-    ss << "Current Map: " 
+    debug_info << "Current Map: " 
        << ( m_CurrentMapId.empty() ? "None" : m_CurrentMapId) 
        << "\n";
 
-    ss << "Using Default Map: " 
+    debug_info << "Using Default Map: " 
        << (m_bUsingDefaultMap ? "Yes" : "No") 
        << "\n";
 
-    ss << "Registered Maps (" << m_MapRegistry.size() << "):";
+    debug_info << "Registered Maps (" << m_MapRegistry.size() << "):";
     
     for (const auto& PAIR : m_MapInfo)
     {
         std::string_view MAP_ID = PAIR.first;
         const t_MapInfo& INFO = PAIR.second;
-        ss << "\n  - '" << MAP_ID << "': " << INFO.description;
-        ss << " [" << (INFO.b_IsLoaded ? "LOADED" : "NOT LOADED") << "]";
+        debug_info << "\n  - '" << MAP_ID << "': " << INFO.description;
+        debug_info << " [" << (INFO.b_IsLoaded ? "LOADED" : "NOT LOADED") << "]";
     }
     
     if (m_MapRegistry.empty())
     {
-        ss << "\n  (No maps registered - call RegisterMap<YourMap>() to register maps)";
+        debug_info << "\n  (No maps registered - call RegisterMap<YourMap>() to register maps)";
     }
     
-    return ss.str();
+    return debug_info.str();
 }
 
 void MapManager::LoadDefaultMap()

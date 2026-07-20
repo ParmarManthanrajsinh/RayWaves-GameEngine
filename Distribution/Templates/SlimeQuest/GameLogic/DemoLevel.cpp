@@ -3,6 +3,7 @@
 #include <iostream>
 #include <algorithm>
 #include <cmath>
+#include <array>
 
 constexpr float TileSrcSize = 16.0f;
 constexpr float TileRenderSize = 32.0f;
@@ -96,16 +97,16 @@ inline Rectangle DemoLevel::GetTileRect(int32_t Col, int32_t Row)
 {
     return 
     { 
-        Col * TileSrcSize, 
-        Row * TileSrcSize, 
+        static_cast<float>(Col) * TileSrcSize, 
+        static_cast<float>(Row) * TileSrcSize, 
         TileSrcSize, 
         TileSrcSize 
     };
 }
 
-inline int32_t DemoLevel::PseudoRandom(int32_t X, int32_t Seed) 
+inline int32_t DemoLevel::PseudoRandom(int32_t posX, int32_t Seed) 
 {
-    int32_t Hash = (X * 374761393) + (Seed * 668265263);
+    int32_t Hash = (posX * 374761393) + (Seed * 668265263);
     Hash = (Hash ^ (Hash >> 13)) * 1274126177;
     return Hash ^ (Hash >> 16);
 }
@@ -115,9 +116,9 @@ void DemoLevel::SaveState(StateBag& out) const
     m_Player.SaveState(out);
 }
 
-void DemoLevel::LoadState(const StateBag& in)
+void DemoLevel::LoadState(const StateBag& stateIn)
 {
-    m_Player.LoadState(in);
+    m_Player.LoadState(stateIn);
 }
 
 void DemoLevel::Update(float DeltaTime)
@@ -194,7 +195,7 @@ void DemoLevel::DrawBackground()
             continue;
         }
         
-        float Speed = 0.05f + (i * 0.15f);
+        float Speed = 0.05f + (static_cast<float>(i) * 0.15f);
         float Scale = 2.0f;
         float ScaledW = static_cast<float>(Tex.width) * Scale;
         float ScaledH = static_cast<float>(Tex.height) * Scale;
@@ -212,7 +213,7 @@ void DemoLevel::DrawBackground()
             (
                 Tex,
                 { 0, 0, static_cast<float>(Tex.width), static_cast<float>(Tex.height) },
-                { AlignedX + (k * ScaledW), BgY, ScaledW, ScaledH },
+                { AlignedX + (static_cast<float>(k) * ScaledW), BgY, ScaledW, ScaledH },
                 { 0, 0 },
                 0,
                 WHITE
@@ -232,10 +233,10 @@ void DemoLevel::DrawBackground()
 
 void DemoLevel::DrawTrees(float InFloorY)
 {
-    auto DrawTree = [&](float X, float Y)
+    auto DrawTree = [&](float posX, float posY)
     {
         Rectangle Src = { 160, 0, 128, 128 };
-        Rectangle Dst = { X - 128, Y - 256 + 32, 256, 256 };
+        Rectangle Dst = { posX - 128, posY - 256 + 32, 256, 256 };
         DrawTexturePro(m_TilesetTex, Src, Dst, { 0, 0 }, 0, WHITE);
     };
     
@@ -246,12 +247,12 @@ void DemoLevel::DrawTrees(float InFloorY)
 
 void DemoLevel::DrawGround(float InFloorY)
 {
-    const int32_t SurfacePattern[] = { 9, 10, 9, 4, 5, 6, 7, 8 };
+    const std::array<int32_t, 8> SurfacePattern = { 9, 10, 9, 4, 5, 6, 7, 8 };
     const int32_t SurfacePatternLen = 8;
-    const int32_t UnderPattern[] = { 8, 9 };
+    const std::array<int32_t, 2> UnderPattern = { 8, 9 };
     const int32_t UnderPatternLen = 2;
-    const int32_t DeepUnderPattern[] = { 0, 1, 2 };
-    const int32_t TileOffset[] = { 4, 5, 3, 6, 3, 5 };
+    const std::array<int32_t, 3> DeepUnderPattern = { 0, 1, 2 };
+    const std::array<int32_t, 6> TileOffset = { 4, 5, 3, 6, 3, 5 };
     int32_t DeepUnderPatternLen = 3;
 
     int32_t TileIndex = 0;

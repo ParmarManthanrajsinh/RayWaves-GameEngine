@@ -9,7 +9,7 @@ public:
     
     void Initialize(Texture2D Texture, Sound DeathSound, Vector2 StartPosition);
     void Update(float DeltaTime);
-    void Draw();
+    void Draw() const;
     
     Vector2 GetPosition() const { return m_Position; }
     Rectangle GetHitbox() const;

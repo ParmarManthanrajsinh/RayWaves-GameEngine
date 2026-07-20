@@ -14,7 +14,7 @@ std::string AssetResolver::Resolve(std::string_view relativePath) {
 
     std::filesystem::path base_abs = std::filesystem::absolute(s_BasePath).lexically_normal();
     std::filesystem::path resolved = std::filesystem::absolute(std::filesystem::path(s_BasePath) / relativePath).lexically_normal();
-    std::string base_str = base_abs.string();
+
     std::string resolved_str = resolved.string();
 
     // Root-jail check: resolved path must be within asset root

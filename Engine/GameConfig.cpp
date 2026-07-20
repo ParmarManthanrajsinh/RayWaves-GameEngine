@@ -34,8 +34,8 @@ bool GameConfig::m_bLoadFromFile(std::string_view config_path)
 		continue;
 	}
 
-	std::string key(line.begin(), line.begin() + equal_pos);
-	std::string value(line.begin() + equal_pos + 1, line.end());
+	std::string key = line.substr(0, equal_pos);
+	std::string value = line.substr(equal_pos + 1);
 	
 	// Trim whitespace
 	key.erase(0, key.find_first_not_of(" \t"));
@@ -44,8 +44,8 @@ bool GameConfig::m_bLoadFromFile(std::string_view config_path)
 	value.erase(value.find_last_not_of(" \t") + 1);
 	
 	// Parse configuration values
-	auto safe_stoi = [&](const std::string& v, int fallback) -> int {
-		try { return std::stoi(v); } catch (...) { return fallback; }
+	auto safe_stoi = [&](const std::string& str_val, int fallback) -> int {
+		try { return std::stoi(str_val); } catch (...) { return fallback; }
 	};
 	
 	if (key == "width") 
@@ -128,9 +128,9 @@ bool GameConfig::m_bSaveToFile(std::string_view config_path) const
 
 std::string GameConfig::GenerateConfigString() const
 {
-    std::ostringstream ss;
+    std::ostringstream out_stream;
 
-    ss << "# Game Configuration File\n"
+    out_stream << "# Game Configuration File\n"
        << "# Window Settings\n"
        << "width=" << m_WindowConfig.width << "\n"
        << "height=" << m_WindowConfig.height << "\n"
@@ -145,12 +145,12 @@ std::string GameConfig::GenerateConfigString() const
        << "scene_height=" << m_WindowConfig.scene_height << "\n"
        << "scene_fps=" << m_WindowConfig.scene_fps << "\n";
 
-    return ss.str();
+    return out_stream.str();
 }
 
 void GameConfig::ApplyExportSettings
 (
-    int width, int height, 
+    int width, int height, // NOLINT(bugprone-easily-swappable-parameters) 
     bool fullscreen, bool resizable,
     bool vsync, int target_fps
 )

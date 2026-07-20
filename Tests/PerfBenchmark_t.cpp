@@ -31,8 +31,8 @@ TEST_CASE("PERF: StateBag get/set with string keys")
         }
     }
     auto end = std::chrono::steady_clock::now();
-    auto us = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
-    std::cout << "[PERF] StateBag lookup " << k_Iterations * 100 << " times: " << us << " us" << '\n';
+    auto microseconds = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+    std::cout << "[PERF] StateBag lookup " << k_Iterations * 100 << " times: " << microseconds << " us" << '\n';
     (void)sum;
 }
 
@@ -45,8 +45,8 @@ TEST_CASE("PERF: Profiler::Record single name")
         Profiler::Get().Record("test_timer", 42);
     }
     auto end = std::chrono::steady_clock::now();
-    auto us = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
-    std::cout << "[PERF] Profiler::Record " << k_Iterations << " times (single name): " << us << " us" << '\n';
+    auto microseconds = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+    std::cout << "[PERF] Profiler::Record " << k_Iterations << " times (single name): " << microseconds << " us" << '\n';
 }
 
 TEST_CASE("PERF: Profiler::Record 100 names ring")
@@ -60,8 +60,8 @@ TEST_CASE("PERF: Profiler::Record 100 names ring")
         Profiler::Get().Record(("timer_" + std::to_string(iter % 100)).c_str(), 42);
     }
     auto end = std::chrono::steady_clock::now();
-    auto us = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
-    std::cout << "[PERF] Profiler::Record " << k_Iterations << " times (100 names ring): " << us << " us" << '\n';
+    auto microseconds = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+    std::cout << "[PERF] Profiler::Record " << k_Iterations << " times (100 names ring): " << microseconds << " us" << '\n';
 }
 
 TEST_CASE("PERF: AssetResolver::Resolve")
@@ -70,12 +70,12 @@ TEST_CASE("PERF: AssetResolver::Resolve")
     auto start = std::chrono::steady_clock::now();
     for (int iter = 0; iter < k_Iterations; ++iter)
     {
-        volatile auto r = AssetResolver::Resolve("textures/player.png");
-        (void)r;
+        volatile auto result = AssetResolver::Resolve("textures/player.png");
+        (void)result;
     }
     auto end = std::chrono::steady_clock::now();
-    auto us = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
-    std::cout << "[PERF] AssetResolver::Resolve " << k_Iterations << " times: " << us << " us" << '\n';
+    auto microseconds = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+    std::cout << "[PERF] AssetResolver::Resolve " << k_Iterations << " times: " << microseconds << " us" << '\n';
 }
 
 TEST_CASE("PERF: StateBag GetVector2 (two hash lookups)")
@@ -86,10 +86,10 @@ TEST_CASE("PERF: StateBag GetVector2 (two hash lookups)")
     auto start = std::chrono::steady_clock::now();
     for (int iter = 0; iter < k_Iterations; ++iter)
     {
-        volatile auto v = bag.GetVector2("player_pos");
-        (void)v;
+        volatile auto vectorValue = bag.GetVector2("player_pos");
+        (void)vectorValue;
     }
     auto end = std::chrono::steady_clock::now();
-    auto us = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
-    std::cout << "[PERF] StateBag GetVector2 " << k_Iterations << " times: " << us << " us" << '\n';
+    auto microseconds = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+    std::cout << "[PERF] StateBag GetVector2 " << k_Iterations << " times: " << microseconds << " us" << '\n';
 }

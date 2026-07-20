@@ -39,6 +39,7 @@ std::string GameMap::GetMapName() const
     return m_MapName;
 }
 
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
 void GameMap::SetSceneBounds(float width, float height)
 {
     m_SceneWidth = width;
@@ -47,7 +48,7 @@ void GameMap::SetSceneBounds(float width, float height)
 
 Vector2 GameMap::GetSceneBounds() const
 {
-	return Vector2(m_SceneWidth, m_SceneHeight);
+	return Vector2{m_SceneWidth, m_SceneHeight};
 }
 
 void GameMap::SetTargetFPS(int fps)
@@ -63,15 +64,15 @@ int GameMap::GetTargetFPS() const
 
 void GameMap::SetTransitionCallback
 (
-    std::function<void(std::string_view, bool)> cb
+    std::function<void(std::string_view, bool)> callback
 )
 {
-    m_TransitionCallback = std::move(cb);
+    m_TransitionCallback = std::move(callback);
 }
 
-void GameMap::SetExitCallback(std::function<void()> cb)
+void GameMap::SetExitCallback(std::function<void()> callback)
 {
-    m_ExitCallback = std::move(cb);
+    m_ExitCallback = std::move(callback);
 }
 
 void GameMap::RequestExit()
@@ -86,7 +87,7 @@ void GameMap::RequestExit()
     }
 }
 
-void GameMap::RequestGotoMap(std::string_view map_id, bool force_reload)
+void GameMap::RequestGotoMap(std::string_view map_id, bool force_reload) const
 {
     if (m_TransitionCallback)
     {

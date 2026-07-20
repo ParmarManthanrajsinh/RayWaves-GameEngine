@@ -46,14 +46,14 @@ public:
     // Maps call RequestGotoMap to trigger transitions safely (no global/static).
     void SetTransitionCallback
     (
-        std::function<void(std::string_view, bool)> cb
+        std::function<void(std::string_view, bool)> callback
     );
 
-    void SetExitCallback(std::function<void()> cb);
+    void SetExitCallback(std::function<void()> callback);
 
 protected:
     // Helper maps can call to request a transition (executes callback if provided)
-    void RequestGotoMap(std::string_view map_id, bool force_reload = false);
+    void RequestGotoMap(std::string_view map_id, bool force_reload = false) const;
 
     // Helper maps can call to request shutdown (executes callback if provided)
     void RequestExit();
