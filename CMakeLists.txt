@@ -1,4 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Check and auto-fetch Zig if necessary before compiler detection runs
 if(CMAKE_C_COMPILER MATCHES "zig-cc" OR CMAKE_CXX_COMPILER MATCHES "zig-cxx")
@@ -13,7 +14,7 @@ if(CMAKE_C_COMPILER MATCHES "zig-cc" OR CMAKE_CXX_COMPILER MATCHES "zig-cxx")
       message(FATAL_ERROR "Failed to download Zig.")
     endif()
   endif()
-endif()
+endif() 
 
 project(RayWaves)
 

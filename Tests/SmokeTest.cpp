@@ -8,22 +8,26 @@
 typedef GameMap* (*CreateGameMapFunc)();
 typedef void (*DestroyGameMapFunc)(GameMap*);
 
-int main(int argc, char** argv) {
+int main(int argc, char** argv) 
+{
     std::cout << "Starting Smoke Test: 50 Hot Reloads" << std::endl;
     
-    for (int i = 0; i < 50; ++i) {
+    for (int i = 0; i < 50; ++i) 
+    {
         std::cout << "\n--- Iteration " << i + 1 << "/50 ---" << std::endl;
         
         // 1. Rebuild GameLogic (simulating a code change)
         int buildResult = std::system("cmake --build . --target GameLogic");
-        if (buildResult != 0) {
+        if (buildResult != 0) 
+        {
             std::cerr << "Build failed. Are you running this from the CMake build directory?" << std::endl;
             return 1;
         }
 
         // 2. Load the DLL
         DllHandle dll = LoadDll("GameLogic.dll");
-        if (!dll.handle) {
+        if (!dll.handle) 
+        {
             std::cerr << "Failed to load GameLogic.dll" << std::endl;
             return 1;
         }
@@ -32,7 +36,8 @@ int main(int argc, char** argv) {
         // 3. Resolve symbols
         CreateGameMapFunc createMap = (CreateGameMapFunc)GetDllSymbol(dll, "CreateGameMap");
         DestroyGameMapFunc destroyMap = (DestroyGameMapFunc)GetDllSymbol(dll, "DestroyGameMap");
-        if (!createMap || !destroyMap) {
+        if (!createMap || !destroyMap) 
+        {
             std::cerr << "Failed to find CreateGameMap/DestroyGameMap symbols" << std::endl;
             UnloadDll(dll);
             return 1;
@@ -40,7 +45,8 @@ int main(int argc, char** argv) {
 
         // 4. Create map via DLL factory
         GameMap* map = createMap();
-        if (map) {
+        if (map) 
+        {
             // Exercise the vtable
             map->Initialize();
             

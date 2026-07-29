@@ -3737,7 +3737,7 @@ DOCTEST_RELATIONAL_OP(ge, >=)
 #define DOCTEST_AND_GIVEN(name) DOCTEST_SUBCASE("     And: " name)
 #define DOCTEST_WHEN(name)      DOCTEST_SUBCASE("    When: " name)
 #define DOCTEST_AND_WHEN(name)  DOCTEST_SUBCASE("     And: " name)
-#define DOCTEST_THEN(name)      DOCTEST_SUBCASE("    Then: " name)
+#define DOCTEST_THEN(name)      DOCTEST_SUBCASE("    Then: " name)  
 #define DOCTEST_AND_THEN(name)  DOCTEST_SUBCASE("     And: " name)
 // clang-format on
 

@@ -88,7 +88,8 @@ public:
     {}
     ~ScopedTimer()
     {
-        auto us = std::chrono::duration_cast<std::chrono::microseconds>(
+        auto us = std::chrono::duration_cast<std::chrono::microseconds>
+        (
             std::chrono::steady_clock::now() - m_Start).count();
         Profiler::Get().Record(m_Name, us);
     }
