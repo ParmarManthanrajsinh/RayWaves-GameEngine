@@ -47,9 +47,15 @@ void PerformanceOverlay::Draw(GameEditor* editor)
 		ImGui::Separator();
 		ImGui::Text("System Breakdown (avg ms)");
 
-		auto snapshots = Profiler::Get().GetAverages();
-		std::ranges::sort(snapshots,
-			[](const ProfilerSnapshot& a, const ProfilerSnapshot& b) { return a.m_AvgMs > b.m_AvgMs; });
+		auto& snapshots = m_Snapshots;
+		if (m_SnapshotCountdown <= 0)
+		{
+			m_SnapshotCountdown = c_SnapshotRefreshFrames;
+			snapshots = Profiler::Get().GetAverages();
+			std::ranges::sort(snapshots,
+				[](const ProfilerSnapshot& a, const ProfilerSnapshot& b) { return a.m_AvgMs > b.m_AvgMs; });
+		}
+		--m_SnapshotCountdown;
 
 		ImGui::Columns(3, "perf_cols", false);
 		ImGui::Text("System"); ImGui::NextColumn();

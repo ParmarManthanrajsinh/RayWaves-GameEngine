@@ -221,10 +221,11 @@ Profiler::Get().SaveToFile("profile.csv");
 `#include <raygui.h>` in your map code for immediate-mode UI. Do **not** `#define RAYGUI_IMPLEMENTATION` yourself.
 
 ### Customizing the Editor
-1. Open `Editor/GameEditor.cpp`.
-2. Find `DrawSceneWindow()`.
-3. Add ImGui code.
-4. Rebuild `RayWaves.exe` (must close the editor first).
+1. Open `Editor/GameEditor.cpp` for the main loop, or the relevant piece:
+   `Editor/GameLogicLoader.cpp` (DLL hot-reload lifecycle),
+   `Editor/ThemeService.cpp` (theme rebake), `Editor/Panels/*` (editor UI).
+2. Panels implement `IEditorPanel` — add a new panel file pair plus one `b_RegisterPanel<T>()` line rather than growing `GameEditor.cpp`.
+3. Rebuild `RayWaves.exe` (must close the editor first).
 
 ### Debugging
 - Attach any C++ debugger (VS Code, LLDB, Visual Studio) to `RayWaves.exe`.

@@ -10,18 +10,25 @@ RayWaves/
 ├── Engine/                  # Core engine library (static libEngine.a)
 │   ├── *.h / *.cpp          # GameMap, MapManager, ProjectManager, Profiler, etc.
 │   ├── ProjectManager.h     # Project lifecycle, folder open/create
+│   ├── WindowUtils.h        # Win32 title-bar/icon tweaks (keeps <windows.h> local)
 │   └── raygui.h             # Immediate-mode GUI helper (bundled)
 │
 ├── Editor/                  # RayWaves.exe source (ImGui-based IDE)
-│   ├── GameEditor.h/cpp     # Main editor loop, panels, DLL hot-reload
+│   ├── GameEditor.h/cpp     # Main editor loop + orchestration (delegates below)
+│   ├── GameLogicLoader.h/cpp # GameLogic DLL lifecycle: load/swap/unload, ABI check
+│   ├── ThemeService.h/cpp   # Editor theme rebake + EngineContent path lookup
+│   ├── ExportService.h/cpp  # Game export pipeline (build/copy/validate), UI-free
 │   ├── Panels/              # MainMenuBar, SceneWindow, ExportPanel, etc.
+│   ├── PanelRegistry.h      # Panel factory list; new panels self-register
 │   ├── imgui/               # Dear ImGui (vendored)
 │   ├── rlImGui/             # raylib-ImGui bridge
 │   └── FileAssociation.h/cpp # Windows .raywaves file association (HKCU)
 │
-├── Game/                    # Entry points
+├── Game/                    # Entry points + DLL loading
 │   ├── main.cpp             # RayWaves.exe — editor entry
-│   └── game.cpp             # game.exe — standalone runtime entry
+│   ├── game.cpp             # game.exe — standalone runtime entry
+│   ├── DllLoader.h/cpp      # Shadow-copy load/unload, log sink, ABI message
+│   └── PeCrtCheck.h/cpp     # PE import-table CRT compatibility check
 │
 ├── Tools/                   # Build toolchain (auto-downloaded, .gitignored)
 │   ├── setup_zig.ps1        # Fetches Zig / Ninja / CMake / rcedit on demand

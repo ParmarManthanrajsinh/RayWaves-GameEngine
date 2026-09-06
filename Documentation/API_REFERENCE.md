@@ -101,7 +101,12 @@ The `MapManager` handles registration and switching of maps. You typically inter
 ### Registration Example
 
 ```cpp
-// In GameLogic/RootManager.cpp
+// In GameLogic/RootManager.cpp — the three required exports
+extern "C" __declspec(dllexport) uint32_t GetGameLogicAbiVersion()
+{
+    return RAYWAVES_GAMELOGIC_ABI_VERSION; // from Engine/GameMap.h
+}
+
 extern "C" __declspec(dllexport) GameMap* CreateGameMap() 
 {
     if (s_GameMapManager == nullptr) 
@@ -113,6 +118,8 @@ extern "C" __declspec(dllexport) GameMap* CreateGameMap()
     return s_GameMapManager;
 }
 ```
+
+> **ABI check:** The editor and runtime verify `GetGameLogicAbiVersion()` before loading a GameLogic DLL. A missing or mismatched version means the DLL was built against a different engine build — the load is rejected with a clear error instead of risking heap corruption across the DLL boundary. Additionally, `LoadDll` compares CRT imports of the host EXE and the DLL and refuses static-vs-dynamic CRT mixes for the same reason.
 
 ---
 

@@ -3,6 +3,7 @@
 #include "Engine/AssetResolver.h"
 #include <algorithm>
 #include <cmath>
+#include <iostream>
 
 Player::Player()
     : m_Position{ 0, 0 }

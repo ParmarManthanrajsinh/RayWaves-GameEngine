@@ -7,7 +7,7 @@ MapManager::MapManager()
     , 
      m_bUsingDefaultMap(false)
 {
-    m_MapName = "_RAYWAVES_MAP_MANAGER_";
+    m_MapName = "MapManager";
     std::cout << "[MapManager] Initialized - ready for map registration\n";
 }
 

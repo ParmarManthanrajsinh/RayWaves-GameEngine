@@ -63,14 +63,16 @@ With our **hot-reloading magic**, you can tweak movement speeds, adjust physics,
 
 1. **Open any terminal** (PowerShell, Command Prompt, or VS Code terminal).
 2. **Build the engine:**
-   There are two build paths available:
-   
-   **Recommended (Zero-Install)**  
-   Uses the Zig compiler (fetched automatically). No Visual Studio needed.
-   ```powershell
-   cmake --preset zig-debug
-   cmake --build build/zig-debug
-   ```
+    There are two build paths available:
+    
+    **Recommended (Zero-Install)**  
+    Uses the Zig compiler (fetched automatically). No Visual Studio needed.
+    ```powershell
+    cmake --preset zig-release
+    cmake --build build/zig-release
+    ```
+    (Use the `zig-debug` preset instead if you need a debug build — just keep
+    the same preset for the test/run commands below.)
 3. **Run tests:**
    ```powershell
    .\build\zig-release\tests.exe
@@ -174,8 +176,8 @@ End users get a **zero-install** experience: unzip, run `RayWaves.exe`, create a
 - **Reset:** Hit the **Restart** button in the toolbar if you want to force a full reload.
 - **Performance:** Toggle the **Performance Overlay** (chart icon) to see FPS, frame times, and per-system breakdown.
 - **Modes:** 
-  - `RayWaves.exe` = Editor & Hot-Reloading
-  - `game.exe` = Standalone Runtime (Pure Gameplay)
+  - `RayWaves.exe` = Editor & Hot-Reloading (built from the `main` CMake target: `Editor/` + `Game/main.cpp`)
+  - `game.exe` = Standalone Runtime, pure gameplay (built from the `game` CMake target: `Game/game.cpp`). The distribution script copies it to `Core/runtime.exe`, so in an exported project the runtime is `Core/runtime.exe` — same binary, different path.
 - **Double-click:** Register `.raywaves` file association under *Tools → Register .raywaves file association* to open projects by double-clicking `project.raywaves` in Explorer.
 
 ---

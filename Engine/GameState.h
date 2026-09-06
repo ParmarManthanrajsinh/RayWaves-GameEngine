@@ -48,11 +48,13 @@ public:
     }
 
     void SetVector2(std::string_view key, Vector2 value) {
-        SetFloat(std::string(key) + "_x", value.x);
-        SetFloat(std::string(key) + "_y", value.y);
+        std::string base(key);
+        SetFloat(base + "_x", value.x);
+        SetFloat(base + "_y", value.y);
     }
     Vector2 GetVector2(std::string_view key, Vector2 defaultValue = {0.0f, 0.0f}) const {
-        return { GetFloat(std::string(key) + "_x", defaultValue.x), GetFloat(std::string(key) + "_y", defaultValue.y) };
+        std::string base(key);
+        return { GetFloat(base + "_x", defaultValue.x), GetFloat(base + "_y", defaultValue.y) };
     }
 
     void Clear() {

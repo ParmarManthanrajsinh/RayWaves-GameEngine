@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <iostream>
 #include <cstdlib>
 #include <memory>
@@ -7,6 +8,7 @@
 
 typedef GameMap* (*CreateGameMapFunc)();
 typedef void (*DestroyGameMapFunc)(GameMap*);
+typedef uint32_t (*AbiVersionFunc)();
 
 int main(int argc, char** argv) {
     std::cout << "Starting Smoke Test: 50 Hot Reloads" << '\n';
@@ -32,8 +34,17 @@ int main(int argc, char** argv) {
         // 3. Resolve symbols
         auto createMap = reinterpret_cast<CreateGameMapFunc>(GetDllSymbol(dll, "CreateGameMap"));
         auto destroyMap = reinterpret_cast<DestroyGameMapFunc>(GetDllSymbol(dll, "DestroyGameMap"));
-        if ((createMap == nullptr) || (destroyMap == nullptr)) {
-            std::cerr << "Failed to find CreateGameMap/DestroyGameMap symbols" << '\n';
+        auto abiVersion = reinterpret_cast<AbiVersionFunc>(GetDllSymbol(dll, "GetGameLogicAbiVersion"));
+        if ((createMap == nullptr) || (destroyMap == nullptr) || (abiVersion == nullptr)) {
+            std::cerr << "Failed to find CreateGameMap/DestroyGameMap/GetGameLogicAbiVersion symbols" << '\n';
+            UnloadDll(dll);
+            return 1;
+        }
+
+        // 4. Verify ABI version matches the engine
+        if (abiVersion() != RAYWAVES_GAMELOGIC_ABI_VERSION) {
+            std::cerr << "GameLogic ABI version mismatch: " << abiVersion()
+                      << " (DLL) vs " << RAYWAVES_GAMELOGIC_ABI_VERSION << " (engine)" << '\n';
             UnloadDll(dll);
             return 1;
         }

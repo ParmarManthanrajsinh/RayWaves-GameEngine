@@ -18,7 +18,7 @@
 #include <string>
 #include <print>
 
-#include "DllLoader.h"
+#include "GameLogicLoader.h"
 #include "GameEditorLayout.h"
 #include "GameEditorTheme.h"
 #include "GameEngine.h"
@@ -47,10 +47,13 @@ public:
     void Init(int width, int height, std::string_view title);
     void LoadMap(GameMap* game_map);
 
-    // Load the game logic DLL and create/set a new GameMap from it
+    // Load the game logic DLL and create/set a new GameMap from it.
+    // Forwards to GameLogicLoader; the exit-request callback is attached
+    // via the loader's new-map callback (wired in the constructor).
     bool b_LoadGameLogic(std::string_view dll_path);
 
-    // Unload and reload the DLL, then recreate the GameMap
+    // Unload and reload the DLL, then recreate the GameMap.
+    // Pauses playback around the reload; forwards the swap to GameLogicLoader.
     bool b_ReloadGameLogic();
 
     void RunBrowser();
@@ -61,7 +64,8 @@ public:
     void CloseProject();
     void CleanupProject();
     GameEngine& GetGameEngine() { return m_GameEngine; }
-    MapManager* GetMapManager() { return m_MapManager; }
+    MapManager* GetMapManager() { return m_LogicLoader.GetMapManager(); }
+    GameLogicLoader& GetLogicLoader() { return m_LogicLoader; }
     std::shared_ptr<std::atomic<bool>> GetThreadCancelFlag() const { return m_ThreadCancelFlag; }
     term::Terminal& GetTerminal() { return m_Terminal; }
     
@@ -123,8 +127,7 @@ public:
     bool m_bNeedsIniLoad = false;
     
     bool m_bUseOpaquePass = true;
-    bool m_bPreserveStateOnReload = true;
-    
+
     std::string m_SelectedMapId;
 
 private:
@@ -133,24 +136,12 @@ private:
     GameEngine m_GameEngine;
     ImGuiViewport* m_Viewport;
 
-    // Hot-reload state
-    DllHandle m_GameLogicDll;
-    using CreateGameMapFunc = GameMap * (*)();
-    using DestroyGameMapFunc = void (*)(GameMap*);
-    
-    CreateGameMapFunc m_CreateGameMap = nullptr;
-    DestroyGameMapFunc m_DestroyGameMap = nullptr;
-    
-    std::string m_GameLogicPath;
-    fs::file_time_type m_LastLogicWriteTime{};
-    std::atomic<bool> m_bNeedsReload = false;
+    // Hot-reload lifecycle (DLL handles, timestamp watching, state-preserving
+    // swaps). Owned here so its lifetime matches the engine's; panels reach
+    // it through the forwarding methods above.
+    GameLogicLoader m_LogicLoader;
 
-    float m_ReloadCheckAccum = 0.0f;
-    std::chrono::steady_clock::time_point m_LastReloadCheckTime = std::chrono::steady_clock::now();
     Shader m_OpaqueShader;
-
-    // Map selection UI
-    MapManager* m_MapManager = nullptr;
 
     void UpdatePerformanceMetrics();
 

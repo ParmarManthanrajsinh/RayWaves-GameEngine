@@ -8,10 +8,18 @@
 
 RayWaves compiles your `GameLogic/` code into a **DLL** (`GameLogic.dll`). The editor loads it at runtime, calls into it, and hot-reloads it when you recompile.
 
-Every project **must** provide two exported C functions in `RootManager.cpp`:
+Every project **must** provide three exported C functions in `RootManager.cpp`:
 
 ```cpp
+#include "Engine/GameMap.h"
+#include <cstdint>
+
 static MapManager* s_GameMapManager = nullptr;
+
+extern "C" __declspec(dllexport) uint32_t GetGameLogicAbiVersion()
+{
+    return RAYWAVES_GAMELOGIC_ABI_VERSION;
+}
 
 extern "C" __declspec(dllexport) GameMap* CreateGameMap()
 {
@@ -38,6 +46,7 @@ extern "C" __declspec(dllexport) void DestroyGameMap(GameMap* map_manager)
 
 ### Key Rules
 
+- **GetGameLogicAbiVersion** must return `RAYWAVES_GAMELOGIC_ABI_VERSION` (defined in `Engine/GameMap.h`). The editor and the standalone runtime **refuse to load** any DLL that is missing this export or returns a mismatched version — rebuild your GameLogic with the current engine version if you see this error.
 - **CreateGameMap** is called once when the DLL loads. `RegisterMap<>` calls must happen inside the `if (s_GameMapManager == nullptr)` guard — they register map types, not map instances.
 - **DestroyGameMap** is called when the editor closes or unloads the DLL. It must clean up all memory.
 - The `static` pointer outside the guard means **map registrations survive hot-reloads**. On recompile, `CreateGameMap` is called again, but `s_GameMapManager` is not null (since the global variable in the DLL persists), so registration is skipped. Only `b_GotoMap` runs to restore the current map.

@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <iostream>
 #include "GameEngine.h"
 #include "DllLoader.h"
@@ -33,6 +34,23 @@ static GameMap* s_fLoadGameLogic
     if ((CreateFn == nullptr) || (s_DestroyGameMap == nullptr))
     {
         std::cerr << "Failed to find symbol CreateGameMap/DestroyGameMap in GameLogic DLL" << "\n";
+        UnloadDll(out_handle);
+        out_handle = {nullptr, {}};
+        return nullptr;
+    }
+
+    // ABI version check: refuse outdated DLLs loudly instead of risking
+    // heap corruption across the DLL boundary.
+    auto AbiFn = reinterpret_cast<uint32_t (*)()>
+    (
+        GetDllSymbol(out_handle, "GetGameLogicAbiVersion")
+    );
+    const bool b_HasVersionExport = (AbiFn != nullptr);
+    const uint32_t dll_version = b_HasVersionExport ? AbiFn() : 0;
+    if (!b_HasVersionExport || (dll_version != RAYWAVES_GAMELOGIC_ABI_VERSION))
+    {
+        std::cerr << FormatAbiMismatchMessage(b_HasVersionExport, dll_version, RAYWAVES_GAMELOGIC_ABI_VERSION)
+                  << "\n";
         UnloadDll(out_handle);
         out_handle = {nullptr, {}};
         return nullptr;

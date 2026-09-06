@@ -109,6 +109,7 @@ endif()
 set(GAME_SRC_CPP
     Game/main.cpp
     Game/DllLoader.cpp
+    Game/PeCrtCheck.cpp
 )
 set(ENGINE_SRC_CPP
     Engine/AssetResolver.cpp
@@ -120,12 +121,16 @@ set(ENGINE_SRC_CPP
     Engine/Project.cpp
     Engine/ProjectManager.cpp
     Engine/raygui_impl.cpp
+    Engine/WindowUtils.cpp
 )
 set(EDITOR_SRC_CPP
     Editor/EditorPreferences.cpp
     Editor/EditorUtils.cpp
     Editor/FileAssociation.cpp
     Editor/GameEditor.cpp
+    Editor/GameLogicLoader.cpp
+    Editor/ThemeService.cpp
+    Editor/ExportService.cpp
     Editor/ProcessRunner.cpp
     Editor/terminal/terminal.cpp
     Editor/Panels/EditorPreferencesPanel.cpp
@@ -246,6 +251,7 @@ add_custom_command(TARGET GameLogic POST_BUILD
 add_executable(game WIN32
     Game/game.cpp
     Game/DllLoader.cpp
+    Game/PeCrtCheck.cpp
     EngineContent/app.rc
 )
 target_link_options(game PRIVATE -Wl,--subsystem,windows)
@@ -283,6 +289,7 @@ add_custom_command(TARGET game POST_BUILD
 add_executable(smoketest
     Tests/SmokeTest.cpp
     Game/DllLoader.cpp
+    Game/PeCrtCheck.cpp
 )
 
 target_include_directories(smoketest PRIVATE
@@ -304,20 +311,30 @@ add_custom_command(TARGET smoketest POST_BUILD
 # Unit test target
 add_executable(tests
     Tests/main.cpp
+    Tests/DllLoader_t.cpp
     Tests/GameConfig_t.cpp
     Tests/Project_t.cpp
     Tests/AssetResolver_t.cpp
     Tests/StateBag_t.cpp
+    Tests/ReloadRoundtrip_t.cpp
     Tests/ProjectManager_t.cpp
     Tests/Profiler_t.cpp
     Tests/GameMap_t.cpp
     Tests/MapManager_t.cpp
     Tests/GameEditor_t.cpp
+    Tests/PanelRegistry_t.cpp
+    Tests/ExportService_t.cpp
     Tests/PerfBenchmark_t.cpp
+    Game/DllLoader.cpp
+    Game/PeCrtCheck.cpp
+    Editor/ExportService.cpp
+    Editor/EditorUtils.cpp
 )
 
 target_include_directories(tests PRIVATE
     ${CMAKE_SOURCE_DIR}/Engine
+    ${CMAKE_SOURCE_DIR}/Game
+    ${CMAKE_SOURCE_DIR}/Editor
 )
 
 target_link_libraries(tests PRIVATE Engine)

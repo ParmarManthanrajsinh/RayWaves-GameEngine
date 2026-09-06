@@ -7,7 +7,7 @@
 
 #include "../Engine/ProjectManager.h"
 
-// DLL loading now handled by GameEditor for hot-reload
+// DLL loading is owned by GameLogicLoader (via GameEditor) for hot-reload
 int main(int argc, char** argv)
 {
     if (argc >= 3 && std::string(argv[1]) == "--project")

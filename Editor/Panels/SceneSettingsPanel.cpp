@@ -208,7 +208,7 @@ void SceneSettingsPanel::Draw(GameEditor* editor)
     ImGui::Spacing();
     ImGui::SeparatorText("Hot Reload Settings");
     ImGui::Spacing();
-    ImGui::Checkbox("Preserve state on reload", &editor->m_bPreserveStateOnReload);
+    ImGui::Checkbox("Preserve state on reload", &editor->GetLogicLoader().m_bPreserveStateOnReload);
 
     ImGui::End();
 }

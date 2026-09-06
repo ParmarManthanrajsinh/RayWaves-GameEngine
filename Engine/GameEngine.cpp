@@ -3,19 +3,7 @@
 #include "MapManager.h"
 #include "AssetResolver.h"
 #include "Profiler.h"
-
-#define Rectangle WinAPIRectangle
-#define CloseWindow WinAPICloseWindow
-#define ShowCursor  WinAPIShowCursor
-#include <windows.h>
-#include <dwmapi.h>
-#undef Rectangle
-#undef CloseWindow
-#undef ShowCursor
-
-#include <shellapi.h>
-#pragma comment(lib, "Shell32.lib")
-#pragma comment(lib, "Dwmapi.lib")
+#include "WindowUtils.h"
 
 GameEngine::GameEngine()
 {
@@ -27,8 +15,23 @@ GameEngine::~GameEngine() = default;
 
 void GameEngine::SetViewportSize(int width, int height)
 {
+	if ((width == m_ViewportWidth) && (height == m_ViewportHeight))
+	{
+		return;
+	}
 	m_ViewportWidth = width;
 	m_ViewportHeight = height;
+
+	// Propagate bounds only when the size actually changed; UpdateMap() used
+	// to push the same values every frame.
+	if (m_MapManager != nullptr)
+	{
+		m_MapManager->SetSceneBounds(static_cast<float>(width), static_cast<float>(height));
+	}
+	else if (m_GameMap != nullptr)
+	{
+		m_GameMap->SetSceneBounds(static_cast<float>(width), static_cast<float>(height));
+	}
 }
 
 int GameEngine::GetViewportWidth() const
@@ -51,28 +54,9 @@ void GameEngine::LaunchWindow(int width, int height, std::string_view title)
 	InitWindow(width, height, title.data());
 	InitAudioDevice();
 
-	HWND hwnd = static_cast<HWND>(GetWindowHandle());
-	BOOL value = TRUE;
-
-	if (hwnd == nullptr) 
+	if (!WindowUtils::SetupNativeWindow())
 	{
 		return;
-	}
-
-	// Windows 10 (attribute 19)
-	DwmSetWindowAttribute(hwnd, 19, &value, sizeof(value));
-
-	// Windows 11 (attribute 20)
-	DwmSetWindowAttribute(hwnd, 20, &value, sizeof(value));
-
-	// Extract and set icon from executable
-	char exePath[MAX_PATH];
-	GetModuleFileNameA(nullptr, exePath, MAX_PATH);
-	HICON hIcon = ExtractIconA(GetModuleHandle(nullptr), exePath, 0);
-	if (hIcon != nullptr && hIcon != (HICON)1)
-	{
-		SendMessage(hwnd, WM_SETICON, ICON_BIG, (LPARAM)hIcon);
-		SendMessage(hwnd, WM_SETICON, ICON_SMALL, (LPARAM)hIcon);
 	}
 
 	m_bIsRunning = true;
@@ -100,22 +84,7 @@ void GameEngine::LaunchWindow(const t_WindowConfig& config)
 	InitWindow(config.width, config.height, config.title.c_str());
 	InitAudioDevice();
 
-	HWND hwnd = static_cast<HWND>(GetWindowHandle());
-	if (hwnd != nullptr)
-	{
-		BOOL value = TRUE;
-		DwmSetWindowAttribute(hwnd, 19, &value, sizeof(value));
-		DwmSetWindowAttribute(hwnd, 20, &value, sizeof(value));
-
-		char exePath[MAX_PATH];
-		GetModuleFileNameA(nullptr, exePath, MAX_PATH);
-		HICON hIcon = ExtractIconA(GetModuleHandle(nullptr), exePath, 0);
-		if (hIcon != nullptr && hIcon != (HICON)1)
-		{
-			SendMessage(hwnd, WM_SETICON, ICON_BIG, (LPARAM)hIcon);
-			SendMessage(hwnd, WM_SETICON, ICON_SMALL, (LPARAM)hIcon);
-		}
-	}
+	WindowUtils::SetupNativeWindow();
 
 	// Set fullscreen after window creation if needed
 	if (config.b_Fullscreen)
@@ -157,10 +126,15 @@ void GameEngine::SetMap(GameMap* game_map)
 	m_GameMap = game_map;
 	if (m_GameMap != nullptr)
 	{
+		// Prefer the last viewport size when one was set. UpdateMap() no
+		// longer pushes bounds every frame, so attach must converge to the
+		// same steady state the per-frame push used to enforce.
+		const int b_w = (m_ViewportWidth > 0) ? m_ViewportWidth : m_WindowWidth;
+		const int b_h = (m_ViewportHeight > 0) ? m_ViewportHeight : m_WindowHeight;
 		m_GameMap->SetSceneBounds
 		(
-			static_cast<float>(m_WindowWidth), 
-			static_cast<float>(m_WindowHeight)
+			static_cast<float>(b_w),
+			static_cast<float>(b_h)
 		);
 		m_GameMap->SetProjectAssetPath(AssetResolver::GetProjectAssetPath());
 		m_GameMap->Initialize();
@@ -187,12 +161,10 @@ void GameEngine::UpdateMap(float dt)
 	SCOPED_TIMER("game_update");
 	if (m_MapManager != nullptr)
 	{
-		m_MapManager->SetSceneBounds(static_cast<float>(m_ViewportWidth), static_cast<float>(m_ViewportHeight));
 		m_MapManager->Update(dt);
 	}
 	else if (m_GameMap != nullptr)
 	{
-		m_GameMap->SetSceneBounds(static_cast<float>(m_ViewportWidth), static_cast<float>(m_ViewportHeight));
 		m_GameMap->Update(dt);
 	}
 }
@@ -214,10 +186,12 @@ void GameEngine::SetMapManager(MapManager* map_manager)
 	m_MapManager = map_manager;
 	if (m_MapManager != nullptr)
 	{
+		const int b_w = (m_ViewportWidth > 0) ? m_ViewportWidth : m_WindowWidth;
+		const int b_h = (m_ViewportHeight > 0) ? m_ViewportHeight : m_WindowHeight;
 		m_MapManager->SetSceneBounds
 		(
-			static_cast<float>(m_WindowWidth), 
-			static_cast<float>(m_WindowHeight)
+			static_cast<float>(b_w),
+			static_cast<float>(b_h)
 		);
 		m_MapManager->SetProjectAssetPath(AssetResolver::GetProjectAssetPath());
 		m_MapManager->Initialize();

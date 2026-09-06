@@ -28,6 +28,39 @@ You never close the game window to change code.
 
 ---
 
+## What Survives a Hot-Reload
+
+When you click **Compile**, the editor builds a new `GameLogic.dll`, loads it
+beside the old one (shadow copy, so the file never locks), saves state, swaps
+the map, and restores state. Concretely:
+
+**Survives (yes):**
+- Anything you write in `SaveState` and read back in `LoadState` (`StateBag`
+  keys: floats, ints, bools, strings, `Vector2`). This is the **only**
+  supported channel for carrying game state across a reload.
+- Map registrations (`RegisterMap<>` calls inside the `s_GameMapManager == nullptr`
+  guard in `RootManager.cpp`) — they run once per process, not per reload.
+- Anything `Initialize()` rebuilds from scratch (textures, sounds, fonts).
+
+**Does not survive (no):**
+- Raw pointers, texture/sound handles, or object references held in member
+  variables — the old DLL is unloaded, so its code and statics are gone.
+  Re-acquire them in `Initialize()` / `LoadState()`.
+- `static` locals or globals holding gameplay state — they die with the old
+  DLL. Put durable state in `StateBag` instead.
+- Changes to what `SaveState` writes without a matching `LoadState` reader
+  (or vice versa) — missing keys silently fall back to defaults.
+
+**Rejected loads:**
+- If the editor reports a *GameLogic ABI mismatch* (or a missing
+  `GetGameLogicAbiVersion` export), your DLL was built with a different engine
+  version. Just hit **Compile** again to rebuild it — old DLLs are refused
+  rather than risk heap corruption across the DLL boundary.
+
+**Weird state?** Press the **Restart** button to reset the map.
+
+---
+
 ## Project Structure
 
 ```

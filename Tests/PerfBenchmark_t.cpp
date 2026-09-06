@@ -93,3 +93,23 @@ TEST_CASE("PERF: StateBag GetVector2 (two hash lookups)")
     auto microseconds = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
     std::cout << "[PERF] StateBag GetVector2 " << k_Iterations << " times: " << microseconds << " us" << '\n';
 }
+
+TEST_CASE("PERF: Profiler::GetAverages (overlay snapshot cost, now cached ~4Hz)")
+{
+    // Feed a realistic frame: one Record per timer the editor uses
+    const char* names[] = {"frame_total", "game_update", "game_draw", "dll_reload",
+        "texture_recreate", "panel_scene_window", "panel_perf_overlay"};
+    for (auto name : names) Profiler::Get().Record(name, 500);
+    Profiler::Get().NextFrame();
+
+    auto start = std::chrono::steady_clock::now();
+    for (int iter = 0; iter < 1000; ++iter)
+    {
+        volatile auto snapshots = Profiler::Get().GetAverages();
+        (void)snapshots;
+    }
+    auto end = std::chrono::steady_clock::now();
+    auto microseconds = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+    std::cout << "[PERF] Profiler::GetAverages 1000 times: " << microseconds << " us"
+              << " (overlay now pays this 1/15 frames)" << '\n';
+}

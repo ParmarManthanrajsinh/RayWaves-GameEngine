@@ -3,6 +3,61 @@
 #include <Windows.h>
 #include <chrono>
 #include <random>
+#include <set>
+#include <thread>
+
+namespace
+{
+    void DefaultLog(std::string_view message, bool is_error)
+    {
+        (is_error ? std::cerr : std::cout) << message << "\n";
+    }
+
+    DllLogSink& GetLogSink()
+    {
+        static DllLogSink sink;
+        return sink;
+    }
+
+    void Log(std::string_view message, bool is_error)
+    {
+        DllLogSink& sink = GetLogSink();
+        if (sink)
+        {
+            sink(message, is_error);
+        }
+        else
+        {
+            DefaultLog(message, is_error);
+        }
+    }
+}
+
+std::string GetHostExePath()
+{
+    char exe_path[MAX_PATH];
+    DWORD len = GetModuleFileNameA(nullptr, exe_path, MAX_PATH);
+    return (len > 0 && len < MAX_PATH) ? std::string(exe_path, len) : std::string();
+}
+
+void SetDllLogSink(DllLogSink sink)
+{
+    GetLogSink() = std::move(sink);
+}
+
+std::string FormatAbiMismatchMessage(bool has_version_export, uint32_t dll_version, uint32_t expected_version)
+{
+    if (!has_version_export)
+    {
+        return "GameLogic DLL is outdated (missing GetGameLogicAbiVersion export;"
+               " it was built with an older engine version)."
+               " Rebuild GameLogic (Compile in the editor) with the current engine version.";
+    }
+    return "GameLogic ABI mismatch: DLL reports version " + std::to_string(dll_version)
+        + ", engine expects version " + std::to_string(expected_version) + "."
+          " Rebuild GameLogic (Compile in the editor) with the current engine version.";
+}
+
 void CleanupStaleShadowCopies()
 {
     try
@@ -41,16 +96,16 @@ void CleanupStaleShadowCopies()
 
         if (cleaned > 0)
         {
-            std::cout << "Cleaned up " << cleaned << " stale shadow DLL copies." << "\n";
+            Log("Cleaned up " + std::to_string(cleaned) + " stale shadow DLL copies.", false);
         }
     }
     catch (std::exception const& e)
     {
-        std::cerr << "Shadow cleanup error: " << e.what() << "\n";
+        Log(std::string("Shadow cleanup error: ") + e.what(), true);
     }
     catch (...)
     {
-        std::cerr << "Shadow cleanup: unknown error.\n";
+        Log("Shadow cleanup: unknown error.", true);
     }
 }
 
@@ -72,6 +127,26 @@ DllHandle LoadDll(const char* PATH)
             result.handle = reinterpret_cast<void*>(direct);
             result.shadow_path = PATH;
             return result;
+        }
+
+        // CRT compatibility guard: EXE and DLL must use the same CRT flavor
+        // (dynamic vs static). A mismatch corrupts the heap the moment a
+        // std::string/std::unordered_map (StateBag) crosses the boundary.
+        {
+            char exe_path[MAX_PATH];
+            if (GetModuleFileNameA(nullptr, exe_path, MAX_PATH) > 0)
+            {
+                std::vector<std::string> exe_imports = GetModuleCrtImports(exe_path);
+                std::vector<std::string> dll_imports = GetModuleCrtImports(PATH);
+                if (!b_CrtImportsCompatible(exe_imports, dll_imports))
+                {
+                    Log(std::string("CRT mismatch: host EXE and ") + PATH
+                        + " link different CRT flavors (static vs dynamic)."
+                          " Rebuild GameLogic with the same CRT (/MD).",
+                        true);
+                    return result; // null handle, empty shadow path
+                }
+            }
         }
 
         // Determine destination directory: use local .raywaves/shadows if it exists,
@@ -121,7 +196,7 @@ DllHandle LoadDll(const char* PATH)
     }
     catch (std::exception const& e)
     {
-        std::cerr << "Shadow copy failed: " << e.what() << ". Falling back to direct load.\n";
+        Log(std::string("Shadow copy failed: ") + e.what() + ". Falling back to direct load.", true);
         HMODULE mod = LoadLibraryA(PATH);
         result.handle = reinterpret_cast<void*>(mod);
         result.shadow_path = PATH;
@@ -129,7 +204,7 @@ DllHandle LoadDll(const char* PATH)
     }
     catch (...)
     {
-        std::cerr << "Shadow copy: unknown error. Falling back to direct load.\n";
+        Log("Shadow copy: unknown error. Falling back to direct load.", true);
         HMODULE mod = LoadLibraryA(PATH);
         result.handle = reinterpret_cast<void*>(mod);
         result.shadow_path = PATH;
@@ -148,7 +223,9 @@ void UnloadDll(DllHandle& dll)
         dll.handle = nullptr;
     }
 
-    // Attempt to delete the shadow copy after unloading. Ignore failures.
+    // Attempt to delete the shadow copy after unloading.
+    // Windows can lag releasing the mapped file after FreeLibrary, so retry
+    // briefly before giving up (the 1-hour stale sweep is the final backstop).
     if (!dll.shadow_path.empty())
     {
         fs::path p = fs::path(dll.shadow_path);
@@ -158,7 +235,17 @@ void UnloadDll(DllHandle& dll)
         if (filename.contains(".shadow."))
         {
             std::error_code ec;
-            fs::remove(p, ec);
+            constexpr int MAX_DELETE_ATTEMPTS = 5;
+            for (int attempt = 0; attempt < MAX_DELETE_ATTEMPTS; ++attempt)
+            {
+                fs::remove(p, ec);
+                if (!ec) break;
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            }
+            if (ec)
+            {
+                Log("Could not delete shadow DLL copy (will be swept later): " + p.string(), true);
+            }
         }
         dll.shadow_path.clear();
     }
