@@ -1,13 +1,12 @@
 # Distribution Scripts
 
-Build toolchain and packaging scripts for creating RayWaves distribution packages.
-
-See [DISTRIBUTION_GUIDE.md](../Documentation/DISTRIBUTION_GUIDE.md) for usage.
+Packaging scripts for creating RayWaves distribution packages.
 
 ## Files
 
-- `build_gamelogic.bat` — Quick rebuild of GameLogic.dll (legacy, editor's Compile button preferred)
-- `create_distribution.bat` — One-click distribution package builder
-- `dist_CMakeLists.txt` — CMake config for distributed dev environment
-- `distribute.ps1` — PowerShell script that handles actual packaging
+- `distribute.sh` — builds `linux-release` and assembles the `dist/` package
+  (run via `make dist` or directly with `-BuildConfig Release -OutputDir dist`)
+- `dist_CMakeLists.txt` — CMake config for the distributed dev environment
+  (installed as `Core/CMakeLists.txt`, builds each project's `GameLogic.so`)
 - `config.ini` — Default game config template
+- `Templates/` — Project templates shipped with the distribution

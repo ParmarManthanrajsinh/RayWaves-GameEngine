@@ -73,6 +73,12 @@ namespace ExportService
         {
             export_dir = fs::path(project_root) / export_dir;
         }
+        // A trailing separator leaves filename() empty, which later breaks
+        // `tar -C parent -czf out.tar.gz ""`. Strip it.
+        while (export_dir.filename().empty() && export_dir.has_relative_path())
+        {
+            export_dir = export_dir.parent_path();
+        }
         return export_dir.string();
     }
 

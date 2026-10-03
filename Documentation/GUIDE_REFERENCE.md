@@ -168,7 +168,7 @@ Texture2D tex = LoadTexture("Assets/player.png");
 
 ### Path Rules
 
-- **Always use forward slashes** (`Assets/player.png`), even on Windows.
+- **Always use forward slashes** (`Assets/player.png`), never backslashes.
 - Assets are relative to the project's `Assets/` folder.
 - Do NOT include `Assets/` prefix when calling `AssetResolver::Resolve()` — it's already added internally: `AssetResolver::Resolve("player.png")`.
 
@@ -235,9 +235,11 @@ MyGame/Assets/
 The exported folder contains:
 ```
 MyGame_Export/
-├── game.exe            # Standalone runtime (no editor UI)
-├── GameLogic.dll       # Your compiled game
-├── raylib.dll          # Raylib shared library
+├── game                # Standalone runtime (no editor UI)
+├── GameLogic.so        # Your compiled game
+├── libraylib.so*       # Raylib shared library
+├── run.sh              # Launch script (sets LD_LIBRARY_PATH)
+├── install.sh          # Per-user install: .desktop entry + icon
 ├── Assets/             # All your game assets (copied from project)
 ├── config.ini          # Window config for standalone mode
 └── EngineContent/      # Engine fonts (rarely needed)
@@ -250,14 +252,14 @@ MyGame_Export/
 
 ### Verifying an Export
 
-Run `game.exe` from the exported folder. If it crashes:
+Run `./game` from the exported folder (or `./run.sh`, which sets `LD_LIBRARY_PATH`). If it crashes:
 - Check that `Assets/` contains all required files.
 - Check that `config.ini` exists (generated during export).
 - Run from a terminal to see error output.
 
 ### Setting a Custom Icon
 
-Replace `EngineContent/icon.ico` with your own 256x256 `.ico` file before exporting. The icon is embedded into `game.exe` during the build.
+Replace `EngineContent/icon.png` with your own 256x256 `.png` file before exporting. Nothing is embedded in the binary: the export ships the PNG and a `.desktop.in` template, and `install.sh` writes a menu entry to `~/.local/share/applications/` and the icon to `~/.local/share/icons/hicolor/256x256/apps/`, then runs `update-desktop-database`.
 
 ---
 

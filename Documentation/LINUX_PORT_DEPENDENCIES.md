@@ -230,9 +230,9 @@ Most files, least obvious breakage. Nothing here errors at compile time; it yiel
 | `Tools/ninja/ninja.exe`, `Tools/zig/zig.exe`, `Tools/cmake/bin/cmake.exe` | Bundled toolchain | **Do not vendor.** System `make`, `cmake`, `gcc` present. |
 | `Tools/run_analysis.bat` | clang-tidy / clang-format driver | Port to `.sh`. `:31` hardcodes `C:\Program Files\LLVM\bin`; `:61-71` probes only `*.exe`. |
 | `Distribution/distribute.ps1` | 180-line packaging script | Port to `.sh`. |
-| `Distribution/create_distribution.bat` | Distribution entry point | Port to `.sh`. |
+| `Distribution/create_distribution.bat` | Distribution entry point | Deleted — `distribute.sh` + `make dist` are the entry points. |
 | `Tests/run_tests.bat`, `run_all.bat`, `run_smoketest.bat` | Test runners hardcoding `build\zig-release` + `.exe` | **Delete.** Replaced by `make test` / `make smoke`. |
-| `EngineContent/app.rc` | `1 ICON "icon.ico"` Win32 resource script | Guard `if(WIN32)` in CMake; leave unlisted on Linux. |
+| `EngineContent/app.rc`, `EngineContent/icon.ico` | Win32 resource script + icon | Deleted — icons are PNG (`EngineContent/icon.png`); nothing embeds into binaries on Linux. |
 
 Biggest simplification in port. Zero-install story changes shape: Windows bundles compiler because MSVC absent; Linux needs none — distribution shrinks. `Distribution/distribute.ps1:139-155` bundles rcedit + Ninja + CMake into dist — **do not port that block.**
 
@@ -252,7 +252,7 @@ One dist detail to keep: `distribute.ps1:68` renames runtime to `Core/runtime.ex
 | `CMakeLists.txt:100-105` | Stages only `libraylib.dll.a`; `.a` rename = MinGW-only | Also stage `libraylib.so` |
 | `CMakeLists.txt:177` | `target_link_libraries(Engine PRIVATE dwmapi)` | Guard `if(WIN32)` |
 | `CMakeLists.txt:199` | `add_executable(main WIN32 ...)` | `WIN32` = Windows-only property |
-| `CMakeLists.txt:205`, `:255` | `EngineContent/app.rc` as source needs `windres` | Guard `if(WIN32)` |
+| `CMakeLists.txt:205`, `:255` | `EngineContent/app.rc` as source needs `windres` | Deleted (file gone) |
 | `CMakeLists.txt:208`, `:257` | `-Wl,--subsystem,windows` rejected by Linux `ld` | Guard `if(WIN32)` |
 | `CMakeLists.txt:213-215`, `:262-264` | rcedit POST_BUILD | Guard `if(WIN32)` |
 | `CMakeLists.txt:351-356` | `export_package` hardcodes `distribute.ps1` | Repoint at `.sh` |
@@ -328,9 +328,13 @@ Goal: every existing caller, UI included, compiles untouched. `Engine/WindowUtil
 
 ```
 Engine/Platform/PlatformModule.h    dlopen/dlsym/dlclose  vs LoadLibrary/GetProcAddress/FreeLibrary
-Engine/Platform/PlatformProcess.h   popen-based runner    vs CreatePipe/CreateProcessA
-Engine/Platform/PlatformShell.h     xdg-open              vs ShellExecuteW
 Engine/Platform/PlatformPaths.h     /proc/self/exe, XDG dirs, ".so"/"" suffixes, PATH_MAX
+Engine/Platform/PlatformDesktop.h   desktop entry + mime XML builders, shared by
+                                    FileAssociation.cpp and export install.sh
+
+(Linux-only pivot: no `#ifdef _WIN32` anywhere. The process-runner and
+shell-open seams were folded straight into `Editor/ProcessRunner.cpp` and
+`Editor/EditorUtils.cpp` instead of getting their own headers.)
 ```
 
 ### 8.1 `PlatformModule.h`
@@ -550,22 +554,22 @@ rg -n -e '\.dll|\.exe|libraylib|cmd\.exe|cd /d|_popen|_pclose|\.bat|\.ps1|powers
 
 ### Build and link
 
-- [ ] Five targets build: `RayWaves`, `game`, `GameLogic`, `tests`, `smoketest`
-- [ ] `GameLogic.so` produced + `dlopen`-able
-- [ ] `ldd GameLogic.so` resolves `libraylib.so`, no "not found"
-- [ ] `ldd RayWaves` resolves `libraylib.so`
+- [x] Five targets build: `RayWaves`, `game`, `GameLogic`, `tests`, `smoketest`
+- [x] `GameLogic.so` produced + `dlopen`-able
+- [x] `ldd GameLogic.so` resolves `libraylib.so`, no "not found"
+- [x] `ldd RayWaves` resolves `libraylib.so`
 
 ### Hot reload — the feature that matters most
 
 - [ ] Editor hot-reload works: recompile `GameLogic`, running editor reloads, no restart
-- [ ] 50-iteration smoke test passes — real proof shadow-copy survived
-- [ ] `CleanupStaleShadowCopies` removes `.shadow.*.so`. **Verify by hand** — `.dll`-only filter at `Game/DllLoader.cpp:88` = silent failure, not build error
-- [ ] ABI mismatch path still reports correctly (`GameLogicLoader.cpp:180-194`)
+- [x] 50-iteration smoke test passes — real proof shadow-copy survived
+- [x] `CleanupStaleShadowCopies` removes `.shadow.*.so`. **Verify by hand** — `.dll`-only filter at `Game/DllLoader.cpp:88` = silent failure, not build error
+- [x] ABI mismatch path still reports correctly (`GameLogicLoader.cpp:180-194`)
 
 ### Editor and shell
 
-- [ ] Exported folder validates, game runs standalone from `run.sh`
-- [ ] `install.sh` installs working `.desktop` entry + icon
+- [x] Exported folder validates, game runs standalone from `run.sh`
+- [x] `install.sh` installs working `.desktop` entry + icon
 - [ ] `.raywaves` double-click opens project in editor
 - [ ] Editor terminal runs command in project dir (`cd`, not `cd /d`)
 - [ ] Editor preferences + recent projects resolve to same dir and **persist across launches** — `getenv("APPDATA")` falling to CWD = silent bug, not error
@@ -614,16 +618,16 @@ cmake -S . -B build/asan -DCMAKE_BUILD_TYPE=Debug \
 | `Tests/SmokeTest.cpp` | I | `:32` `.so` |
 | `CMakePresets.json` | B | Add `linux-base`, `linux-debug`, `linux-release` |
 | `Distribution/dist_CMakeLists.txt` | B | `:81` copy `libraylib.so` |
-| `EngineContent/app.rc` | B | Guard `if(WIN32)` |
+| `EngineContent/app.rc`, `EngineContent/icon.ico` | B | Deleted |
 | `Tools/run_analysis.bat` | G | Replace with `.sh` |
 | `Distribution/distribute.ps1` | G | Replace with `.sh` |
-| `Distribution/create_distribution.bat` | G | Replace with `.sh` |
+| `Distribution/create_distribution.bat` | G | Deleted; `make dist` covers |
 | `Tools/zig-cc.bat`, `zig-cxx.bat`, `setup_zig.ps1` | A | Delete |
 | `Tests/run_tests.bat`, `run_all.bat`, `run_smoketest.bat` | A | Delete |
 | `.clangd` | B | Repoint `CompilationDatabase` |
 | `.gitignore` | B | Add `Distribution/Templates/**/*.so` |
 | **New:** `Makefile`, `Distribution/distribute.sh`, `Tools/run_analysis.sh` | G | §10 |
-| **New:** `Engine/Platform/PlatformModule.h`, `PlatformPaths.h`, `PlatformProcess.h`, `PlatformShell.h`, `PlatformDesktop.h` | C, E, F | §8 |
+| **New:** `Engine/Platform/PlatformModule.h`, `PlatformPaths.h`, `PlatformDesktop.h` | C, E, F | §8. `PlatformProcess`/`PlatformShell` seams not created: `popen` lives directly in `Editor/ProcessRunner.cpp`, `xdg-open` spawn directly in `Editor/EditorUtils.cpp`. |
 | `Distribution/Templates/*/GameLogic/RootManager.cpp` (×3) | C | Delete `__declspec(dllexport)` |
 | `Distribution/Templates/*/project.raywaves` (×3) | C | `entryDll=GameLogic.so` |
 

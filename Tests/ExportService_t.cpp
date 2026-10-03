@@ -39,6 +39,11 @@ TEST_CASE("ExportService: ResolveExportDir anchors relatives at project root")
           (fs::path("/home/dev/Games/MyGame") / "export").string());
     CHECK(ExportService::ResolveExportDir("/var/out/Game", "/home/dev/Games/MyGame") ==
           "/var/out/Game");
+    // Trailing separators must not survive: empty filename() breaks tar.
+    CHECK(ExportService::ResolveExportDir("export/", "/home/dev/Games/MyGame") ==
+          (fs::path("/home/dev/Games/MyGame") / "export").string());
+    CHECK(ExportService::ResolveExportDir("/var/out/Game/", "/home/dev") ==
+          "/var/out/Game");
 }
 
 TEST_CASE("ExportService: b_WriteGameConfig round-trips all keys")

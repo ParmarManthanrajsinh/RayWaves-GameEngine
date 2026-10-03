@@ -5,56 +5,49 @@
 ```
 RayWaves/
 ├── CMakeLists.txt           # Top-level build (FetchContent for raylib)
-├── CMakePresets.json        # Build presets (zig-debug, zig-release, x64-*, x86-*)
+├── CMakePresets.json        # Build presets (linux-debug, linux-release)
 │
 ├── Engine/                  # Core engine library (static libEngine.a)
 │   ├── *.h / *.cpp          # GameMap, MapManager, ProjectManager, Profiler, etc.
 │   ├── ProjectManager.h     # Project lifecycle, folder open/create
-│   ├── WindowUtils.h        # Win32 title-bar/icon tweaks (keeps <windows.h> local)
+│   ├── WindowUtils.h        # Linux no-op stubs (signatures unchanged, no platform headers)
 │   └── raygui.h             # Immediate-mode GUI helper (bundled)
 │
-├── Editor/                  # RayWaves.exe source (ImGui-based IDE)
+├── Editor/                  # RayWaves editor source (ImGui-based IDE)
 │   ├── GameEditor.h/cpp     # Main editor loop + orchestration (delegates below)
-│   ├── GameLogicLoader.h/cpp # GameLogic DLL lifecycle: load/swap/unload, ABI check
+│   ├── GameLogicLoader.h/cpp # GameLogic.so lifecycle: load/swap/unload, ABI check
 │   ├── ThemeService.h/cpp   # Editor theme rebake + EngineContent path lookup
 │   ├── ExportService.h/cpp  # Game export pipeline (build/copy/validate), UI-free
 │   ├── Panels/              # MainMenuBar, SceneWindow, ExportPanel, etc.
 │   ├── PanelRegistry.h      # Panel factory list; new panels self-register
 │   ├── imgui/               # Dear ImGui (vendored)
 │   ├── rlImGui/             # raylib-ImGui bridge
-│   └── FileAssociation.h/cpp # Windows .raywaves file association (HKCU)
+│   └── FileAssociation.h/cpp # XDG .raywaves association (desktop entry + shared-mime-info)
 │
-├── Game/                    # Entry points + DLL loading
-│   ├── main.cpp             # RayWaves.exe — editor entry
-│   ├── game.cpp             # game.exe — standalone runtime entry
-│   ├── DllLoader.h/cpp      # Shadow-copy load/unload, log sink, ABI message
-│   └── PeCrtCheck.h/cpp     # PE import-table CRT compatibility check
+├── Game/                    # Entry points + shared-library loading
+│   ├── main.cpp             # RayWaves — editor entry
+│   ├── game.cpp             # game — standalone runtime entry
+│   └── DllLoader.h/cpp      # Shadow-copy load/unload (dlopen), log sink, ABI message
 │
-├── Tools/                   # Build toolchain (auto-downloaded, .gitignored)
-│   ├── setup_zig.ps1        # Fetches Zig / Ninja / CMake / rcedit on demand
-│   ├── zig-cc.bat           # Compiler wrapper → Tools/zig/zig.exe
-│   ├── zig-cxx.bat
-│   ├── zig/                 # Zig compiler (pinned 0.16.0)
-│   ├── ninja/               # Ninja build system (pinned 1.13.2)
-│   ├── cmake/               # CMake (pinned 4.3.4)
-│   └── rcedit.exe           # Resource editor for .ico embedding
+├── Tools/                   # Helper scripts (committed)
+│   └── run_analysis.sh      # clang-format / clang-tidy (make format, make tidy)
 │
 ├── Tests/                   # Unit + smoke tests (doctest)
-│   ├── SmokeTest.cpp        # DLL 50× load/unload stress test
+│   ├── SmokeTest.cpp        # GameLogic 50× load/unload stress test
 │   └── *t.cpp               # Module tests
 │
 ├── EngineContent/           # Runtime assets: fonts, icons, logo
 │
 ├── Distribution/            # Packaging scripts for engine distribution
-│   ├── distribute.ps1       # Creates dist/ folder
-│   ├── create_distribution.bat
+│   ├── distribute.sh        # Creates dist/ folder (-BuildConfig Release -OutputDir dist)
+│   ├── Templates/           # Project templates (Empty, Platformer2D, SlimeQuest)
 │   ├── dist_CMakeLists.txt  # CMakeLists.txt shipped inside dist/Core/
 │   └── config.ini           # Default window config template
 │
 └── Documentation/           # You are here
 ```
 
-> **Tools/ content** (zig, ninja, cmake, rcedit) is downloaded on first compile or explicitly via `Tools/setup_zig.ps1`. These are listed in `.gitignore` — not committed.
+> **Toolchain:** system GCC/Clang + system CMake + system Ninja — nothing is downloaded or bundled. `Tools/` holds committed helper scripts only.
 
 ---
 
@@ -72,12 +65,12 @@ MyNewGame/                   # <--- your project folder
 ├── .raywaves/               # Editor cache (auto-generated)
 │   ├── CMakeLists.txt       # Per-project cmake script (generated)
 │   ├── build/               # Ninja build output
-│   └── shadows/             # DLL shadow copies for hot-reload
-└── GameLogic.dll            # Built output (hot-reloaded at runtime)
+│   └── shadows/             # GameLogic.so shadow copies for hot-reload
+└── GameLogic.so             # Built output (hot-reloaded at runtime)
 ```
 
 Key rules:
 - `project.raywaves` always sits at the project root.
 - `GameLogic/` contains **your** source — edit any file, hit Compile, see changes in ~0.5 s.
 - `.raywaves/` is auto-managed; do not edit manually.
-- Double-click `project.raywaves` in Explorer (after registering file association) to launch the editor directly into that project.
+- Double-click `project.raywaves` in your file manager (after registering the file association from the editor's Tools menu) to launch the editor directly into that project.

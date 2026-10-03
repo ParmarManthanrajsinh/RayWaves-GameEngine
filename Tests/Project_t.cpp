@@ -30,7 +30,7 @@ TEST_CASE("t_Project: save and load roundtrip")
     p.m_Version     = "2.0.0";
     p.m_SourceDir   = "Src";
     p.m_AssetDir    = "Art";
-    p.m_EntryDll    = "Game.dll";
+    p.m_EntryDll    = "GameLogic.so";
     p.m_SceneWidth  = 640;
     p.m_SceneHeight = 480;
     p.m_TargetFPS   = 144;
@@ -46,7 +46,7 @@ TEST_CASE("t_Project: save and load roundtrip")
     CHECK(q.m_Version == "2.0.0");
     CHECK(q.m_SourceDir == "Src");
     CHECK(q.m_AssetDir == "Art");
-    CHECK(q.m_EntryDll == "Game.dll");
+    CHECK(q.m_EntryDll == "GameLogic.so");
     CHECK(q.m_SceneWidth == 640);
     CHECK(q.m_SceneHeight == 480);
     CHECK(q.m_TargetFPS == 144);

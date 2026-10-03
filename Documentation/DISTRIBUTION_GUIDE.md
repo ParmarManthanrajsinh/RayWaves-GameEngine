@@ -10,21 +10,27 @@
 
 ### One-Command Script (Recommended)
 
-```cmd
-Distribution\create_distribution.bat -IncludeCompiler
+```bash
+make dist
 ```
 
-Bundles compiler + build tools (Zig, Ninja, CMake), strips profiler, packages everything into `dist/`.
+Equivalent:
+
+```bash
+Distribution/distribute.sh -BuildConfig Release -OutputDir dist
+```
+
+Strips the profiler and packages everything into `dist/`. The distribution bundles no compiler — game builds on the recipient's machine need system `cmake`, `ninja`, and `g++`/`clang++` on `PATH`.
 
 ### Manual CMake Build (Equivalent)
 
-```cmd
-cmake --preset zig-release -DRAYWAVES_DISTRIBUTION_BUILD=ON
-cmake --build build\zig-release --target main game GameLogic
-Distribution\distribute.ps1 -IncludeCompiler
+```bash
+cmake --preset linux-release -DRAYWAVES_DISTRIBUTION_BUILD=ON
+cmake --build build/linux-release --target main game GameLogic
+Distribution/distribute.sh -BuildConfig Release -OutputDir dist
 ```
 
-> **Warning:** Always pass `-IncludeCompiler` AND `-DRAYWAVES_DISTRIBUTION_BUILD=ON` for a proper distribution. Omitting either produces a package with profiler overhead or missing compiler/build tools.
+> **Warning:** Always pass `-DRAYWAVES_DISTRIBUTION_BUILD=ON` for a proper distribution. Omitting it produces a package with profiler overhead. Recipients still need system `cmake`, `ninja`, and `g++`/`clang++` on `PATH` to build games.
 
 ---
 
@@ -38,18 +44,9 @@ With this flag:
 - `PerformanceOverlay` renders an empty breakdown
 - `Profiler.cpp` compiles to an empty translation unit
 
-### 2. Build Tools Bundled (with `-IncludeCompiler`)
+### 2. Toolchain (System, Not Bundled)
 
-The distribution script copies these into `dist/Core/Tools/`:
-
-| Tool | Location | Purpose |
-|------|----------|---------|
-| Zig | `Tools/zig/` | C++ compiler for GameLogic |
-| Ninja | `Tools/ninja/ninja.exe` | Build system (CMake generator) |
-| CMake | `Tools/cmake/` | Build system orchestrator (includes required `share/` modules) |
-| rcedit | `Tools/rcedit.exe` | Icon embedding (used during engine builds, not by end users) |
-
-The `setup_zig.ps1` script and compiler wrappers (`zig-cc.bat`, `zig-cxx.bat`) are also copied so that auto-fetch works on first run if any tool is missing. Recipients get zero-install compilation — no PATH setup required.
+The distribution ships no compiler and no build tools. The editor's in-app Compile runs system `cmake` from `PATH` (`cd <project>/.raywaves && cmake -G Ninja . -B build ...`), and packaging itself uses system CMake + Ninja. Recipients need `cmake`, `ninja`, and `g++`/`clang++` installed to build GameLogic.
 
 ---
 
@@ -57,18 +54,13 @@ The `setup_zig.ps1` script and compiler wrappers (`zig-cc.bat`, `zig-cxx.bat`) a
 
 | File/Folder | Purpose |
 |---|---|
-| `RayWaves.exe` | Visual game editor |
-| `Core/runtime.exe` | Standalone game player (used by Export) |
+| `RayWaves` | Visual game editor |
+| `Core/runtime` | Standalone game player (used by Export) |
 | `Core/Engine/` | Header files for inheriting `GameMap` |
-| `Core/raylib/` | Raylib dev files (headers, libs, DLL) |
-| `Core/CMakeLists.txt` | CMake config for building GameLogic |
-| `Core/Tools/zig/` | Zig compiler (zero-install) |
-| `Core/Tools/ninja/` | Ninja build system |
-| `Core/Tools/cmake/` | CMake build system |
-| `Core/Tools/setup_zig.ps1` | Auto-fetch script for tool updates |
-| `Core/Tools/zig-cc.bat` | Compiler wrapper scripts |
-| `GameLogic.dll` | Pre-compiled game code |
-| `build_gamelogic.bat` | One-click rebuild script |
+| `Core/raylib/{include,lib,bin}` | Raylib dev files (headers, libs, `libraylib.so`) |
+| `libraylib.so*` | Shared library chain at the root and in `Core/` |
+| `Core/CMakeLists.txt` | CMake config for building GameLogic (from `dist_CMakeLists.txt`) |
+| `Core/EngineContent/` | Engine fonts and `icon.png` |
 | `Templates/` | Project templates (Empty, DemoGame) |
 | `config.ini` | Default game settings |
 | `Documentation/` | User guides and API reference |
@@ -80,7 +72,7 @@ See [Distribution/README.md](../Distribution/README.md) (stub redirect) for the 
 ## End-User Workflow
 
 1. Unzip the distribution.
-2. Run `RayWaves.exe`.
+2. Run `./RayWaves`.
 3. Create a new project or open an existing one via the Project Browser.
 4. Edit code in your project's `GameLogic/` folder.
 5. Click **Compile** in the editor toolbar — changes hot-reload in ~0.5 s.
@@ -90,27 +82,27 @@ See [Distribution/README.md](../Distribution/README.md) (stub redirect) for the 
 
 ## Customizing the Distribution
 
-Edit `Distribution/distribute.ps1` to tweak:
+Edit `Distribution/distribute.sh` to tweak:
 
-- **Bundled tools:** `-IncludeCompiler` includes Zig, Ninja, CMake (recommended).
+- **Toolchain:** nothing is bundled — recipients need system `cmake`, `ninja`, and `g++`/`clang++` on `PATH`.
 - **Default config:** Modify `Distribution/config.ini`.
 - **Branding:** Change icon or name in the script.
 
 Build manually:
-```cmd
-cmake -B build\zig-release -DRAYWAVES_DISTRIBUTION_BUILD=ON
-cmake --build build\zig-release
-Distribution\distribute.ps1 -IncludeCompiler
+```bash
+cmake --preset linux-release -DRAYWAVES_DISTRIBUTION_BUILD=ON
+cmake --build build/linux-release
+Distribution/distribute.sh -BuildConfig Release -OutputDir dist
 ```
 
 ---
 
 ## Shipping Checklist
 
-1.  **Test on a clean PC:** Run `dist/` on a computer without any dev tools.
+1.  **Test on a clean machine:** Run `dist/` on a computer without RayWaves installed (system `cmake`, `ninja`, `g++`/`clang++` still required for game builds).
 2.  **Verify hot-reload:** Edit a file in your project's `GameLogic/`, click Compile, confirm editor reloads.
 3.  **Verify profiler stripped:** Open Performance Overlay — breakdown table shows no entries.
-4.  **Tools bundled:** Confirm `dist/Core/Tools/{zig,ninja,cmake}` exist.
+4.  **Toolchain present:** Confirm `cmake --version`, `ninja --version`, and `g++ --version` (or `clang++ --version`) work on `PATH`.
 5.  **Docs shipped:** Confirm `GAME_DEVELOPER_GUIDE.md` is included.
 
 ---

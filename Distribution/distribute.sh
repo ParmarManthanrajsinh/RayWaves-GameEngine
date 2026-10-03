@@ -108,6 +108,10 @@ fi
 # Copy the whole libraylib chain (real file + soname + alias links) so both
 # linking (-lraylib) and runtime NEEDED resolution work from the dist tree.
 cp -a "$BUILD_PATH"/libraylib.so* "$DIST_PATH/Core/raylib/bin/"
+# Link dir too: generated per-project CMake uses target_link_directories
+# (${RAYLIB_DIR}/lib). An empty dir silently falls through to any system
+# libraylib - wrong soname, wrong ABI.
+cp -a "$BUILD_PATH"/libraylib.so* "$DIST_PATH/Core/raylib/lib/"
 if ls "$BUILD_PATH/_deps/raylib-build/raylib/include/"*.h >/dev/null 2>&1; then
     cp -f "$BUILD_PATH/_deps/raylib-build/raylib/include/"*.h \
         "$DIST_PATH/Core/raylib/include/"
@@ -127,9 +131,9 @@ cp -rf EngineContent/. "$DIST_PATH/Core/EngineContent/"
 
 echo "Creating development environment..."
 
-# Copy Engine headers and source files (needed for GameLogic development)
-cp -f Engine/*.h "$DIST_PATH/Core/Engine/"
-cp -f Engine/*.cpp "$DIST_PATH/Core/Engine/"
+# Copy Engine headers and sources (needed for GameLogic development),
+# including subdirectories such as Engine/Platform/.
+cp -rf Engine/. "$DIST_PATH/Core/Engine/"
 
 # Copy the distribution CMakeLists.txt
 cp -f Distribution/dist_CMakeLists.txt "$DIST_PATH/Core/CMakeLists.txt"

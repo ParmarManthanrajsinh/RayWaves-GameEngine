@@ -24,11 +24,11 @@ With our **hot-reloading magic**, you can tweak movement speeds, adjust physics,
 - **🔥 Limitless Hot-Reloading**  
   Edit your C++ code and see the results in **~0.5 seconds**. Game state is preserved across reloads via opt-in `SaveState`/`LoadState`. No restarting. Just flow.
 
-- **⚡ Zero-Install Setup**  
-  Visual Studio is no longer required! The Zig compiler, Ninja build system, and CMake are all fetched automatically on your first compile. No manual PATH setup needed.
+- **⚡ System Toolchain Setup**  
+  Builds with the compiler already on your machine: GCC or Clang, system CMake, system Ninja. Nothing to download, nothing to vendor.
 
 - **🔗 .raywaves File Association**  
-  Register the `.raywaves` extension via *Tools → Register .raywaves file association* in the editor menu. Double-click any `project.raywaves` file in Explorer to launch directly into that project.
+  Register the `.raywaves` extension via *Tools → Register .raywaves file association* in the editor menu. Double-click any `project.raywaves` file in your file manager to launch directly into that project.
 
 - **🎮 Pure Raylib Power**  
   No proprietary scripting languages or complex ECS layers. It's just you and standard C++ Raylib code.
@@ -59,34 +59,33 @@ With our **hot-reloading magic**, you can tweak movement speeds, adjust physics,
 ## 🚀 Quick Start
 
 ### 🔧 For Engine Developers
-*Use these instructions if you want to **modify the engine source code itself** (e.g. `RayWaves.exe`).*
+*Use these instructions if you want to **modify the engine source code itself** (e.g. the `RayWaves` editor).*
 
-1. **Open any terminal** (PowerShell, Command Prompt, or VS Code terminal).
-2. **Build the engine:**
-    There are two build paths available:
-    
-    **Recommended (Zero-Install)**  
-    Uses the Zig compiler (fetched automatically). No Visual Studio needed.
-    ```powershell
-    cmake --preset zig-release
-    cmake --build build/zig-release
+1. **Open any terminal.**
+2. **Build the engine** (Makefile is a thin alias over CMake):
+    ```sh
+    make release        # cmake --preset linux-release && build
+    make dev            # debug build
     ```
-    (Use the `zig-debug` preset instead if you need a debug build — just keep
-    the same preset for the test/run commands below.)
+    Or call CMake directly:
+    ```sh
+    cmake --preset linux-release
+    cmake --build build/linux-release
+    ```
 3. **Run tests:**
-   ```powershell
-   .\build\zig-release\tests.exe
+   ```sh
+   make test
    ```
    Or via CTest:
-   ```powershell
-   ctest --test-dir build/zig-release
+   ```sh
+   ctest --test-dir build/linux-release
    ```
 4. **Launch the editor:**
-   ```powershell
-   build/zig-release/RayWaves.exe
+   ```sh
+   ./build/linux-release/RayWaves
    ```
 
-> **Note:** If you are just making games, you don't need to rebuild `RayWaves.exe`.
+> **Note:** If you are just making games, you don't need to rebuild `RayWaves`.
 
 ### 🎮 For Game Developers
 *Use these instructions if you want to **make games** using RayWaves.*
@@ -94,7 +93,7 @@ With our **hot-reloading magic**, you can tweak movement speeds, adjust physics,
 👉 **[Read the Game Developer Guide](Documentation/GAME_DEVELOPER_GUIDE.md)**
 
 Start here to learn how to:
-- Run the engine (`RayWaves.exe`)
+- Run the engine (`RayWaves`)
 - Create levels and write game logic
 - Use hot-reloading for gameplay code
 - Export your game
@@ -104,7 +103,7 @@ Start here to learn how to:
 ## 🎮 Development Workflow
 
 ### 🔧 Engine Development
-1. **Launch the Editor** (`RayWaves.exe`).
+1. **Launch the Editor** (`./RayWaves`).
 2. **Modify engine internals** in `Game/`, `Editor/`, or `Engine/`.
 3. **Rebuild the engine** using CMake.
 ---
@@ -146,17 +145,18 @@ RequestGotoMap("Level_1");
 Want to distribute the engine to your team?
 
 Simply run:
-```cmd
-Distribution\create_distribution.bat -IncludeCompiler
+```sh
+make dist
+# or: Distribution/distribute.sh -BuildConfig Release -OutputDir dist
 ```
 
 This generates a `dist/` folder with everything they need:
-- `RayWaves.exe` (The visual editor)
-- `Core/runtime.exe` (Standalone runtime)
-- `Core/Tools/zig`, `Core/Tools/ninja`, `Core/Tools/cmake` (Zero-install compile toolchain)
-- All headers, scripts, and assets.
+- `RayWaves` (The visual editor)
+- `Core/runtime` (Standalone runtime)
+- `Core/Engine/`, `Core/raylib/` (headers, sources, raylib to build against)
+- All templates, docs, and assets.
 
-End users get a **zero-install** experience: unzip, run `RayWaves.exe`, create a project, click Compile. No Visual Studio, no CMake on PATH, no manual setup.
+End users get a **zero-install** experience: unzip, run `./RayWaves`, create a project, click Compile. Game builds use the system compiler (GCC/Clang, CMake, Ninja) — already present on any Linux dev machine.
 
 ---
 
@@ -176,9 +176,9 @@ End users get a **zero-install** experience: unzip, run `RayWaves.exe`, create a
 - **Reset:** Hit the **Restart** button in the toolbar if you want to force a full reload.
 - **Performance:** Toggle the **Performance Overlay** (chart icon) to see FPS, frame times, and per-system breakdown.
 - **Modes:** 
-  - `RayWaves.exe` = Editor & Hot-Reloading (built from the `main` CMake target: `Editor/` + `Game/main.cpp`)
-  - `game.exe` = Standalone Runtime, pure gameplay (built from the `game` CMake target: `Game/game.cpp`). The distribution script copies it to `Core/runtime.exe`, so in an exported project the runtime is `Core/runtime.exe` — same binary, different path.
-- **Double-click:** Register `.raywaves` file association under *Tools → Register .raywaves file association* to open projects by double-clicking `project.raywaves` in Explorer.
+  - `RayWaves` = Editor & Hot-Reloading (built from the `main` CMake target: `Editor/` + `Game/main.cpp`)
+  - `game` = Standalone Runtime, pure gameplay (built from the `game` CMake target: `Game/game.cpp`). The distribution script copies it to `Core/runtime`, so in an exported project the runtime is `Core/runtime` — same binary, different path.
+- **Double-click:** Register `.raywaves` file association under *Tools → Register .raywaves file association* to open projects by double-clicking `project.raywaves` in your file manager.
 
 ---
 

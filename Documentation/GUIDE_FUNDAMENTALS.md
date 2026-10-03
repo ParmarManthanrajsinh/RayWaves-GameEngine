@@ -4,9 +4,9 @@
 
 ---
 
-## 1. The DLL Contract
+## 1. The Shared Library Contract
 
-RayWaves compiles your `GameLogic/` code into a **DLL** (`GameLogic.dll`). The editor loads it at runtime, calls into it, and hot-reloads it when you recompile.
+RayWaves compiles your `GameLogic/` code into a **shared library** (`GameLogic.so`). The editor loads it at runtime, calls into it, and hot-reloads it when you recompile.
 
 Every project **must** provide three exported C functions in `RootManager.cpp`:
 
@@ -16,12 +16,12 @@ Every project **must** provide three exported C functions in `RootManager.cpp`:
 
 static MapManager* s_GameMapManager = nullptr;
 
-extern "C" __declspec(dllexport) uint32_t GetGameLogicAbiVersion()
+extern "C" uint32_t GetGameLogicAbiVersion()
 {
     return RAYWAVES_GAMELOGIC_ABI_VERSION;
 }
 
-extern "C" __declspec(dllexport) GameMap* CreateGameMap()
+extern "C" GameMap* CreateGameMap()
 {
     if (s_GameMapManager == nullptr)
     {
@@ -36,7 +36,7 @@ extern "C" __declspec(dllexport) GameMap* CreateGameMap()
     return s_GameMapManager;
 }
 
-extern "C" __declspec(dllexport) void DestroyGameMap(GameMap* map_manager)
+extern "C" void DestroyGameMap(GameMap* map_manager)
 {
     delete map_manager;
     if (map_manager == s_GameMapManager)
@@ -46,10 +46,10 @@ extern "C" __declspec(dllexport) void DestroyGameMap(GameMap* map_manager)
 
 ### Key Rules
 
-- **GetGameLogicAbiVersion** must return `RAYWAVES_GAMELOGIC_ABI_VERSION` (defined in `Engine/GameMap.h`). The editor and the standalone runtime **refuse to load** any DLL that is missing this export or returns a mismatched version — rebuild your GameLogic with the current engine version if you see this error.
-- **CreateGameMap** is called once when the DLL loads. `RegisterMap<>` calls must happen inside the `if (s_GameMapManager == nullptr)` guard — they register map types, not map instances.
-- **DestroyGameMap** is called when the editor closes or unloads the DLL. It must clean up all memory.
-- The `static` pointer outside the guard means **map registrations survive hot-reloads**. On recompile, `CreateGameMap` is called again, but `s_GameMapManager` is not null (since the global variable in the DLL persists), so registration is skipped. Only `b_GotoMap` runs to restore the current map.
+- **GetGameLogicAbiVersion** must return `RAYWAVES_GAMELOGIC_ABI_VERSION` (defined in `Engine/GameMap.h`). The editor and the standalone runtime **refuse to load** any shared library that is missing this export or returns a mismatched version — rebuild your GameLogic with the current engine version if you see this error.
+- **CreateGameMap** is called once when the library loads. `RegisterMap<>` calls must happen inside the `if (s_GameMapManager == nullptr)` guard — they register map types, not map instances.
+- **DestroyGameMap** is called when the editor closes or unloads the library. It must clean up all memory.
+- The `static` pointer outside the guard means **map registrations survive hot-reloads**. On recompile, `CreateGameMap` is called again, but `s_GameMapManager` is not null (since the global variable in the library persists), so registration is skipped. Only `b_GotoMap` runs to restore the current map.
 
 ---
 
@@ -76,9 +76,9 @@ LoadState(in)            (after new instance constructed + Initialize())
 When you click **Compile**:
 
 1. `SaveState()` is called on the current map — you save values you want to preserve (player position, score, etc.) into the `StateBag`.
-2. The old `GameLogic.dll` is unloaded — all its memory is freed.
-3. The new `GameLogic.dll` is loaded — `CreateGameMap()` is called.
-4. `s_GameMapManager` is **null** in the new DLL (it's a fresh global), so `new MapManager()` runs and maps are re-registered.
+2. The old `GameLogic.so` is unloaded — all its memory is freed.
+3. The new `GameLogic.so` is loaded — `CreateGameMap()` is called.
+4. `s_GameMapManager` is **null** in the new library (it's a fresh global), so `new MapManager()` runs and maps are re-registered.
 5. The editor requests the previous map. `Initialize()` runs on the new map instance.
 6. `LoadState()` is called with the same `StateBag` — you restore preserved values.
 
@@ -125,19 +125,19 @@ void MyMap::LoadState(const StateBag& in)
 ### What Cannot Be Stored
 
 - **Pointers** — memory addresses are invalid after reload
-- **Textures** — GPU resources are destroyed on DLL unload
-- **Sounds** — audio resources are destroyed on DLL unload
+- **Textures** — GPU resources are destroyed on library unload
+- **Sounds** — audio resources are destroyed on library unload
 - **Complex objects** with internal allocations (unless they've saved into StateBag field by field)
 
-### CRT Heap Warning
+### C++ Standard Library Warning
 
-StateBag allocates memory internally (for `std::string` and `std::unordered_map`). Both `RayWaves.exe` and `GameLogic.dll` **must** use the same C Runtime (CRT) to avoid heap corruption across the DLL boundary. The Zig toolchain (default) always uses dynamic CRT — safe by default. If building with MSVC, ensure both targets use `/MD` (dynamic), not `/MT` (static).
+StateBag allocates memory internally (for `std::string` and `std::unordered_map`). `RayWaves` and `GameLogic.so` **must** agree on the C++ standard library so memory crosses the module boundary safely. Both are built with the system GCC/Clang toolchain, so `libstdc++`/`libc++` resolves to one shared library at runtime — safe by default. Do not mix a plugin compiled against a different standard library (for example `libstdc++` vs `libc++`) or a different compiler version than the engine.
 
 ### Static vs Member Variables on Reload
 
 | Variable type | Survives reload? | Notes |
 |--------------|-----------------|-------|
-| `static` local/global | **Yes** | Persistent in DLL even across reload — use for singletons, caches |
+| `static` local/global | **Yes** | Persistent in the shared library even across reload — use for singletons, caches |
 | Member variables | **No** | Reset to constructor defaults on reload — use StateBag to preserve |
 | `static constexpr` | **Yes** | Compile-time constant, always valid |
 
@@ -149,7 +149,7 @@ This walks you through creating a simple playable level from scratch.
 
 ### Step 1: Create a New Project
 
-1. Launch `RayWaves.exe`.
+1. Launch `RayWaves`.
 2. Click **New Project**.
 3. Name it "MyGame", choose "Empty" template.
 4. Click **Create and Open**.
@@ -218,7 +218,7 @@ Replace the content of `RootManager.cpp`:
 
 static MapManager* s_GameMapManager = nullptr;
 
-extern "C" __declspec(dllexport) GameMap* CreateGameMap()
+extern "C" GameMap* CreateGameMap()
 {
     if (s_GameMapManager == nullptr)
     {
@@ -230,7 +230,7 @@ extern "C" __declspec(dllexport) GameMap* CreateGameMap()
     return s_GameMapManager;
 }
 
-extern "C" __declspec(dllexport) void DestroyGameMap(GameMap* map_manager)
+extern "C" void DestroyGameMap(GameMap* map_manager)
 {
     delete map_manager;
     if (map_manager == s_GameMapManager)
@@ -326,9 +326,9 @@ std::cout << "Player position: " << m_PlayerPos.x << ", " << m_PlayerPos.y << st
 
 | Symptom | Probable cause |
 |---------|---------------|
-| Access violation on hot-reload | Stored a pointer/texture in StateBag, or didn't reload resources in `Initialize()` |
-| Texture black/purple on reload | Texture loaded in constructor (before `Initialize`) — GPU resource lost on DLL unload. **Load all resources in `Initialize()`, unload in destructor.** |
-| "Unresolved external symbol" | Typo in function signature mismatch. Check that your override matches `GameMap` exactly. |
+| Segfault on hot-reload | Stored a pointer/texture in StateBag, or didn't reload resources in `Initialize()` |
+| Texture black/purple on reload | Texture loaded in constructor (before `Initialize`) — GPU resource lost on library unload. **Load all resources in `Initialize()`, unload in destructor.** |
+| `undefined reference to ...` | Typo in function signature mismatch. Check that your override matches `GameMap` exactly. |
 | Linker duplicate symbol | Defined a function in a header without `inline`. |
 | StateBag values wrong | Forgot to set default value in `GetFloat(key, default)`. |
 

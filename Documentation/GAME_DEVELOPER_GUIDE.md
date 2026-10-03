@@ -8,13 +8,13 @@
 
 ## Quick Start
 
-1. Launch `RayWaves.exe`. The Project Browser appears.
+1. Launch `RayWaves`. The Project Browser appears.
 2. Click **New Project**, pick a name and location, choose a template.
 3. Once open, the editor loads. Edit `.cpp` files in your project's `GameLogic/` folder.
 4. Click **Compile** (toolbar button). Build runs automatically.
 5. Changes hot-reload in ~0.5 seconds. No restarting.
 
-> **Tip:** Double-click a `project.raywaves` file in Explorer (after registering file association under *Tools -> Register .raywaves file association*) to skip the browser.
+> **Tip:** Double-click a `project.raywaves` file in your file manager (after registering file association under *Tools -> Register .raywaves file association*) to skip the browser.
 
 ---
 
@@ -30,9 +30,9 @@ You never close the game window to change code.
 
 ## What Survives a Hot-Reload
 
-When you click **Compile**, the editor builds a new `GameLogic.dll`, loads it
-beside the old one (shadow copy, so the file never locks), saves state, swaps
-the map, and restores state. Concretely:
+When you click **Compile**, the editor builds a new `GameLogic.so`, loads it
+beside the old one (shadow copy, so the compiler can rewrite the original),
+saves state, swaps the map, and restores state. Concretely:
 
 **Survives (yes):**
 - Anything you write in `SaveState` and read back in `LoadState` (`StateBag`
@@ -96,4 +96,4 @@ See [GUIDE_REFERENCE.md](GUIDE_REFERENCE.md) for camera, input, audio, assets, e
 - **Game crashed?** Check the Console output in the editor.
 - **Compile failed?** Look at error messages in the Console / Message Log.
 - **Weird state?** Press the **Restart** button to reset the map.
-- **First compile slow?** Tools download automatically on first use (~200 MB). Internet required. See [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
+- **First compile slow?** First build runs your system `cmake`/`ninja` — no downloads, no bundled toolchain. See [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
