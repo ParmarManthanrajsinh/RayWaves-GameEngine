@@ -1,68 +1,89 @@
-#include <cstdint>
-#include <iostream>
-#include <cstdlib>
-#include <memory>
-#include "../Game/DllLoader.h"
 #include "../Engine/GameMap.h"
 #include "../Engine/GameState.h"
+#include "../Engine/Platform/PlatformPaths.h"
+#include "../Game/DllLoader.h"
+#include <cstdint>
+#include <cstdlib>
+#include <iostream>
+#include <memory>
 
-typedef GameMap* (*CreateGameMapFunc)();
-typedef void (*DestroyGameMapFunc)(GameMap*);
+typedef GameMap *(*CreateGameMapFunc)();
+typedef void (*DestroyGameMapFunc)(GameMap *);
 typedef uint32_t (*AbiVersionFunc)();
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv)
+{
     std::cout << "Starting Smoke Test: 50 Hot Reloads" << '\n';
-    
-    for (int i = 0; i < 50; ++i) {
+
+    for (int i = 0; i < 50; ++i)
+    {
         std::cout << "\n--- Iteration " << i + 1 << "/50 ---" << '\n';
-        
+
         // 1. Rebuild GameLogic (simulating a code change)
         int buildResult = std::system("cmake --build . --target GameLogic");
-        if (buildResult != 0) {
-            std::cerr << "Build failed. Are you running this from the CMake build directory?" << '\n';
+        if (buildResult != 0)
+        {
+            std::cerr << "Build failed. Are you running this from the CMake "
+                         "build directory?"
+                      << '\n';
             return 1;
         }
 
         // 2. Load the DLL
-        DllHandle dll = LoadDll("GameLogic.dll");
-        if (dll.handle == nullptr) {
-            std::cerr << "Failed to load GameLogic.dll" << '\n';
+        const std::string entry_module =
+            "GameLogic" + platform::SharedLibrarySuffix();
+        DllHandle dll = LoadDll(entry_module.c_str());
+        if (dll.handle == nullptr)
+        {
+            std::cerr << "Failed to load GameLogic.so" << '\n';
             return 1;
         }
-        std::cout << "Loaded shadow DLL: " << dll.shadow_path << '\n';
+        std::cout << "Loaded shadow module: " << dll.shadow_path << '\n';
 
         // 3. Resolve symbols
-        auto createMap = reinterpret_cast<CreateGameMapFunc>(GetDllSymbol(dll, "CreateGameMap"));
-        auto destroyMap = reinterpret_cast<DestroyGameMapFunc>(GetDllSymbol(dll, "DestroyGameMap"));
-        auto abiVersion = reinterpret_cast<AbiVersionFunc>(GetDllSymbol(dll, "GetGameLogicAbiVersion"));
-        if ((createMap == nullptr) || (destroyMap == nullptr) || (abiVersion == nullptr)) {
-            std::cerr << "Failed to find CreateGameMap/DestroyGameMap/GetGameLogicAbiVersion symbols" << '\n';
+        auto createMap = reinterpret_cast<CreateGameMapFunc>(
+            GetDllSymbol(dll, "CreateGameMap"));
+        auto destroyMap = reinterpret_cast<DestroyGameMapFunc>(
+            GetDllSymbol(dll, "DestroyGameMap"));
+        auto abiVersion = reinterpret_cast<AbiVersionFunc>(
+            GetDllSymbol(dll, "GetGameLogicAbiVersion"));
+        if ((createMap == nullptr) || (destroyMap == nullptr) ||
+            (abiVersion == nullptr))
+        {
+            std::cerr
+                << "Failed to find "
+                   "CreateGameMap/DestroyGameMap/GetGameLogicAbiVersion symbols"
+                << '\n';
             UnloadDll(dll);
             return 1;
         }
 
         // 4. Verify ABI version matches the engine
-        if (abiVersion() != RAYWAVES_GAMELOGIC_ABI_VERSION) {
+        if (abiVersion() != RAYWAVES_GAMELOGIC_ABI_VERSION)
+        {
             std::cerr << "GameLogic ABI version mismatch: " << abiVersion()
-                      << " (DLL) vs " << RAYWAVES_GAMELOGIC_ABI_VERSION << " (engine)" << '\n';
+                      << " (DLL) vs " << RAYWAVES_GAMELOGIC_ABI_VERSION
+                      << " (engine)" << '\n';
             UnloadDll(dll);
             return 1;
         }
 
         // 4. Create map via DLL factory
-        GameMap* map = createMap();
-        if (map != nullptr) {
+        GameMap *map = createMap();
+        if (map != nullptr)
+        {
             // Exercise the vtable
             map->Initialize();
-            
+
             // Exercise SaveState/LoadState to catch CRT boundaries across DLL
             StateBag bag;
             map->SaveState(bag);
             map->LoadState(bag);
 
             // 5. Destroy map via DLL destroyer BEFORE unload
-            // IMPORTANT: Must use DestroyGameMap (not delete) to avoid cross-CRT heap corruption.
-            // The object was new'd in the DLL's CRT, so it must be delete'd there too.
+            // IMPORTANT: Must use DestroyGameMap (not delete) to avoid
+            // cross-CRT heap corruption. The object was new'd in the DLL's CRT,
+            // so it must be delete'd there too.
             destroyMap(map);
         }
 
@@ -70,7 +91,8 @@ int main(int argc, char** argv) {
         UnloadDll(dll);
         std::cout << "Unloaded successfully." << '\n';
     }
-    
-    std::cout << "\nSmoke Test Passed: 50 iterations complete with no crash." << '\n';
+
+    std::cout << "\nSmoke Test Passed: 50 iterations complete with no crash."
+              << '\n';
     return 0;
 }

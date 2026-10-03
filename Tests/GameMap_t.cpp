@@ -1,17 +1,18 @@
-#include "doctest/doctest.h"
+#include "../Engine/AssetResolver.h"
 #include "../Engine/GameMap.h"
 #include "../Engine/GameState.h"
-#include "../Engine/AssetResolver.h"
+#include "doctest/doctest.h"
 
-class TestGameMap : public GameMap {
-public:
+class TestGameMap : public GameMap
+{
+  public:
     using GameMap::GameMap;
 
     void Initialize() override {}
     void Update(float /*delta_time*/) override {}
     void Draw() override {}
-    void SaveState(StateBag& out) const override { out = m_SavedState; }
-    void LoadState(const StateBag& in) override { m_SavedState = in; }
+    void SaveState(StateBag &out) const override { out = m_SavedState; }
+    void LoadState(const StateBag &in) override { m_SavedState = in; }
 
     StateBag m_SavedState;
 };

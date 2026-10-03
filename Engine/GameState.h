@@ -15,11 +15,12 @@ struct TransparentEqual {
     bool operator()(std::string_view a, std::string_view b) const { return a == b; }
 };
 
-// StateBag is allocated in the editor (RayWaves.exe) and passed by reference
-// into GameLogic.dll. std::string and std::unordered_map allocate on the CRT heap.
-// Both modules MUST link the same CRT to avoid heap corruption across the DLL
-// boundary. The Zig toolchain (default) always uses dynamic CRT — safe by default.
-// If building with MSVC, ensure both targets use /MD (dynamic), not /MT (static).
+// StateBag is allocated in the editor and passed by reference into GameLogic.
+// std::string and std::unordered_map allocate on the C++ runtime heap, so both
+// modules MUST link the same runtime to avoid heap corruption across the module
+// boundary: the same compiler and the same libstdc++/libc++ as the host.
+// Linux: host and plugin both link the system shared libstdc++ by default;
+// keep them on the same C++ runtime.
 
 class StateBag {
 public:

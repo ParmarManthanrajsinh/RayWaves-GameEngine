@@ -1,11 +1,14 @@
 #define DOCTEST_CONFIG_IMPLEMENT
 #include "doctest/doctest.h"
-int main(int argc, char** argv)
+int main(int argc, char **argv)
 {
-    try {
+    try
+    {
         doctest::Context ctx(argc, argv);
         return ctx.run();
-    } catch (...) {
+    }
+    catch (...)
+    {
         return -1;
     }
 }

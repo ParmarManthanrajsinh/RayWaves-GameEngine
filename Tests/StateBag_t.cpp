@@ -1,5 +1,5 @@
-#include "doctest/doctest.h"
 #include "../Engine/GameState.h"
+#include "doctest/doctest.h"
 
 TEST_CASE("StateBag: float set/get")
 {

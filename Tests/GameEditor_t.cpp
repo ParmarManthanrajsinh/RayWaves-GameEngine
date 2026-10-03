@@ -1,43 +1,44 @@
 #include "doctest/doctest.h"
+#include "EditorUtils.h"
 #include <string>
 
-TEST_CASE("GameEditor: fallback build cmd quoting")
+// The project path is interpolated into `sh -c` build commands
+// (`cd "<path>" && cmake ...`). EditorUtils::IsShellSafe is the gate that
+// keeps shell metacharacters out of that string, so it carries the security
+// load the old cmd.exe quoting rules used to.
+TEST_CASE("GameEditor: POSIX project paths pass the shell gate")
 {
-    std::string rawExe = R"(D:\tools\cmake.exe)";
-    std::string appDir = R"(C:\project)";
-    std::string cmd = "\"\"" + rawExe + "\" --build \"" + appDir + "\" --target GameLogic\"";
-
-    CHECK(cmd ==
-        "\"\"D:\\tools\\cmake.exe\" --build \"C:\\project\" --target GameLogic\"");
+    CHECK(EditorUtils::IsShellSafe("/home/dev/MyGame/.raywaves"));
+    CHECK(EditorUtils::IsShellSafe("/opt/games/slime-quest_2/.raywaves"));
+    CHECK(EditorUtils::IsShellSafe("/tmp/with space/Project/.raywaves"));
+    CHECK(EditorUtils::IsShellSafe("/srv/a.b.c/x-y+z/.raywaves"));
 }
 
-TEST_CASE("GameEditor: fallback build cmd leading quote count")
+TEST_CASE("GameEditor: shell metacharacters are rejected")
 {
-    std::string rawExe = R"(C:\tools\cmake.exe)";
-    std::string appDir = R"(D:\game)";
-    std::string cmd = "\"\"" + rawExe + "\" --build \"" + appDir + "\" --target GameLogic\"";
-
-    size_t leadingQuotes = 0;
-    for (char c : cmd)
-    {
-        if (c == '\"')
-            ++leadingQuotes;
-        else
-            break;
-    }
-    REQUIRE(leadingQuotes == 2);
+    CHECK_FALSE(EditorUtils::IsShellSafe("/tmp/a&b"));
+    CHECK_FALSE(EditorUtils::IsShellSafe("/tmp/a|b"));
+    CHECK_FALSE(EditorUtils::IsShellSafe("/tmp/a;b"));
+    CHECK_FALSE(EditorUtils::IsShellSafe("/tmp/a$b"));
+    CHECK_FALSE(EditorUtils::IsShellSafe("/tmp/a\"b"));
+    CHECK_FALSE(EditorUtils::IsShellSafe("/tmp/a`b"));
+    CHECK_FALSE(EditorUtils::IsShellSafe("/tmp/a'b"));
+    CHECK_FALSE(EditorUtils::IsShellSafe("/tmp/a<b"));
+    CHECK_FALSE(EditorUtils::IsShellSafe("/tmp/a>b"));
+    CHECK_FALSE(EditorUtils::IsShellSafe("/tmp/ab%"));
+    CHECK_FALSE(EditorUtils::IsShellSafe("/tmp/a!b"));
+    CHECK_FALSE(EditorUtils::IsShellSafe("/tmp/a^b"));
+    CHECK_FALSE(EditorUtils::IsShellSafe("/tmp/a(b)"));
+    CHECK_FALSE(EditorUtils::IsShellSafe("/tmp/a@b"));
+    CHECK_FALSE(EditorUtils::IsShellSafe("/tmp/a#b"));
+    // Backslash is a live escape under sh, unlike under cmd.exe.
+    CHECK_FALSE(EditorUtils::IsShellSafe("/tmp/a\\b"));
+    // Embedded control characters
+    CHECK_FALSE(EditorUtils::IsShellSafe("/tmp/a\nb"));
+    CHECK_FALSE(EditorUtils::IsShellSafe("/tmp/a\rb"));
 }
 
-TEST_CASE("GameEditor: fallback build cmd exactly one quote after exe path")
+TEST_CASE("GameEditor: empty path is rejected")
 {
-    std::string rawExe = R"(C:\path\to\cmake.exe)";
-    std::string appDir = R"(D:\project)";
-    std::string cmd = "\"\"" + rawExe + "\" --build \"" + appDir + "\" --target GameLogic\"";
-
-    auto exeEnd = cmd.find("cmake.exe");
-    REQUIRE(exeEnd != std::string::npos);
-    exeEnd += 9;
-    REQUIRE(exeEnd < cmd.length());
-    REQUIRE(cmd[exeEnd] == '\"');
-    REQUIRE(cmd[exeEnd + 1] == ' ');
+    CHECK_FALSE(EditorUtils::IsShellSafe(""));
 }

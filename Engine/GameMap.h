@@ -12,6 +12,7 @@
 // corruption across the DLL boundary.
 inline constexpr uint32_t RAYWAVES_GAMELOGIC_ABI_VERSION = 1;
 
+
 class GameMap
 {
 protected:

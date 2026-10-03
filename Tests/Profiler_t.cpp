@@ -1,9 +1,9 @@
-#include "doctest/doctest.h"
 #include "../Engine/Profiler.h"
-#include <thread>
+#include "doctest/doctest.h"
 #include <chrono>
-#include <fstream>
 #include <filesystem>
+#include <fstream>
+#include <thread>
 
 TEST_CASE("Profiler: Record and NextFrame basic")
 {
@@ -11,12 +11,21 @@ TEST_CASE("Profiler: Record and NextFrame basic")
     Profiler::Get().Record("test_b", 200);
     Profiler::Get().NextFrame();
 
-    auto avgs = Profiler::Get().GetAverages();
+    auto avgs    = Profiler::Get().GetAverages();
     bool found_a = false;
     bool found_b = false;
-    for (const auto& s : avgs) {
-        if (s.m_Name == "test_a") { found_a = true; CHECK(s.m_LastMs == doctest::Approx(0.1)); }
-        if (s.m_Name == "test_b") { found_b = true; CHECK(s.m_LastMs == doctest::Approx(0.2)); }
+    for (const auto &s : avgs)
+    {
+        if (s.m_Name == "test_a")
+        {
+            found_a = true;
+            CHECK(s.m_LastMs == doctest::Approx(0.1));
+        }
+        if (s.m_Name == "test_b")
+        {
+            found_b = true;
+            CHECK(s.m_LastMs == doctest::Approx(0.2));
+        }
     }
     CHECK(found_a);
     CHECK(found_b);
@@ -36,7 +45,8 @@ TEST_CASE("Profiler: CSV export")
     Profiler::Get().Record("csv_a", 500);
     Profiler::Get().NextFrame();
 
-    std::string csv_path = (std::filesystem::temp_directory_path() / "test_profile.csv").string();
+    std::string csv_path =
+        (std::filesystem::temp_directory_path() / "test_profile.csv").string();
     bool saved = Profiler::Get().SaveToFile(csv_path);
     CHECK(saved);
 

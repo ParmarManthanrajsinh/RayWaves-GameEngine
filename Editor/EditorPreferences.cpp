@@ -1,4 +1,5 @@
 #include "EditorPreferences.h"
+#include "../Engine/Platform/PlatformPaths.h"
 #include <fstream>
 #include <sstream>
 #include <iostream>
@@ -11,13 +12,13 @@ EditorPreferences& EditorPreferences::GetInstance()
 
 std::string EditorPreferences::GetConfigPath() 
 {
-    const char* appdata = std::getenv("APPDATA");
-    if (appdata != nullptr)
+    std::filesystem::path config_dir = platform::UserConfigDir();
+    if (!config_dir.empty())
     {
-        std::filesystem::path dir = std::filesystem::path(appdata) / "RayWaves";
+        std::filesystem::path dir = config_dir / "RayWaves";
         return (dir / "editor_preferences.ini").string();
     }
-    return "editor_preferences.ini"; // Fallback if APPDATA is somehow not set
+    return "editor_preferences.ini"; // Fallback when neither XDG_CONFIG_HOME nor HOME is set
 }
 
 bool EditorPreferences::m_bLoadFromFile()

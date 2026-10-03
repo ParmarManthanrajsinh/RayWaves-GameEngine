@@ -62,7 +62,7 @@ void ExportPanel::Draw(GameEditor* editor)
         
         ImGui::SameLine();
         ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyle().Colors[ImGuiCol_TextDisabled]);
-        ImGui::Text("%s.exe", editor->m_ExportState.m_GameName.c_str());
+        ImGui::Text("%s", editor->m_ExportState.m_GameName.c_str());
         ImGui::PopStyleColor();
 
         ImGui::TableNextRow();
@@ -78,8 +78,8 @@ void ExportPanel::Draw(GameEditor* editor)
         ImGui::SameLine();
         if (ImGui::Button("Browse##icon", ImVec2(80.0f, 0)))
         {
-            const char* filters[] = { "*.ico" };
-            const char* selected = tinyfd_openFileDialog("Select Icon", nullptr, 1, filters, "Icon Files (*.ico)", 0);
+            const char* filters[] = { "*.png" };
+            const char* selected = tinyfd_openFileDialog("Select Icon", nullptr, 1, filters, "Icon Files (*.png)", 0);
             if (selected != nullptr)
             {
                 ProjectManager::GetCurrent().m_IconPath = selected;

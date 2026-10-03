@@ -1,6 +1,7 @@
 #include "ExportService.h"
 #include "../Engine/ProjectManager.h"
 #include "EditorUtils.h"
+#include "../Engine/Platform/PlatformDesktop.h"
 #include <algorithm>
 #include <array>
 #include <cstdio>
@@ -8,11 +9,53 @@
 #include <filesystem>
 #include <fstream>
 #include <sstream>
+#include <sys/wait.h>
 
 namespace fs = std::filesystem;
 
 namespace ExportService
 {
+    namespace
+    {
+        // Export validation runs against shipped binaries, so check the file
+        // itself (ELF magic) instead of trusting an extension.
+        bool b_IsElfExecutable(const fs::path& p)
+        {
+            std::error_code ec;
+            if (!fs::is_regular_file(p, ec) || ec)
+            {
+                return false;
+            }
+
+            std::ifstream file(p, std::ios::binary);
+            char magic[4] = {};
+            file.read(magic, sizeof(magic));
+            if (!file || magic[0] != 0x7f || magic[1] != 'E' ||
+                magic[2] != 'L' || magic[3] != 'F')
+            {
+                return false;
+            }
+
+            auto perms = fs::status(p, ec).permissions();
+            return !ec && (perms & fs::perms::owner_exec) != fs::perms::none;
+        }
+
+        void MakeExecutable(const fs::path& p)
+        {
+            std::error_code ec;
+            auto perms = fs::status(p, ec).permissions();
+            if (ec)
+            {
+                return;
+            }
+            fs::permissions(
+                p,
+                perms | fs::perms::owner_exec | fs::perms::group_exec |
+                    fs::perms::others_exec,
+                ec);
+        }
+    }
+
     void ClampSettings(FExportSettings& settings)
     {
         settings.m_WindowWidth = std::max(settings.m_WindowWidth, 320);
@@ -80,7 +123,7 @@ namespace ExportService
         {
             for (const auto& ENTRY : fs::directory_iterator(out_dir, ec))
             {
-                if (!ec && ENTRY.is_regular_file() && ENTRY.path().extension() == ".exe")
+                if (!ec && ENTRY.is_regular_file() && b_IsElfExecutable(ENTRY.path()))
                 {
                     b_FoundGameExe = true;
                     log(std::string("Found game executable: ") + ENTRY.path().filename().string());
@@ -90,12 +133,12 @@ namespace ExportService
         }
         if (!b_FoundGameExe)
         {
-            log("Missing: Game executable (.exe file)");
+            log("Missing: Game executable (ELF file)");
             b_Ok = false;
         }
 
-        require(fs::path(out_dir) / "GameLogic.dll");
-        require(fs::path(out_dir) / "libraylib.dll");
+        require(fs::path(out_dir) / "GameLogic.so");
+        require(fs::path(out_dir) / "libraylib.so");
 
         fs::path assets_path = fs::path(out_dir) / "Assets";
         if (fs::exists(assets_path))
@@ -143,24 +186,39 @@ namespace ExportService
             fs::path current_path = fs::current_path();
             const auto& proj = ProjectManager::GetCurrent();
 
-            bool b_IsDistribution = fs::exists(current_path / "Core" / "runtime.exe") && !fs::exists(current_path / "Game" / "game.cpp");
-            fs::path game_exe = b_IsDistribution ? (current_path / "Core" / "runtime.exe") : (current_path / "build" / "zig-release" / "game.exe"); // Fallback for source environment
-            fs::path raylib_dll = b_IsDistribution ? (current_path / "libraylib.dll") : (current_path / "build" / "zig-release" / "libraylib.dll");
+            bool b_IsDistribution =
+                fs::exists(current_path / "Core" / "runtime") &&
+                !fs::exists(current_path / "Game" / "game.cpp");
+            fs::path game_exe;
+            if (b_IsDistribution)
+            {
+                game_exe = current_path / "Core" / "runtime";
+            }
+            else
+            {
+                game_exe = current_path / "build" / "linux-release" / "game";
+                if (!fs::exists(game_exe))
+                    game_exe = current_path / "build" / "linux-debug" / "game";
+                if (!fs::exists(game_exe))
+                    game_exe = current_path / "game"; // Generic fallback
+            }
 
-            if (!fs::exists(game_exe)) game_exe = current_path / "game.exe"; // Generic fallback
-            if (!fs::exists(raylib_dll)) raylib_dll = current_path / "libraylib.dll";
+            fs::path raylib_so = game_exe.parent_path() / "libraylib.so";
+            if (!fs::exists(raylib_so)) raylib_so = current_path / "libraylib.so";
+            if (!fs::exists(raylib_so)) raylib_so = current_path / "build" / "linux-release" / "libraylib.so";
+            if (!fs::exists(raylib_so)) raylib_so = current_path / "build" / "linux-debug" / "libraylib.so";
 
             if (!fs::exists(game_exe))
             {
-                return fail("ERROR: runtime.exe/game.exe not found! Please build the engine runtime first.");
+                return fail("ERROR: runtime/game not found! Please build the engine runtime first.");
             }
 
-            if (!fs::exists(raylib_dll))
+            if (!fs::exists(raylib_so))
             {
-                return fail("ERROR: libraylib.dll not found!");
+                return fail("ERROR: libraylib.so not found!");
             }
 
-            // 1. Build the Project DLL using CMake
+            // 1. Build the project GameLogic using CMake
             log("Building project GameLogic (Release)...");
             fs::path raywaves_dir = fs::path(proj.m_RootPath) / ".raywaves";
             std::string path_str = raywaves_dir.string();
@@ -169,50 +227,43 @@ namespace ExportService
                 return fail("ERROR: Project path contains unsafe characters!");
             }
 
-            fs::path cmakeExe = ProjectManager::GetToolsDirectory() / "cmake" / "bin" / "cmake.exe";
-            if (!fs::exists(cmakeExe))
+            // System cmake from PATH: popen already runs through `sh -c`.
+            // CMake caches contain absolute paths, so fall back to --fresh.
+            std::string build_cmd = "cd \"" + path_str + "\" && (cmake -G Ninja . -B build || cmake --fresh -G Ninja . -B build) && cmake --build build --config Release";
+
+            FILE* pipe = popen(build_cmd.c_str(), "r");
+            if (!pipe)
             {
-                log("Downloading CMake (first-time setup)...");
-                std::string fetchCmd = "powershell -ExecutionPolicy Bypass -File \""
-                    + (ProjectManager::GetToolsDirectory() / "setup_zig.ps1").string()
-                    + "\" -SkipZig -SkipRcEdit -SkipNinja";
-                std::system(fetchCmd.c_str());
+                return fail("ERROR: Failed to start build process!");
             }
-
-            std::string cmakePath = "\"" + cmakeExe.string() + "\"";
-            std::string build_cmd = "cd /d \"" + path_str + "\" && (" + cmakePath + " -G Ninja . -B build || " + cmakePath + " --fresh -G Ninja . -B build) && " + cmakePath + " --build build --config Release";
-
-            FILE* pipe = _popen(build_cmd.c_str(), "r");
-            if (pipe)
+            std::array<char, 1024> buffer{};
+            while (fgets(buffer.data(), static_cast<int>(buffer.size()), pipe) != nullptr)
             {
-                std::array<char, 1024> buffer{};
-                while (fgets(buffer.data(), static_cast<int>(buffer.size()), pipe) != nullptr)
-                {
-                    std::string line = buffer.data();
-                    line.erase(line.find_last_not_of(" \n\r\t") + 1);
-                    if (!line.empty()) {
-                        log(line);
-                    }
-                }
-                int build_result = _pclose(pipe);
-                if (build_result != 0)
-                {
-                    return fail("ERROR: Build failed!");
+                std::string line = buffer.data();
+                line.erase(line.find_last_not_of(" \n\r\t") + 1);
+                if (!line.empty()) {
+                    log(line);
                 }
             }
+            int status = pclose(pipe);
+            if (status == -1 || !WIFEXITED(status) || WEXITSTATUS(status) != 0)
+            {
+                return fail("ERROR: Build failed!");
+            }
 
-            fs::path game_logic_dll = fs::path(proj.m_RootPath) / "GameLogic.dll";
+            fs::path game_logic_dll = fs::path(proj.m_RootPath) / "GameLogic.so";
             if (!fs::exists(game_logic_dll))
             {
-                return fail("ERROR: GameLogic.dll was not produced by the build.");
+                return fail("ERROR: GameLogic.so was not produced by the build.");
             }
 
             fs::path export_dir = ResolveExportDir(settings.m_ExportPath, proj.m_RootPath);
             fs::create_directories(export_dir);
 
-            std::string game_exe_name = settings.m_GameName + ".exe";
+            std::string game_exe_name = settings.m_GameName;
             log("Creating game executable: " + game_exe_name);
             fs::copy_file(game_exe, export_dir / game_exe_name, fs::copy_options::overwrite_existing);
+            MakeExecutable(export_dir / game_exe_name);
 
             log("Creating game configuration...");
 
@@ -223,11 +274,119 @@ namespace ExportService
                 return fail("ERROR: Could not write game configuration.");
             }
 
-            log("Copying GameLogic.dll...");
-            fs::copy_file(game_logic_dll, export_dir / "GameLogic.dll", fs::copy_options::overwrite_existing);
+            log("Copying GameLogic.so...");
+            fs::copy_file(game_logic_dll, export_dir / "GameLogic.so", fs::copy_options::overwrite_existing);
 
-            log("Copying libraylib.dll...");
-            fs::copy_file(raylib_dll, export_dir / "libraylib.dll", fs::copy_options::overwrite_existing);
+            log("Copying libraylib.so...");
+            fs::copy_file(raylib_so, export_dir / "libraylib.so", fs::copy_options::overwrite_existing);
+
+            // Launcher: pin the export dir on LD_LIBRARY_PATH so the ELF
+            // loads its bundled libraylib.so regardless of rpath state.
+            fs::path run_sh = export_dir / "run.sh";
+            {
+                std::ofstream sh(run_sh);
+                if (!sh.is_open())
+                {
+                    return fail("ERROR: Could not write run.sh.");
+                }
+                sh << "#!/bin/sh\n"
+                   << "# Generated by RayWaves export. Launches the game\n"
+                   << "# next to this script with bundled libraries.\n"
+                   << "DIR=\"$(CDPATH= cd -- \"$(dirname -- \"$0\")\" && pwd)\"\n"
+                   << "export LD_LIBRARY_PATH=\"$DIR${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}\"\n"
+                   << "exec \"$DIR/" << game_exe_name << "\" \"$@\"\n";
+            }
+            MakeExecutable(run_sh);
+            log("Created run.sh launcher");
+
+            // Icon for the desktop entry: project icon if set, else the
+            // engine default PNG (the .ico era is gone; XDG wants PNG).
+            fs::path icon_src = proj.m_IconPath;
+            if (icon_src.empty() || !fs::exists(icon_src))
+            {
+                fs::path root = ProjectManager::GetEngineRootDirectory();
+                icon_src = root / "Core" / "EngineContent" / "icon.png";
+                if (!fs::exists(icon_src)) icon_src = root / "EngineContent" / "icon.png";
+            }
+
+            fs::path export_icon = export_dir / (game_exe_name + ".png");
+            if (fs::exists(icon_src))
+            {
+                fs::copy_file(icon_src, export_icon,
+                              fs::copy_options::overwrite_existing);
+                log("Copied game icon: " + export_icon.filename().string());
+            }
+            else
+            {
+                log("WARNING: no icon found at " + icon_src.string() +
+                    "; install.sh will skip the icon.");
+            }
+
+            // Desktop entry template: install.sh substitutes @EXEC@ with the
+            // real install path, so the export stays relocatable. Empty MIME
+            // type keeps the game from claiming .raywaves from the editor.
+            std::string icon_name = game_exe_name;
+            fs::path desktop_in = export_dir / (game_exe_name + ".desktop.in");
+            {
+                std::ofstream entry(desktop_in);
+                if (!entry.is_open())
+                {
+                    return fail("ERROR: Could not write desktop entry template.");
+                }
+                entry << platform::MakeDesktopEntry(game_exe_name, "@EXEC@",
+                                                    icon_name, "");
+            }
+
+            // install.sh: per-user, no root - copies the payload, installs
+            // icon + .desktop entry, refreshes the desktop database.
+            fs::path install_sh = export_dir / "install.sh";
+            {
+                std::ofstream sh(install_sh);
+                if (!sh.is_open())
+                {
+                    return fail("ERROR: Could not write install.sh.");
+                }
+                sh << "#!/bin/sh\n"
+                   << "# Generated by RayWaves export. Installs this game for\n"
+                   << "# the current user (no root needed).\n"
+                   << "set -eu\n"
+                   << "DIR=\"$(CDPATH= cd -- \"$(dirname -- \"$0\")\" && pwd)\"\n"
+                   << "GAME_NAME='" << game_exe_name << "'\n"
+                   << "DATA_HOME=\"${XDG_DATA_HOME:-$HOME/.local/share}\"\n"
+                   << "DEST=\"$DATA_HOME/RayWavesGames/$GAME_NAME\"\n"
+                   << "APPS=\"$DATA_HOME/applications\"\n"
+                   << "ICONS_DIR=\"$DATA_HOME/" 
+                   << platform::InstalledIconRelPath(icon_name) << "\"\n"
+                   << "\n"
+                   << "echo \"Installing to $DEST ...\"\n"
+                   << "mkdir -p \"$DEST\"\n"
+                   << "for entry in \"$DIR\"/*; do\n"
+                   << "    [ -e \"$entry\" ] || continue\n"
+                   << "    case \"$(basename \"$entry\")\" in\n"
+                   << "        install.sh|*.desktop.in) continue ;;\n"
+                   << "    esac\n"
+                   << "    cp -a \"$entry\" \"$DEST/\"\n"
+                   << "done\n"
+                   << "\n"
+                   << "if [ -f \"$DIR/" << game_exe_name << ".png\" ]; then\n"
+                   << "    mkdir -p \"$(dirname \"$ICONS_DIR\")\"\n"
+                   << "    cp -f \"$DIR/" << game_exe_name << ".png\" \"$ICONS_DIR\"\n"
+                   << "fi\n"
+                   << "\n"
+                   << "if [ -f \"$DIR/" << game_exe_name << ".desktop.in\" ]; then\n"
+                   << "    mkdir -p \"$APPS\"\n"
+                   << "    sed \"s|^Exec=.*|Exec=$DEST/run.sh|\" \"$DIR/"
+                   << game_exe_name << ".desktop.in\" > \"$APPS/" 
+                   << game_exe_name << ".desktop\"\n"
+                   << "    update-desktop-database \"$APPS\" 2>/dev/null || true\n"
+                   << "fi\n"
+                   << "\n"
+                   << "echo \"Installed. Launch with: $DEST/run.sh\"\n"
+                   << "echo \"Desktop entry: $APPS/" << game_exe_name 
+                   << ".desktop\"\n";
+            }
+            MakeExecutable(install_sh);
+            log("Created install.sh installer");
 
             fs::path assets_dir = proj.m_AssetPath;
             if (fs::exists(assets_dir))
@@ -260,36 +419,7 @@ namespace ExportService
                 log("No Assets folder found - skipping asset copy");
             }
 
-            std::string customIcon = proj.m_IconPath;
-            if (customIcon.empty())
-            {
-                fs::path root = ProjectManager::GetEngineRootDirectory();
-                fs::path defaultIcon = root / "Core" / "EngineContent" / "raylib.ico";
-                if (!fs::exists(defaultIcon)) defaultIcon = root / "EngineContent" / "raylib.ico";
-                customIcon = defaultIcon.string();
-            }
-
-            if (!customIcon.empty() && fs::exists(customIcon))
-            {
-                fs::path rceditExe = ProjectManager::GetToolsDirectory() / "rcedit.exe";
-                if (fs::exists(rceditExe))
-                {
-                    std::string exePath = (export_dir / game_exe_name).string();
-                    // cmd.exe /c strips first+last " when string starts with ". Wrap entire command in outer quotes.
-                    std::string cmd = "\"\"" + rceditExe.string() + "\" \"" + exePath + "\" --set-icon \"" + customIcon + "\"\"";
-                    log("Icon cmd: " + cmd);
-                    int rc = std::system(cmd.c_str());
-                    log("rcedit exit code: " + std::to_string(rc));
-                }
-                else
-                {
-                    log("WARNING: rcedit.exe not found at: " + rceditExe.string());
-                }
-            }
-            else
-            {
-                log("WARNING: No icon found. customIcon=" + customIcon + " exists=" + (fs::exists(customIcon) ? "true" : "false"));
-            }
+            log("Icon embedding skipped: Linux desktops take the icon from the .desktop entry at install time.");
 
             log(std::string("Process completed. Validating export folder: ") + export_dir.string());
 
@@ -303,6 +433,25 @@ namespace ExportService
             else
             {
                 log("Export completed successfully!");
+
+                // Tarball for distribution: same folder, ready to ship.
+                if (!is_cancelled())
+                {
+                    fs::path tarball = export_dir.parent_path() /
+                                      (game_exe_name + ".tar.gz");
+                    std::string tar_cmd =
+                        "tar -C \"" + export_dir.parent_path().string() +
+                        "\" -czf \"" + tarball.string() + "\" \"" +
+                        export_dir.filename().string() + "\"";
+                    if (std::system(tar_cmd.c_str()) == 0)
+                    {
+                        log("Created archive: " + tarball.string());
+                    }
+                    else
+                    {
+                        log("WARNING: tar failed; export folder left as-is.");
+                    }
+                }
             }
         }
         catch (const std::exception& e)

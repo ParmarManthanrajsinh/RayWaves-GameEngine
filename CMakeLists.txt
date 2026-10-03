@@ -1,38 +1,9 @@
 cmake_minimum_required(VERSION 3.10)
 
-# Check and auto-fetch Zig if necessary before compiler detection runs
-if(CMAKE_C_COMPILER MATCHES "zig-cc" OR CMAKE_CXX_COMPILER MATCHES "zig-cxx")
-  if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/Tools/zig/zig.exe")
-    message(STATUS "Zig toolchain not found. Auto-fetching...")
-    execute_process(
-            COMMAND powershell -ExecutionPolicy Bypass -File "${CMAKE_CURRENT_SOURCE_DIR}/Tools/setup_zig.ps1" -SkipRcEdit
-            WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-            RESULT_VARIABLE ZIG_FETCH_RESULT
-        )
-    if(NOT ZIG_FETCH_RESULT EQUAL 0)
-      message(FATAL_ERROR "Failed to download Zig.")
-    endif()
-  endif()
-endif()
-
 project(RayWaves)
 
-# Auto-fetch rcedit if missing
-if(NOT EXISTS "${CMAKE_SOURCE_DIR}/Tools/rcedit.exe")
-  message(STATUS "rcedit not found. Auto-fetching...")
-  execute_process(
-        COMMAND powershell -ExecutionPolicy Bypass -File "${CMAKE_SOURCE_DIR}/Tools/setup_zig.ps1" -SkipZig
-        WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
-        RESULT_VARIABLE RCEDIT_FETCH_RESULT
-    )
-  if(NOT RCEDIT_FETCH_RESULT EQUAL 0)
-    message(FATAL_ERROR "Failed to download rcedit.")
-  endif()
-endif()
-
-
 # Option: strip Profiler + SCOPED_TIMER from release builds
-# Enable with: cmake -B build/zig-release -DRAYWAVES_DISTRIBUTION_BUILD=ON
+# Enable with: cmake --preset linux-release -DRAYWAVES_DISTRIBUTION_BUILD=ON
 option(RAYWAVES_DISTRIBUTION_BUILD "Strip profiler and debug tooling from release build" OFF)
 if(RAYWAVES_DISTRIBUTION_BUILD)
     message(STATUS "Profiler disabled for distribution build")
@@ -40,10 +11,7 @@ endif()
 
 option(ENABLE_CLANG_TIDY "Run clang-tidy static analysis during build" OFF)
 if(ENABLE_CLANG_TIDY)
-    find_program(CLANG_TIDY clang-tidy
-        HINTS "C:/Program Files/LLVM/bin"
-        NO_CMAKE_PATH NO_CMAKE_ENVIRONMENT_PATH
-    )
+    find_program(CLANG_TIDY clang-tidy)
     if(CLANG_TIDY)
         set(CMAKE_CXX_CLANG_TIDY "${CLANG_TIDY}")
         message(STATUS "clang-tidy enabled: ${CLANG_TIDY}")
@@ -57,12 +25,18 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# add_compile_options(/fsanitize=address)
-# add_link_options(/fsanitize=address)
-
-add_compile_options(-msse4.2)
-add_compile_options(-fno-sanitize=all)
-add_compile_options(-Qunused-arguments)
+# SSE only exists on x86; aarch64 rejects the flag outright.
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64|i.86")
+    add_compile_options(-msse4.2)
+endif()
+option(RAYWAVES_SANITIZERS "Enable ASan/UBSan instrumentation" OFF)
+if(NOT RAYWAVES_SANITIZERS)
+    add_compile_options(-fno-sanitize=all)
+endif()
+# -Qunused-arguments is Clang-only; GCC errors on it.
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    add_compile_options(-Qunused-arguments)
+endif()
 
 
 add_compile_definitions(IMGUI_DISABLE_SSE)
@@ -97,19 +71,55 @@ foreach(HDR raylib.h raymath.h rcamera.h rlgl.h)
         file(COPY "${RAYLIB_BUILD_DIR}/include/${HDR}" DESTINATION "${RAYLIB_STAGEDIR}/include/")
     endif()
 endforeach()
-if(EXISTS "${RAYLIB_BUILD_DIR}/libraylib.dll.a")
-    file(COPY "${RAYLIB_BUILD_DIR}/libraylib.dll.a" DESTINATION "${RAYLIB_STAGEDIR}/lib/")
-    if(EXISTS "${RAYLIB_STAGEDIR}/lib/libraylib.dll.a" AND NOT EXISTS "${RAYLIB_STAGEDIR}/lib/libraylib.a")
-        file(RENAME "${RAYLIB_STAGEDIR}/lib/libraylib.dll.a" "${RAYLIB_STAGEDIR}/lib/libraylib.a")
-    endif()
-endif()
+# The shared library itself is staged at build time by the stage_raylib
+# target below: a configure-time file(COPY) runs before raylib exists on a
+# fresh tree, and copying only one of the chain names silently links test
+# plugins against a system-installed libraylib instead of the bundled one.
+
+# Stage the full libraylib chain (real file + soname link + unversioned
+# alias) into the build dir and the raylib stage dirs. Only soname alias is
+# what NEEDED entries resolve at runtime; only libraylib.so is what -L/-l
+# find at link time. All three names or linking/loading picks up whatever
+# happens to be installed system-wide.
+add_custom_target(stage_raylib ALL
+    COMMAND ${CMAKE_COMMAND} -E make_directory
+            "${CMAKE_BINARY_DIR}" "${RAYLIB_STAGEDIR}/bin" "${RAYLIB_STAGEDIR}/lib"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:raylib>"
+            "${CMAKE_BINARY_DIR}"
+    COMMAND ${CMAKE_COMMAND} -E rm -f
+            "${CMAKE_BINARY_DIR}/$<TARGET_SONAME_FILE_NAME:raylib>"
+            "${CMAKE_BINARY_DIR}/libraylib.so"
+    COMMAND ${CMAKE_COMMAND} -E create_symlink "$<TARGET_FILE_NAME:raylib>"
+            "${CMAKE_BINARY_DIR}/$<TARGET_SONAME_FILE_NAME:raylib>"
+    COMMAND ${CMAKE_COMMAND} -E create_symlink "$<TARGET_FILE_NAME:raylib>"
+            "${CMAKE_BINARY_DIR}/libraylib.so"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:raylib>"
+            "${RAYLIB_STAGEDIR}/bin"
+    COMMAND ${CMAKE_COMMAND} -E rm -f
+            "${RAYLIB_STAGEDIR}/bin/$<TARGET_SONAME_FILE_NAME:raylib>"
+            "${RAYLIB_STAGEDIR}/bin/libraylib.so"
+    COMMAND ${CMAKE_COMMAND} -E create_symlink "$<TARGET_FILE_NAME:raylib>"
+            "${RAYLIB_STAGEDIR}/bin/$<TARGET_SONAME_FILE_NAME:raylib>"
+    COMMAND ${CMAKE_COMMAND} -E create_symlink "$<TARGET_FILE_NAME:raylib>"
+            "${RAYLIB_STAGEDIR}/bin/libraylib.so"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:raylib>"
+            "${RAYLIB_STAGEDIR}/lib"
+    COMMAND ${CMAKE_COMMAND} -E rm -f
+            "${RAYLIB_STAGEDIR}/lib/$<TARGET_SONAME_FILE_NAME:raylib>"
+            "${RAYLIB_STAGEDIR}/lib/libraylib.so"
+    COMMAND ${CMAKE_COMMAND} -E create_symlink "$<TARGET_FILE_NAME:raylib>"
+            "${RAYLIB_STAGEDIR}/lib/$<TARGET_SONAME_FILE_NAME:raylib>"
+    COMMAND ${CMAKE_COMMAND} -E create_symlink "$<TARGET_FILE_NAME:raylib>"
+            "${RAYLIB_STAGEDIR}/lib/libraylib.so"
+    DEPENDS raylib
+    COMMENT "Staging libraylib chain (real + soname + alias)"
+)
 
 # Collect source files
 # Explicitly list Game sources for the editor to avoid pulling in game-only main
 set(GAME_SRC_CPP
     Game/main.cpp
     Game/DllLoader.cpp
-    Game/PeCrtCheck.cpp
 )
 set(ENGINE_SRC_CPP
     Engine/AssetResolver.cpp
@@ -167,14 +177,15 @@ if(EXISTS "${CMAKE_SOURCE_DIR}/Distribution/Templates/SlimeQuest/Assets")
   file(COPY ${CMAKE_SOURCE_DIR}/Distribution/Templates/SlimeQuest/Assets DESTINATION ${CMAKE_BINARY_DIR})
 endif()
 
-# Build Engine as a static library so both main and GameLogic can link to it
+# Build Engine as a static library so both main and GameLogic can link to it.
+# GameLogic.so relinks Engine objects, so they must be PIC.
 add_library(Engine STATIC ${ENGINE_SRC_CPP})
+set_target_properties(Engine PROPERTIES POSITION_INDEPENDENT_CODE ON)
 # Expose Engine headers and link raylib publicly so consumers inherit include dirs/libs
 target_include_directories(Engine PUBLIC
     ${CMAKE_SOURCE_DIR}/Engine
 )
 target_link_libraries(Engine PUBLIC raylib)
-target_link_libraries(Engine PRIVATE dwmapi)
 
 
 # Create GameLogic shared library (DLL)
@@ -188,6 +199,15 @@ set(GAMELOGIC_SRC_CPP
 )
 add_library(GameLogic SHARED ${GAMELOGIC_SRC_CPP})
 set_target_properties(GameLogic PROPERTIES PREFIX "")
+# Linux: dlopen("GameLogic.so") must resolve libraylib.so without
+# LD_LIBRARY_PATH. $ORIGIN keeps it working wherever the plugin sits next to
+# the staged chain (build dir, dist root, exported game folder).
+set(CMAKE_BUILD_RPATH_USE_ORIGIN ON)
+set(CMAKE_INSTALL_RPATH "$ORIGIN")
+set_target_properties(GameLogic PROPERTIES
+    BUILD_RPATH "$ORIGIN"
+    INSTALL_RPATH "$ORIGIN"
+)
 # GameLogic needs Engine headers and linkage (for GameMap symbols)
 target_include_directories(GameLogic PRIVATE
     ${CMAKE_SOURCE_DIR}
@@ -196,23 +216,20 @@ target_include_directories(GameLogic PRIVATE
 )
 target_link_libraries(GameLogic PRIVATE Engine)
 
-add_executable(main WIN32
+add_executable(main
     ${GAME_SRC_CPP}
     ${EDITOR_SRC_CPP}
     ${RLIMGUI_SRC}
     ${IMGUI_SRC}
     ${TINYFILEDIALOGS}
-    EngineContent/app.rc
 )
 set_target_properties(main PROPERTIES OUTPUT_NAME "RayWaves")
-target_link_options(main PRIVATE -Wl,--subsystem,windows)
+# Binaries locate the staged libraylib chain beside themselves, so the dist
+# copy works without LD_LIBRARY_PATH or a build-tree path baked in.
+set_target_properties(main PROPERTIES BUILD_RPATH "$ORIGIN" INSTALL_RPATH "$ORIGIN")
 if(RAYWAVES_DISTRIBUTION_BUILD)
     target_compile_definitions(main PRIVATE RAYWAVES_PROFILER_DISABLED)
 endif()
-
-add_custom_command(TARGET main POST_BUILD
-    COMMAND ${CMAKE_SOURCE_DIR}/Tools/rcedit.exe $<TARGET_FILE:main> --set-icon ${CMAKE_SOURCE_DIR}/EngineContent/icon.ico
-)
 # Add include directories for the main executable
 target_include_directories(main PRIVATE
     ${CMAKE_SOURCE_DIR}/Editor/imgui
@@ -233,11 +250,8 @@ target_link_libraries(main PRIVATE Engine)
 #             $<TARGET_FILE:GameLogic>
 #             $<TARGET_FILE_DIR:main>)
 
-# Also copy raylib DLL so both EXE and GameLogic load the same shared raylib
-add_custom_command(TARGET main POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            $<TARGET_FILE:raylib>
-            $<TARGET_FILE_DIR:main>)
+# libraylib staging handled by the stage_raylib target (chain of three names).
+add_dependencies(main stage_raylib)
 
 # When building GameLogic alone, also copy it next to the main executable
 add_custom_command(TARGET GameLogic POST_BUILD
@@ -248,20 +262,14 @@ add_custom_command(TARGET GameLogic POST_BUILD
 # ------------------------------
 # Game-only runtime executable
 # ------------------------------
-add_executable(game WIN32
+add_executable(game
     Game/game.cpp
     Game/DllLoader.cpp
-    Game/PeCrtCheck.cpp
-    EngineContent/app.rc
 )
-target_link_options(game PRIVATE -Wl,--subsystem,windows)
+set_target_properties(game PROPERTIES BUILD_RPATH "$ORIGIN" INSTALL_RPATH "$ORIGIN")
 if(RAYWAVES_DISTRIBUTION_BUILD)
     target_compile_definitions(game PRIVATE RAYWAVES_PROFILER_DISABLED)
 endif()
-
-add_custom_command(TARGET game POST_BUILD
-    COMMAND ${CMAKE_SOURCE_DIR}/Tools/rcedit.exe $<TARGET_FILE:game> --set-icon ${CMAKE_SOURCE_DIR}/EngineContent/icon.ico
-)
 # Includes for game runtime
 target_include_directories(game PRIVATE
     ${CMAKE_SOURCE_DIR}/Engine
@@ -277,11 +285,8 @@ add_custom_command(TARGET game POST_BUILD
             $<TARGET_FILE:GameLogic>
             $<TARGET_FILE_DIR:game>)
 
-# Also copy raylib DLL so both EXE and GameLogic load the same shared raylib
-add_custom_command(TARGET game POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            $<TARGET_FILE:raylib>
-            $<TARGET_FILE_DIR:game>)
+# libraylib staging handled by stage_raylib.
+add_dependencies(game stage_raylib)
 
 # ------------------------------
 # Smoke Test executable
@@ -289,7 +294,6 @@ add_custom_command(TARGET game POST_BUILD
 add_executable(smoketest
     Tests/SmokeTest.cpp
     Game/DllLoader.cpp
-    Game/PeCrtCheck.cpp
 )
 
 target_include_directories(smoketest PRIVATE
@@ -302,11 +306,11 @@ if(RAYWAVES_DISTRIBUTION_BUILD)
     target_compile_definitions(smoketest PRIVATE RAYWAVES_PROFILER_DISABLED)
 endif()
 
-# Copy GameLogic and raylib DLLs beside smoketest
+# Copy GameLogic beside smoketest
 add_custom_command(TARGET smoketest POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:GameLogic> $<TARGET_FILE_DIR:smoketest>
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:raylib> $<TARGET_FILE_DIR:smoketest>
 )
+add_dependencies(smoketest stage_raylib)
 
 # Unit test target
 add_executable(tests
@@ -326,7 +330,6 @@ add_executable(tests
     Tests/ExportService_t.cpp
     Tests/PerfBenchmark_t.cpp
     Game/DllLoader.cpp
-    Game/PeCrtCheck.cpp
     Editor/ExportService.cpp
     Editor/EditorUtils.cpp
 )
@@ -340,8 +343,10 @@ target_include_directories(tests PRIVATE
 target_link_libraries(tests PRIVATE Engine)
 
 add_custom_command(TARGET tests POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:raylib> $<TARGET_FILE_DIR:tests>
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:GameLogic> $<TARGET_FILE_DIR:tests>
 )
+# tests links -lraylib against the staged dir; order after stage_raylib.
+add_dependencies(tests stage_raylib)
 
 enable_testing()
 add_test(NAME unit COMMAND tests WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
@@ -350,7 +355,7 @@ add_test(NAME smoke COMMAND smoketest WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 # Optional export packaging target
 add_custom_target(export_package
     COMMAND ${CMAKE_COMMAND} -E echo "Running export script..."
-    COMMAND powershell -ExecutionPolicy Bypass -File "${CMAKE_SOURCE_DIR}/Distribution/distribute.ps1" -BuildConfig Release -OutputDir dist
+    COMMAND "${CMAKE_SOURCE_DIR}/Distribution/distribute.sh" -BuildConfig Release -OutputDir dist
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-    COMMENT "Packaging distribution via distribute.ps1"
+    COMMENT "Packaging distribution via distribute.sh"
 )

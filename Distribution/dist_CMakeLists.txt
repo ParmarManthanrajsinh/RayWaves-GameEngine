@@ -8,11 +8,6 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-# Enable multi-processor compilation for MSVC (drastically speeds up Visual Studio builds)
-if(MSVC)
-    add_compile_options(/MP)
-endif()
-
 # Build shared libs (GameLogic) and static Engine to mirror source build
 set(BUILD_SHARED_LIBS ON)
 
@@ -21,7 +16,8 @@ set(BUILD_SHARED_LIBS ON)
 # -------------------------------------
 set(RAYLIB_ROOT "${CMAKE_SOURCE_DIR}/raylib")
 set(RAYLIB_INCLUDE_DIR "${RAYLIB_ROOT}/include")
-set(RAYLIB_LIB_DIR     "${RAYLIB_ROOT}/lib")
+# libraylib.so is staged in bin/ by the distribution script
+set(RAYLIB_LIB_DIR     "${RAYLIB_ROOT}/bin")
 
 include_directories(${RAYLIB_INCLUDE_DIR})
 link_directories(${RAYLIB_LIB_DIR})
@@ -35,7 +31,8 @@ file(GLOB ENGINE_SRC    CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/Engine/*.cpp")
 # -------------------------------------
 # TARGETS
 # -------------------------------------
-# Build Engine from source to avoid cross-compiler ABI issues.
+# Build Engine from source to avoid toolchain/ABI mismatches between the
+# machine that shipped the distribution and the machine building the game.
 add_library(Engine STATIC ${ENGINE_SRC})
 target_include_directories(Engine PUBLIC "${CMAKE_SOURCE_DIR}/Engine" "${RAYLIB_INCLUDE_DIR}")
 target_link_libraries(Engine PUBLIC raylib)
@@ -43,42 +40,39 @@ target_link_libraries(Engine PUBLIC raylib)
 add_library(GameLogic SHARED ${GAMELOGIC_SRC})
 
 target_include_directories(GameLogic PRIVATE
-    ${CMAKE_SOURCE_DIR}/..
-    ${CMAKE_SOURCE_DIR}/Engine
-    ${CMAKE_SOURCE_DIR}/../GameLogic
+    "${CMAKE_SOURCE_DIR}/.."
+    "${CMAKE_SOURCE_DIR}/Engine"
+    "${CMAKE_SOURCE_DIR}/../GameLogic"
 )
 
 target_link_libraries(GameLogic PRIVATE Engine)
 
-if(MINGW)
-    target_link_libraries(GameLogic PRIVATE stdc++exp)
-endif()
-
 # -------------------------------------
 # OUTPUT LOCATION
-# For multi-config generators (Visual Studio), set per-config output dirs
-# so the DLL lands directly in the dist root, not in Release/ subfolder.
 # -------------------------------------
+# Plugin lands in the distribution root, beside the editor runtime, so
+# dlopen finds it relative to the executable.
 set_target_properties(GameLogic PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/..
-    RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_SOURCE_DIR}/..
-    RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_SOURCE_DIR}/..
     LIBRARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/..
+    LIBRARY_OUTPUT_DIRECTORY_DEBUG ${CMAKE_SOURCE_DIR}/..
+    LIBRARY_OUTPUT_DIRECTORY_RELEASE ${CMAKE_SOURCE_DIR}/..
     PREFIX ""
     OUTPUT_NAME "GameLogic"
+    BUILD_RPATH "$ORIGIN"
+    INSTALL_RPATH "$ORIGIN"
 )
 
-# Copy DLL after build
+# Copy plugin after build
 add_custom_command(TARGET GameLogic POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
             $<TARGET_FILE:GameLogic>
             ${CMAKE_SOURCE_DIR}/../
 )
 
-# Copy raylib DLL if exists
+# Copy raylib if present
 add_custom_command(TARGET GameLogic POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${RAYLIB_ROOT}/bin/libraylib.dll"
+            "${RAYLIB_ROOT}/bin/libraylib.so"
             ${CMAKE_SOURCE_DIR}/../
 )
 

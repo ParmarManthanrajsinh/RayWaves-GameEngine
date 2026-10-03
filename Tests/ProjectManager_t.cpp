@@ -1,12 +1,14 @@
-#include "doctest/doctest.h"
 #include "../Engine/ProjectManager.h"
-#include <fstream>
+#include "doctest/doctest.h"
 #include <filesystem>
+#include <fstream>
 
 TEST_CASE("ProjectManager: SanitizeCMakeProjectName")
 {
-    CHECK(ProjectManager::SanitizeCMakeProjectName("Hello World!") == "Hello_World_");
-    CHECK(ProjectManager::SanitizeCMakeProjectName("My-Game_V2") == "My_Game_V2");
+    CHECK(ProjectManager::SanitizeCMakeProjectName("Hello World!") ==
+          "Hello_World_");
+    CHECK(ProjectManager::SanitizeCMakeProjectName("My-Game_V2") ==
+          "My_Game_V2");
     CHECK(ProjectManager::SanitizeCMakeProjectName("") == "RayWavesProject");
 }
 

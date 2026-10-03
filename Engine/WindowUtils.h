@@ -1,8 +1,8 @@
 #pragma once
 
-// Native window tweaks (dark title bar, executable icon). The Win32 headers
-// stay inside WindowUtils.cpp so GameEngine and its consumers never see them.
-// Takes plain void* handles to keep <windows.h> out of this header.
+// Native window tweak hooks. Linux needs no per-window decoration work, so
+// these are no-op stubs; the signatures stay to keep GameEngine call sites
+// unchanged. Handles stay plain void* so no platform headers leak here.
 namespace WindowUtils
 {
     void ApplyDarkTitleBar(void* window_handle);

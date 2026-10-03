@@ -1,67 +1,26 @@
 #include "WindowUtils.h"
 
-#include <raylib.h>
-
-#define Rectangle WinAPIRectangle
-#define CloseWindow WinAPICloseWindow
-#define ShowCursor WinAPIShowCursor
-#include <windows.h>
-#include <dwmapi.h>
-#undef Rectangle
-#undef CloseWindow
-#undef ShowCursor
-
-#include <shellapi.h>
-#pragma comment(lib, "Shell32.lib")
-#pragma comment(lib, "Dwmapi.lib")
-
 namespace WindowUtils
 {
+    // Titlebar colour is compositor-controlled on Linux (GNOME, KDE, Sway each
+    // expose it through their own protocol); there is no per-window call.
     void ApplyDarkTitleBar(void* window_handle)
     {
-        HWND hwnd = static_cast<HWND>(window_handle);
-        if (hwnd == nullptr)
-        {
-            return;
-        }
-
-        BOOL value = TRUE;
-        // Windows 10 (attribute 19)
-        DwmSetWindowAttribute(hwnd, 19, &value, sizeof(value));
-
-        // Windows 11 (attribute 20)
-        DwmSetWindowAttribute(hwnd, 20, &value, sizeof(value));
+        (void)window_handle;
     }
 
+    // The editor already sets the window icon through raylib
+    // (GameEditor.cpp SetWindowIcon(LoadImage(...))), which is portable, so
+    // nothing else is needed here.
     void SetIconFromExecutable(void* window_handle)
     {
-        HWND hwnd = static_cast<HWND>(window_handle);
-        if (hwnd == nullptr)
-        {
-            return;
-        }
-
-        // Extract and set icon from executable
-        char exePath[MAX_PATH];
-        GetModuleFileNameA(nullptr, exePath, MAX_PATH);
-        HICON hIcon = ExtractIconA(GetModuleHandle(nullptr), exePath, 0);
-        if (hIcon != nullptr && hIcon != (HICON)1)
-        {
-            SendMessage(hwnd, WM_SETICON, ICON_BIG, (LPARAM)hIcon);
-            SendMessage(hwnd, WM_SETICON, ICON_SMALL, (LPARAM)hIcon);
-        }
+        (void)window_handle;
     }
 
     bool SetupNativeWindow()
     {
-        void* window_handle = GetWindowHandle();
-        if (window_handle == nullptr)
-        {
-            return false;
-        }
-
-        ApplyDarkTitleBar(window_handle);
-        SetIconFromExecutable(window_handle);
+        // GameEngine returns early on false and the window would never run its
+        // loop, so a no-op host must still report success.
         return true;
     }
 }

@@ -1,7 +1,7 @@
-#include "doctest/doctest.h"
 #include "../Engine/Project.h"
-#include <fstream>
+#include "doctest/doctest.h"
 #include <filesystem>
+#include <fstream>
 
 TEST_CASE("t_Project: default values")
 {
@@ -10,7 +10,8 @@ TEST_CASE("t_Project: default values")
     CHECK(p.m_Version.empty());
     CHECK(p.m_SourceDir == "GameLogic");
     CHECK(p.m_AssetDir == "Assets");
-    CHECK(p.m_EntryDll == "GameLogic.dll");
+    CHECK(p.m_EntryDll ==
+          "GameLogic" + platform::SharedLibrarySuffix());
     CHECK(p.m_SceneWidth == 1280);
     CHECK(p.m_SceneHeight == 720);
     CHECK(p.m_TargetFPS == 60);
@@ -18,23 +19,24 @@ TEST_CASE("t_Project: default values")
 
 TEST_CASE("t_Project: save and load roundtrip")
 {
-    auto tmp_dir = std::filesystem::temp_directory_path() / "raywaves_test_project";
+    auto tmp_dir =
+        std::filesystem::temp_directory_path() / "raywaves_test_project";
     std::filesystem::create_directories(tmp_dir);
     std::string manifest = (tmp_dir / "project.raywaves").string();
 
     t_Project p;
-    p.m_RootPath = tmp_dir.string();
-    p.m_Name = "TestProject";
-    p.m_Version = "2.0.0";
-    p.m_SourceDir = "Src";
-    p.m_AssetDir = "Art";
-    p.m_EntryDll = "Game.dll";
-    p.m_SceneWidth = 640;
+    p.m_RootPath    = tmp_dir.string();
+    p.m_Name        = "TestProject";
+    p.m_Version     = "2.0.0";
+    p.m_SourceDir   = "Src";
+    p.m_AssetDir    = "Art";
+    p.m_EntryDll    = "Game.dll";
+    p.m_SceneWidth  = 640;
     p.m_SceneHeight = 480;
-    p.m_TargetFPS = 144;
-    p.m_CameraX = 100.0f;
-    p.m_CameraY = 200.0f;
-    p.m_LastMapId = "level_1";
+    p.m_TargetFPS   = 144;
+    p.m_CameraX     = 100.0f;
+    p.m_CameraY     = 200.0f;
+    p.m_LastMapId   = "level_1";
 
     CHECK(p.m_bSaveToFile());
 
@@ -57,7 +59,8 @@ TEST_CASE("t_Project: save and load roundtrip")
 
 TEST_CASE("t_Project: missing [editor] section uses defaults")
 {
-    auto tmp_dir = std::filesystem::temp_directory_path() / "raywaves_test_no_editor";
+    auto tmp_dir =
+        std::filesystem::temp_directory_path() / "raywaves_test_no_editor";
     std::filesystem::create_directories(tmp_dir);
     std::string manifest = (tmp_dir / "project.raywaves").string();
 
@@ -85,7 +88,8 @@ TEST_CASE("t_Project: missing file returns false")
 
 TEST_CASE("t_Project: b_IsProjectFolder")
 {
-    auto tmp_dir = std::filesystem::temp_directory_path() / "raywaves_test_isfolder";
+    auto tmp_dir =
+        std::filesystem::temp_directory_path() / "raywaves_test_isfolder";
     std::filesystem::create_directories(tmp_dir);
     CHECK_FALSE(t_Project::b_IsProjectFolder(tmp_dir.string()));
 

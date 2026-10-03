@@ -22,6 +22,8 @@ out
 
 # Build artifacts in project templates (compiled during development, shouldn't be tracked)
 Distribution/Templates/**/*.dll
+Distribution/Templates/**/*.so
+Distribution/Templates/**/*.dylib
 Distribution/Templates/**/*.pdb
 Distribution/Templates/**/*.lib
 

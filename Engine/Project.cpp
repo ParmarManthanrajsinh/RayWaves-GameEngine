@@ -1,4 +1,5 @@
 #include "Project.h"
+#include "Platform/PlatformPaths.h"
 #include <fstream>
 #include <filesystem>
 #include <iostream>
@@ -23,7 +24,7 @@ bool t_Project::m_bLoadFromFile(std::string_view manifest_path)
     m_EngineVersion = "0.6.0";
     m_SourceDir = "GameLogic";
     m_AssetDir = "Assets";
-    m_EntryDll = "GameLogic.dll";
+    m_EntryDll = "GameLogic" + platform::SharedLibrarySuffix();
     m_IconPath = "";
     
     m_CameraX = 0.f;

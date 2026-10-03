@@ -4,7 +4,7 @@ version=1.0.0
 engineVersion=0.6.0
 sourceDir=GameLogic
 assetDir=Assets
-entryDll=GameLogic.dll
+entryDll=GameLogic.so
 
 [editor]
 cameraX=0

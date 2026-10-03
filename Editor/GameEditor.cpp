@@ -7,6 +7,7 @@
 #include "ThemeService.h"
 #include "EditorUtils.h"
 #include "ProcessRunner.h"
+#include "../Game/DllLoader.h"
 #include <imgui/imgui_stdlib.h>
 #include <imgui_internal.h>
 #include <filesystem>
@@ -892,7 +893,8 @@ void GameEditor::CompileGameLogic()
     }
 
     std::string build_cmd;
-    std::string app_dir = GetApplicationDirectory();
+    std::string app_dir =
+        std::filesystem::path(GetHostExePath()).parent_path().string();
 
     if (ProjectManager::b_HasOpenProject())
     {
@@ -905,44 +907,16 @@ void GameEditor::CompileGameLogic()
         }
         else
         {
-            // Ensure bundled cmake exists
-            fs::path cmake_exe = ProjectManager::GetToolsDirectory() / "cmake" / "bin" / "cmake.exe";
-            if (!fs::exists(cmake_exe))
-            {
-                m_Terminal.add_text("Downloading CMake (first-time setup)...", term::Severity::Debug);
-                std::string fetch_cmd = "powershell -ExecutionPolicy Bypass -File \""
-                    + (ProjectManager::GetToolsDirectory() / "setup_zig.ps1").string()
-                    + "\" -SkipZig -SkipRcEdit -SkipNinja";
-                std::system(fetch_cmd.c_str());
-            }
-
-            std::string cmake_path = "\"" + cmake_exe.string() + "\"";
-
+            // System cmake from PATH: `sh -c` resolves it.
             // Project folders are portable, but CMake caches contain absolute paths.
             // Try normal configure first, if it fails (e.g. moved project), fallback to --fresh.
-            build_cmd = "cd /d \"" + path_str + "\" && (" + cmake_path + " -G Ninja . -B build || " + cmake_path + " --fresh -G Ninja . -B build) && " + cmake_path + " --build build --config Release";
+            build_cmd = "cd \"" + path_str + "\" && (cmake -G Ninja . -B build || cmake --fresh -G Ninja . -B build) && cmake --build build --config Release";
         }
     }
     else
     {
-        // Dev environment or no project fallback
-        if (std::filesystem::exists(app_dir + "/build_gamelogic.bat"))
-        {
-            build_cmd = "\"\"" + app_dir + "/build_gamelogic.bat\" nopause\"";
-        }
-        else
-        {
-            fs::path cmakeExe = ProjectManager::GetToolsDirectory() / "cmake" / "bin" / "cmake.exe";
-            if (!fs::exists(cmakeExe))
-            {
-                m_Terminal.add_text("Downloading CMake (first-time setup)...", term::Severity::Debug);
-                std::string fetchCmd = "powershell -ExecutionPolicy Bypass -File \""
-                    + (ProjectManager::GetToolsDirectory() / "setup_zig.ps1").string()
-                    + "\" -SkipZig -SkipRcEdit -SkipNinja";
-                std::system(fetchCmd.c_str());
-            }
-            build_cmd = "\"\"" + cmakeExe.string() + "\" --build \"" + app_dir + "\" --target GameLogic\"";
-        }
+        // Dev environment or no project fallback: build GameLogic in-tree.
+        build_cmd = "cmake --build \"" + app_dir + "\" --target GameLogic";
     }
 
     m_Terminal.add_text("Executing: " + build_cmd, term::Severity::Debug);

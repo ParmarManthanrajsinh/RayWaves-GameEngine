@@ -1,7 +1,7 @@
-#include "doctest/doctest.h"
-#include "../Engine/GameState.h"
 #include "../Engine/GameMap.h"
+#include "../Engine/GameState.h"
 #include "../Engine/MapManager.h"
+#include "doctest/doctest.h"
 #include <memory>
 
 namespace
@@ -11,10 +11,10 @@ namespace
     // editor's reload flow (SaveState -> destroy -> new instance -> LoadState).
     class ReloadTestMap : public GameMap
     {
-    public:
+      public:
         ReloadTestMap() : GameMap("ReloadTestMap") {}
 
-        void SaveState(StateBag& out) const override
+        void SaveState(StateBag &out) const override
         {
             out.SetFloat("player_x", 120.5f);
             out.SetFloat("player_y", -33.25f);
@@ -24,24 +24,24 @@ namespace
             out.SetVector2("velocity", {-4.5f, 9.75f});
         }
 
-        void LoadState(const StateBag& in) override
+        void LoadState(const StateBag &in) override
         {
-            m_PlayerX = in.GetFloat("player_x");
-            m_PlayerY = in.GetFloat("player_y");
-            m_Score = in.GetInt("score");
-            m_bPaused = in.GetBool("paused");
+            m_PlayerX   = in.GetFloat("player_x");
+            m_PlayerY   = in.GetFloat("player_y");
+            m_Score     = in.GetInt("score");
+            m_bPaused   = in.GetBool("paused");
             m_LevelName = in.GetString("level_name");
-            m_Velocity = in.GetVector2("velocity");
+            m_Velocity  = in.GetVector2("velocity");
         }
 
         float m_PlayerX = 0.0f;
         float m_PlayerY = 0.0f;
-        int m_Score = 0;
-        bool m_bPaused = false;
+        int m_Score     = 0;
+        bool m_bPaused  = false;
         std::string m_LevelName;
         Vector2 m_Velocity{};
     };
-}
+} // namespace
 
 TEST_CASE("Reload round-trip: state survives instance swap")
 {
@@ -89,7 +89,7 @@ TEST_CASE("Reload round-trip: MapManager SaveState/LoadState across swap")
 
     {
         MapManager old_manager;
-        ReloadTestMap* map = new ReloadTestMap();
+        ReloadTestMap *map = new ReloadTestMap();
         map->SaveState(reload_state);
         old_manager.RegisterMap<ReloadTestMap>("ReloadTestMap");
         old_manager.b_GotoMap("ReloadTestMap");
@@ -114,7 +114,7 @@ TEST_CASE("Reload round-trip: MapManager identifies itself via b_IsMapManager")
     CHECK(plain_map.b_IsMapManager() == false);
 
     // Polymorphic query through the base pointer (how the editor sees it)
-    GameMap* as_base = &manager;
+    GameMap *as_base = &manager;
     CHECK(as_base->b_IsMapManager() == true);
     as_base = &plain_map;
     CHECK(as_base->b_IsMapManager() == false);

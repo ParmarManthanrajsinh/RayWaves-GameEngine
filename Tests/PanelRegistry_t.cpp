@@ -1,17 +1,21 @@
-#include "doctest/doctest.h"
 #include "PanelRegistry.h"
+#include "doctest/doctest.h"
 #include <cstddef>
 
 namespace
 {
     class FakePanel : public IEditorPanel
     {
-    public:
-        void Draw(GameEditor* editor) override { (void)editor; ++s_Draws; }
+      public:
+        void Draw(GameEditor *editor) override
+        {
+            (void)editor;
+            ++s_Draws;
+        }
         static int s_Draws;
     };
     int FakePanel::s_Draws = 0;
-}
+} // namespace
 
 TEST_CASE("PanelRegistry: extension panel self-registers and builds")
 {
@@ -22,7 +26,7 @@ TEST_CASE("PanelRegistry: extension panel self-registers and builds")
 
     std::unique_ptr<IEditorPanel> panel = s_ExtensionPanels().back()();
     REQUIRE(panel != nullptr);
-    CHECK(dynamic_cast<FakePanel*>(panel.get()) != nullptr);
+    CHECK(dynamic_cast<FakePanel *>(panel.get()) != nullptr);
 
     // Factories are repeatable (no double-registration hazards)
     std::unique_ptr<IEditorPanel> second = s_ExtensionPanels().back()();

@@ -1,11 +1,11 @@
-#include "doctest/doctest.h"
 #include "../Engine/GameConfig.h"
-#include <fstream>
+#include "doctest/doctest.h"
 #include <filesystem>
+#include <fstream>
 
 TEST_CASE("GameConfig: default values")
 {
-    auto& config = GameConfig::GetInstance();
+    auto &config             = GameConfig::GetInstance();
     config.GetWindowConfig() = t_WindowConfig{};
     CHECK(config.GetWindowConfig().width == 1280);
     CHECK(config.GetWindowConfig().height == 720);
@@ -18,14 +18,14 @@ TEST_CASE("GameConfig: default values")
 
 TEST_CASE("GameConfig: GenerateConfigString roundtrip")
 {
-    auto& config = GameConfig::GetInstance();
-    config.GetWindowConfig() = t_WindowConfig{};
-    config.GetWindowConfig().width = 1920;
-    config.GetWindowConfig().height = 1080;
-    config.GetWindowConfig().scene_width = 640;
+    auto &config                          = GameConfig::GetInstance();
+    config.GetWindowConfig()              = t_WindowConfig{};
+    config.GetWindowConfig().width        = 1920;
+    config.GetWindowConfig().height       = 1080;
+    config.GetWindowConfig().scene_width  = 640;
     config.GetWindowConfig().scene_height = 480;
-    config.GetWindowConfig().scene_fps = 144;
-    config.GetWindowConfig().title = "TestGame";
+    config.GetWindowConfig().scene_fps    = 144;
+    config.GetWindowConfig().title        = "TestGame";
 
     std::string ini = config.GenerateConfigString();
     CHECK(ini.find("width=1920") != std::string::npos);
@@ -38,17 +38,18 @@ TEST_CASE("GameConfig: GenerateConfigString roundtrip")
 
 TEST_CASE("GameConfig: save and load roundtrip")
 {
-    auto& config = GameConfig::GetInstance();
-    config.GetWindowConfig() = t_WindowConfig{};
-    config.GetWindowConfig().width = 800;
-    config.GetWindowConfig().height = 600;
+    auto &config                         = GameConfig::GetInstance();
+    config.GetWindowConfig()             = t_WindowConfig{};
+    config.GetWindowConfig().width       = 800;
+    config.GetWindowConfig().height      = 600;
     config.GetWindowConfig().scene_width = 400;
-    config.GetWindowConfig().scene_fps = 30;
+    config.GetWindowConfig().scene_fps   = 30;
 
-    std::string test_path = (std::filesystem::temp_directory_path() / "test_config.ini").string();
+    std::string test_path =
+        (std::filesystem::temp_directory_path() / "test_config.ini").string();
     CHECK(config.m_bSaveToFile(test_path));
 
-    GameConfig& fresh = GameConfig::GetInstance();
+    GameConfig &fresh       = GameConfig::GetInstance();
     fresh.GetWindowConfig() = t_WindowConfig{};
     CHECK(fresh.m_bLoadFromFile(test_path));
 
@@ -62,8 +63,8 @@ TEST_CASE("GameConfig: save and load roundtrip")
 
 TEST_CASE("GameConfig: missing file returns false, keeps defaults")
 {
-    auto& config = GameConfig::GetInstance();
-    config.GetWindowConfig() = t_WindowConfig{};
+    auto &config                   = GameConfig::GetInstance();
+    config.GetWindowConfig()       = t_WindowConfig{};
     config.GetWindowConfig().width = 999;
     bool loaded = config.m_bLoadFromFile("nonexistent_file_xyz.ini");
     CHECK_FALSE(loaded);
@@ -72,7 +73,7 @@ TEST_CASE("GameConfig: missing file returns false, keeps defaults")
 
 TEST_CASE("GameConfig: ApplyExportSettings")
 {
-    auto& config = GameConfig::GetInstance();
+    auto &config             = GameConfig::GetInstance();
     config.GetWindowConfig() = t_WindowConfig{};
     config.ApplyExportSettings(1024, 768, true, false, true, 144);
 

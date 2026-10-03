@@ -1,15 +1,16 @@
-#include "doctest/doctest.h"
 #include "../Engine/MapManager.h"
+#include "doctest/doctest.h"
 
-class MockGameMap : public GameMap {
-public:
+class MockGameMap : public GameMap
+{
+  public:
     using GameMap::GameMap;
 
     void Initialize() override { m_Initialized = true; }
     void Update(float /*delta_time*/) override {}
     void Draw() override {}
-    void SaveState(StateBag& out) const override {}
-    void LoadState(const StateBag& in) override {}
+    void SaveState(StateBag &out) const override {}
+    void LoadState(const StateBag &in) override {}
 
     bool m_Initialized = false;
 };

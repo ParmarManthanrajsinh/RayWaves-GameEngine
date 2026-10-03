@@ -6,12 +6,12 @@ This guide covers engine internals, hot-reload mechanics, and the development wo
 
 ## Architecture Overview
 
-`RayWaves.exe` (The Host) | `GameLogic.dll` (The Brains)
----|---
-Handles window creation & input | Contains all gameplay code
-Manages the editor UI (ImGui) | Defines levels (`GameMaps`)
-Loads/unloads the DLL | Executes `Update()` and `Draw()`
-**Requires restart to change** | **Hot-reloads instantly**
+| `RayWaves.exe` (The Host)       | `GameLogic.dll` (The Brains)     |
+| ------------------------------- | -------------------------------- |
+| Handles window creation & input | Contains all gameplay code       |
+| Manages the editor UI (ImGui)   | Defines levels (`GameMaps`)      |
+| Loads/unloads the DLL           | Executes `Update()` and `Draw()` |
+| **Requires restart to change**  | **Hot-reloads instantly**        |
 
 ---
 
@@ -35,6 +35,7 @@ Zig, Ninja, and CMake are automatically downloaded the first time you click Comp
 5.  On success, the DLL is hot-swapped in ~0.5 seconds. Your changes are live without restarting.
 
 ### How it works under the hood
+
 - Windows locks running DLLs, so we can't just overwrite them.
 - **Solution:** We copy `GameLogic.dll` to a shadow file and load that. The original stays unlocked for the compiler to overwrite.
 - A file watcher detects the new timestamp and triggers the reload sequence.
@@ -42,15 +43,18 @@ Zig, Ninja, and CMake are automatically downloaded the first time you click Comp
 > **Tip:** Press the **Restart** button in the toolbar if you want to force a clean map state.
 
 ### Preserving State Across Reloads
+
 By default, member variables reset every reload. To preserve state (player position, health, etc.), override `SaveState`/`LoadState`. Anything not explicitly saved is discarded.
 
 ```cpp
-void Player::SaveState(StateBag& out) const {
+void Player::SaveState(StateBag& out) const
+{
     out.SetVector2("player_pos", m_Position);
     out.SetBool("player_facing_right", m_bFacingRight);
 }
 
-void Player::LoadState(const StateBag& in) {
+void Player::LoadState(const StateBag& in)
+{
     m_Position = in.GetVector2("player_pos", m_Position);
     m_bFacingRight = in.GetBool("player_facing_right", m_bFacingRight);
 }
@@ -61,19 +65,24 @@ void Player::LoadState(const StateBag& in) {
 ## Opening Projects
 
 ### Project Browser
+
 On launch (or after closing a project), the **Project Browser** shows:
+
 - **Recent Projects** list (left column) — click any entry to reopen.
 - **New Project** wizard (right column) — picks a template and creates the folder structure.
 - **Open Existing Project** — folder picker to select any folder containing `project.raywaves`.
 
 ### Double-Click File Association
-If you register the `.raywaves` file association (menu: *Tools → Register .raywaves file association*), you can:
+
+If you register the `.raywaves` file association (menu: _Tools → Register .raywaves file association_), you can:
+
 - Double-click any `project.raywaves` file in Explorer to launch the editor directly into that project.
 - If the editor is already running elsewhere, a **second instance** opens (not a tab in the existing window — see limitations below).
 
 The menu item shows a checkmark when the association is already registered and matches the current exe path. Re-register after moving `RayWaves.exe` to a new location.
 
 ### Command Line
+
 ```powershell
 RayWaves.exe --project "C:\path\to\project"
 RayWaves.exe "C:\path\to\project\project.raywaves"
@@ -106,11 +115,13 @@ class MyLevel : public GameMap {
 ```
 
 ### Best Practices
+
 - **Use `delta_time`:** Multiply movement by `delta_time` for framerate-independent motion.
 - **Keep it Clean:** Logic in `Update()`, rendering in `Draw()`, loading in `Initialize()`.
 - **State:** Static variables persist across reloads; member variables reset.
 
 ### Asset Resolution
+
 Use `AssetResolver` for portable paths to your project's `Assets/`:
 
 ```cpp
@@ -140,24 +151,29 @@ See [GAME_DEVELOPER_GUIDE.md](GAME_DEVELOPER_GUIDE.md) for end-user instructions
 Unit tests use the doctest framework.
 
 ### Running Tests
+
 ```powershell
 cmake --build build/zig-release --target tests
 .\build\zig-release\tests.exe
 ```
 
 Or via CTest:
+
 ```powershell
 ctest --test-dir build/zig-release
 ```
 
 Quick shortcuts:
+
 ```powershell
 Tests\run_all.bat      # build tests → run → full build → launch editor
 Tests\run_tests.bat    # build tests → run unit + smoke only
 ```
 
 ### Adding a New Test
+
 1. Create `Tests/MyModule_t.cpp`:
+
 ```cpp
 #include "doctest/doctest.h"
 #include "../Engine/MyModule.h"
@@ -167,23 +183,24 @@ TEST_CASE("MyModule: does thing")
     CHECK(some_function() == expected);
 }
 ```
+
 2. Add the file to `CMakeLists.txt` under the `tests` target.
 3. Rebuild and run.
 
 ### Test Coverage
 
-| Module | Test File | Cases | Status |
-|--------|-----------|-------|--------|
-| GameConfig | `GameConfig_t.cpp` | 5 | Done |
-| Project | `Project_t.cpp` | 5 | Done |
-| AssetResolver | `AssetResolver_t.cpp` | 3 | Done |
-| StateBag | `StateBag_t.cpp` | 8 | Done |
-| ProjectManager | `ProjectManager_t.cpp` | 2 | Done |
-| Profiler | `Profiler_t.cpp` | 3 | Done |
-| GameMap | `GameMap_t.cpp` | 5 | Done |
-| MapManager | `MapManager_t.cpp` | 4 | Done |
-| Perf benchmarks | `PerfBenchmark_t.cpp` | 5 | Done |
-| Smoke (DLL stress) | `SmokeTest.cpp` | 50× load/unload | Done |
+| Module             | Test File              | Cases           | Status |
+| ------------------ | ---------------------- | --------------- | ------ |
+| GameConfig         | `GameConfig_t.cpp`     | 5               | Done   |
+| Project            | `Project_t.cpp`        | 5               | Done   |
+| AssetResolver      | `AssetResolver_t.cpp`  | 3               | Done   |
+| StateBag           | `StateBag_t.cpp`       | 8               | Done   |
+| ProjectManager     | `ProjectManager_t.cpp` | 2               | Done   |
+| Profiler           | `Profiler_t.cpp`       | 3               | Done   |
+| GameMap            | `GameMap_t.cpp`        | 5               | Done   |
+| MapManager         | `MapManager_t.cpp`     | 4               | Done   |
+| Perf benchmarks    | `PerfBenchmark_t.cpp`  | 5               | Done   |
+| Smoke (DLL stress) | `SmokeTest.cpp`        | 50× load/unload | Done   |
 
 Total: **40 test cases**, **116 assertions**, plus **smoke test** (DLL load 50×).
 
@@ -194,13 +211,16 @@ Total: **40 test cases**, **116 assertions**, plus **smoke test** (DLL load 50×
 Toggle the **Performance Overlay** in the editor toolbar to see FPS, frame times, and per-system breakdown.
 
 ### Distribution Build (Strip Profiler)
+
 ```powershell
 cmake -B build/zig-release -DRAYWAVES_DISTRIBUTION_BUILD=ON
 cmake --build build/zig-release
 ```
+
 When enabled, `SCOPED_TIMER` becomes a no-op and `PerformanceOverlay` renders an empty breakdown.
 
 ### CSV Export (Dev Only)
+
 ```cpp
 Profiler::Get().SaveToFile("profile.csv");
 ```
@@ -218,9 +238,11 @@ Profiler::Get().SaveToFile("profile.csv");
 ## Advanced Tips
 
 ### raygui
+
 `#include <raygui.h>` in your map code for immediate-mode UI. Do **not** `#define RAYGUI_IMPLEMENTATION` yourself.
 
 ### Customizing the Editor
+
 1. Open `Editor/GameEditor.cpp` for the main loop, or the relevant piece:
    `Editor/GameLogicLoader.cpp` (DLL hot-reload lifecycle),
    `Editor/ThemeService.cpp` (theme rebake), `Editor/Panels/*` (editor UI).
@@ -228,9 +250,10 @@ Profiler::Get().SaveToFile("profile.csv");
 3. Rebuild `RayWaves.exe` (must close the editor first).
 
 ### Debugging
+
 - Attach any C++ debugger (VS Code, LLDB, Visual Studio) to `RayWaves.exe`.
 - Breakpoints usually survive DLL hot-reload because Zig generates PDB files.
 
 ---
 
-*Happy Coding!*
+_Happy Coding!_

@@ -1,60 +1,14 @@
 #include "ProcessRunner.h"
-#include <string>
-#include <thread>
-#include <vector>
 #include <array>
+#include <cstdio>
 #include <functional>
-#include <memory>
-
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
+#include <string>
+#include <string_view>
+#include <thread>
+#include <sys/wait.h>
 
 namespace ProcessRunner
 {
-    namespace
-    {
-        struct Handle
-        {
-            HANDLE h{ nullptr };
-
-            Handle() = default;
-            Handle(HANDLE h_) : h(h_) {}
-
-            ~Handle() { Close(); }
-
-            Handle(const Handle&) = delete;
-            Handle& operator=(const Handle&) = delete;
-
-            Handle(Handle&& other) noexcept : h(other.h)
-            {
-                other.h = nullptr;
-            }
-
-            Handle& operator=(Handle&& other) noexcept
-            {
-                if (this != std::addressof(other))
-                {
-                    Close();
-                    h = other.h;
-                    other.h = nullptr;
-                }
-                return *this;
-            }
-
-            void Close()
-            {
-                if (h != nullptr)
-                {
-                    CloseHandle(h);
-                    h = nullptr;
-                }
-            }
-
-            operator HANDLE() const { return h; }
-            HANDLE* operator&() { return &h; }
-        };
-    }
-
     void RunBuildCommand
     (
         std::string_view cmd,
@@ -64,53 +18,10 @@ namespace ProcessRunner
     {
         std::thread([cmd_str = std::string(cmd), on_output, on_complete]()
         {
-            SECURITY_ATTRIBUTES sa{};
-            sa.nLength = sizeof(SECURITY_ATTRIBUTES);
-            sa.bInheritHandle = TRUE;
-
-            Handle hRead;
-            Handle hWrite;
-
-            if (!CreatePipe(&hRead, &hWrite, &sa, 0))
-            {
-                if (on_output)
-                {
-                    on_output("Failed to create pipe.", true);
-                }
-                if (on_complete)
-                {
-                    on_complete(false);
-                }
-                return;
-            }
-
-            STARTUPINFOA si{};
-            si.cb = sizeof(STARTUPINFOA);
-            si.hStdError = hWrite;
-            si.hStdOutput = hWrite;
-            si.dwFlags = STARTF_USESTDHANDLES | STARTF_USESHOWWINDOW;
-            si.wShowWindow = SW_HIDE;
-
-            PROCESS_INFORMATION pi{};
-            std::string cmd_mutable = "cmd.exe /C ";
-            cmd_mutable.append(cmd_str);
-
-            if
-            (
-                !CreateProcessA
-                (
-                    nullptr,
-                    cmd_mutable.data(),
-                    nullptr,
-                    nullptr,
-                    TRUE,
-                    CREATE_NO_WINDOW,
-                    nullptr,
-                    nullptr,
-                    &si,
-                    &pi
-                )
-            )
+            // popen already runs the string through `sh -c`, so callers pass
+            // the pipeline itself with no shell prefix.
+            FILE* pipe = popen(cmd_str.c_str(), "r");
+            if (pipe == nullptr)
             {
                 if (on_output)
                 {
@@ -123,26 +34,11 @@ namespace ProcessRunner
                 return;
             }
 
-            Handle hProcess{ pi.hProcess };
-            Handle hThread{ pi.hThread };
-
-            hWrite = {}; // close write end
-
-            DWORD bytes_read = 0;
             std::array<char, 128> buffer{};
             std::string current_line;
 
-            while
-            (
-                ReadFile
-                (
-                    hRead,
-                    buffer.data(),
-                    static_cast<DWORD>(buffer.size()),
-                    &bytes_read,
-                    nullptr
-                ) && bytes_read > 0
-            )
+            while (std::size_t bytes_read =
+                       fread(buffer.data(), 1, buffer.size(), pipe))
             {
                 current_line.append(buffer.data(), bytes_read);
 
@@ -166,7 +62,7 @@ namespace ProcessRunner
 
                     view.remove_prefix(pos + 1);
                 }
-                
+
                 current_line.erase(0, current_line.length() - view.length());
             }
 
@@ -178,14 +74,13 @@ namespace ProcessRunner
                 }
             }
 
-            WaitForSingleObject(hProcess, INFINITE);
-
-            DWORD exit_code = 0;
-            GetExitCodeProcess(hProcess, &exit_code);
+            int status = pclose(pipe);
+            bool success =
+                status != -1 && WIFEXITED(status) && WEXITSTATUS(status) == 0;
 
             if (on_complete)
             {
-                on_complete(exit_code == 0);
+                on_complete(success);
             }
 
         }).detach();

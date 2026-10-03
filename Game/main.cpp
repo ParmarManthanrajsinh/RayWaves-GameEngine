@@ -1,14 +1,13 @@
-#include <iostream>
 #include "GameEditor.h"
 #include "GameEngine.h"
 #include "GameMap.h"
-#include <crtdbg.h>
 #include <filesystem>
+#include <iostream>
 
 #include "../Engine/ProjectManager.h"
 
 // DLL loading is owned by GameLogicLoader (via GameEditor) for hot-reload
-int main(int argc, char** argv)
+int main(int argc, char **argv)
 {
     if (argc >= 3 && std::string(argv[1]) == "--project")
     {
@@ -18,7 +17,8 @@ int main(int argc, char** argv)
     {
         std::filesystem::path input(argv[1]);
         std::filesystem::path folder;
-        if (input.filename() == "project.raywaves" || input.extension() == ".raywaves")
+        if (input.filename() == "project.raywaves" ||
+            input.extension() == ".raywaves")
         {
             folder = input.parent_path();
         }
@@ -32,18 +32,10 @@ int main(int argc, char** argv)
         }
     }
 
-#ifdef _DEBUG
-    _CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
-    _CrtSetReportMode(_CRT_ASSERT, _CRTDBG_MODE_FILE | _CRTDBG_MODE_DEBUG);
-    _CrtSetReportFile(_CRT_ASSERT, _CRTDBG_FILE_STDERR);
-    _CrtSetReportMode(_CRT_ERROR, _CRTDBG_MODE_FILE | _CRTDBG_MODE_DEBUG);
-    _CrtSetReportFile(_CRT_ERROR, _CRTDBG_FILE_STDERR);
-#endif
-
     CleanupStaleShadowCopies();
     std::cout << "Game Engine Starting..." << "\n";
     GameEditor editor;
-    editor.Init(1280,720,"RayWaves");
+    editor.Init(1280, 720, "RayWaves");
 
     // Load logic DLL if a project was opened from command line
     if (ProjectManager::b_HasOpenProject())

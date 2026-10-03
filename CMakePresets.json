@@ -2,51 +2,29 @@
     "version": 3,
     "configurePresets": [
         {
-            "name": "windows-base",
+            "name": "linux-base",
             "hidden": true,
             "generator": "Ninja",
             "binaryDir": "${sourceDir}/build/${presetName}",
             "installDir": "${sourceDir}/install/${presetName}",
-
             "condition": {
                 "type": "equals",
                 "lhs": "${hostSystemName}",
-                "rhs": "Windows"
+                "rhs": "Linux"
             }
         },
-
         {
-            "name": "windows-zig",
-            "hidden": true,
-            "inherits": "windows-base",
-            "cacheVariables": {
-                "CMAKE_C_COMPILER": "${sourceDir}/Tools/zig-cc.bat",
-                "CMAKE_CXX_COMPILER": "${sourceDir}/Tools/zig-cxx.bat",
-                "CMAKE_SYSTEM_NAME": "Windows"
-            }
-        },
-
-        {
-            "name": "zig-debug",
-            "displayName": "Zig Debug",
-            "inherits": "windows-zig",
-            "architecture": {
-                "value": "x64",
-                "strategy": "external"
-            },
+            "name": "linux-debug",
+            "displayName": "Linux Debug",
+            "inherits": "linux-base",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Debug"
             }
         },
-
         {
-            "name": "zig-release",
-            "displayName": "Zig Release",
-            "inherits": "windows-zig",
-            "architecture": {
-                "value": "x64",
-                "strategy": "external"
-            },
+            "name": "linux-release",
+            "displayName": "Linux Release",
+            "inherits": "linux-base",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Release"
             }

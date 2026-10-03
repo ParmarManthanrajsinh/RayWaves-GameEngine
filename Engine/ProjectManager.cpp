@@ -1,41 +1,22 @@
 #include <algorithm>
 #include <iostream>
 #include "ProjectManager.h"
+#include "Platform/PlatformPaths.h"
 #include <filesystem>
 #include <fstream>
-#include <windows.h>
-#include <shlobj.h>
 
 namespace fs = std::filesystem;
 
 fs::path ProjectManager::GetEngineRootDirectory()
 {
-    char exe_path[MAX_PATH];
-    GetModuleFileNameA(nullptr, exe_path, MAX_PATH);
-    fs::path base_dir = fs::path(exe_path).parent_path();
-
-    if (fs::exists(base_dir / "Tools" / "setup_zig.ps1"))
+    fs::path base_dir = platform::HostExecutablePath().parent_path();
+    if (base_dir.empty())
     {
-        return base_dir;
+        base_dir = fs::current_path();
     }
 
+    // Source layout: repo root holds Distribution/Templates.
     fs::path current = base_dir;
-    while (current.has_parent_path() && current != current.parent_path())
-    {
-        if (fs::exists(current / "Tools" / "setup_zig.ps1"))
-        {
-            return current;
-        }
-        current = current.parent_path();
-    }
-
-    // Fallback: check for dist layout (Core/ + Templates/)
-    if (fs::exists(base_dir / "Core") && fs::exists(base_dir / "Templates"))
-    {
-        return base_dir;
-    }
-
-    current = base_dir;
     while (current.has_parent_path() && current != current.parent_path())
     {
         if (fs::exists(current / "Distribution" / "Templates"))
@@ -45,18 +26,13 @@ fs::path ProjectManager::GetEngineRootDirectory()
         current = current.parent_path();
     }
 
-    return base_dir;
-}
-
-fs::path ProjectManager::GetToolsDirectory()
-{
-    fs::path engine_root = GetEngineRootDirectory();
-    fs::path tools_dir = engine_root / "Core" / "Tools";
-    if (!fs::exists(tools_dir / "zig-cc.bat"))
+    // Distribution layout: Core/ + Templates/ sit beside the runtime.
+    if (fs::exists(base_dir / "Core") && fs::exists(base_dir / "Templates"))
     {
-        tools_dir = engine_root / "Tools";
+        return base_dir;
     }
-    return tools_dir;
+
+    return base_dir;
 }
 
 std::string ProjectManager::SanitizeCMakeProjectName(std::string_view name)
@@ -95,11 +71,11 @@ std::recursive_mutex ProjectManager::s_Mutex;
 void ProjectManager::InitializeRecentPath()
 {
     if (!s_RecentPath.empty()) return;
-    
-    char path[MAX_PATH];
-    if (SUCCEEDED(SHGetFolderPathA(nullptr, CSIDL_APPDATA, nullptr, 0, path)))
+
+    fs::path config_dir = platform::UserConfigDir();
+    if (!config_dir.empty())
     {
-        fs::path dir = fs::path(path) / "RayWaves";
+        fs::path dir = config_dir / "RayWaves";
         if (!fs::exists(dir)) fs::create_directories(dir);
         s_RecentPath = (dir / "recent.ini").string();
     }
@@ -317,69 +293,28 @@ bool ProjectManager::GenerateCMakeLists()
         engine_dir = engine_root / "Core";
     }
     std::string engine_dir_str = engine_dir.string();
-    std::ranges::replace(engine_dir_str, '\\', '/');
 
     // Resolve raylib path relative to exe (staged by main build or dist layout)
-    char exe_path[MAX_PATH];
-    GetModuleFileNameA(nullptr, exe_path, MAX_PATH);
-    fs::path exe_dir = fs::path(exe_path).parent_path();
+    fs::path exe_dir = platform::HostExecutablePath().parent_path();
     fs::path raylib_dir = exe_dir / "raylib";
     if (fs::exists(exe_dir / "Core" / "raylib" / "include" / "raylib.h"))
     {
         raylib_dir = exe_dir / "Core" / "raylib";
     }
     std::string raylib_dir_str = raylib_dir.string();
-    std::ranges::replace(raylib_dir_str, '\\', '/');
 
     std::ofstream file(cmake_path);
     if (!file.is_open()) return false;
 
-    fs::path tools_dir = GetToolsDirectory();
-    std::string tools_dir_str = tools_dir.string();
-    std::ranges::replace(tools_dir_str, '\\', '/');
-
     file << "cmake_minimum_required(VERSION 3.10)\n\n";
 
-    file << "if(CMAKE_C_COMPILER MATCHES \"zig-cc\" OR CMAKE_CXX_COMPILER MATCHES \"zig-cxx\")\n";
-    file << "    if(NOT EXISTS \"" << tools_dir_str << "/zig/zig.exe\")\n";
-    file << "        message(STATUS \"Zig toolchain not found. Auto-fetching...\")\n";
-    file << "        execute_process(\n";
-    file << "            COMMAND powershell -ExecutionPolicy Bypass -File \"" << tools_dir_str << "/setup_zig.ps1\" -SkipRcEdit\n";
-    std::string engine_root_str = engine_root.string();
-    std::ranges::replace(engine_root_str, '\\', '/');
-    file << "            WORKING_DIRECTORY \"" << engine_root_str << "\"\n";
-    file << "            RESULT_VARIABLE ZIG_FETCH_RESULT\n";
-    file << "        )\n";
-    file << "        if(NOT ZIG_FETCH_RESULT EQUAL 0)\n";
-    file << "            message(FATAL_ERROR \"Failed to download Zig.\")\n";
-    file << "        endif()\n";
-    file << "    endif()\n";
-    file << "endif()\n\n";
-
-    // Auto-fetch Ninja if missing
-    file << "if(NOT EXISTS \"" << tools_dir_str << "/ninja/ninja.exe\")\n";
-    file << "    message(STATUS \"Ninja not found. Auto-fetching...\")\n";
-    file << "    execute_process(\n";
-    file << "        COMMAND powershell -ExecutionPolicy Bypass -File \"" << tools_dir_str << "/setup_zig.ps1\" -SkipZig -SkipRcEdit -SkipCMake\n";
-    file << "        WORKING_DIRECTORY \"" << engine_root_str << "\"\n";
-    file << "        RESULT_VARIABLE NINJA_FETCH_RESULT\n";
-    file << "    )\n";
-    file << "    if(NOT NINJA_FETCH_RESULT EQUAL 0)\n";
-    file << "        message(FATAL_ERROR \"Failed to download Ninja.\")\n";
-    file << "    endif()\n";
-    file << "endif()\n\n";
-
-    file << "set(CMAKE_MAKE_PROGRAM \"" << tools_dir_str << "/ninja/ninja.exe\" CACHE FILEPATH \"Build program\" FORCE)\n";
-    file << "set(CMAKE_C_COMPILER \"" << tools_dir_str << "/zig-cc.bat\")\n";
-    file << "set(CMAKE_CXX_COMPILER \"" << tools_dir_str << "/zig-cxx.bat\")\n";
+    // System compiler, system build tools: nothing to bootstrap.
     file << "project(" << SanitizeCMakeProjectName(s_Current.m_Name) << ")\n\n";
 
     file << "set(CMAKE_CXX_STANDARD 23)\n";
     file << "set(CMAKE_CXX_STANDARD_REQUIRED ON)\n";
     file << "set(CMAKE_CXX_EXTENSIONS OFF)\n\n";
-    
-    file << "add_compile_options(-msse4.2)\n\n";
-    
+
     file << "set(ENGINE_DIR \"" << engine_dir_str << "\")\n";
     file << "set(RAYLIB_DIR \"" << raylib_dir_str << "\")\n";
     file << "set(PROJECT_SRC_DIR \"${CMAKE_SOURCE_DIR}/../GameLogic\")\n\n";
@@ -387,8 +322,9 @@ bool ProjectManager::GenerateCMakeLists()
     file << "add_library(GameLogic SHARED)\n";
     file << "set_target_properties(GameLogic PROPERTIES PREFIX \"\")\n\n";
     
-    file << "file(GLOB_RECURSE SRC_FILES \"${PROJECT_SRC_DIR}/*.cpp\")\n";
-    file << "file(GLOB_RECURSE ENGINE_SRC \"${ENGINE_DIR}/Engine/*.cpp\")\n";
+    // CONFIGURE_DEPENDS: a newly added .cpp must show up without clearing the cache.
+    file << "file(GLOB_RECURSE SRC_FILES CONFIGURE_DEPENDS \"${PROJECT_SRC_DIR}/*.cpp\")\n";
+    file << "file(GLOB_RECURSE ENGINE_SRC CONFIGURE_DEPENDS \"${ENGINE_DIR}/Engine/*.cpp\")\n";
     file << "target_sources(GameLogic PRIVATE ${SRC_FILES} ${ENGINE_SRC})\n\n";
     
     file << "target_include_directories(GameLogic PRIVATE\n";
@@ -398,10 +334,14 @@ bool ProjectManager::GenerateCMakeLists()
     file << ")\n\n";
     
     file << "target_link_directories(GameLogic PRIVATE \"${RAYLIB_DIR}/lib\")\n";
-    file << "target_link_libraries(GameLogic PRIVATE raylib dwmapi)\n\n";
-    
-    file << "set_target_properties(GameLogic PROPERTIES RUNTIME_OUTPUT_DIRECTORY \"${CMAKE_SOURCE_DIR}/..\")\n";
-    file << "set_target_properties(GameLogic PROPERTIES LIBRARY_OUTPUT_DIRECTORY \"${CMAKE_SOURCE_DIR}/..\")\n";
+    file << "target_link_libraries(GameLogic PRIVATE raylib)\n\n";
+
+    // Plugin dlopen'd by the editor must find libraylib.so on its own.
+    file << "set_target_properties(GameLogic PROPERTIES\n";
+    file << "    BUILD_RPATH \"${RAYLIB_DIR}/bin\"\n";
+    file << "    INSTALL_RPATH \"$ORIGIN\"\n";
+    file << "    RUNTIME_OUTPUT_DIRECTORY \"${CMAKE_SOURCE_DIR}/..\"\n";
+    file << "    LIBRARY_OUTPUT_DIRECTORY \"${CMAKE_SOURCE_DIR}/..\")\n";
 
     return true;
 }

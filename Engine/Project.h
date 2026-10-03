@@ -1,4 +1,5 @@
 #pragma once
+#include "Platform/PlatformPaths.h"
 #include <string>
 
 struct t_Project 
@@ -9,7 +10,7 @@ struct t_Project
     std::string m_EngineVersion;
     std::string m_SourceDir = "GameLogic";
     std::string m_AssetDir = "Assets";
-    std::string m_EntryDll = "GameLogic.dll";
+    std::string m_EntryDll = "GameLogic" + platform::SharedLibrarySuffix();
     std::string m_IconPath = "";
     
     std::string m_SourcePath;

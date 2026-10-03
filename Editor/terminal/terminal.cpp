@@ -9,9 +9,8 @@
 #include <chrono>
 #include <ctime>
 #include <imgui_internal.h>
-#define CRTDBG_MAP_ALLOC
 #include <cstdlib>
-#include <crtdbg.h>
+#include <system_error>
 
 #if defined(_DEBUG) && defined(_MSC_VER) && !defined(__clang__)
 #define DEBUG_NEW new(_NORMAL_BLOCK, __FILE__, __LINE__)
@@ -215,11 +214,7 @@ namespace term
         auto now = std::chrono::system_clock::now();
         std::time_t now_c = std::chrono::system_clock::to_time_t(now);
         std::tm now_tm;
-#ifdef _WIN32
-        localtime_s(&now_tm, &now_c);
-#else
         localtime_r(&now_c, &now_tm);
-#endif
         char time_buf[16];
         std::strftime(time_buf, sizeof(time_buf), "%H:%M:%S", &now_tm);
 
@@ -688,17 +683,18 @@ namespace term
                 if (ProjectManager::b_HasOpenProject())
                 {
                     std::string proj_dir = ProjectManager::GetCurrent().m_RootPath;
-                    full_cmd = "cd /d \"" + proj_dir + "\" && " + command_str + " 2>&1";
+                    full_cmd = "cd \"" + proj_dir + "\" && " + command_str + " 2>&1";
                 }
                 
-                FILE* pipe = _popen(full_cmd.c_str(), "r");
+                FILE* pipe = popen(full_cmd.c_str(), "r");
 
                 if (!pipe)
                 {
                     if (!cancel->load())
                     {
-                        char error_msg[256];
-                        strerror_s(error_msg, sizeof(error_msg), errno);
+                        std::string error_msg =
+                            std::error_code(errno, std::generic_category())
+                                .message();
                         if (!cancel->load())
                             this->add_text(std::string("Failed to start command: ") + error_msg, Severity::Error);
                     }
@@ -710,7 +706,7 @@ namespace term
                 {
                     if (cancel->load()) 
                     {
-                        _pclose(pipe);
+                        pclose(pipe);
                         return;
                     }
                     
@@ -726,7 +722,7 @@ namespace term
                     }
                 }
                 
-                int return_code = _pclose(pipe);
+                int return_code = pclose(pipe);
 
                 if (!cancel->load())
                 {

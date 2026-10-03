@@ -5,12 +5,12 @@
 
 static MapManager* s_GameMapManager = nullptr;
 
-extern "C" __declspec(dllexport) uint32_t GetGameLogicAbiVersion()
+extern "C" uint32_t GetGameLogicAbiVersion()
 {
     return RAYWAVES_GAMELOGIC_ABI_VERSION;
 }
 
-extern "C" __declspec(dllexport) GameMap* CreateGameMap()
+extern "C" GameMap* CreateGameMap()
 {
     if (s_GameMapManager == nullptr)
     {
@@ -22,7 +22,7 @@ extern "C" __declspec(dllexport) GameMap* CreateGameMap()
     return s_GameMapManager;
 }
 
-extern "C" __declspec(dllexport) void DestroyGameMap(GameMap* map_manager)
+extern "C" void DestroyGameMap(GameMap* map_manager)
 {
     if (map_manager != nullptr)
     {
