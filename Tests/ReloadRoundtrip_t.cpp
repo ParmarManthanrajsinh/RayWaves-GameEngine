@@ -89,8 +89,8 @@ TEST_CASE("Reload round-trip: MapManager SaveState/LoadState across swap")
 
     {
         MapManager old_manager;
-        ReloadTestMap *map = new ReloadTestMap();
-        map->SaveState(reload_state);
+        ReloadTestMap map;
+        map.SaveState(reload_state);
         old_manager.RegisterMap<ReloadTestMap>("ReloadTestMap");
         old_manager.b_GotoMap("ReloadTestMap");
     }
