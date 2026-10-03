@@ -113,6 +113,7 @@ namespace ExportService
     {
         bool b_Ok = true;
 
+        EditorUtils::EnsureValidCwd();
         log(std::string("Validation working directory: ") + fs::current_path().string());
         log(std::string("Checking export directory: ").append(out_dir));
 
@@ -192,6 +193,7 @@ namespace ExportService
             fs::create_directories(settings.m_ExportPath);
             log("Starting export process...");
 
+            EditorUtils::EnsureValidCwd();
             fs::path current_path = fs::current_path();
             const auto& proj = ProjectManager::GetCurrent();
 
@@ -481,15 +483,17 @@ namespace ExportService
             {
                 log("Export completed successfully!");
 
-                // Tarball for distribution: same folder, ready to ship.
+                // Tarball for distribution: inside the export folder, ready
+                // to ship. Exclude the tarball itself so tar never packs
+                // its own output.
                 if (!is_cancelled())
                 {
-                    fs::path tarball = export_dir.parent_path() /
-                                      (game_exe_name + ".tar.gz");
+                    const std::string tar_name = game_exe_name + ".tar.gz";
+                    fs::path tarball = export_dir / tar_name;
                     std::string tar_cmd =
-                        "tar -C \"" + export_dir.parent_path().string() +
-                        "\" -czf \"" + tarball.string() + "\" \"" +
-                        export_dir.filename().string() + "\"";
+                        "tar -C \"" + export_dir.string() + "\"" +
+                        " --exclude=\"*.tar.gz\"" +
+                        " -czf \"" + tarball.string() + "\" .";
                     if (std::system(tar_cmd.c_str()) == 0)
                     {
                         log("Created archive: " + tarball.string());

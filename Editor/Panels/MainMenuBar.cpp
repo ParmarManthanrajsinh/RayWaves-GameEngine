@@ -32,7 +32,8 @@ void MainMenuBar::Draw(GameEditor* editor)
             ImGui::Separator();
             if (ImGui::MenuItem(ICON_FA_FOLDER_OPEN " Switch Project..."))
             {
-                const char* path = tinyfd_selectFolderDialog("Switch Project", nullptr);
+                const std::string dialog_dir = EditorUtils::DefaultDialogDir();
+                const char* path = tinyfd_selectFolderDialog("Switch Project", dialog_dir.c_str());
                 if (path != nullptr)
                 {
                     editor->OpenProject(path);

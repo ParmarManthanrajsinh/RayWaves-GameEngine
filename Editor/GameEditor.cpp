@@ -441,7 +441,8 @@ void GameEditor::RunBrowser()
         // Open Existing — secondary
         if (ImGui::Button(ICON_FA_FOLDER_OPEN "  Open Existing Project", ImVec2(-1, 44.0f)))
         {
-            const char* path = tinyfd_selectFolderDialog("Open Project", nullptr);
+            const std::string dialog_dir = EditorUtils::DefaultDialogDir();
+            const char* path = tinyfd_selectFolderDialog("Open Project", dialog_dir.c_str());
             if (path != nullptr)
             {
                 OpenProject(path);
@@ -477,7 +478,8 @@ void GameEditor::RunBrowser()
             ImGui::SameLine();
             if (ImGui::Button("Browse..."))
             {
-                const char* folder = tinyfd_selectFolderDialog("Select Project Location", nullptr);
+                const std::string dialog_dir = EditorUtils::DefaultDialogDir();
+                const char* folder = tinyfd_selectFolderDialog("Select Project Location", dialog_dir.c_str());
                 if (folder != nullptr)
                 {
                     strncpy(newProjectLocation, folder, sizeof(newProjectLocation) - 1);

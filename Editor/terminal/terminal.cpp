@@ -1,3 +1,4 @@
+#include "../EditorUtils.h"
 #include <algorithm>
 #include <iostream>
 #include <utility>
@@ -686,6 +687,7 @@ namespace term
                     full_cmd = "cd \"" + proj_dir + "\" && " + command_str + " 2>&1";
                 }
                 
+                EditorUtils::EnsureValidCwd();
                 FILE* pipe = popen(full_cmd.c_str(), "r");
 
                 if (!pipe)

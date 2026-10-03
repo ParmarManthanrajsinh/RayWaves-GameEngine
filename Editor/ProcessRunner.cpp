@@ -1,4 +1,5 @@
 #include "ProcessRunner.h"
+#include "EditorUtils.h"
 #include <array>
 #include <cstdio>
 #include <functional>
@@ -20,6 +21,7 @@ namespace ProcessRunner
         {
             // popen already runs the string through `sh -c`, so callers pass
             // the pipeline itself with no shell prefix.
+            EditorUtils::EnsureValidCwd();
             FILE* pipe = popen(cmd_str.c_str(), "r");
             if (pipe == nullptr)
             {

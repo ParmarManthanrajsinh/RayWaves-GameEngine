@@ -79,7 +79,8 @@ void ExportPanel::Draw(GameEditor* editor)
         if (ImGui::Button("Browse##icon", ImVec2(80.0f, 0)))
         {
             const char* filters[] = { "*.png" };
-            const char* selected = tinyfd_openFileDialog("Select Icon", nullptr, 1, filters, "Icon Files (*.png)", 0);
+            const std::string dialog_dir = EditorUtils::DefaultDialogDir();
+            const char* selected = tinyfd_openFileDialog("Select Icon", dialog_dir.c_str(), 1, filters, "Icon Files (*.png)", 0);
             if (selected != nullptr)
             {
                 ProjectManager::GetCurrent().m_IconPath = selected;
@@ -246,7 +247,8 @@ void ExportPanel::Draw(GameEditor* editor)
         ImGui::SameLine();
         if (ImGui::Button("Browse", ImVec2(80.0f, 0)))
         {
-            const char* selected_path = tinyfd_selectFolderDialog("Select Export Folder", nullptr);
+            const std::string dialog_dir = EditorUtils::DefaultDialogDir();
+            const char* selected_path = tinyfd_selectFolderDialog("Select Export Folder", dialog_dir.c_str());
             if (selected_path != nullptr)
             {
                 fs::path parent_path = fs::path(selected_path);

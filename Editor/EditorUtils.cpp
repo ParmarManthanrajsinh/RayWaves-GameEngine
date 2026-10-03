@@ -1,4 +1,6 @@
 #include "EditorUtils.h"
+#include "../Engine/Platform/PlatformPaths.h"
+#include "../Engine/ProjectManager.h"
 #include <cstdlib>
 #include <iostream>
 #include <unistd.h>
@@ -70,5 +72,45 @@ namespace EditorUtils
         constexpr std::string_view dangerous =
             "&|;$\"`'<>%!^()@#\\\n\r";
         return s.find_first_of(dangerous) == std::string_view::npos;
+    }
+
+    void EnsureValidCwd()
+    {
+        namespace fs = std::filesystem;
+        std::error_code ec;
+        fs::current_path(ec);
+        if (!ec)
+        {
+            return;
+        }
+        // CWD inode is gone (dist folder deleted or moved while running).
+        // Try the directory holding the executable, then "/".
+        fs::path exe = platform::HostExecutablePath();
+        if (!exe.empty())
+        {
+            std::error_code ec2;
+            fs::current_path(exe.parent_path(), ec2);
+            if (!ec2)
+            {
+                return;
+            }
+        }
+        fs::current_path("/", ec);
+    }
+
+    std::string DefaultDialogDir()
+    {
+        namespace fs = std::filesystem;
+        if (ProjectManager::b_HasOpenProject())
+        {
+            return ProjectManager::GetCurrent().m_RootPath;
+        }
+        std::error_code ec;
+        fs::path cwd = fs::current_path(ec);
+        if (!ec)
+        {
+            return cwd.string();
+        }
+        return "/";
     }
 }
