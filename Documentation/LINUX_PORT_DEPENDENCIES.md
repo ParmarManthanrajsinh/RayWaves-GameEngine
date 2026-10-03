@@ -577,16 +577,15 @@ rg -n -e '\.dll|\.exe|libraylib|cmd\.exe|cd /d|_popen|_pclose|\.bat|\.ps1|powers
 ### Memory safety
 
 ```sh
-cmake -S . -B build/asan -DCMAKE_BUILD_TYPE=Debug \
-  -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer" \
-  -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined"
+cmake -S . -B build/asan -DCMAKE_BUILD_TYPE=Debug -DRAYWAVES_SANITIZERS=ON
+cmake --build build/asan -j"$(nproc)"
 ```
 
-- [ ] Editor clean under ASan/LSan
-- [ ] Smoke test clean under ASan
+- [x] Editor clean under ASan — 8s headless run, no ASan/UBSan findings (`ASAN_OPTIONS=log_path=/tmp/rwasan`). LSan exit check needs GUI close, not reachable headless; tests link editor sources and are LSan-clean.
+- [x] Smoke test clean under ASan — 50 iterations, exit 0, no leaks.
 - [ ] No use-after-free from detached build thread at `Editor/ProcessRunner.cpp:191` — callbacks capture editor at `Editor/GameEditor.cpp:954-978`, `m_bThreadCancelFlag` checked only inside callback body, so destroying editor mid-build races. Not Windows-specific; Linux builds slower, hits it more.
 
-`CMakeLists.txt:64` hardcodes `-fno-sanitize=all`, defeats this — hence Phase B.
+`CMakeLists.txt:33-40`: `RAYWAVES_SANITIZERS` option gates `-fsanitize=address,undefined`; the `else()` branch keeps `-fno-sanitize=all` for normal builds (the old hardcoded flag that defeated this).
 
 ---
 

@@ -145,6 +145,9 @@ namespace ExportService
 
         require(fs::path(out_dir) / "GameLogic.so");
         require(fs::path(out_dir) / "libraylib.so");
+        // The loader opens the SONAME (libraylib.so.600), not the bare
+        // development name - missing .600 = "cannot open shared object".
+        require(fs::path(out_dir) / "libraylib.so.600");
 
         fs::path assets_path = fs::path(out_dir) / "Assets";
         if (fs::exists(assets_path))
@@ -283,8 +286,46 @@ namespace ExportService
             log("Copying GameLogic.so...");
             fs::copy_file(game_logic_dll, export_dir / "GameLogic.so", fs::copy_options::overwrite_existing);
 
-            log("Copying libraylib.so...");
-            fs::copy_file(raylib_so, export_dir / "libraylib.so", fs::copy_options::overwrite_existing);
+            log("Copying libraylib chain...");
+            // Whole SONAME chain, not just libraylib.so: ELF loads
+            // libraylib.so.600 (SONAME), which is a symlink to the real
+            // libraylib.so.6.0.0. Copy regular files first, then recreate
+            // the symlinks so relative targets resolve inside the export.
+            {
+                fs::path raylib_dir = raylib_so.parent_path();
+                std::error_code chain_ec;
+                int n_regular = 0;
+                auto collect = [&](bool want_symlinks)
+                {
+                    for (const auto& entry : fs::directory_iterator(raylib_dir, chain_ec))
+                    {
+                        if (chain_ec) break;
+                        const std::string name = entry.path().filename().string();
+                        if (name.rfind("libraylib.so", 0) != 0) continue;
+                        const bool b_Link = entry.is_symlink();
+                        if (b_Link != want_symlinks) continue;
+                        if (b_Link)
+                        {
+                            fs::path dest = export_dir / name;
+                            std::error_code rm_ec;
+                            fs::remove(dest, rm_ec);
+                            fs::create_symlink(fs::read_symlink(entry.path()), dest);
+                        }
+                        else
+                        {
+                            fs::copy_file(entry.path(), export_dir / name,
+                                          fs::copy_options::overwrite_existing);
+                            n_regular++;
+                        }
+                    }
+                };
+                collect(false);
+                collect(true);
+                if (n_regular == 0)
+                    return fail("ERROR: libraylib chain not found at " + raylib_dir.string());
+            }
+            if (!fs::exists(export_dir / "libraylib.so.600"))
+                return fail("ERROR: libraylib.so.600 missing after copy - game would not start.");
 
             // Launcher: pin the export dir on LD_LIBRARY_PATH so the ELF
             // loads its bundled libraylib.so regardless of rpath state.

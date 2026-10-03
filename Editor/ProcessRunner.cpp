@@ -9,14 +9,14 @@
 
 namespace ProcessRunner
 {
-    void RunBuildCommand
+    std::thread RunBuildCommand
     (
         std::string_view cmd,
         const std::function<void(std::string_view, bool)>& on_output,
         const std::function<void(bool)>& on_complete
     )
     {
-        std::thread([cmd_str = std::string(cmd), on_output, on_complete]()
+        return std::thread([cmd_str = std::string(cmd), on_output, on_complete]()
         {
             // popen already runs the string through `sh -c`, so callers pass
             // the pipeline itself with no shell prefix.
@@ -83,6 +83,6 @@ namespace ProcessRunner
                 on_complete(success);
             }
 
-        }).detach();
+        });
     }
 }

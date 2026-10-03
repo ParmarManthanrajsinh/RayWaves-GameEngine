@@ -94,6 +94,13 @@ GameEditor::~GameEditor()
 {
 	m_ThreadCancelFlag->store(true);
 
+	// Join the build thread first: cancel flag suppresses its callbacks,
+	// joining guarantees no callback can touch this object afterwards.
+	if (m_BuildThread.joinable())
+	{
+		m_BuildThread.join();
+	}
+
 	// Join export thread before destroying its state
 	if (m_ExportState.m_ExportThread.joinable())
 	{
@@ -922,7 +929,12 @@ void GameEditor::CompileGameLogic()
     m_Terminal.add_text("Executing: " + build_cmd, term::Severity::Debug);
 
     auto cancel = m_ThreadCancelFlag;
-    ProcessRunner::RunBuildCommand
+    // A previous build thread (finished or not) must be joined before reuse.
+    if (m_BuildThread.joinable())
+    {
+        m_BuildThread.join();
+    }
+    m_BuildThread = ProcessRunner::RunBuildCommand
     (
         build_cmd,
         [this, cancel](std::string_view line, bool isError)

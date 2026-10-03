@@ -121,6 +121,7 @@ TEST_CASE("ExportService: b_ValidateExportFolder detects missing and complete "
     }
     {
         std::ofstream(tmp / "libraylib.so") << "x";
+        std::ofstream(tmp / "libraylib.so.600") << "x";
     }
     logs.clear();
     CHECK(ExportService::b_ValidateExportFolder(tmp.string(), sink));
@@ -137,6 +138,18 @@ TEST_CASE("ExportService: b_ValidateExportFolder detects missing and complete "
     write_elf(tmp / "MyGame");
     fs::remove(tmp / "libraylib.so");
     CHECK_FALSE(ExportService::b_ValidateExportFolder(tmp.string(), sink));
+
+    // Bare .so without the SONAME (libraylib.so.600) must fail: the ELF
+    // loader opens the SONAME, so a lone libraylib.so never boots.
+    fs::remove(tmp / "libraylib.so.600");
+    {
+        std::ofstream(tmp / "libraylib.so") << "x";
+    }
+    CHECK_FALSE(ExportService::b_ValidateExportFolder(tmp.string(), sink));
+    {
+        std::ofstream(tmp / "libraylib.so.600") << "x";
+    }
+    CHECK(ExportService::b_ValidateExportFolder(tmp.string(), sink));
 
     fs::remove_all(tmp);
 }

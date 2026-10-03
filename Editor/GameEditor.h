@@ -153,4 +153,5 @@ private:
 
     bool m_bCloseRequested = false;
     std::shared_ptr<std::atomic<bool>> m_ThreadCancelFlag = std::make_shared<std::atomic<bool>>(false);
+    std::thread m_BuildThread;
 };
