@@ -18,4 +18,9 @@ namespace EditorUtils
     // else "/". Empty default makes KDE's file dialog log
     // "kf.kio.core: Invalid URL: QUrl("")".
     std::string DefaultDialogDir();
+
+    // Editor's GameConfig location: XDG_CONFIG_HOME/RayWaves/config.ini.
+    // The old CWD-relative "config.ini" scattered a copy into every
+    // launch directory; it stays only as a read-fallback for migration.
+    std::string GameConfigPath();
 }

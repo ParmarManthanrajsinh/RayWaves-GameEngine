@@ -30,6 +30,15 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     add_compile_options(-Qunused-arguments)
 endif()
 
+option(RAYWAVES_TSAN "Enable ThreadSanitizer (mutually exclusive with RAYWAVES_SANITIZERS)" OFF)
+if(RAYWAVES_TSAN)
+    if(RAYWAVES_SANITIZERS)
+        message(FATAL_ERROR "RAYWAVES_TSAN and RAYWAVES_SANITIZERS cannot combine (ASan vs TSan)")
+    endif()
+    add_compile_options(-fsanitize=thread -fno-omit-frame-pointer)
+    add_link_options(-fsanitize=thread)
+endif()
+
 
 add_compile_definitions(IMGUI_DISABLE_SSE)
 

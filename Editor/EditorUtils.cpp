@@ -97,6 +97,16 @@ namespace EditorUtils
         fs::current_path("/", ec);
     }
 
+    std::string GameConfigPath()
+    {
+        std::filesystem::path dir = platform::UserConfigDir();
+        if (dir.empty())
+        {
+            return "config.ini";
+        }
+        return (dir / "RayWaves" / "config.ini").string();
+    }
+
     std::string DefaultDialogDir()
     {
         namespace fs = std::filesystem;

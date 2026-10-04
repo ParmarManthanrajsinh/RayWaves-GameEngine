@@ -343,6 +343,9 @@ namespace ExportService
                    << "# next to this script with bundled libraries.\n"
                    << "DIR=\"$(CDPATH= cd -- \"$(dirname -- \"$0\")\" && pwd)\"\n"
                    << "export LD_LIBRARY_PATH=\"$DIR${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}\"\n"
+                   << "# The game resolves config.ini, Assets/ and GameLogic.so\n"
+                   << "# relative to CWD - pin it to the script directory.\n"
+                   << "cd \"$DIR\" || exit 1\n"
                    << "exec \"$DIR/" << game_exe_name << "\" \"$@\"\n";
             }
             MakeExecutable(run_sh);

@@ -15,7 +15,7 @@ BLUE   := \033[34m
 RED    := \033[31m
 GRAY   := \033[90m
 
-.PHONY: all dev release test smoke run dist clean distclean format help
+.PHONY: all dev release test smoke run dist clean distclean format help asan tsan memcheck
 
 all: dev
 
@@ -80,6 +80,37 @@ format:
 	Tools/run_analysis.sh format --preset $(PRESET)
 	@printf "$(BOLD)$(GREEN)==> Formatting complete$(RESET)\n"
 
+## asan: ASan+UBSan build, run unit tests + smoke test with leak check
+asan:
+	@printf "$(BOLD)$(CYAN)==> Configuring $(BLUE)ASan/UBSan$(RESET)\n"
+	cmake -S . -B build/asan -DCMAKE_BUILD_TYPE=Debug -DRAYWAVES_SANITIZERS=ON
+	@printf "$(BOLD)$(CYAN)==> Building$(RESET)\n"
+	cmake --build build/asan -j$(NPROC) --target tests smoketest main
+	@printf "$(BOLD)$(CYAN)==> Running tests under ASan/LSan$(RESET)\n"
+	cd build/asan && ASAN_OPTIONS=detect_leaks=1 ./tests
+	@printf "$(BOLD)$(CYAN)==> Running smoke under ASan/LSan$(RESET)\n"
+	cd build/asan && ASAN_OPTIONS=detect_leaks=1 ./smoketest
+	@printf "$(BOLD)$(GREEN)==> ASan/UBSan clean$(RESET)\n"
+
+## tsan: ThreadSanitizer build, run unit tests + smoke test
+tsan:
+	@printf "$(BOLD)$(CYAN)==> Configuring $(BLUE)ThreadSanitizer$(RESET)\n"
+	cmake -S . -B build/tsan -DCMAKE_BUILD_TYPE=Debug -DRAYWAVES_TSAN=ON
+	@printf "$(BOLD)$(CYAN)==> Building$(RESET)\n"
+	cmake --build build/tsan -j$(NPROC) --target tests smoketest
+	@printf "$(BOLD)$(CYAN)==> Running tests under TSan$(RESET)\n"
+	cd build/tsan && TSAN_OPTIONS=halt_on_error=1 ./tests
+	@printf "$(BOLD)$(CYAN)==> Running smoke under TSan$(RESET)\n"
+	cd build/tsan && TSAN_OPTIONS=halt_on_error=1 ./smoketest
+	@printf "$(BOLD)$(GREEN)==> TSan clean$(RESET)\n"
+
+## memcheck: valgrind memcheck over unit tests (smoke covered by asan)
+memcheck: dev
+	@printf "$(BOLD)$(CYAN)==> Valgrind memcheck: tests$(RESET)\n"
+	valgrind --error-exitcode=1 --leak-check=full --show-leak-kinds=definite \
+		./$(BUILD_DIR)/tests
+	@printf "$(BOLD)$(GREEN)==> Valgrind clean$(RESET)\n"
+
 ## help: display available targets and usage
 help:
 	@printf "\n"
@@ -104,6 +135,12 @@ help:
 
 	@printf "$(BOLD)Development$(RESET)\n"
 	@printf "  $(GREEN)format$(RESET)       Format first-party sources\n"
+	@printf "\n"
+
+	@printf "$(BOLD)Analysis$(RESET)\n"
+	@printf "  $(GREEN)asan$(RESET)         Run tests + smoke under ASan/UBSan/LSan\n"
+	@printf "  $(GREEN)tsan$(RESET)         Run tests + smoke under ThreadSanitizer\n"
+	@printf "  $(GREEN)memcheck$(RESET)     Run unit tests under valgrind\n"
 	@printf "\n"
 
 	@printf "$(BOLD)Distribution$(RESET)\n"

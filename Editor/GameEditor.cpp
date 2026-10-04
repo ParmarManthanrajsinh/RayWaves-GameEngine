@@ -190,12 +190,22 @@ void GameEditor::Init(int width, int height, std::string_view title)
 		ImGui::GetIO().IniFilename = s_LayoutPath.c_str();
 	}
 
-	if (GameConfig::GetInstance().m_bLoadFromFile("config.ini"))
+	// Prefer the XDG copy; fall back to the legacy CWD-relative config.ini
+	// (old versions scattered one per launch directory).
 	{
-		const auto& CONFIG = GameConfig::GetInstance().GetWindowConfig();
-		m_SceneSettings.m_SceneWidth = CONFIG.scene_width;
-		m_SceneSettings.m_SceneHeight = CONFIG.scene_height;
-		m_SceneSettings.m_TargetFPS = CONFIG.scene_fps;
+		const std::string xdg_cfg = EditorUtils::GameConfigPath();
+		bool b_Loaded = GameConfig::GetInstance().m_bLoadFromFile(xdg_cfg);
+		if (!b_Loaded && xdg_cfg != "config.ini")
+		{
+			b_Loaded = GameConfig::GetInstance().m_bLoadFromFile("config.ini");
+		}
+		if (b_Loaded)
+		{
+			const auto& CONFIG = GameConfig::GetInstance().GetWindowConfig();
+			m_SceneSettings.m_SceneWidth = CONFIG.scene_width;
+			m_SceneSettings.m_SceneHeight = CONFIG.scene_height;
+			m_SceneSettings.m_TargetFPS = CONFIG.scene_fps;
+		}
 	}
 
 	if (ProjectManager::b_HasOpenProject())
@@ -769,7 +779,16 @@ void GameEditor::Close()
 	config.scene_width = m_SceneSettings.m_SceneWidth;
 	config.scene_height = m_SceneSettings.m_SceneHeight;
 	config.scene_fps = m_SceneSettings.m_TargetFPS;
-	GameConfig::GetInstance().m_bSaveToFile("config.ini");
+	{
+		const std::string xdg_cfg = EditorUtils::GameConfigPath();
+		const std::filesystem::path parent = std::filesystem::path(xdg_cfg).parent_path();
+		if (!parent.empty())
+		{
+			std::error_code ec;
+			std::filesystem::create_directories(parent, ec);
+		}
+		GameConfig::GetInstance().m_bSaveToFile(xdg_cfg);
+	}
 
 	if (ProjectManager::b_HasOpenProject())
 	{

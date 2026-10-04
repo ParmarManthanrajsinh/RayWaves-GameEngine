@@ -49,6 +49,7 @@ TEST_CASE("ExportService: ResolveExportDir anchors relatives at project root")
 TEST_CASE("ExportService: b_WriteGameConfig round-trips all keys")
 {
     fs::path tmp = fs::temp_directory_path() / "raywaves_export_cfg";
+    fs::remove_all(tmp);
     fs::create_directories(tmp);
     fs::path cfg = tmp / "config.ini";
 
@@ -91,6 +92,7 @@ TEST_CASE("ExportService: b_ValidateExportFolder detects missing and complete "
     auto sink = [&](std::string_view line) { logs.emplace_back(line); };
 
     fs::path tmp = fs::temp_directory_path() / "raywaves_export_validate";
+    fs::remove_all(tmp); // static name: clear leftovers from a killed run
     fs::create_directories(tmp);
 
     // Empty folder: no ELF executable, no shared libraries
