@@ -1,7 +1,7 @@
 #include "EditorUtils.h"
 #include "../Engine/Platform/PlatformPaths.h"
 #include "../Engine/ProjectManager.h"
-#include <cstdlib>
+#include <cstdlib> // IWYU pragma: keep
 #include <iostream>
 #include <unistd.h>
 #include <string>
@@ -78,7 +78,6 @@ namespace EditorUtils
     {
         namespace fs = std::filesystem;
         std::error_code ec;
-        fs::current_path(ec);
         if (!ec)
         {
             return;
