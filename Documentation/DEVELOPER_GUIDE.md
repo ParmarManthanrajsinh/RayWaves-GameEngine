@@ -138,7 +138,7 @@ Hardcoded `"Assets/player.png"` will break if the project root changes.
 When you export your game via the Export panel:
 
 1.  **Build:** GameLogic is compiled in Release mode.
-2.  **Bundle:** `GameLogic.so`, `libraylib.so`, `game`, and `Assets/` are copied to the output folder, along with a generated `run.sh` (sets `LD_LIBRARY_PATH`) and `install.sh`.
+2.  **Bundle:** `GameLogic.so`, the full `libraylib.so*` chain (SONAME `libraylib.so.600` included), the runtime executable, `Assets/` and `EngineContent/` go to the output folder, plus generated `run.sh` (sets `LD_LIBRARY_PATH`, pins CWD to the folder) and `install.sh`. A `<GameName>.tar.gz` archive is created inside the export folder (`*.tar.gz` excluded from its own contents).
 3.  **Configure:** A production-ready `config.ini` is generated.
 4.  **Result:** A standalone folder with no editor overhead.
 
@@ -169,7 +169,27 @@ Quick shortcuts:
 make test     # build → run unit tests → ctest (unit + smoke)
 make smoke    # build → run the 50-iteration hot-reload test
 make run      # release build → launch editor
+make asan     # ASan/UBSan/LSan build → tests + smoke
+make tsan     # ThreadSanitizer build → tests + smoke
+make memcheck # valgrind memcheck over unit tests
 ```
+
+### Memory & Thread Analysis
+
+Three sanitizer/memcheck lanes, each in its own build tree (never combined):
+
+| Command | Tool | Build tree | CMake option |
+| ------- | ---- | ---------- | ------------ |
+| `make asan` | ASan + UBSan + LSan | `build/asan` | `-DRAYWAVES_SANITIZERS=ON` |
+| `make tsan` | ThreadSanitizer | `build/tsan` | `-DRAYWAVES_TSAN=ON` |
+| `make memcheck` | valgrind memcheck | `build/linux-debug` | — |
+
+Notes:
+
+- `RAYWAVES_SANITIZERS` and `RAYWAVES_TSAN` are mutually exclusive (configure fails if both set).
+- TSan needs the `libtsan` package (`sudo dnf install -y libtsan`); otherwise linking fails with `cannot find /usr/lib64/libtsan.so.2.0.0`.
+- ASan build also produces the editor binary — run `build/asan/RayWaves` for GUI sessions under ASan.
+- valgrind full suite is slow; `make memcheck` runs unit tests only — the 50-round smoke test is already ASan-covered.
 
 ### Adding a New Test
 
@@ -203,7 +223,7 @@ TEST_CASE("MyModule: does thing")
 | Perf benchmarks    | `PerfBenchmark_t.cpp`  | 5               | Done   |
 | Smoke (DLL stress) | `SmokeTest.cpp`        | 50× load/unload | Done   |
 
-Total: **40 test cases**, **116 assertions**, plus **smoke test** (DLL load 50×).
+Total: **61 test cases**, **231 assertions**, plus **smoke test** (DLL load 50×).
 
 ---
 

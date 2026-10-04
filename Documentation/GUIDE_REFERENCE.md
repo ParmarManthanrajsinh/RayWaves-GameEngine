@@ -235,15 +235,19 @@ MyGame/Assets/
 The exported folder contains:
 ```
 MyGame_Export/
-├── game                # Standalone runtime (no editor UI)
+├── MyGame              # Standalone runtime (no editor UI, ELF executable)
 ├── GameLogic.so        # Your compiled game
-├── libraylib.so*       # Raylib shared library
-├── run.sh              # Launch script (sets LD_LIBRARY_PATH)
+├── libraylib.so*       # Full raylib chain (.so, .600 SONAME, real .6.0.0)
+├── run.sh              # Launch: sets LD_LIBRARY_PATH, pins CWD to this folder
 ├── install.sh          # Per-user install: .desktop entry + icon
+├── MyGame.png          # Icon (copied from project or engine default)
+├── MyGame.desktop.in   # Desktop entry template (install.sh fills Exec=)
 ├── Assets/             # All your game assets (copied from project)
 ├── config.ini          # Window config for standalone mode
 └── EngineContent/      # Engine fonts (rarely needed)
 ```
+The archive `MyGame.tar.gz` is written **inside** the export folder; older
+archives are excluded from the new one.
 
 ### Debug vs Release
 
@@ -252,7 +256,9 @@ MyGame_Export/
 
 ### Verifying an Export
 
-Run `./game` from the exported folder (or `./run.sh`, which sets `LD_LIBRARY_PATH`). If it crashes:
+Run `./run.sh` from anywhere (it sets `LD_LIBRARY_PATH` and `cd`s into the
+folder, which is where the game resolves `config.ini`, `Assets/` and
+`GameLogic.so`). If it crashes:
 - Check that `Assets/` contains all required files.
 - Check that `config.ini` exists (generated during export).
 - Run from a terminal to see error output.

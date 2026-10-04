@@ -49,6 +49,8 @@ RayWaves/
 
 > **Toolchain:** system GCC/Clang + system CMake + system Ninja — nothing is downloaded or bundled. `Tools/` holds committed helper scripts only.
 
+> **Editor config:** window/scene settings live in `~/.config/RayWaves/config.ini` (XDG, falls back to `$XDG_CONFIG_HOME`). A legacy `config.ini` in the launch directory is read once as migration fallback. Exported games keep their own `config.ini` beside the executable.
+
 ---
 
 ## Project Structure

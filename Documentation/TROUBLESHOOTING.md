@@ -66,7 +66,7 @@ RayWaves uses the system toolchain — nothing is downloaded or bundled:
 ### "Text looks blurry" or "Window is tiny"
 *   **The Problem:** High-DPI display scaling.
 *   **The Fix:**
-    *   Check `config.ini` and increase the width/height.
+    *   Editor: `~/.config/RayWaves/config.ini`. Game: `config.ini` next to the game executable. Increase the width/height there.
     *   Set `b_Fullscreen=true` for a simplified view.
 
 ---
@@ -78,7 +78,8 @@ RayWaves uses the system toolchain — nothing is downloaded or bundled:
 *   **The Fix:**
     *   Go to your exported folder.
     *   Make sure `Assets` folder is there.
-    *   Make sure `config.ini` is there.
+    *   Make sure `config.ini` is there (export writes it into the folder).
+    *   Run via `./run.sh` — it pins CWD to the export folder, which is where the game looks for `config.ini`, `Assets/` and `GameLogic.so`.
     *   Try running `./run.sh` from a terminal to see if it prints an error message before dying.
 
 ---
