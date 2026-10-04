@@ -3,29 +3,28 @@
 #include "../Engine/ProjectManager.h"
 #include <cstdlib> // IWYU pragma: keep
 #include <iostream>
-#include <unistd.h>
 #include <string>
+#include <spawn.h>
+
+extern char** environ;
 
 namespace EditorUtils
 {
     // Launch an app/URL handler without going through a shell, so no quoting
-    // rules apply. posix_spawn + _exit keeps SIGCHLD out of our process group
-    // handling.
+    // rules apply. posix_spawn + POSIX_SPAWN_SETSID runs the child in its own
+    // session (closing it does not kill the editor) and keeps SIGCHLD out of
+    // our process group handling — no fork() copy of this process.
     static bool SpawnDetached(char* const argv[])
     {
-        pid_t pid = fork();
-        if (pid < 0)
-        {
-            return false;
-        }
-        if (pid == 0)
-        {
-            // Child: own session so closing it does not kill the editor.
-            setsid();
-            execvp(argv[0], argv);
-            _exit(127);
-        }
-        return true;
+        posix_spawnattr_t attr;
+        posix_spawnattr_init(&attr);
+        posix_spawnattr_setflags(&attr, POSIX_SPAWN_SETSID);
+
+        pid_t pid = 0;
+        const int rc = posix_spawnp(&pid, argv[0], nullptr, &attr, argv, environ);
+
+        posix_spawnattr_destroy(&attr);
+        return rc == 0;
     }
 
     bool OpenInExplorer(const std::filesystem::path& path)
@@ -69,9 +68,9 @@ namespace EditorUtils
         // Backslash is a live escape character under sh, so it joins the
         // deny-list. Callers gate every project path that reaches `sh -c`
         // with this.
-        constexpr std::string_view dangerous =
+        constexpr std::string_view DANGEROUS =
             "&|;$\"`'<>%!^()@#\\\n\r";
-        return s.find_first_of(dangerous) == std::string_view::npos;
+        return s.find_first_of(DANGEROUS) == std::string_view::npos;
     }
 
     void EnsureValidCwd()

@@ -19,7 +19,7 @@ void ThemeService::RebakeNow()
     const FThemePreset* selected_preset = GetThemePresets().data();
     for (const auto& preset : GetThemePresets())
     {
-        if (preset.Name == prefs.ThemeName)
+        if (preset.Name == prefs.theme_name)
         {
             selected_preset = &preset;
             break;
@@ -29,9 +29,9 @@ void ThemeService::RebakeNow()
     std::string base_font = GetEngineContentPath("Roboto-Regular.ttf");
     std::string mono_font = GetEngineContentPath("Consolas-Regular.ttf");
     std::string icon_font = GetEngineContentPath("fa-solid-900.ttf");
-    if (prefs.FontFamily == "Consolas")
+    if (prefs.font_family == "Consolas")
     {
         base_font = mono_font;
     }
-    SetEngineTheme(*selected_preset, prefs.GuiScale, base_font, mono_font, icon_font);
+    SetEngineTheme(*selected_preset, prefs.gui_scale, base_font, mono_font, icon_font);
 }

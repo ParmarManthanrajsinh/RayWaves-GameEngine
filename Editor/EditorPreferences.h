@@ -3,9 +3,9 @@
 
 struct t_EditorPreferences
 {
-    float GuiScale = 1.0f;
-    std::string ThemeName = "Charcoal";
-    std::string FontFamily = "Roboto";
+    float gui_scale = 1.0f;
+    std::string theme_name = "Charcoal";
+    std::string font_family = "Roboto";
 };
 
 class EditorPreferences
@@ -16,7 +16,7 @@ public:
     bool m_bLoadFromFile();
     bool m_bSaveToFile() const;
 
-    t_EditorPreferences& GetPreferences() { return m_Preferences; }
+    t_EditorPreferences& GetPreferences() { return m_Preferences; } 
     const t_EditorPreferences& GetPreferences() const { return m_Preferences; }
     
     static std::string GetConfigPath() ;

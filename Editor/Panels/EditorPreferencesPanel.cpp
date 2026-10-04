@@ -15,20 +15,20 @@ void EditorPreferencesPanel::Draw(GameEditor* editor)
         bool b_SavePrefs = false;
 
         // GUI Scale
-        if (!m_bIsDraggingScale) m_DraggingGuiScale = prefs.GuiScale;
+        if (!m_bIsDraggingScale) m_DraggingGuiScale = prefs.gui_scale;
 
         ImGui::Text("GUI Scale");
         if (ImGui::SliderFloat("##GuiScale", &m_DraggingGuiScale, 0.75f, 2.0f, "%.2f"))
         {
             m_bIsDraggingScale = true;
-            ImGui::GetIO().FontGlobalScale = m_DraggingGuiScale / prefs.GuiScale;
+            ImGui::GetIO().FontGlobalScale = m_DraggingGuiScale / prefs.gui_scale;
         }
 
         if (ImGui::IsItemDeactivatedAfterEdit())
         {
             m_bIsDraggingScale = false;
             ImGui::GetIO().FontGlobalScale = 1.0f; // Reset trick
-            prefs.GuiScale = m_DraggingGuiScale;
+            prefs.gui_scale = m_DraggingGuiScale;
             b_NeedsRebake = true;
             b_SavePrefs = true;
         }
@@ -36,14 +36,14 @@ void EditorPreferencesPanel::Draw(GameEditor* editor)
         // Theme Name
         ImGui::Text("Theme");
         const auto& PRESETS = GetThemePresets();
-        if (ImGui::BeginCombo("##ThemeCombo", prefs.ThemeName.c_str()))
+        if (ImGui::BeginCombo("##ThemeCombo", prefs.theme_name.c_str()))
         {
             for (const auto& preset : PRESETS)
             {
-                bool b_IsSelected = (prefs.ThemeName == preset.Name);
+                bool b_IsSelected = (prefs.theme_name == preset.Name);
                 if (ImGui::Selectable(preset.Name.c_str(), b_IsSelected))
                 {
-                    prefs.ThemeName = preset.Name;
+                    prefs.theme_name = preset.Name;
                     b_NeedsRebake = true;
                     b_SavePrefs = true;
                 }
@@ -55,14 +55,14 @@ void EditorPreferencesPanel::Draw(GameEditor* editor)
         // Font Family
         ImGui::Text("Font Family");
         const char* FONTS[] = { "Roboto", "Consolas" };
-        if (ImGui::BeginCombo("##FontCombo", prefs.FontFamily.c_str()))
+        if (ImGui::BeginCombo("##FontCombo", prefs.font_family.c_str()))
         {
             for (auto &font : FONTS)
             {
-                bool b_IsSelected = (prefs.FontFamily == font);
+                bool b_IsSelected = (prefs.font_family == font);
                 if (ImGui::Selectable(font, b_IsSelected))
                 {
-                    prefs.FontFamily = font;
+                    prefs.font_family = font;
                     b_NeedsRebake = true;
                     b_SavePrefs = true;
                 }

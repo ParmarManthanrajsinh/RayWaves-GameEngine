@@ -1,7 +1,6 @@
 #include "EditorPreferences.h"
 #include "../Engine/Platform/PlatformPaths.h"
 #include <fstream>
-#include <sstream>
 #include <iostream>
 #include <filesystem>
 EditorPreferences& EditorPreferences::GetInstance()
@@ -55,15 +54,15 @@ bool EditorPreferences::m_bLoadFromFile()
 
         if (key == "GuiScale")
         {
-            try { m_Preferences.GuiScale = std::stof(value); } catch (...) {}
+            try { m_Preferences.gui_scale = std::stof(value); } catch (...) {}
         }
         else if (key == "ThemeName")
         {
-            m_Preferences.ThemeName = value;
+            m_Preferences.theme_name = value;
         }
         else if (key == "FontFamily")
         {
-            m_Preferences.FontFamily = value;
+            m_Preferences.font_family = value;
         }
     }
 
@@ -91,9 +90,9 @@ bool EditorPreferences::m_bSaveToFile() const
     }
 
     file << "# Editor Preferences\n";
-    file << "GuiScale=" << m_Preferences.GuiScale << "\n";
-    file << "ThemeName=" << m_Preferences.ThemeName << "\n";
-    file << "FontFamily=" << m_Preferences.FontFamily << "\n";
+    file << "GuiScale=" << m_Preferences.gui_scale << "\n";
+    file << "ThemeName=" << m_Preferences.theme_name << "\n";
+    file << "FontFamily=" << m_Preferences.font_family << "\n";
 
     file.close();
     return true;
