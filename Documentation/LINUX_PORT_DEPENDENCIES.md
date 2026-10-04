@@ -583,8 +583,8 @@ cmake --build build/asan -j"$(nproc)"
 
 - [x] Editor clean under ASan — 8s headless run, no ASan/UBSan findings (`ASAN_OPTIONS=log_path=/tmp/rwasan`). LSan exit check needs GUI close, not reachable headless; tests link editor sources and are LSan-clean.
 - [x] Smoke test clean under ASan — 50 iterations, exit 0, no leaks.
-- [ ] TSan (`make tsan`, `RAYWAVES_TSAN`) — needs `libtsan` package; run after `sudo dnf install -y libtsan`.
-- [ ] Full-suite valgrind (`make memcheck`) — subset run clean (0 errors), full run pending.
+- [x] TSan (`make tsan`, `RAYWAVES_TSAN`) — 61/61 + smoke clean under `halt_on_error=1` (after `dnf install libtsan`).
+- [x] Full-suite valgrind (`make memcheck`) — 61/61, 0 errors, 0 bytes definitely lost.
 - [ ] No use-after-free from detached build thread at `Editor/ProcessRunner.cpp:191` — callbacks capture editor at `Editor/GameEditor.cpp:954-978`, `m_bThreadCancelFlag` checked only inside callback body, so destroying editor mid-build races. Not Windows-specific; Linux builds slower, hits it more.
 
 `CMakeLists.txt:33-40`: `RAYWAVES_SANITIZERS` option gates `-fsanitize=address,undefined`; the `else()` branch keeps `-fno-sanitize=all` for normal builds (the old hardcoded flag that defeated this).
