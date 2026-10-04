@@ -561,18 +561,18 @@ rg -n -e '\.dll|\.exe|libraylib|cmd\.exe|cd /d|_popen|_pclose|\.bat|\.ps1|powers
 
 ### Hot reload — the feature that matters most
 
-- [ ] Editor hot-reload works: recompile `GameLogic`, running editor reloads, no restart
+- [x] Editor hot-reload works: recompile `GameLogic`, running editor reloads, no restart
 - [x] 50-iteration smoke test passes — real proof shadow-copy survived
-- [x] `CleanupStaleShadowCopies` removes `.shadow.*.so`. **Verify by hand** — `.dll`-only filter at `Game/DllLoader.cpp:88` = silent failure, not build error
+- [x] `CleanupStaleShadowCopies` removes `.shadow.*.so` — filter now `extension() != platform::SharedLibrarySuffix()` (`Game/DllLoader.cpp:85-87`), no `.dll` hardcode
 - [x] ABI mismatch path still reports correctly (`GameLogicLoader.cpp:180-194`)
 
 ### Editor and shell
 
 - [x] Exported folder validates, game runs standalone from `run.sh`
 - [x] `install.sh` installs working `.desktop` entry + icon
-- [ ] `.raywaves` double-click opens project in editor
-- [ ] Editor terminal runs command in project dir (`cd`, not `cd /d`)
-- [ ] Editor preferences + recent projects resolve to same dir and **persist across launches** — `getenv("APPDATA")` falling to CWD = silent bug, not error
+- [x] `.raywaves` double-click opens project in editor
+- [x] Editor terminal runs command in project dir — `cd "proj" && cmd` (`Editor/terminal/terminal.cpp:684-688`), POSIX `cd`, no `cd /d`
+- [x] Editor preferences + recent projects + game config all resolve to `UserConfigDir()/RayWaves/` and persist — `Editor/EditorPreferences.cpp:15`, `Engine/ProjectManager.cpp:75-80`, `Editor/EditorUtils.cpp:100-107`; no `getenv("APPDATA")`, no CWD fallback except both-`XDG`-and-`HOME`-unset
 
 ### Memory safety
 
@@ -585,7 +585,7 @@ cmake --build build/asan -j"$(nproc)"
 - [x] Smoke test clean under ASan — 50 iterations, exit 0, no leaks.
 - [x] TSan (`make tsan`, `RAYWAVES_TSAN`) — 61/61 + smoke clean under `halt_on_error=1` (after `dnf install libtsan`).
 - [x] Full-suite valgrind (`make memcheck`) — 61/61, 0 errors, 0 bytes definitely lost.
-- [ ] No use-after-free from detached build thread at `Editor/ProcessRunner.cpp:191` — callbacks capture editor at `Editor/GameEditor.cpp:954-978`, `m_bThreadCancelFlag` checked only inside callback body, so destroying editor mid-build races. Not Windows-specific; Linux builds slower, hits it more.
+- [x] No use-after-free from detached build thread — destructor (`Editor/GameEditor.cpp:93-102`) stores cancel flag, joins `m_BuildThread` before member destruction; callbacks capture flag via `shared_ptr` and check it first (`:955-988`). Not Windows-specific; Linux builds slower, hit it more.
 
 `CMakeLists.txt:33-40`: `RAYWAVES_SANITIZERS` option gates `-fsanitize=address,undefined`; the `else()` branch keeps `-fno-sanitize=all` for normal builds (the old hardcoded flag that defeated this).
 
