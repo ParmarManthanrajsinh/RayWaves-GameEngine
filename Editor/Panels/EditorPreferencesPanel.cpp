@@ -1,7 +1,6 @@
 #include "EditorPreferencesPanel.h"
 #include "../GameEditor.h"
 #include "../EditorPreferences.h"
-#include "../GameEditorLayout.h"
 #include "../GameEditorTheme.h"
 #include <filesystem>
 
@@ -12,8 +11,8 @@ void EditorPreferencesPanel::Draw(GameEditor* editor)
     if (ImGui::Begin(ICON_FA_SLIDERS " Editor Preferences", &editor->m_bShowEditorPreferences))
     {
         auto& prefs = EditorPreferences::GetInstance().GetPreferences();
-        bool bNeedsRebake = false;
-        bool bSavePrefs = false;
+        bool b_NeedsRebake = false;
+        bool b_SavePrefs = false;
 
         // GUI Scale
         if (!m_bIsDraggingScale) m_DraggingGuiScale = prefs.GuiScale;
@@ -30,44 +29,44 @@ void EditorPreferencesPanel::Draw(GameEditor* editor)
             m_bIsDraggingScale = false;
             ImGui::GetIO().FontGlobalScale = 1.0f; // Reset trick
             prefs.GuiScale = m_DraggingGuiScale;
-            bNeedsRebake = true;
-            bSavePrefs = true;
+            b_NeedsRebake = true;
+            b_SavePrefs = true;
         }
 
         // Theme Name
         ImGui::Text("Theme");
-        const auto& presets = GetThemePresets();
+        const auto& PRESETS = GetThemePresets();
         if (ImGui::BeginCombo("##ThemeCombo", prefs.ThemeName.c_str()))
         {
-            for (const auto& preset : presets)
+            for (const auto& preset : PRESETS)
             {
-                bool is_selected = (prefs.ThemeName == preset.Name);
-                if (ImGui::Selectable(preset.Name.c_str(), is_selected))
+                bool b_IsSelected = (prefs.ThemeName == preset.Name);
+                if (ImGui::Selectable(preset.Name.c_str(), b_IsSelected))
                 {
                     prefs.ThemeName = preset.Name;
-                    bNeedsRebake = true;
-                    bSavePrefs = true;
+                    b_NeedsRebake = true;
+                    b_SavePrefs = true;
                 }
-                if (is_selected) ImGui::SetItemDefaultFocus();
+                if (b_IsSelected) ImGui::SetItemDefaultFocus();
             }
             ImGui::EndCombo();
         }
 
         // Font Family
         ImGui::Text("Font Family");
-        const char* fonts[] = { "Roboto", "Consolas" };
+        const char* FONTS[] = { "Roboto", "Consolas" };
         if (ImGui::BeginCombo("##FontCombo", prefs.FontFamily.c_str()))
         {
-            for (auto & font : fonts)
+            for (auto &font : FONTS)
             {
-                bool is_selected = (prefs.FontFamily == font);
-                if (ImGui::Selectable(font, is_selected))
+                bool b_IsSelected = (prefs.FontFamily == font);
+                if (ImGui::Selectable(font, b_IsSelected))
                 {
                     prefs.FontFamily = font;
-                    bNeedsRebake = true;
-                    bSavePrefs = true;
+                    b_NeedsRebake = true;
+                    b_SavePrefs = true;
                 }
-                if (is_selected) ImGui::SetItemDefaultFocus();
+                if (b_IsSelected) ImGui::SetItemDefaultFocus();
             }
             ImGui::EndCombo();
         }
@@ -87,12 +86,12 @@ void EditorPreferencesPanel::Draw(GameEditor* editor)
             editor->m_bNeedsLayoutReset = true;
         }
 
-        if (bNeedsRebake)
+        if (b_NeedsRebake)
         {
             editor->m_bNeedsThemeRebake = true;
         }
 
-        if (bSavePrefs)
+        if (b_SavePrefs)
         {
             EditorPreferences::GetInstance().m_bSaveToFile();
         }

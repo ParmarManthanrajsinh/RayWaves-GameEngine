@@ -84,24 +84,28 @@ void MainMenuBar::Draw(GameEditor* editor)
 
             ImGui::Separator();
 
-            bool bRegistered = IsRayWavesFileAssociationRegistered();
+            bool b_Registered = IsRayWavesFileAssociationRegistered();
             if (ImGui::MenuItem(ICON_FA_LINK " Register .raywaves file association",
-                nullptr, false, !bRegistered))
+                nullptr, false, !b_Registered))
             {
                 if (RegisterRayWavesFileAssociation())
                 {
-                    editor->GetTerminal().add_text(
+                    editor->GetTerminal().add_text
+                    (
                         ".raywaves file association registered successfully.",
-                        term::Severity::Debug);
+                        term::Severity::Debug
+                    );
                 }
                 else
                 {
-                    editor->GetTerminal().add_text(
+                    editor->GetTerminal().add_text
+                    (
                         "Failed to register .raywaves file association.",
-                        term::Severity::Error);
+                        term::Severity::Error
+                    );
                 }
             }
-            if (bRegistered)
+            if (b_Registered)
             {
                 ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyle().Colors[ImGuiCol_TextDisabled]);
                 ImGui::MenuItem(ICON_FA_CHECK " .raywaves association active", nullptr, nullptr, false);
@@ -132,10 +136,10 @@ void MainMenuBar::Draw(GameEditor* editor)
 
         if (ProjectManager::b_HasOpenProject())
         {
-            std::string projName = ProjectManager::GetCurrent().m_Name;
-            float textWidth = ImGui::CalcTextSize(projName.c_str()).x;
-            ImGui::SameLine(ImGui::GetWindowWidth() - textWidth - 20.0f);
-            ImGui::TextDisabled("%s", projName.c_str());
+            std::string proj_name = ProjectManager::GetCurrent().m_Name;
+            float text_width = ImGui::CalcTextSize(proj_name.c_str()).x;
+            ImGui::SameLine(ImGui::GetWindowWidth() - text_width - 20.0f);
+            ImGui::TextDisabled("%s", proj_name.c_str());
         }
 
         ImGui::EndMainMenuBar();
