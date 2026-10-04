@@ -253,16 +253,18 @@ TEST_CASE(
     REQUIRE(captured_infos.size() == 1);
     CHECK(captured_infos[0].find("stale shadow") != std::string::npos);
     CHECK(captured_errors.empty());
-
+    
     // Reset to the stderr default; must not crash and must accept new sinks
     // after
     SetDllLogSink(nullptr);
-    SetDllLogSink(
+    SetDllLogSink
+    (
         [&](std::string_view message, bool is_error)
         {
             (void)message;
             (void)is_error;
-        });
+        }
+    );
     SetDllLogSink(nullptr);
 }
 

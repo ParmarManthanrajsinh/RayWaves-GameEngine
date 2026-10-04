@@ -109,7 +109,6 @@ bool t_Project::m_bLoadFromFile(std::string_view manifest_path)
     m_AssetPath = (fs::path(m_RootPath) / m_AssetDir).string();
     m_DllPath = (fs::path(m_RootPath) / m_EntryDll).string();
     
-    std::cout << "Loaded project: " << m_Name << "\n";
     return true;
 }
 

@@ -1,8 +1,5 @@
 #pragma once
 
-#include <chrono>
-#include <filesystem>
-#include <system_error>
 #include <imgui.h>
 #include <raylib.h>
 #include <rlImGui.h>
@@ -13,18 +10,13 @@
 #include <vector>
 #include <array>
 #include <cstdio>
-#include <sstream>
-#include <fstream>
 #include <string>
-#include <print>
 
 #include "GameLogicLoader.h"
-#include "GameEditorLayout.h"
-#include "GameEditorTheme.h"
+#include "GameEditorLayout.h" // IWYU pragma: keep
+#include "GameEditorTheme.h" // IWYU pragma: keep   
 #include "GameEngine.h"
 #include "terminal/terminal.h"
-#include "../Engine/GameState.h"
-namespace fs = std::filesystem;
 
 enum class EBuildStatus { None, Compiling, Success, Failed };
 

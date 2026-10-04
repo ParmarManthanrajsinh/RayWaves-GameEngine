@@ -9,8 +9,8 @@ class MockGameMap : public GameMap
     void Initialize() override { m_Initialized = true; }
     void Update(float /*delta_time*/) override {}
     void Draw() override {}
-    void SaveState(StateBag &out) const override {}
-    void LoadState(const StateBag &in) override {}
+    void SaveState(StateBag &out[[maybe_unused]]) const override {}
+    void LoadState(const StateBag &in[[maybe_unused]]) override {}
 
     bool m_Initialized = false;
 };

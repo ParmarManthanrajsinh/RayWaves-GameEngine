@@ -96,6 +96,7 @@ bool ProjectManager::b_OpenProject(std::string_view folder_path)
     {
         s_Current = new_project;
         s_bOpen = true;
+        std::cout << "Loaded project: " << s_Current.m_Name << '\n';
         AddRecent(folder_path);
 
         // Ensure project local cache directory exists

@@ -1,5 +1,5 @@
 #include <iostream>
-#include "../Engine/MapManager.h"
+#include "../Engine/MapManager.h" // IWYU pragma: keep
 #include "../Engine/ProjectManager.h"
 #include "../Engine/Profiler.h"
 #include "../Engine/AssetResolver.h"
@@ -11,6 +11,7 @@
 #include <imgui/imgui_stdlib.h>
 #include <imgui_internal.h>
 #include <filesystem>
+#include <map>
 #include <cstdio>
 using Clock = std::chrono::steady_clock;
 
@@ -37,7 +38,8 @@ namespace
     // GameEditor construction (and tests) never double-register.
     std::vector<FPanelFactory> s_CorePanelFactories()
     {
-        return {
+        return 
+        {
             &s_fMakePanel<MainMenuBar>,
             &s_fMakePanel<MapSelectionPanel>,
             &s_fMakePanel<ExportPanel>,
@@ -51,17 +53,16 @@ namespace
 }
 
 GameEditor::GameEditor()
-	: m_Viewport(nullptr),
-	  m_RaylibTexture({ 0 }),
-	  m_DisplayTexture({ 0 }),
-	  m_SourceTexture({ 0 , 0 }),
+	:
 	  b_IsPlaying(false),
 	  b_IsCompiling(false),
+	  m_RaylibTexture({}),
+	  m_DisplayTexture({}),
+	  m_SourceTexture({}),
+	  m_FrameOffset(0),
+	  m_Viewport(nullptr),
 	  m_LogicLoader(m_GameEngine),
-	  
-	  m_OpaqueShader({ 0 }),
-	  
-	  m_FrameOffset(0)
+	  m_OpaqueShader({})
 {
     m_Terminal.InitCapture();
 
@@ -193,9 +194,9 @@ void GameEditor::Init(int width, int height, std::string_view title)
 	// Prefer the XDG copy; fall back to the legacy CWD-relative config.ini
 	// (old versions scattered one per launch directory).
 	{
-		const std::string xdg_cfg = EditorUtils::GameConfigPath();
-		bool b_Loaded = GameConfig::GetInstance().m_bLoadFromFile(xdg_cfg);
-		if (!b_Loaded && xdg_cfg != "config.ini")
+		const std::string XDG_CFG = EditorUtils::GameConfigPath();
+		bool b_Loaded = GameConfig::GetInstance().m_bLoadFromFile(XDG_CFG);
+		if (!b_Loaded && XDG_CFG != "config.ini")
 		{
 			b_Loaded = GameConfig::GetInstance().m_bLoadFromFile("config.ini");
 		}
@@ -247,10 +248,14 @@ void GameEditor::RunBrowser()
 {
     Texture2D logo = LoadTexture(ThemeService::GetEngineContentPath("icon.png").c_str());
 
-    char newProjectName[128] = "MyNewGame";
-    char newProjectLocation[512] = "";
-    int selectedTemplateIdx = 0;
+    char new_project_name[128] = "MyNewGame";
+    char new_project_location[512] = "";
+    int selected_template_idx = 0;
     std::vector<std::string> templates;
+
+    // Manifest names change only when a project is renamed/removed; parsing
+    // every recent manifest each frame spams disk I/O (and used to print).
+    std::map<std::string, std::string> recent_display_names;
 
     while (!WindowShouldClose())
     {
@@ -265,9 +270,9 @@ void GameEditor::RunBrowser()
         rlImGuiBegin();
 
         ImGuiViewport* viewport = ImGui::GetMainViewport();
-        float margin = 48.0f;
-        ImGui::SetNextWindowPos(ImVec2(margin, margin), ImGuiCond_Always);
-        ImGui::SetNextWindowSize(ImVec2(viewport->Size.x - (margin * 2.0f), viewport->Size.y - (margin * 2.0f)));
+        constexpr float c_MARGIN = 48.0f;
+        ImGui::SetNextWindowPos(ImVec2(c_MARGIN, c_MARGIN), ImGuiCond_Always);
+        ImGui::SetNextWindowSize(ImVec2(viewport->Size.x - (c_MARGIN * 2.0f), viewport->Size.y - (c_MARGIN * 2.0f)));
         ImGui::SetNextWindowViewport(viewport->ID);
 
         ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
@@ -275,26 +280,26 @@ void GameEditor::RunBrowser()
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(40.0f, 40.0f));
         ImGui::Begin("Project Browser", nullptr, window_flags);
 
-        ImDrawList* drawList = ImGui::GetWindowDrawList();
+        ImDrawList* draw_list = ImGui::GetWindowDrawList();
         ImGuiIO& io = ImGui::GetIO();
-        float contentLeft = ImGui::GetCursorScreenPos().x;
-        float contentWidth = ImGui::GetContentRegionAvail().x;
+        float content_left = ImGui::GetCursorScreenPos().x;
+        float content_width = ImGui::GetContentRegionAvail().x;
 
         // ── Header ─────────────────────────────────────────────────────
         if (logo.id != 0)
         {
-            float logoY = ImGui::GetCursorPosY() + 6.0f;
-            ImGui::SetCursorPosY(logoY);
+            float logo_y = ImGui::GetCursorPosY() + 6.0f;
+            ImGui::SetCursorPosY(logo_y);
             auto lw = static_cast<float>(logo.width);
             auto lh = static_cast<float>(logo.height);
-            float maxDim = 96.0f;
-            float scale = (lw > lh) ? maxDim / lw : maxDim / lh;
-            float displayH = lh * scale;
-            rlImGuiImageSize(&logo, static_cast<int>(lw * scale), static_cast<int>(displayH));
+            constexpr float c_MAX_DIM = 96.0f;
+            float scale = (lw > lh) ? c_MAX_DIM / lw : c_MAX_DIM / lh;
+            float display_h = lh * scale;
+            rlImGuiImageSize(&logo, static_cast<int>(lw * scale), static_cast<int>(display_h));
             ImGui::SameLine();
             ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 12.0f);
-            float textGroupH = (ImGui::GetTextLineHeight() * 1.5f) + ImGui::GetStyle().ItemSpacing.y + ImGui::GetTextLineHeight();
-            ImGui::SetCursorPosY(logoY + ((displayH - textGroupH) * 0.5f));
+            float text_group_h = (ImGui::GetTextLineHeight() * 1.5f) + ImGui::GetStyle().ItemSpacing.y + ImGui::GetTextLineHeight();
+            ImGui::SetCursorPosY(logo_y + ((display_h - text_group_h) * 0.5f));
         }
 
         // Title and version stacked next to logo
@@ -308,17 +313,17 @@ void GameEditor::RunBrowser()
         ImGui::EndGroup();
 
         // Subtle separator line under header
-        float lineY = ImGui::GetCursorScreenPos().y + 12.0f;
-        drawList->AddRectFilled(
-            ImVec2(contentLeft, lineY),
-            ImVec2(contentLeft + contentWidth, lineY + 1.0f),
+        float line_y = ImGui::GetCursorScreenPos().y + 12.0f;
+        draw_list->AddRectFilled(
+            ImVec2(content_left, line_y),
+            ImVec2(content_left + content_width, line_y + 1.0f),
             ImGui::GetColorU32(ImGuiCol_Separator)
         );
         ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 24.0f);
 
         // ── Two columns ────────────────────────────────────────────────
         ImGui::Columns(2, "BrowserColumns", false);
-        ImGui::SetColumnWidth(0, contentWidth * 0.6f);
+        ImGui::SetColumnWidth(0, content_width * 0.6f);
 
         // ── Left Column — Recent Projects ──────────────────────────────
         ImGui::PushFont(io.Fonts->Fonts[Font_Large]);
@@ -331,9 +336,9 @@ void GameEditor::RunBrowser()
 
         if (recent.empty())
         {
-            float childH = ImGui::GetContentRegionAvail().y;
-            float childW = ImGui::GetContentRegionAvail().x;
-            ImGui::SetCursorPos(ImVec2(childW * 0.1f, childH * 0.35f));
+            float child_h = ImGui::GetContentRegionAvail().y;
+            float child_w = ImGui::GetContentRegionAvail().x;
+            ImGui::SetCursorPos(ImVec2(child_w * 0.1f, child_h * 0.35f));
             ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyle().Colors[ImGuiCol_TextDisabled]);
             ImGui::TextWrapped("No recent projects - create or open one to get started");
             ImGui::PopStyleColor();
@@ -348,50 +353,63 @@ void GameEditor::RunBrowser()
                 std::filesystem::path fs_path(path);
                 std::filesystem::path manifest_path = fs_path / "project.raywaves";
                 bool exists = std::filesystem::exists(manifest_path);
-                std::string displayName = fs_path.filename().string();
+                std::string display_name = fs_path.filename().string();
 
                 if (exists)
                 {
-                    t_Project proj;
-                    if (proj.m_bLoadFromFile(manifest_path.string()))
+                    auto cached = recent_display_names.find(path);
+                    if (cached != recent_display_names.end())
                     {
-                        displayName = proj.m_Name;
+                        display_name = cached->second;
+                    }
+                    else
+                    {
+                        t_Project proj;
+                        if (proj.m_bLoadFromFile(manifest_path.string()))
+                        {
+                            display_name = proj.m_Name;
+                        }
+                        recent_display_names[path] = display_name;
                     }
                 }
+                else
+                {
+                    recent_display_names.erase(path);
+                }
 
-                float rowHeight = 48.0f;
-                float availW = ImGui::GetContentRegionAvail().x;
-                ImVec2 rowPos = ImGui::GetCursorScreenPos();
+                constexpr float c_ROW_HEIGHT = 48.0f;
+                float avail_w = ImGui::GetContentRegionAvail().x;
+                ImVec2 row_pos = ImGui::GetCursorScreenPos();
 
                 if (!exists)
                 {
                     ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyle().Colors[ImGuiCol_TextDisabled]);
-                    displayName += " (missing)";
+                    display_name += " (missing)";
                 }
 
                 // Clickable row
-                if (ImGui::Selectable("##recent_proj", false, exists ? 0 : ImGuiSelectableFlags_Disabled, ImVec2(availW, rowHeight)))
+                if (ImGui::Selectable("##recent_proj", false, exists ? 0 : ImGuiSelectableFlags_Disabled, ImVec2(avail_w, c_ROW_HEIGHT)))
                 {
                     if (exists) OpenProject(path);
                 }
 
-                bool isHovered = ImGui::IsItemHovered();
+                bool is_hovered = ImGui::IsItemHovered();
 
                 // Folder icon
                 ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyle().Colors[ImGuiCol_TextDisabled]);
-                ImVec2 iconPos(rowPos.x + 12.0f, rowPos.y + ((rowHeight - 12.0f) * 0.5f));
-                ImGui::SetCursorScreenPos(iconPos);
+                ImVec2 icon_pos(row_pos.x + 12.0f, row_pos.y + ((c_ROW_HEIGHT - 12.0f) * 0.5f));
+                ImGui::SetCursorScreenPos(icon_pos);
                 ImGui::Text(ICON_FA_FOLDER);
                 ImGui::PopStyleColor();
 
                 // Project name
-                ImVec2 namePos(rowPos.x + 40.0f, rowPos.y + 5.0f);
-                ImGui::SetCursorScreenPos(namePos);
-                ImGui::Text("%s", displayName.c_str());
+                ImVec2 name_pos(row_pos.x + 40.0f, row_pos.y + 5.0f);
+                ImGui::SetCursorScreenPos(name_pos);
+                ImGui::Text("%s", display_name.c_str());
 
                 // Path
-                ImVec2 pathPos(rowPos.x + 40.0f, rowPos.y + 25.0f);
-                ImGui::SetCursorScreenPos(pathPos);
+                ImVec2 path_pos(row_pos.x + 40.0f, row_pos.y + 25.0f);
+                ImGui::SetCursorScreenPos(path_pos);
                 ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyle().Colors[ImGuiCol_TextDisabled]);
                 ImGui::Text("%s", path.c_str());
                 ImGui::PopStyleColor();
@@ -399,9 +417,9 @@ void GameEditor::RunBrowser()
                 if (!exists) ImGui::PopStyleColor();
 
                 // Trash button on hover
-                if (isHovered)
+                if (is_hovered)
                 {
-                    ImGui::SetCursorScreenPos(ImVec2(rowPos.x + availW - 36.0f, rowPos.y + ((rowHeight - 24.0f) * 0.5f)));
+                    ImGui::SetCursorScreenPos(ImVec2(row_pos.x + avail_w - 36.0f, row_pos.y + ((c_ROW_HEIGHT - 24.0f) * 0.5f)));
                     if (ImGui::Button(ICON_FA_TRASH_CAN))
                     {
                         ImGui::OpenPopup("RemoveRecentPopup");
@@ -424,7 +442,7 @@ void GameEditor::RunBrowser()
                     ImGui::EndPopup();
                 }
 
-                ImGui::SetCursorScreenPos(ImVec2(rowPos.x, rowPos.y + rowHeight));
+                ImGui::SetCursorScreenPos(ImVec2(row_pos.x, row_pos.y + c_ROW_HEIGHT));
                 ImGui::PopID();
             }
         }
@@ -454,8 +472,8 @@ void GameEditor::RunBrowser()
         // Open Existing — secondary
         if (ImGui::Button(ICON_FA_FOLDER_OPEN "  Open Existing Project", ImVec2(-1, 44.0f)))
         {
-            const std::string dialog_dir = EditorUtils::DefaultDialogDir();
-            const char* path = tinyfd_selectFolderDialog("Open Project", dialog_dir.c_str());
+            const std::string DIALOG_DIR = EditorUtils::DefaultDialogDir();
+            const char* path = tinyfd_selectFolderDialog("Open Project", DIALOG_DIR.c_str());
             if (path != nullptr)
             {
                 OpenProject(path);
@@ -476,10 +494,10 @@ void GameEditor::RunBrowser()
         if (ImGui::BeginPopupModal("New Project Wizard", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
         {
             ImGui::Text("Project Name");
-            ImGui::InputText("##new_name", newProjectName, sizeof(newProjectName));
+            ImGui::InputText("##new_name", new_project_name, sizeof(new_project_name));
 
-            std::string sanitized = ProjectManager::SanitizeCMakeProjectName(newProjectName);
-            if (sanitized != newProjectName && strlen(newProjectName) > 0)
+            std::string sanitized = ProjectManager::SanitizeCMakeProjectName(new_project_name);
+            if (sanitized != new_project_name && strlen(new_project_name) > 0)
             {
                 ImGui::TextDisabled("Will be created as: %s", sanitized.c_str());
             }
@@ -487,16 +505,16 @@ void GameEditor::RunBrowser()
             ImGui::Spacing();
 
             ImGui::Text("Location");
-            ImGui::InputText("##new_location", newProjectLocation, sizeof(newProjectLocation));
+            ImGui::InputText("##new_location", new_project_location, sizeof(new_project_location));
             ImGui::SameLine();
             if (ImGui::Button("Browse..."))
             {
-                const std::string dialog_dir = EditorUtils::DefaultDialogDir();
-                const char* folder = tinyfd_selectFolderDialog("Select Project Location", dialog_dir.c_str());
+                const std::string DIALOG_DIR = EditorUtils::DefaultDialogDir();
+                const char* folder = tinyfd_selectFolderDialog("Select Project Location", DIALOG_DIR.c_str());
                 if (folder != nullptr)
                 {
-                    strncpy(newProjectLocation, folder, sizeof(newProjectLocation) - 1);
-                    newProjectLocation[sizeof(newProjectLocation) - 1] = '\0';
+                    strncpy(new_project_location, folder, sizeof(new_project_location) - 1);
+                    new_project_location[sizeof(new_project_location) - 1] = '\0';
                 }
             }
 
@@ -504,14 +522,14 @@ void GameEditor::RunBrowser()
 
             if (!templates.empty())
             {
-                if (ImGui::BeginCombo("Template", templates[selectedTemplateIdx].c_str()))
+                if (ImGui::BeginCombo("Template", templates[selected_template_idx].c_str()))
                 {
-                    for (int i = 0; i < templates.size(); ++i)
+                    for (int i = 0; i < static_cast<int>(templates.size()); ++i)
                     {
-                        const bool is_selected = (selectedTemplateIdx == i);
-                        if (ImGui::Selectable(templates[i].c_str(), is_selected))
-                            selectedTemplateIdx = i;
-                        if (is_selected)
+                        const bool IS_SELECTED = (selected_template_idx == i);
+                        if (ImGui::Selectable(templates[i].c_str(), IS_SELECTED))
+                            selected_template_idx = i;
+                        if (IS_SELECTED)
                             ImGui::SetItemDefaultFocus();
                     }
                     ImGui::EndCombo();
@@ -528,12 +546,12 @@ void GameEditor::RunBrowser()
 
             if (ImGui::Button("Create", ImVec2(120, 0)))
             {
-                if (strlen(newProjectName) > 0 && strlen(newProjectLocation) > 0 && !templates.empty())
+                if (strlen(new_project_name) > 0 && strlen(new_project_location) > 0 && !templates.empty())
                 {
-                    fs::path fullPath = fs::path(newProjectLocation) / newProjectName;
-                    if (ProjectManager::b_CreateProject(fullPath.string(), templates[selectedTemplateIdx]))
+                    fs::path full_path = fs::path(new_project_location) / new_project_name;
+                    if (ProjectManager::b_CreateProject(full_path.string(), templates[selected_template_idx]))
                     {
-                        OpenProject(fullPath.string());
+                        OpenProject(full_path.string());
                         ImGui::CloseCurrentPopup();
                     }
                 }
@@ -560,7 +578,7 @@ void GameEditor::RunBrowser()
     if (logo.id != 0) UnloadTexture(logo);
 }
 
-void GameEditor::OpenProject(std::string_view folderPath)
+void GameEditor::OpenProject(std::string_view folder_path)
 {
     // 1. Unload old DLL and reset map state (single teardown path in the loader)
     m_LogicLoader.Unload();
@@ -569,11 +587,11 @@ void GameEditor::OpenProject(std::string_view folderPath)
     //    inside the DLL's MapManager, which was destroyed and unloaded in step 1.
 
     // 3. Open project metadata
-    if (!ProjectManager::b_OpenProject(folderPath)) return;
+    if (!ProjectManager::b_OpenProject(folder_path)) return;
 
     // Set Window Title
-    std::string windowTitle = "RayWaves — " + ProjectManager::GetCurrent().m_Name;
-    SetWindowTitle(windowTitle.c_str());
+    std::string window_title = "RayWaves — " + ProjectManager::GetCurrent().m_Name;
+    SetWindowTitle(window_title.c_str());
 
     // 4. Set DLL path
     m_LogicLoader.SetGameLogicPath(ProjectManager::GetCurrent().m_DllPath);
@@ -780,14 +798,14 @@ void GameEditor::Close()
 	config.scene_height = m_SceneSettings.m_SceneHeight;
 	config.scene_fps = m_SceneSettings.m_TargetFPS;
 	{
-		const std::string xdg_cfg = EditorUtils::GameConfigPath();
-		const std::filesystem::path parent = std::filesystem::path(xdg_cfg).parent_path();
-		if (!parent.empty())
+		const std::string XDG_CFG = EditorUtils::GameConfigPath();
+		const std::filesystem::path PARENT_DIR = std::filesystem::path(XDG_CFG).parent_path();
+		if (!PARENT_DIR.empty())
 		{
 			std::error_code ec;
-			std::filesystem::create_directories(parent, ec);
+			std::filesystem::create_directories(PARENT_DIR, ec);
 		}
-		GameConfig::GetInstance().m_bSaveToFile(xdg_cfg);
+		GameConfig::GetInstance().m_bSaveToFile(XDG_CFG);
 	}
 
 	if (ProjectManager::b_HasOpenProject())
@@ -961,11 +979,11 @@ void GameEditor::CompileGameLogic()
     m_BuildThread = ProcessRunner::RunBuildCommand
     (
         build_cmd,
-        [this, cancel](std::string_view line, bool isError)
+        [this, cancel](std::string_view line, bool is_error)
         {
             if (cancel->load()) return;
             ParseBuildLine(line);
-            m_Terminal.add_text(line, isError ? term::Severity::Error : term::Severity::Debug);
+            m_Terminal.add_text(line, is_error ? term::Severity::Error : term::Severity::Debug);
         },
         [this, cancel](bool success)
         {
