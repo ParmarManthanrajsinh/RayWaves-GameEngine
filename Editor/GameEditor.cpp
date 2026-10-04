@@ -144,8 +144,11 @@ GameEditor::~GameEditor()
 
 void GameEditor::Init(int width, int height, std::string_view title)
 {
+	// Flags must be set BEFORE InitWindow: flipping GLFW_RESIZABLE after the
+	// window is mapped makes KWin desync the titlebar (close button missing
+	// until the next resize).
+	SetConfigFlags(FLAG_WINDOW_RESIZABLE);
 	m_GameEngine.LaunchWindow(width, height, title.data());
-	SetWindowState(FLAG_WINDOW_RESIZABLE);
 
 	// Set window icon
 	Image icon = LoadImage(ThemeService::GetEngineContentPath("icon.png").c_str());
