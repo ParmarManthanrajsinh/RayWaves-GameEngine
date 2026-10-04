@@ -1,4 +1,4 @@
-#include <iostream>
+#include <iostream> // load-bearing: RegisterMap<T>() below logs via std::cout
 #pragma once
 #include "GameMap.h"
 #include <functional>
@@ -70,6 +70,7 @@ public:
     
     void SaveState(StateBag& out) const override;
     void LoadState(const StateBag& in) override;
+    bool b_IsMapManager() const override { return true; }
     
     void SetSceneBounds(float width, float height);
     Vector2 GetSceneBounds() const;
@@ -96,7 +97,7 @@ public:
     
 private:
 
-    void LoadDefaultMap();
+    static void LoadDefaultMap();
 };
 
 /*

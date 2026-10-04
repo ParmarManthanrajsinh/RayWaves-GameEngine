@@ -99,8 +99,9 @@ Copy-Item "Engine/*.cpp" "$DistPath/Core/Engine/" -Force
 Copy-Item "Distribution/dist_CMakeLists.txt" "$DistPath/Core/CMakeLists.txt" -Force
 
 # Copy distribution documentation
-Copy-Item "Documentation/README_DISTRIBUTION.md" "$DistPath/Documentation/" -Force
-Copy-Item "Documentation/DISTRIBUTION_GUIDE.md" "$DistPath/Documentation/" -Force
+Copy-Item "Documentation/GAME_DEVELOPER_GUIDE.md" "$DistPath/Documentation/" -Force
+Copy-Item "Documentation/GUIDE_FUNDAMENTALS.md" "$DistPath/Documentation/" -Force
+Copy-Item "Documentation/GUIDE_REFERENCE.md" "$DistPath/Documentation/" -Force
 
 # Copy Project Templates
 if (Test-Path "Distribution/Templates") {
@@ -129,9 +130,29 @@ if ($IncludeCompiler) {
     Copy-Item "Tools/zig/*" "$DistPath/Core/Tools/zig/" -Recurse -Force
 }
 
-# Always copy the compiler wrappers
+# Always copy the compiler wrappers and setup script
 New-Item -ItemType Directory -Path "$DistPath/Core/Tools" -Force | Out-Null
 Copy-Item "Tools/zig-c*.bat" "$DistPath/Core/Tools/" -Force
+Copy-Item "Tools/setup_zig.ps1" "$DistPath/Core/Tools/" -Force
+
+# Bundle rcedit
+if (Test-Path "Tools/rcedit.exe") {
+    Write-Host "Bundling rcedit..." -ForegroundColor Yellow
+    Copy-Item "Tools/rcedit.exe" "$DistPath/Core/Tools/" -Force
+}
+
+# Bundle Ninja (required for CMake generator)
+if (Test-Path "Tools/ninja/ninja.exe") {
+    Write-Host "Bundling Ninja..." -ForegroundColor Yellow
+    New-Item -ItemType Directory -Path "$DistPath/Core/Tools/ninja" -Force | Out-Null
+    Copy-Item "Tools/ninja/ninja.exe" "$DistPath/Core/Tools/ninja/" -Force
+}
+
+# Bundle CMake (required for building GameLogic)
+if (Test-Path "Tools/cmake/bin/cmake.exe") {
+    Write-Host "Bundling CMake..." -ForegroundColor Yellow
+    Copy-Item "Tools/cmake" "$DistPath/Core/Tools/cmake" -Recurse -Force
+}
 
 # Copy default game configuration
 Copy-Item "Distribution/config.ini" "$DistPath/" -Force
@@ -155,3 +176,5 @@ Write-Host "  - Engine/ (engine headers)" -ForegroundColor White
 if ($IncludeCompiler) {
     Write-Host "  - Tools/zig/ (bundled Zig compiler for zero-install hot-reloading)" -ForegroundColor White
 }
+Write-Host "  - Tools/ninja/ (bundled Ninja build system)" -ForegroundColor White
+Write-Host "  - Tools/cmake/ (bundled CMake build system)" -ForegroundColor White

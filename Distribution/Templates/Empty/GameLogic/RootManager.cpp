@@ -1,26 +1,14 @@
-#include <iostream>
 #include "../Engine/MapManager.h"
-#include <raylib.h>
-class EmptyMap : public GameMap
-{
-public:
-    void Initialize() override 
-    {
-        std::cout << "EmptyMap initialized\n";
-    }
-
-    void Update(float delta_time) override 
-    {
-    }
-
-    void Draw() override 
-    {
-        ClearBackground(RAYWHITE);
-        DrawText("Empty Project", 10, 10, 20, DARKGRAY);
-    }
-};
+#include "../Engine/GameMap.h"
+#include "EmptyMap.h"
+#include <cstdint>
 
 static MapManager* s_GameMapManager = nullptr;
+
+extern "C" __declspec(dllexport) uint32_t GetGameLogicAbiVersion()
+{
+    return RAYWAVES_GAMELOGIC_ABI_VERSION;
+}
 
 extern "C" __declspec(dllexport) GameMap* CreateGameMap()
 {
@@ -36,7 +24,7 @@ extern "C" __declspec(dllexport) GameMap* CreateGameMap()
 
 extern "C" __declspec(dllexport) void DestroyGameMap(GameMap* map_manager)
 {
-    if (map_manager)
+    if (map_manager != nullptr)
     {
         delete map_manager;
         if (map_manager == s_GameMapManager)
@@ -45,4 +33,3 @@ extern "C" __declspec(dllexport) void DestroyGameMap(GameMap* map_manager)
         }
     }
 }
-

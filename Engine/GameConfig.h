@@ -1,9 +1,6 @@
 #pragma once
 #include <string>
-#include <fstream>
-#include <sstream>
-#include <iostream>
-#include <filesystem>
+#include <string_view>
 
 struct t_WindowConfig 
 {

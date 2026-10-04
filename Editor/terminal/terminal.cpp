@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <iostream>
+#include <utility>
 #include <vector>
 #include <array>
 #include <mutex>
@@ -8,8 +9,8 @@
 #include <chrono>
 #include <ctime>
 #include <imgui_internal.h>
-#define _CRTDBG_MAP_ALLOC
-#include <stdlib.h>
+#define CRTDBG_MAP_ALLOC
+#include <cstdlib>
 #include <crtdbg.h>
 
 #if defined(_DEBUG) && defined(_MSC_VER) && !defined(__clang__)
@@ -36,7 +37,7 @@ namespace term
     Terminal::Terminal() 
     {
         // Register this instance for Raylib callbacks
-        std::lock_guard<std::mutex> lock(s_callback_mutex);
+        std::scoped_lock lock(s_callback_mutex);
         s_callback_instance = this;
     }
 
@@ -53,7 +54,7 @@ namespace term
         
         // Unregister from callbacks
         {
-            std::lock_guard<std::mutex> lock(s_callback_mutex);
+            std::scoped_lock lock(s_callback_mutex);
             if (s_callback_instance == this) 
             {
                 s_callback_instance = nullptr;
@@ -61,12 +62,12 @@ namespace term
         }
         
         // Restore streams before deleting buffers
-        if (m_old_cout) 
+        if (m_old_cout != nullptr) 
         {
             std::cout.rdbuf(m_old_cout);
             m_old_cout = nullptr;
         }
-        if (m_old_cerr) 
+        if (m_old_cerr != nullptr) 
         {
             std::cerr.rdbuf(m_old_cerr);
             m_old_cerr = nullptr;
@@ -100,8 +101,8 @@ namespace term
     void Terminal::RaylibLogCallback(int logLevel, const char* text, va_list args) 
     {
         // Thread-safe access to terminal instance
-        std::lock_guard<std::mutex> lock(s_callback_mutex);
-        if (!s_callback_instance) return;
+        std::scoped_lock lock(s_callback_mutex);
+        if (s_callback_instance == nullptr) return;
 
         // Thread-safe buffer (on stack)
         char buffer[1024];
@@ -136,6 +137,77 @@ namespace term
         }
     }
 
+    void Terminal::parse_ansi(Message& msg) const
+    {
+        std::string_view text = msg.text;
+        msg.spans.clear();
+
+        size_t pos = 0;
+        std::optional<ImVec4> current_color = std::nullopt;
+
+        while (pos < text.length())
+        {
+            size_t esc_pos = text.find("\x1b[", pos);
+            if (esc_pos == std::string_view::npos)
+            {
+                if (pos < text.length()) msg.spans.push_back({current_color, std::string(text.substr(pos))});
+                break;
+            }
+
+            if (esc_pos > pos)
+            {
+                msg.spans.push_back({current_color, std::string(text.substr(pos, esc_pos - pos))});
+            }
+
+            size_t m_pos = text.find('m', esc_pos);
+            if (m_pos == std::string_view::npos)
+            {
+                msg.spans.push_back({current_color, std::string(text.substr(esc_pos))});
+                break;
+            }
+
+            std::string_view code_str = text.substr(esc_pos + 2, m_pos - (esc_pos + 2));
+            int code = 0;
+            if (!code_str.empty())
+            {
+                try { code = std::stoi(std::string(code_str)); } catch(...) {}
+            }
+
+            if (code == 0) current_color = std::nullopt;
+            else if (code >= 30 && code <= 37)
+            {
+                switch (code)
+                {
+                    case 30: current_color = m_theme.ansi_30; break;
+                    case 31: current_color = m_theme.ansi_31; break;
+                    case 32: current_color = m_theme.ansi_32; break;
+                    case 33: current_color = m_theme.ansi_33; break;
+                    case 34: current_color = m_theme.ansi_34; break;
+                    case 35: current_color = m_theme.ansi_35; break;
+                    case 36: current_color = m_theme.ansi_36; break;
+                    case 37: current_color = m_theme.ansi_37; break;
+                }
+            }
+            else if (code >= 90 && code <= 97)
+            {
+                switch (code)
+                {
+                    case 90: current_color = m_theme.ansi_90; break;
+                    case 91: current_color = m_theme.ansi_91; break;
+                    case 92: current_color = m_theme.ansi_92; break;
+                    case 93: current_color = m_theme.ansi_93; break;
+                    case 94: current_color = m_theme.ansi_94; break;
+                    case 95: current_color = m_theme.ansi_95; break;
+                    case 96: current_color = m_theme.ansi_96; break;
+                    case 97: current_color = m_theme.ansi_97; break;
+                }
+            }
+            pos = m_pos + 1;
+        }
+
+        if (msg.spans.empty()) msg.spans.push_back({std::nullopt, msg.text});
+    }
+
     void Terminal::add_text(std::string_view text, Severity severity) 
     {
         if (is_shutting_down()) return;
@@ -155,11 +227,14 @@ namespace term
         add_message(msg);
     }
 
-    void Terminal::add_message(const Message& msg) 
+    void Terminal::add_message(const Message& msg_in) 
     {
         if (is_shutting_down()) return;
         
-        std::lock_guard<std::mutex> lock(m_mutex);
+        Message msg = msg_in;
+        parse_ansi(msg);
+
+        std::scoped_lock lock(m_mutex);
         
         // Limit log size
         if (m_messages.size() >= m_max_log_size) 
@@ -173,7 +248,7 @@ namespace term
 
     void Terminal::clear() 
     {
-        std::lock_guard<std::mutex> lock(m_mutex);
+        std::scoped_lock lock(m_mutex);
         m_messages.clear();
     }
 
@@ -219,14 +294,14 @@ namespace term
 
         ImGui::SetWindowFontScale(m_theme.font_scale);
 
-        float footer_height = ImGui::GetFrameHeight() + m_theme.item_spacing * 2.0f;
-        float settings_height = ImGui::GetFrameHeight() + m_theme.item_spacing * 2.0f;
+        float footer_height = ImGui::GetFrameHeight() + (m_theme.item_spacing * 2.0f);
+        float settings_height = ImGui::GetFrameHeight() + (m_theme.item_spacing * 2.0f);
         ImVec2 avail = ImGui::GetContentRegionAvail();
         
         render_settings_bar(ImVec2(avail.x, settings_height));
 
         float log_height = avail.y - footer_height - settings_height;
-        if (log_height < 50) log_height = 50;
+        log_height = std::max<float>(log_height, 50);
 
         render_log_window(ImVec2(avail.x, log_height));
         render_input_bar(ImVec2(avail.x, footer_height));
@@ -244,10 +319,10 @@ namespace term
         ImGui::PushStyleColor(ImGuiCol_ButtonActive, m_theme.button_active);
         ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
 
-        float clear_btn_width = ImGui::CalcTextSize(ICON_FA_TRASH_CAN " Clear Log").x + ImGui::GetStyle().FramePadding.x * 2.0f;
+        float clear_btn_width = ImGui::CalcTextSize(ICON_FA_TRASH_CAN " Clear Log").x + (ImGui::GetStyle().FramePadding.x * 2.0f);
         
         // Search/Filter
-        ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - clear_btn_width - ImGui::GetStyle().ItemSpacing.x * 2.0f);
+        ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - clear_btn_width - (ImGui::GetStyle().ItemSpacing.x * 2.0f));
         ImGui::PushStyleColor(ImGuiCol_FrameBg, ImGui::GetStyle().Colors[ImGuiCol_FrameBg]);
         ImGui::InputTextWithHint
         (
@@ -281,8 +356,37 @@ namespace term
         ImGuiWindowFlags flags = ImGuiWindowFlags_HorizontalScrollbar;
         if (!m_auto_wrap) flags |= ImGuiWindowFlags_AlwaysHorizontalScrollbar;
 
-        ImGui::BeginChild("##LogWindow", ImVec2(size.x, size.y), true, flags);
+        ImGui::BeginChild("##LogWindow", ImVec2(size.x, size.y), 1, flags);
         
+        if (ImGui::IsWindowFocused() && ImGui::GetIO().KeyCtrl)
+        {
+            if (ImGui::IsKeyPressed(ImGuiKey_A))
+            {
+                std::scoped_lock lock(m_mutex);
+                if (!m_messages.empty())
+                {
+                    m_select_anchor = 0;
+                    m_select_head = static_cast<int>(m_messages.size()) - 1;
+                }
+            }
+            else if (ImGui::IsKeyPressed(ImGuiKey_C))
+            {
+                if (m_select_anchor != -1 && m_select_head != -1)
+                {
+                    std::string clip;
+                    std::scoped_lock lock(m_mutex);
+                    int start = std::min(m_select_anchor, m_select_head);
+                    int end = std::max(m_select_anchor, m_select_head);
+                    for (int i = start; i <= end && i < m_messages.size(); i++)
+                    {
+                        for (const auto& span : m_messages[i].spans) clip += span.text;
+                        clip += "\n";
+                    }
+                    if (!clip.empty()) ImGui::SetClipboardText(clip.c_str());
+                }
+            }
+        }
+
         // Push Consolas Mono font
         ImGuiIO& io = ImGui::GetIO();
         if (Font_MonoSmall < io.Fonts->Fonts.Size)
@@ -290,7 +394,7 @@ namespace term
             ImGui::PushFont(io.Fonts->Fonts[Font_MonoSmall]);
         }
 
-        std::lock_guard<std::mutex> lock(m_mutex);
+        std::scoped_lock lock(m_mutex);
         
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4, 4));
 
@@ -299,7 +403,7 @@ namespace term
         if (!has_filter) 
         {
             ImGuiListClipper clipper;
-            clipper.Begin((int)m_messages.size());
+            clipper.Begin(static_cast<int>(m_messages.size()));
             while (clipper.Step()) 
             {
                 for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; i++) 
@@ -319,29 +423,60 @@ namespace term
                     }
 
                     ImGui::PushID(i);
-                    ImVec4 color = get_severity_color(msg.severity, m_theme);
-                    ImGui::PushStyleColor(ImGuiCol_Text, color);
                     
-                    // Draw invisible selectable over the line for mouse interaction
+                    bool is_selected = (m_select_anchor != -1 && m_select_head != -1 && i >= std::min(m_select_anchor, m_select_head) && i <= std::max(m_select_anchor, m_select_head));
+                    
+                    if (is_selected)
+                    {
+                        ImGui::GetWindowDrawList()->AddRectFilled(
+                            ImGui::GetCursorScreenPos(),
+                            ImVec2(ImGui::GetCursorScreenPos().x + ImGui::GetContentRegionAvail().x, ImGui::GetCursorScreenPos().y + ImGui::GetTextLineHeight()),
+                            ImGui::GetColorU32(m_theme.selection_bg)
+                        );
+                    }
+                    
                     ImVec2 pos = ImGui::GetCursorScreenPos();
-                    ImGui::Selectable("##line", false, ImGuiSelectableFlags_AllowOverlap);
+                    ImGui::Selectable("##line", is_selected, ImGuiSelectableFlags_AllowOverlap);
+                    if (ImGui::IsItemHovered())
+                    {
+                        if (ImGui::IsMouseClicked(ImGuiMouseButton_Left))
+                        {
+                            m_select_anchor = i;
+                            m_select_head = i;
+                        }
+                        else if (ImGui::IsMouseDown(ImGuiMouseButton_Left))
+                        {
+                            if (m_select_anchor != -1) m_select_head = i;
+                        }
+                    }
+                    
                     ImGui::SameLine();
                     ImGui::SetCursorScreenPos(pos);
                     
-                    ImGui::TextUnformatted(msg.text.c_str());
-                    ImGui::PopStyleColor();
+                    ImVec4 default_color = get_severity_color(msg.severity, m_theme);
+                    for (size_t span_idx = 0; span_idx < msg.spans.size(); span_idx++)
+                    {
+                        if (span_idx > 0) ImGui::SameLine(0, 0);
+                        const auto& span = msg.spans[span_idx];
+                        ImGui::PushStyleColor(ImGuiCol_Text, span.color.value_or(default_color));
+                        ImGui::TextUnformatted(span.text.c_str());
+                        ImGui::PopStyleColor();
+                    }
 
                     if (ImGui::BeginPopupContextItem("##terminal_context"))
                     {
                         if (ImGui::MenuItem("Copy Message"))
                         {
-                            ImGui::SetClipboardText(msg.text.c_str());
+                            std::string plain;
+                            for (const auto& span : msg.spans) plain += span.text;
+                            ImGui::SetClipboardText(plain.c_str());
                         }
                         if (!msg.timestamp.empty())
                         {
                             if (ImGui::MenuItem("Copy Timestamp + Message"))
                             {
-                                std::string full_msg = msg.timestamp + " " + msg.text;
+                                std::string full_msg = msg.timestamp + " ";
+                                for (const auto& span : msg.spans) full_msg += span.text;
                                 ImGui::SetClipboardText(full_msg.c_str());
                             }
                         }
@@ -371,28 +506,36 @@ namespace term
                 }
 
                 ImGui::PushID(&msg);
-                ImVec4 color = get_severity_color(msg.severity, m_theme);
-                ImGui::PushStyleColor(ImGuiCol_Text, color);
                 
                 ImVec2 pos = ImGui::GetCursorScreenPos();
                 ImGui::Selectable("##line", false, ImGuiSelectableFlags_AllowOverlap);
                 ImGui::SameLine();
                 ImGui::SetCursorScreenPos(pos);
                 
-                ImGui::TextUnformatted(msg.text.c_str());
-                ImGui::PopStyleColor();
+                ImVec4 default_color = get_severity_color(msg.severity, m_theme);
+                for (size_t span_idx = 0; span_idx < msg.spans.size(); span_idx++)
+                {
+                    if (span_idx > 0) ImGui::SameLine(0, 0);
+                    const auto& span = msg.spans[span_idx];
+                    ImGui::PushStyleColor(ImGuiCol_Text, span.color.value_or(default_color));
+                    ImGui::TextUnformatted(span.text.c_str());
+                    ImGui::PopStyleColor();
+                }
 
                 if (ImGui::BeginPopupContextItem("##terminal_context"))
                 {
                     if (ImGui::MenuItem("Copy Message"))
                     {
-                        ImGui::SetClipboardText(msg.text.c_str());
+                        std::string plain;
+                        for (const auto& span : msg.spans) plain += span.text;
+                        ImGui::SetClipboardText(plain.c_str());
                     }
                     if (!msg.timestamp.empty())
                     {
                         if (ImGui::MenuItem("Copy Timestamp + Message"))
                         {
-                            std::string full_msg = msg.timestamp + " " + msg.text;
+                            std::string full_msg = msg.timestamp + " ";
+                            for (const auto& span : msg.spans) full_msg += span.text;
                             ImGui::SetClipboardText(full_msg.c_str());
                         }
                     }
@@ -431,7 +574,7 @@ namespace term
         
         // Text filtering only
         if (m_filter_buf[0] == '\0') return true;
-        return msg.text.find(m_filter_buf) != std::string::npos;
+        return msg.text.contains(m_filter_buf);
     }
 
     void Terminal::render_input_bar(const ImVec2& size) 
@@ -457,7 +600,7 @@ namespace term
         
         auto callback = [](ImGuiInputTextCallbackData* data) -> int 
             {
-            Terminal* term = (Terminal*)data->UserData;
+            auto* term = static_cast<Terminal*>(data->UserData);
             
             if (data->EventFlag == ImGuiInputTextFlags_CallbackHistory) 
             {
@@ -466,12 +609,12 @@ namespace term
                     if (!term->m_history.empty()) 
                     {
                         term->m_history_pos++;
-                         if (term->m_history_pos >= (int)term->m_history.size()) term->m_history_pos = (int)term->m_history.size() - 1;
+                         if (std::cmp_greater_equal(term->m_history_pos ,term->m_history.size())) term->m_history_pos = static_cast<int>(term->m_history.size()) - 1;
                     }
                 } else if (data->EventKey == ImGuiKey_DownArrow) 
                 {
                      term->m_history_pos--;
-                     if (term->m_history_pos < -1) term->m_history_pos = -1;
+                     term->m_history_pos = std::max(term->m_history_pos, -1);
                 }
                 
                 if 
@@ -480,7 +623,7 @@ namespace term
                     term->m_history_pos < term->m_history.size()
                 ) 
                 {
-                    int idx = (int)term->m_history.size() - 1 - term->m_history_pos;
+                    int idx = static_cast<int>(term->m_history.size()) - 1 - term->m_history_pos;
                     data->DeleteChars(0, data->BufTextLen);
                     data->InsertChars(0, term->m_history[idx].c_str());
                 }
@@ -519,7 +662,7 @@ namespace term
 
     void Terminal::execute_command(std::string_view cmd) 
     {
-        m_history.push_back(std::string(cmd));
+        m_history.emplace_back(cmd);
         add_text(std::string("> ") + std::string(cmd), Severity::Debug);
         
         std::string command_str(cmd);
@@ -534,7 +677,7 @@ namespace term
 
         // Async execution for system commands
         // Capture shared cancel flag so thread can check it even after Terminal destruction
-        auto cancel = m_ThreadCancelFlag;
+        auto& cancel = m_ThreadCancelFlag;
         std::thread
         (
             [this, cancel, command_str]() 

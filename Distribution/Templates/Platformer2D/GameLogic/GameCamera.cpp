@@ -1,4 +1,6 @@
 #include "GameCamera.h"
+
+#include <algorithm>
 #include "../Engine/GameConfig.h"
 
 GameCamera::GameCamera()
@@ -50,10 +52,7 @@ void GameCamera::FollowTarget(Vector2 Target, float DeltaTime, float SmoothSpeed
     m_Camera.target.x += (Target.x - m_Camera.target.x) * SmoothSpeed * DeltaTime;
     m_Camera.target.y += (Target.y - m_Camera.target.y) * SmoothSpeed * DeltaTime;
     
-    if (m_Camera.zoom < m_MinZoom)
-    {
-        m_Camera.zoom = m_MinZoom;
-    }
+    m_Camera.zoom = std::max(m_Camera.zoom, m_MinZoom);
     
     if (m_bHasBounds)
     {
@@ -82,11 +81,11 @@ void GameCamera::ClampToBounds()
     float MinCamX = m_BoundsLeft + HalfVisibleWidth;
     float MaxCamX = m_BoundsRight - HalfVisibleWidth;
     
-    if (m_Camera.target.x < MinCamX) m_Camera.target.x = MinCamX;
-    if (m_Camera.target.x > MaxCamX) m_Camera.target.x = MaxCamX;
+    m_Camera.target.x = std::max(m_Camera.target.x, MinCamX);
+    m_Camera.target.x = std::min(m_Camera.target.x, MaxCamX);
     
     // Y clamping - only clamp max to prevent going below ground (original behavior: max 350)
-    if (m_Camera.target.y > m_BoundsBottom) m_Camera.target.y = m_BoundsBottom;
+    m_Camera.target.y = std::min(m_Camera.target.y, m_BoundsBottom);
 }
 
 void GameCamera::SetZoom(float Zoom)
@@ -104,7 +103,7 @@ void GameCamera::Begin() const
     BeginMode2D(m_Camera);
 }
 
-void GameCamera::End() const
+void GameCamera::End() 
 {
     EndMode2D();
 }

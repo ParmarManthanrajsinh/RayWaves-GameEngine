@@ -19,7 +19,7 @@ public:
     t_EditorPreferences& GetPreferences() { return m_Preferences; }
     const t_EditorPreferences& GetPreferences() const { return m_Preferences; }
     
-    std::string GetConfigPath() const;
+    static std::string GetConfigPath() ;
 
 private:
     EditorPreferences() = default;

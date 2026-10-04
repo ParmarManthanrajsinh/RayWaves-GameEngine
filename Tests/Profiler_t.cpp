@@ -12,7 +12,8 @@ TEST_CASE("Profiler: Record and NextFrame basic")
     Profiler::Get().NextFrame();
 
     auto avgs = Profiler::Get().GetAverages();
-    bool found_a = false, found_b = false;
+    bool found_a = false;
+    bool found_b = false;
     for (const auto& s : avgs) {
         if (s.m_Name == "test_a") { found_a = true; CHECK(s.m_LastMs == doctest::Approx(0.1)); }
         if (s.m_Name == "test_b") { found_b = true; CHECK(s.m_LastMs == doctest::Approx(0.2)); }

@@ -59,6 +59,9 @@ namespace term
         // UI State
         char m_input_buf[1024] = "";
         char m_filter_buf[128] = "";
+
+        int m_select_anchor = -1;
+        int m_select_head = -1;
         
         uint8_t m_auto_scroll : 1 = 1;
         uint8_t m_auto_wrap : 1 = 1;
@@ -85,6 +88,7 @@ namespace term
         void render_input_bar(const ImVec2& size);
         void execute_command(std::string_view cmd);
         bool pass_filter(const Message& msg) const;
+        void parse_ansi(Message& msg) const;
         
         // Shutdown check helper
         bool is_shutting_down() const { return m_is_shutting_down.load(); }

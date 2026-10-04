@@ -32,8 +32,8 @@ public:
 
 	void LaunchWindow(int width, int height, std::string_view title);
 	void LaunchWindow(const t_WindowConfig& config);
-	void ToggleFullscreen();
-	void SetWindowMode(bool fullscreen);
+	static void ToggleFullscreen();
+	static void SetWindowMode(bool fullscreen);
 	void SetMap(GameMap* game_map);
 	GameMap* GetMap() { return m_GameMap; }
 	const GameMap* GetMap() const { return m_GameMap; }

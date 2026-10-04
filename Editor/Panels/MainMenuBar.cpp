@@ -1,6 +1,7 @@
 #include "MainMenuBar.h"
 #include "../GameEditor.h"
 #include "../../Engine/ProjectManager.h"
+#include "../FileAssociation.h"
 #include <imgui.h>
 #include <rlImGui.h>
 #include <tinyfiledialogs.h>
@@ -32,7 +33,7 @@ void MainMenuBar::Draw(GameEditor* editor)
             if (ImGui::MenuItem(ICON_FA_FOLDER_OPEN " Switch Project..."))
             {
                 const char* path = tinyfd_selectFolderDialog("Switch Project", nullptr);
-                if (path)
+                if (path != nullptr)
                 {
                     editor->OpenProject(path);
                 }
@@ -67,7 +68,7 @@ void MainMenuBar::Draw(GameEditor* editor)
         {
             if (ProjectManager::b_HasOpenProject())
             {
-                ImGui::MenuItem(ICON_FA_GEARS " Scene Settings", nullptr, &editor->m_bShowSceneSettings);
+                ImGui::MenuItem(ICON_FA_GEARS " Project Settings", nullptr, &editor->m_bShowSceneSettings);
             }
             ImGui::MenuItem(ICON_FA_SLIDERS " Editor Preferences", nullptr, &editor->m_bShowEditorPreferences);
             ImGui::EndMenu();
@@ -78,6 +79,32 @@ void MainMenuBar::Draw(GameEditor* editor)
             if (ImGui::MenuItem(ICON_FA_HAMMER " Force Recompile"))
             {
                 editor->CompileGameLogic();
+            }
+
+            ImGui::Separator();
+
+            bool bRegistered = IsRayWavesFileAssociationRegistered();
+            if (ImGui::MenuItem(ICON_FA_LINK " Register .raywaves file association",
+                nullptr, false, !bRegistered))
+            {
+                if (RegisterRayWavesFileAssociation())
+                {
+                    editor->GetTerminal().add_text(
+                        ".raywaves file association registered successfully.",
+                        term::Severity::Debug);
+                }
+                else
+                {
+                    editor->GetTerminal().add_text(
+                        "Failed to register .raywaves file association.",
+                        term::Severity::Error);
+                }
+            }
+            if (bRegistered)
+            {
+                ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyle().Colors[ImGuiCol_TextDisabled]);
+                ImGui::MenuItem(ICON_FA_CHECK " .raywaves association active", nullptr, nullptr, false);
+                ImGui::PopStyleColor();
             }
 
             ImGui::EndMenu();

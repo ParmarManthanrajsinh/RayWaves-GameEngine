@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <iostream>
 #include "GameEngine.h"
 #include "DllLoader.h"
@@ -14,7 +15,7 @@ static GameMap* s_fLoadGameLogic
 )
 {
     out_handle = LoadDll(dll_path.data());
-    if (!out_handle.handle)
+    if (out_handle.handle == nullptr)
     {
         std::cerr << "Fatal error: failed to load GameLogic DLL: " << dll_path << "\n";
         return nullptr;
@@ -30,7 +31,7 @@ static GameMap* s_fLoadGameLogic
         GetDllSymbol(out_handle, "DestroyGameMap")
     );
     
-    if (!CreateFn || !s_DestroyGameMap)
+    if ((CreateFn == nullptr) || (s_DestroyGameMap == nullptr))
     {
         std::cerr << "Failed to find symbol CreateGameMap/DestroyGameMap in GameLogic DLL" << "\n";
         UnloadDll(out_handle);
@@ -38,8 +39,25 @@ static GameMap* s_fLoadGameLogic
         return nullptr;
     }
 
+    // ABI version check: refuse outdated DLLs loudly instead of risking
+    // heap corruption across the DLL boundary.
+    auto AbiFn = reinterpret_cast<uint32_t (*)()>
+    (
+        GetDllSymbol(out_handle, "GetGameLogicAbiVersion")
+    );
+    const bool b_HasVersionExport = (AbiFn != nullptr);
+    const uint32_t dll_version = b_HasVersionExport ? AbiFn() : 0;
+    if (!b_HasVersionExport || (dll_version != RAYWAVES_GAMELOGIC_ABI_VERSION))
+    {
+        std::cerr << FormatAbiMismatchMessage(b_HasVersionExport, dll_version, RAYWAVES_GAMELOGIC_ABI_VERSION)
+                  << "\n";
+        UnloadDll(out_handle);
+        out_handle = {nullptr, {}};
+        return nullptr;
+    }
+
     GameMap* raw = CreateFn();
-    if (!raw)
+    if (raw == nullptr)
     {
         std::cerr << "CreateGameMap returned null" << "\n";
         UnloadDll(out_handle);
@@ -65,10 +83,7 @@ int main()
     GameEngine engine;
     engine.LaunchWindow(config.GetWindowConfig());
     
-    Image icon = LoadImage("Core/EngineContent/icon.png");
-    if (icon.width == 0) icon = LoadImage("EngineContent/icon.png");
-    SetWindowIcon(icon);
-    UnloadImage(icon);
+
     
     // Set FPS based on vsync setting
     if (config.GetWindowConfig().b_Vsync) 
@@ -81,12 +96,12 @@ int main()
     }
 
     DllHandle game_logic_handle{nullptr, {}};
-    auto map = s_fLoadGameLogic("GameLogic.dll", game_logic_handle);
-    if (map)
+    auto *map = s_fLoadGameLogic("GameLogic.dll", game_logic_handle);
+    if (map != nullptr)
     {
         GameMap* raw_map = map;
         raw_map->SetExitCallback([]() { CloseWindow(); });
-        engine.SetMap(std::move(map));
+        engine.SetMap(map);
     }
     else
     {
@@ -98,7 +113,7 @@ int main()
         // Handle Alt+Enter for fullscreen toggle
         if (IsKeyDown(KEY_LEFT_ALT) && IsKeyPressed(KEY_ENTER))
         {
-            engine.ToggleFullscreen();
+            GameEngine::ToggleFullscreen();
         }
         
         float dt = GetFrameTime();
@@ -111,7 +126,7 @@ int main()
         EndDrawing();
     }
 
-    if (s_DestroyGameMap && engine.GetMap())
+    if ((s_DestroyGameMap != nullptr) && (engine.GetMap() != nullptr))
     {
         s_DestroyGameMap(engine.GetMap());
     }

@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <iostream>
 #include <cstdlib>
 #include <memory>
@@ -7,6 +8,7 @@
 
 typedef GameMap* (*CreateGameMapFunc)();
 typedef void (*DestroyGameMapFunc)(GameMap*);
+typedef uint32_t (*AbiVersionFunc)();
 
 int main(int argc, char** argv) 
 {
@@ -31,7 +33,7 @@ int main(int argc, char** argv)
             std::cerr << "Failed to load GameLogic.dll" << std::endl;
             return 1;
         }
-        std::cout << "Loaded shadow DLL: " << dll.shadow_path << std::endl;
+        std::cout << "Loaded shadow DLL: " << dll.shadow_path << '\n';
 
         // 3. Resolve symbols
         CreateGameMapFunc createMap = (CreateGameMapFunc)GetDllSymbol(dll, "CreateGameMap");
@@ -63,9 +65,9 @@ int main(int argc, char** argv)
 
         // 6. Unload DLL (triggers shadow copy deletion)
         UnloadDll(dll);
-        std::cout << "Unloaded successfully." << std::endl;
+        std::cout << "Unloaded successfully." << '\n';
     }
     
-    std::cout << "\nSmoke Test Passed: 50 iterations complete with no crash." << std::endl;
+    std::cout << "\nSmoke Test Passed: 50 iterations complete with no crash." << '\n';
     return 0;
 }

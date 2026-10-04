@@ -24,6 +24,7 @@ bool t_Project::m_bLoadFromFile(std::string_view manifest_path)
     m_SourceDir = "GameLogic";
     m_AssetDir = "Assets";
     m_EntryDll = "GameLogic.dll";
+    m_IconPath = "";
     
     m_CameraX = 0.f;
     m_CameraY = 0.f;
@@ -33,7 +34,7 @@ bool t_Project::m_bLoadFromFile(std::string_view manifest_path)
     m_TargetFPS = 60;
 
     std::string line;
-    std::string currentSection = "";
+    std::string currentSection;
     
     while (std::getline(file, line)) 
     {
@@ -64,8 +65,8 @@ bool t_Project::m_bLoadFromFile(std::string_view manifest_path)
             continue;
         }
 
-        std::string key(line.begin(), line.begin() + equal_pos);
-        std::string value(line.begin() + equal_pos + 1, line.end());
+        std::string key(line.begin(), line.begin() + static_cast<std::string::difference_type>(equal_pos));
+        std::string value(line.begin() + static_cast<std::string::difference_type>(equal_pos) + 1, line.end());
         
         // Trim whitespace
         key.erase(0, key.find_first_not_of(" \t"));
@@ -81,14 +82,15 @@ bool t_Project::m_bLoadFromFile(std::string_view manifest_path)
             else if (key == "sourceDir") m_SourceDir = value;
             else if (key == "assetDir") m_AssetDir = value;
             else if (key == "entryDll") m_EntryDll = value;
+            else if (key == "iconPath") m_IconPath = value;
         }
-		else if (currentSection == "editor")
+        else if (currentSection == "editor")
 		{
-			auto safe_stof = [&](const std::string& v, float fallback) -> float {
-				try { return std::stof(v); } catch (...) { return fallback; }
+			auto safe_stof = [&](const std::string& strVal, float fallback) -> float {
+				try { return std::stof(strVal); } catch (...) { return fallback; }
 			};
-			auto safe_stoi = [&](const std::string& v, int fallback) -> int {
-				try { return std::stoi(v); } catch (...) { return fallback; }
+			auto safe_stoi = [&](const std::string& strVal, int fallback) -> int {
+				try { return std::stoi(strVal); } catch (...) { return fallback; }
 			};
 			if (key == "cameraX") m_CameraX = safe_stof(value, m_CameraX);
 			else if (key == "cameraY") m_CameraY = safe_stof(value, m_CameraY);
@@ -126,7 +128,9 @@ bool t_Project::m_bSaveToFile() const
     file << "engineVersion=" << m_EngineVersion << "\n";
     file << "sourceDir=" << m_SourceDir << "\n";
     file << "assetDir=" << m_AssetDir << "\n";
-    file << "entryDll=" << m_EntryDll << "\n\n";
+    file << "entryDll=" << m_EntryDll << "\n";
+    if (!m_IconPath.empty()) file << "iconPath=" << m_IconPath << "\n";
+    file << "\n";
     
     file << "[editor]\n";
     file << "cameraX=" << m_CameraX << "\n";

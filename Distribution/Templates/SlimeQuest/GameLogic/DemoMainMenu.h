@@ -6,8 +6,8 @@
 class DemoMainMenu : public GameMap
 {
 private:
-    Font m_TitleFont;
-    Sound m_SelectSound;
+    Font m_TitleFont = {};
+    Sound m_SelectSound = {};
     
     // UI State
     int m_SelectedOption = 0;
@@ -20,7 +20,7 @@ private:
 
 public:
     DemoMainMenu();
-    ~DemoMainMenu() override = default;
+    ~DemoMainMenu() override;
 
     void Initialize() override;
     void Update(float delta_time) override;

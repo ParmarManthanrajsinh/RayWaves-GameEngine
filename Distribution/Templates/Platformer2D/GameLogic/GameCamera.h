@@ -16,7 +16,7 @@ public:
     void UpdateViewport(float width, float height);
     
     void Begin() const;
-    void End() const;
+    static void End() ;
     
     Camera2D GetRaylibCamera() const { return m_Camera; }
     Vector2 GetTarget() const { return m_Camera.target; }

@@ -10,4 +10,7 @@ public:
 
 private:
     static std::string s_BasePath;
+    // Normalized absolute base, computed once in SetProjectAssetPath so
+    // Resolve() skips redundant absolute()/lexically_normal() work per call.
+    static std::string s_BaseAbs;
 };

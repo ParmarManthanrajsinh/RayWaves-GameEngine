@@ -58,12 +58,12 @@ void EditorPreferencesPanel::Draw(GameEditor* editor)
         const char* fonts[] = { "Roboto", "Consolas" };
         if (ImGui::BeginCombo("##FontCombo", prefs.FontFamily.c_str()))
         {
-            for (int i = 0; i < 2; i++)
+            for (auto & font : fonts)
             {
-                bool is_selected = (prefs.FontFamily == fonts[i]);
-                if (ImGui::Selectable(fonts[i], is_selected))
+                bool is_selected = (prefs.FontFamily == font);
+                if (ImGui::Selectable(font, is_selected))
                 {
-                    prefs.FontFamily = fonts[i];
+                    prefs.FontFamily = font;
                     bNeedsRebake = true;
                     bSavePrefs = true;
                 }

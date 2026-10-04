@@ -39,6 +39,20 @@ if(RAYWAVES_DISTRIBUTION_BUILD)
     message(STATUS "Profiler disabled for distribution build")
 endif()
 
+option(ENABLE_CLANG_TIDY "Run clang-tidy static analysis during build" OFF)
+if(ENABLE_CLANG_TIDY)
+    find_program(CLANG_TIDY clang-tidy
+        HINTS "C:/Program Files/LLVM/bin"
+        NO_CMAKE_PATH NO_CMAKE_ENVIRONMENT_PATH
+    )
+    if(CLANG_TIDY)
+        set(CMAKE_CXX_CLANG_TIDY "${CLANG_TIDY}")
+        message(STATUS "clang-tidy enabled: ${CLANG_TIDY}")
+    else()
+        message(WARNING "ENABLE_CLANG_TIDY=ON but clang-tidy not found in PATH")
+    endif()
+endif()
+
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -50,6 +64,8 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 add_compile_options(-msse4.2)
 add_compile_options(-fno-sanitize=all)
 add_compile_options(-Qunused-arguments)
+
+
 add_compile_definitions(IMGUI_DISABLE_SSE)
 
 # Always build raylib from source as a SHARED library so EXE and GameLogic share the same RLGL state
@@ -72,14 +88,61 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS_BACKUP}")
 unset(CMAKE_C_FLAGS_BACKUP)
 unset(CMAKE_CXX_FLAGS_BACKUP)
 
+# Stage raylib headers + static lib alongside exe so generated
+# per-project CMakeLists.txt can find them with exe-relative path.
+set(RAYLIB_BUILD_DIR "${CMAKE_BINARY_DIR}/_deps/raylib-build/raylib")
+set(RAYLIB_STAGEDIR "${CMAKE_BINARY_DIR}/raylib")
+file(MAKE_DIRECTORY "${RAYLIB_STAGEDIR}/include" "${RAYLIB_STAGEDIR}/lib")
+foreach(HDR raylib.h raymath.h rcamera.h rlgl.h)
+    if(EXISTS "${RAYLIB_BUILD_DIR}/include/${HDR}")
+        file(COPY "${RAYLIB_BUILD_DIR}/include/${HDR}" DESTINATION "${RAYLIB_STAGEDIR}/include/")
+    endif()
+endforeach()
+if(EXISTS "${RAYLIB_BUILD_DIR}/libraylib.dll.a")
+    file(COPY "${RAYLIB_BUILD_DIR}/libraylib.dll.a" DESTINATION "${RAYLIB_STAGEDIR}/lib/")
+    if(EXISTS "${RAYLIB_STAGEDIR}/lib/libraylib.dll.a" AND NOT EXISTS "${RAYLIB_STAGEDIR}/lib/libraylib.a")
+        file(RENAME "${RAYLIB_STAGEDIR}/lib/libraylib.dll.a" "${RAYLIB_STAGEDIR}/lib/libraylib.a")
+    endif()
+endif()
+
 # Collect source files
 # Explicitly list Game sources for the editor to avoid pulling in game-only main
 set(GAME_SRC_CPP
     Game/main.cpp
     Game/DllLoader.cpp
+    Game/PeCrtCheck.cpp
 )
-file(GLOB ENGINE_SRC_CPP  CONFIGURE_DEPENDS "Engine/*.cpp")
-file(GLOB EDITOR_SRC_CPP  CONFIGURE_DEPENDS "Editor/*.cpp" "Editor/terminal/*.cpp" "Editor/Panels/*.cpp" "Editor/EditorUtils.cpp")
+set(ENGINE_SRC_CPP
+    Engine/AssetResolver.cpp
+    Engine/GameConfig.cpp
+    Engine/GameEngine.cpp
+    Engine/GameMap.cpp
+    Engine/MapManager.cpp
+    Engine/Profiler.cpp
+    Engine/Project.cpp
+    Engine/ProjectManager.cpp
+    Engine/raygui_impl.cpp
+    Engine/WindowUtils.cpp
+)
+set(EDITOR_SRC_CPP
+    Editor/EditorPreferences.cpp
+    Editor/EditorUtils.cpp
+    Editor/FileAssociation.cpp
+    Editor/GameEditor.cpp
+    Editor/GameLogicLoader.cpp
+    Editor/ThemeService.cpp
+    Editor/ExportService.cpp
+    Editor/ProcessRunner.cpp
+    Editor/terminal/terminal.cpp
+    Editor/Panels/EditorPreferencesPanel.cpp
+    Editor/Panels/ExportPanel.cpp
+    Editor/Panels/MainMenuBar.cpp
+    Editor/Panels/MapSelectionPanel.cpp
+    Editor/Panels/MessageLogPanel.cpp
+    Editor/Panels/PerformanceOverlay.cpp
+    Editor/Panels/SceneSettingsPanel.cpp
+    Editor/Panels/SceneWindow.cpp
+)
 
 # rlImGui and ImGui sources
 set(RLIMGUI_SRC Editor/rlImGui/rlImGui.cpp)
@@ -100,9 +163,9 @@ if(EXISTS "${CMAKE_SOURCE_DIR}/EngineContent/config.ini")
   file(COPY ${CMAKE_SOURCE_DIR}/EngineContent/config.ini DESTINATION ${CMAKE_BINARY_DIR})
 endif()
 
-# Copy demo assets from the DemoGame template to the build directory
-if(EXISTS "${CMAKE_SOURCE_DIR}/Distribution/Templates/DemoGame/Assets")
-  file(COPY ${CMAKE_SOURCE_DIR}/Distribution/Templates/DemoGame/Assets DESTINATION ${CMAKE_BINARY_DIR})
+# Copy demo assets from the SlimeQuest template to the build directory
+if(EXISTS "${CMAKE_SOURCE_DIR}/Distribution/Templates/SlimeQuest/Assets")
+  file(COPY ${CMAKE_SOURCE_DIR}/Distribution/Templates/SlimeQuest/Assets DESTINATION ${CMAKE_BINARY_DIR})
 endif()
 
 # Build Engine as a static library so both main and GameLogic can link to it
@@ -116,14 +179,21 @@ target_link_libraries(Engine PRIVATE dwmapi)
 
 
 # Create GameLogic shared library (DLL)
-file(GLOB GAMELOGIC_SRC_CPP CONFIGURE_DEPENDS "Distribution/Templates/DemoGame/GameLogic/*.cpp")
+set(GAMELOGIC_SRC_CPP
+    Distribution/Templates/SlimeQuest/GameLogic/DemoLevel.cpp
+    Distribution/Templates/SlimeQuest/GameLogic/DemoMainMenu.cpp
+    Distribution/Templates/SlimeQuest/GameLogic/GameCamera.cpp
+    Distribution/Templates/SlimeQuest/GameLogic/Player.cpp
+    Distribution/Templates/SlimeQuest/GameLogic/RootManager.cpp
+    Distribution/Templates/SlimeQuest/GameLogic/Slime.cpp
+)
 add_library(GameLogic SHARED ${GAMELOGIC_SRC_CPP})
 set_target_properties(GameLogic PROPERTIES PREFIX "")
 # GameLogic needs Engine headers and linkage (for GameMap symbols)
 target_include_directories(GameLogic PRIVATE
     ${CMAKE_SOURCE_DIR}
     ${CMAKE_SOURCE_DIR}/Engine
-    ${CMAKE_SOURCE_DIR}/Distribution/Templates/DemoGame/GameLogic
+    ${CMAKE_SOURCE_DIR}/Distribution/Templates/SlimeQuest/GameLogic
 )
 target_link_libraries(GameLogic PRIVATE Engine)
 
@@ -133,6 +203,7 @@ add_executable(main WIN32
     ${RLIMGUI_SRC}
     ${IMGUI_SRC}
     ${TINYFILEDIALOGS}
+    EngineContent/app.rc
 )
 set_target_properties(main PROPERTIES OUTPUT_NAME "RayWaves")
 target_link_options(main PRIVATE -Wl,--subsystem,windows)
@@ -181,6 +252,8 @@ add_custom_command(TARGET GameLogic POST_BUILD
 add_executable(game WIN32
     Game/game.cpp
     Game/DllLoader.cpp
+    Game/PeCrtCheck.cpp
+    EngineContent/app.rc
 )
 target_link_options(game PRIVATE -Wl,--subsystem,windows)
 if(RAYWAVES_DISTRIBUTION_BUILD)
@@ -217,6 +290,7 @@ add_custom_command(TARGET game POST_BUILD
 add_executable(smoketest
     Tests/SmokeTest.cpp
     Game/DllLoader.cpp
+    Game/PeCrtCheck.cpp
 )
 
 target_include_directories(smoketest PRIVATE
@@ -238,19 +312,30 @@ add_custom_command(TARGET smoketest POST_BUILD
 # Unit test target
 add_executable(tests
     Tests/main.cpp
+    Tests/DllLoader_t.cpp
     Tests/GameConfig_t.cpp
     Tests/Project_t.cpp
     Tests/AssetResolver_t.cpp
     Tests/StateBag_t.cpp
+    Tests/ReloadRoundtrip_t.cpp
     Tests/ProjectManager_t.cpp
     Tests/Profiler_t.cpp
     Tests/GameMap_t.cpp
     Tests/MapManager_t.cpp
+    Tests/GameEditor_t.cpp
+    Tests/PanelRegistry_t.cpp
+    Tests/ExportService_t.cpp
     Tests/PerfBenchmark_t.cpp
+    Game/DllLoader.cpp
+    Game/PeCrtCheck.cpp
+    Editor/ExportService.cpp
+    Editor/EditorUtils.cpp
 )
 
 target_include_directories(tests PRIVATE
     ${CMAKE_SOURCE_DIR}/Engine
+    ${CMAKE_SOURCE_DIR}/Game
+    ${CMAKE_SOURCE_DIR}/Editor
 )
 
 target_link_libraries(tests PRIVATE Engine)

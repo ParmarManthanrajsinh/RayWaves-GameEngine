@@ -15,13 +15,13 @@ struct GroundTile
 class DemoLevel : public GameMap 
 {
 private:
-    Rectangle GetTileRect(int32_t Col, int32_t Row) const;
-    int32_t PseudoRandom(int32_t X, int32_t Seed) const;
+    static Rectangle GetTileRect(int32_t Col, int32_t Row) ;
+    static int32_t PseudoRandom(int32_t X, int32_t Seed) ;
 
     void DrawBackground();
     void DrawTrees(float InFloorY);
     void DrawGround(float InFloorY);
-    void DrawSparkles();
+    static void DrawSparkles();
     void DrawSlimes();
     void DrawDebugTileset();
 

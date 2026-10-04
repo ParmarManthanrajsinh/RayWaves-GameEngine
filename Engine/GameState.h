@@ -15,12 +15,11 @@ struct TransparentEqual {
     bool operator()(std::string_view a, std::string_view b) const { return a == b; }
 };
 
-// Note: StateBag is allocated in the editor (RayWaves.exe) and passed by reference 
-// into code running inside GameLogic.dll. Since std::string and std::unordered_map 
-// allocate memory, this relies on both RayWaves.exe and GameLogic.dll linking the 
-// same CRT (C Runtime). Under MSVC's default dynamic /MD runtime, this is safe.
-// If either target is later switched to static CRT linkage (/MT), this may cause 
-// heap-corruption crashes across the DLL boundary.
+// StateBag is allocated in the editor (RayWaves.exe) and passed by reference
+// into GameLogic.dll. std::string and std::unordered_map allocate on the CRT heap.
+// Both modules MUST link the same CRT to avoid heap corruption across the DLL
+// boundary. The Zig toolchain (default) always uses dynamic CRT — safe by default.
+// If building with MSVC, ensure both targets use /MD (dynamic), not /MT (static).
 
 class StateBag {
 public:
@@ -49,11 +48,13 @@ public:
     }
 
     void SetVector2(std::string_view key, Vector2 value) {
-        SetFloat(std::string(key) + "_x", value.x);
-        SetFloat(std::string(key) + "_y", value.y);
+        std::string base(key);
+        SetFloat(base + "_x", value.x);
+        SetFloat(base + "_y", value.y);
     }
     Vector2 GetVector2(std::string_view key, Vector2 defaultValue = {0.0f, 0.0f}) const {
-        return { GetFloat(std::string(key) + "_x", defaultValue.x), GetFloat(std::string(key) + "_y", defaultValue.y) };
+        std::string base(key);
+        return { GetFloat(base + "_x", defaultValue.x), GetFloat(base + "_y", defaultValue.y) };
     }
 
     void Clear() {

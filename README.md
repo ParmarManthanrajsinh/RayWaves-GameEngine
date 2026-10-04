@@ -13,9 +13,9 @@
 
 <br>
 
-**RayWaves** is a lightweight, **code-first game engine** built on **Raylib**. It's designed for developers who love writing code but hate restarting their game to see changes. 
+**RayWaves** is a lightweight, **code-first game engine** built on **Raylib**. It's designed for developers who love writing code but hate restarting their game to see changes.
 
-With our **hot-reloading magic**, you can tweak movement speeds, adjust physics, or even add new gameplay mechanics—all while the game is still running! 
+With our **hot-reloading magic**, you can tweak movement speeds, adjust physics, or even add new gameplay mechanics—all while the game is still running!
 
 ---
 
@@ -25,7 +25,10 @@ With our **hot-reloading magic**, you can tweak movement speeds, adjust physics,
   Edit your C++ code and see the results in **~0.5 seconds**. Game state is preserved across reloads via opt-in `SaveState`/`LoadState`. No restarting. Just flow.
 
 - **⚡ Zero-Install Setup**  
-  Visual Studio is no longer required! Building the engine uses the Zig compiler, which is fetched automatically on your first build.
+  Visual Studio is no longer required! The Zig compiler, Ninja build system, and CMake are all fetched automatically on your first compile. No manual PATH setup needed.
+
+- **🔗 .raywaves File Association**  
+  Register the `.raywaves` extension via *Tools → Register .raywaves file association* in the editor menu. Double-click any `project.raywaves` file in Explorer to launch directly into that project.
 
 - **🎮 Pure Raylib Power**  
   No proprietary scripting languages or complex ECS layers. It's just you and standard C++ Raylib code.
@@ -60,14 +63,16 @@ With our **hot-reloading magic**, you can tweak movement speeds, adjust physics,
 
 1. **Open any terminal** (PowerShell, Command Prompt, or VS Code terminal).
 2. **Build the engine:**
-   There are two build paths available:
-   
-   **Recommended (Zero-Install)**  
-   Uses the Zig compiler (fetched automatically). No Visual Studio needed.
-   ```powershell
-   cmake --preset zig-debug
-   cmake --build build/zig-debug
-   ```
+    There are two build paths available:
+    
+    **Recommended (Zero-Install)**  
+    Uses the Zig compiler (fetched automatically). No Visual Studio needed.
+    ```powershell
+    cmake --preset zig-release
+    cmake --build build/zig-release
+    ```
+    (Use the `zig-debug` preset instead if you need a debug build — just keep
+    the same preset for the test/run commands below.)
 3. **Run tests:**
    ```powershell
    .\build\zig-release\tests.exe
@@ -86,7 +91,7 @@ With our **hot-reloading magic**, you can tweak movement speeds, adjust physics,
 ### 🎮 For Game Developers
 *Use these instructions if you want to **make games** using RayWaves.*
 
-👉 **[Read the Game Developer Guide](Documentation/README_DISTRIBUTION.md)**
+👉 **[Read the Game Developer Guide](Documentation/GAME_DEVELOPER_GUIDE.md)**
 
 Start here to learn how to:
 - Run the engine (`RayWaves.exe`)
@@ -142,25 +147,25 @@ Want to distribute the engine to your team?
 
 Simply run:
 ```cmd
-Distribution\create_distribution.bat
-```
-By default, this produces a lean package that requires system Zig to rebuild game code. If you want to bundle the Zig compiler so recipients have a "zero-install" hot-reload environment, pass `-IncludeCompiler`:
-```cmd
 Distribution\create_distribution.bat -IncludeCompiler
 ```
 
 This generates a `dist/` folder with everything they need:
-- `game.exe` (Standalone runtime)
 - `RayWaves.exe` (The visual editor)
-- `GameLogic.dll` (The moddable code)
+- `Core/runtime.exe` (Standalone runtime)
+- `Core/Tools/zig`, `Core/Tools/ninja`, `Core/Tools/cmake` (Zero-install compile toolchain)
 - All headers, scripts, and assets.
+
+End users get a **zero-install** experience: unzip, run `RayWaves.exe`, create a project, click Compile. No Visual Studio, no CMake on PATH, no manual setup.
 
 ---
 
 ## 📚 Learn More
 
+- **[Architecture Overview](Documentation/ARCHITECTURE.md)** - Engine repo and project folder structure.
 - **[API Reference](Documentation/API_REFERENCE.md)** - Detailed class documentation.
 - **[Developer Guide](Documentation/DEVELOPER_GUIDE.md)** - Best practices and patterns.
+- **[Game Developer Guide](Documentation/GAME_DEVELOPER_GUIDE.md)** - End-user game creation.
 - **[Troubleshooting](Documentation/TROUBLESHOOTING.md)** - Fix common issues.
 
 ---
@@ -169,10 +174,11 @@ This generates a `dist/` folder with everything they need:
 
 - **Files:** Use the built-in File Explorer to browse assets.
 - **Reset:** Hit the **Restart** button in the toolbar if you want to force a full reload.
-- **Performance:** Toggle the **Performance Overlay** (sales chart icon) to see FPS, frame times, and per-system breakdown (Update, Draw, panels).
+- **Performance:** Toggle the **Performance Overlay** (chart icon) to see FPS, frame times, and per-system breakdown.
 - **Modes:** 
-  - `RayWaves.exe` = Editor & Hot-Reloading
-  - `game.exe` = Standalone Runtime (Pure Gameplay)
+  - `RayWaves.exe` = Editor & Hot-Reloading (built from the `main` CMake target: `Editor/` + `Game/main.cpp`)
+  - `game.exe` = Standalone Runtime, pure gameplay (built from the `game` CMake target: `Game/game.cpp`). The distribution script copies it to `Core/runtime.exe`, so in an exported project the runtime is `Core/runtime.exe` — same binary, different path.
+- **Double-click:** Register `.raywaves` file association under *Tools → Register .raywaves file association* to open projects by double-clicking `project.raywaves` in Explorer.
 
 ---
 

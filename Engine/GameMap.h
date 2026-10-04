@@ -1,10 +1,16 @@
 #pragma once
-#include <iostream>
+#include <cstdint>
 #include <raylib.h>
 #include <string>
 #include <string_view>
 #include <functional>
 #include "GameState.h"
+
+// GameLogic DLL ABI version. GameLogic DLLs must export
+// GetGameLogicAbiVersion() returning this value. The editor/runtime reject
+// DLLs with a different (or missing) version instead of risking heap
+// corruption across the DLL boundary.
+inline constexpr uint32_t RAYWAVES_GAMELOGIC_ABI_VERSION = 1;
 
 class GameMap
 {
@@ -34,6 +40,11 @@ public:
     
     virtual void SaveState(StateBag& out) const {}
     virtual void LoadState(const StateBag& in) {}
+
+    // Type query across the DLL boundary. RTTI/typeid cannot be trusted
+    // between separately linked modules, so MapManager identifies itself
+    // via this virtual instead. Never guess by map name.
+    virtual bool b_IsMapManager() const { return false; }
     
     void SetMapName(std::string_view map_name);
     std::string GetMapName() const;
@@ -46,14 +57,14 @@ public:
     // Maps call RequestGotoMap to trigger transitions safely (no global/static).
     void SetTransitionCallback
     (
-        std::function<void(std::string_view, bool)> cb
+        std::function<void(std::string_view, bool)> callback
     );
 
-    void SetExitCallback(std::function<void()> cb);
+    void SetExitCallback(std::function<void()> callback);
 
 protected:
     // Helper maps can call to request a transition (executes callback if provided)
-    void RequestGotoMap(std::string_view map_id, bool force_reload = false);
+    void RequestGotoMap(std::string_view map_id, bool force_reload = false) const;
 
     // Helper maps can call to request shutdown (executes callback if provided)
     void RequestExit();
