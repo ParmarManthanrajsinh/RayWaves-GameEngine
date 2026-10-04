@@ -30,7 +30,7 @@ RayWaves/
 │   └── DllLoader.h/cpp      # Shadow-copy load/unload (dlopen), log sink, ABI message
 │
 ├── Tools/                   # Helper scripts (committed)
-│   └── run_analysis.sh      # clang-format / clang-tidy (make format, make tidy)
+│   └── run_analysis.sh      # clang-format driver (make format)
 │
 ├── Tests/                   # Unit + smoke tests (doctest)
 │   ├── SmokeTest.cpp        # GameLogic 50× load/unload stress test

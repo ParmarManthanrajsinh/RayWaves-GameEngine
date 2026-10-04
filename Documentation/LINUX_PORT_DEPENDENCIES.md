@@ -469,7 +469,7 @@ CMake stays the only build system. `.sh` scripts and the `Makefile` are automati
 | `make run` | launch `build/linux-release/RayWaves` |
 | `make dist` | `Distribution/distribute.sh -BuildConfig Release -OutputDir dist` |
 | `make clean` / `make distclean` | remove build tree / also remove `CMakeCache.txt` |
-| `make format` / `make tidy` | `Tools/run_analysis.sh` |
+| `make format` | `Tools/run_analysis.sh` (clang-tidy removed entirely, `make tidy` gone) |
 | `make help` | list targets |
 
 `build` + `dist` already in `.gitignore`.
@@ -493,7 +493,7 @@ Ports `distribute.ps1:1-180` line for line. Structure carries unchanged:
 
 **Skip `distribute.ps1:127-155` entirely** — Zig, rcedit, Ninja, CMake bundling. Linux plugin builds with system toolchain; nothing to vendor.
 
-### 10.3 `Tools/run_analysis.sh`
+### 10.3 `Tools/run_analysis.sh` (now format-only: clang-tidy removed)
 
 Ports `run_analysis.bat`. Probe `PATH` first, then `/usr/lib/llvm-*/bin`. Keep `tidy`, `tidy-perf`, `tidy-fix`, `format`, `format-check`, `build-tidy`, `report`, `all` subcommands from `run_analysis.bat:8-17`.
 
@@ -618,14 +618,14 @@ cmake --build build/asan -j"$(nproc)"
 | `CMakePresets.json` | B | Add `linux-base`, `linux-debug`, `linux-release` |
 | `Distribution/dist_CMakeLists.txt` | B | `:81` copy `libraylib.so` |
 | `EngineContent/app.rc`, `EngineContent/icon.ico` | B | Deleted |
-| `Tools/run_analysis.bat` | G | Replace with `.sh` |
+| `Tools/run_analysis.bat` | G | Replaced by `.sh`, then trimmed to format-only — clang-tidy removed |
 | `Distribution/distribute.ps1` | G | Replace with `.sh` |
 | `Distribution/create_distribution.bat` | G | Deleted; `make dist` covers |
 | `Tools/zig-cc.bat`, `zig-cxx.bat`, `setup_zig.ps1` | A | Delete |
 | `Tests/run_tests.bat`, `run_all.bat`, `run_smoketest.bat` | A | Delete |
 | `.clangd` | B | Repoint `CompilationDatabase` |
 | `.gitignore` | B | Add `Distribution/Templates/**/*.so` |
-| **New:** `Makefile`, `Distribution/distribute.sh`, `Tools/run_analysis.sh` | G | §10 |
+| **New:** `Makefile`, `Distribution/distribute.sh`, `Tools/run_analysis.sh` | G | §10. `.clang-tidy` deleted, `ENABLE_CLANG_TIDY` CMake option deleted, `make tidy` deleted |
 | **New:** `Engine/Platform/PlatformModule.h`, `PlatformPaths.h`, `PlatformDesktop.h` | C, E, F | §8. `PlatformProcess`/`PlatformShell` seams not created: `popen` lives directly in `Editor/ProcessRunner.cpp`, `xdg-open` spawn directly in `Editor/EditorUtils.cpp`. |
 | `Distribution/Templates/*/GameLogic/RootManager.cpp` (×3) | C | Delete `__declspec(dllexport)` |
 | `Distribution/Templates/*/project.raywaves` (×3) | C | `entryDll=GameLogic.so` |

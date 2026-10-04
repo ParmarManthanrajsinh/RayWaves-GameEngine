@@ -39,8 +39,8 @@ public:
     
     virtual void SetProjectAssetPath(const std::string& path);
     
-    virtual void SaveState(StateBag& out) const {}
-    virtual void LoadState(const StateBag& in) {}
+    virtual void SaveState(StateBag& out[[maybe_unused]]) const {}
+    virtual void LoadState(const StateBag& in[[maybe_unused]]) {}
 
     // Type query across the DLL boundary. RTTI/typeid cannot be trusted
     // between separately linked modules, so MapManager identifies itself
