@@ -28,10 +28,10 @@ void MapSelectionPanel::Draw(GameEditor* editor)
     ImGui::SetCursorPos(ImVec2(10, 40));
     ImGui::Text("Current Map:");
     {
-        std::string_view curId = editor->GetMapManager()->GetCurrentMapId();
-        ImGui::SameLine(ImGui::GetContentRegionAvail().x - ImGui::CalcTextSize(curId.data(), curId.data() + curId.size()).x - 5);
+        std::string_view cur_id = editor->GetMapManager()->GetCurrentMapId();
+        ImGui::SameLine(ImGui::GetContentRegionAvail().x - ImGui::CalcTextSize(cur_id.data(), cur_id.data() + cur_id.size()).x - 5);
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.839f, 0.188f, 0.192f, 1.0f));
-        ImGui::Text("%.*s", static_cast<int>(curId.size()), curId.data());
+        ImGui::Text("%.*s", static_cast<int>(cur_id.size()), cur_id.data());
         ImGui::PopStyleColor();
     }
     ImGui::EndChild();
@@ -41,9 +41,9 @@ void MapSelectionPanel::Draw(GameEditor* editor)
 	ImGui::Spacing();
     ImGui::Spacing();
 
-	const auto& available_maps = editor->GetMapManager()->GetAvailableMaps();
+	const auto& AVAILABLE_MAPS = editor->GetMapManager()->GetAvailableMaps();
 
-	if (available_maps.empty())
+	if (AVAILABLE_MAPS.empty())
 	{
         ImGui::SeparatorText("Warning");
 		ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f), "No maps registered in MapManager");
@@ -55,12 +55,12 @@ void MapSelectionPanel::Draw(GameEditor* editor)
         ImGui::TextDisabled(ICON_FA_LAYER_GROUP " Available Maps");
 		ImGui::Spacing();
 
-		static int s_SelectedIndex = 0;
+		static size_t s_SelectedIndex = 0;
 		std::string curr_map_id(editor->GetMapManager()->GetCurrentMapId());
 
-		for (int i = 0; i < available_maps.size(); i++)
+		for (size_t i = 0; i < AVAILABLE_MAPS.size(); i++)
 		{
-			if (available_maps[i] == curr_map_id)
+			if (AVAILABLE_MAPS[i] == curr_map_id)
 			{
 				s_SelectedIndex = i;
 				break;
@@ -82,10 +82,10 @@ void MapSelectionPanel::Draw(GameEditor* editor)
             
             if (ImGui::BeginCombo("##Select Map", curr_map_id.empty() ? "No map loaded" : curr_map_id.c_str()))
             {
-                for (int i = 0; i < available_maps.size(); ++i)
+                for (size_t i = 0; i < AVAILABLE_MAPS.size(); ++i)
                 {
                     bool b_IsSelected = (s_SelectedIndex == i);
-                    bool b_IsCurrent = (available_maps[i] == curr_map_id);
+                    bool b_IsCurrent = (AVAILABLE_MAPS[i] == curr_map_id);
 
                     if (b_IsCurrent)
                     {
@@ -96,10 +96,10 @@ void MapSelectionPanel::Draw(GameEditor* editor)
                         ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyle().Colors[ImGuiCol_TextDisabled]);
                     }
 
-                    if (ImGui::Selectable(available_maps[i].c_str(), b_IsSelected))
+                    if (ImGui::Selectable(AVAILABLE_MAPS[i].c_str(), b_IsSelected))
                     {
                         s_SelectedIndex = i;
-                        editor->m_SelectedMapId = available_maps[i];
+                        editor->m_SelectedMapId = AVAILABLE_MAPS[i];
 
                         if (editor->m_SelectedMapId != curr_map_id)
                         {
@@ -125,9 +125,9 @@ void MapSelectionPanel::Draw(GameEditor* editor)
 
         ImGui::PushStyleVar(ImGuiStyleVar_ButtonTextAlign, ImVec2(0.05f, 0.5f));
 
-		for (int i = 0; i < available_maps.size(); ++i)
+		for (size_t i = 0; i < AVAILABLE_MAPS.size(); ++i)
 		{
-			const auto& MAP_ID = available_maps[i];
+			const auto& MAP_ID = AVAILABLE_MAPS[i];
 			bool b_IsCurrent = (MAP_ID == curr_map_id);
             bool b_IsMain = (i == 0);
 

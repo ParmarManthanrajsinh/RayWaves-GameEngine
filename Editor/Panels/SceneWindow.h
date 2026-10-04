@@ -1,17 +1,20 @@
 #pragma once
 #include "IEditorPanel.h"
-#include <string>
+#include <string_view>
 
 class SceneWindow : public IEditorPanel
 {
-public:
-    SceneWindow() = default;
+  public:
+    SceneWindow()           = default;
     ~SceneWindow() override = default;
 
-    void Draw(GameEditor* editor) override;
+    void Draw(GameEditor *editor) override;
 
-private:
+  private:
     static void DrawToolbarBackground();
-    static bool s_bIconButton(std::string_view label, std::string_view icon, const struct ImVec2& size, std::string_view tooltip);
-    static void s_fDrawSpinner(float radius, float thickness, const unsigned int& color);
+    static bool s_bIconButton(std::string_view label, std::string_view icon,
+                              const struct ImVec2 &size,
+                              std::string_view tooltip);
+    static void s_fDrawSpinner(float radius, float thickness,
+                               const unsigned int &color);
 };
