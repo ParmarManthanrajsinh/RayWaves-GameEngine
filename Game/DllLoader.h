@@ -1,15 +1,12 @@
 #pragma once
 
-#include <array>
-#include <cstddef>
 #include <cstdint>
-#include <cstdio>
-#include <filesystem>
+#include <filesystem> // IWYU pragma: keep
 #include <functional>
 #include <string>
 #include <string_view>
 
-namespace fs = std::filesystem;
+namespace fs = std::filesystem; // NOLINT(misc-unused-alias-decls)
 
 struct DllHandle
 {

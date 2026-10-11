@@ -4,7 +4,6 @@
 #include <chrono>
 #include <iostream>
 #include <random>
-#include <set>
 
 namespace
 {
@@ -33,10 +32,7 @@ namespace
     }
 } // namespace
 
-std::string GetHostExePath()
-{
-    return platform::HostExecutablePath().string();
-}
+std::string GetHostExePath() { return platform::HostExecutablePath().string(); }
 
 void SetDllLogSink(DllLogSink sink) { GetLogSink() = std::move(sink); }
 
@@ -82,8 +78,7 @@ void CleanupStaleShadowCopies()
                 std::string filename = entry.path().filename().string();
                 if (!filename.contains(".shadow."))
                     continue;
-                if (entry.path().extension() !=
-                    platform::SharedLibrarySuffix())
+                if (entry.path().extension() != platform::SharedLibrarySuffix())
                     continue;
 
                 // Only delete files older than 1 hour
@@ -159,7 +154,7 @@ DllHandle LoadDll(const char *PATH)
         fs::create_directories(temp_dir, ec_dir);
 
         // Build a unique filename: GameLogic.shadow.<pid>.<tick>.so
-        auto pid = platform::CurrentProcessId();
+        auto pid   = platform::CurrentProcessId();
         auto ticks = std::chrono::duration_cast<std::chrono::milliseconds>(
                          std::chrono::steady_clock::now().time_since_epoch())
                          .count();
@@ -223,7 +218,8 @@ void UnloadDll(DllHandle &dll)
             fs::remove(p, ec);
             if (ec)
             {
-                Log("Could not delete shadow module copy (will be swept later): " +
+                Log("Could not delete shadow module copy (will be swept "
+                    "later): " +
                         p.string(),
                     true);
             }

@@ -4,7 +4,10 @@ project(RayWaves)
 
 # Option: strip Profiler + SCOPED_TIMER from release builds
 # Enable with: cmake --preset linux-release -DRAYWAVES_DISTRIBUTION_BUILD=ON
-option(RAYWAVES_DISTRIBUTION_BUILD "Strip profiler and debug tooling from release build" OFF)
+option(
+  RAYWAVES_DISTRIBUTION_BUILD 
+  "Strip profiler and debug tooling from release build" OFF
+)
 if(RAYWAVES_DISTRIBUTION_BUILD)
     message(STATUS "Profiler disabled for distribution build")
 endif()
@@ -30,10 +33,16 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     add_compile_options(-Qunused-arguments)
 endif()
 
-option(RAYWAVES_TSAN "Enable ThreadSanitizer (mutually exclusive with RAYWAVES_SANITIZERS)" OFF)
+option(
+  RAYWAVES_TSAN 
+  "Enable ThreadSanitizer (mutually exclusive with RAYWAVES_SANITIZERS)" OFF
+)
 if(RAYWAVES_TSAN)
     if(RAYWAVES_SANITIZERS)
-        message(FATAL_ERROR "RAYWAVES_TSAN and RAYWAVES_SANITIZERS cannot combine (ASan vs TSan)")
+        message(
+          FATAL_ERROR 
+          "RAYWAVES_TSAN and RAYWAVES_SANITIZERS cannot combine (ASan vs TSan)"
+        )
     endif()
     add_compile_options(-fsanitize=thread -fno-omit-frame-pointer)
     add_link_options(-fsanitize=thread)
@@ -42,10 +51,14 @@ endif()
 
 add_compile_definitions(IMGUI_DISABLE_SSE)
 
-# Always build raylib from source as a SHARED library so EXE and GameLogic share the same RLGL state
+# Always build raylib from source as a SHARED library 
+# so EXE and GameLogic share the same RLGL state
 include(FetchContent)
 set(BUILD_SHARED_LIBS ON CACHE BOOL "Build shared libraries" FORCE)
-set(BUILD_EXAMPLES OFF CACHE BOOL "Disable Raylib examples to speed up build" FORCE)
+set(
+  BUILD_EXAMPLES OFF CACHE BOOL 
+  "Disable Raylib examples to speed up build" FORCE
+)
 set(BUILD_TESTING OFF CACHE BOOL "Disable Raylib tests" FORCE)
 FetchContent_Declare(
     raylib
@@ -69,7 +82,10 @@ set(RAYLIB_STAGEDIR "${CMAKE_BINARY_DIR}/raylib")
 file(MAKE_DIRECTORY "${RAYLIB_STAGEDIR}/include" "${RAYLIB_STAGEDIR}/lib")
 foreach(HDR raylib.h raymath.h rcamera.h rlgl.h)
     if(EXISTS "${RAYLIB_BUILD_DIR}/include/${HDR}")
-        file(COPY "${RAYLIB_BUILD_DIR}/include/${HDR}" DESTINATION "${RAYLIB_STAGEDIR}/include/")
+        file(COPY 
+          "${RAYLIB_BUILD_DIR}/include/${HDR}" 
+          DESTINATION "${RAYLIB_STAGEDIR}/include/"
+        )
     endif()
 endforeach()
 # The shared library itself is staged at build time by the stage_raylib
@@ -84,7 +100,8 @@ endforeach()
 # happens to be installed system-wide.
 add_custom_target(stage_raylib ALL
     COMMAND ${CMAKE_COMMAND} -E make_directory
-            "${CMAKE_BINARY_DIR}" "${RAYLIB_STAGEDIR}/bin" "${RAYLIB_STAGEDIR}/lib"
+            "${CMAKE_BINARY_DIR}" "${RAYLIB_STAGEDIR}/bin" 
+            "${RAYLIB_STAGEDIR}/lib"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:raylib>"
             "${CMAKE_BINARY_DIR}"
     COMMAND ${CMAKE_COMMAND} -E rm -f
@@ -170,19 +187,24 @@ if(EXISTS "${CMAKE_SOURCE_DIR}/EngineContent")
   file(COPY ${CMAKE_SOURCE_DIR}/EngineContent DESTINATION ${CMAKE_BINARY_DIR})
 endif()
 if(EXISTS "${CMAKE_SOURCE_DIR}/EngineContent/config.ini")
-  file(COPY ${CMAKE_SOURCE_DIR}/EngineContent/config.ini DESTINATION ${CMAKE_BINARY_DIR})
+  file(COPY ${CMAKE_SOURCE_DIR}/EngineContent/config.ini 
+    DESTINATION ${CMAKE_BINARY_DIR}
+  )
 endif()
 
 # Copy demo assets from the SlimeQuest template to the build directory
 if(EXISTS "${CMAKE_SOURCE_DIR}/Distribution/Templates/SlimeQuest/Assets")
-  file(COPY ${CMAKE_SOURCE_DIR}/Distribution/Templates/SlimeQuest/Assets DESTINATION ${CMAKE_BINARY_DIR})
+  file(COPY ${CMAKE_SOURCE_DIR}/Distribution/Templates/SlimeQuest/Assets 
+    DESTINATION ${CMAKE_BINARY_DIR}
+  )
 endif()
 
 # Build Engine as a static library so both main and GameLogic can link to it.
 # GameLogic.so relinks Engine objects, so they must be PIC.
 add_library(Engine STATIC ${ENGINE_SRC_CPP})
 set_target_properties(Engine PROPERTIES POSITION_INDEPENDENT_CODE ON)
-# Expose Engine headers and link raylib publicly so consumers inherit include dirs/libs
+# Expose Engine headers and link raylib publicly 
+# so consumers inherit include dirs/libs
 target_include_directories(Engine PUBLIC
     ${CMAKE_SOURCE_DIR}/Engine
 )
@@ -227,7 +249,9 @@ add_executable(main
 set_target_properties(main PROPERTIES OUTPUT_NAME "RayWaves")
 # Binaries locate the staged libraylib chain beside themselves, so the dist
 # copy works without LD_LIBRARY_PATH or a build-tree path baked in.
-set_target_properties(main PROPERTIES BUILD_RPATH "$ORIGIN" INSTALL_RPATH "$ORIGIN")
+set_target_properties(main PROPERTIES 
+  BUILD_RPATH "$ORIGIN" INSTALL_RPATH "$ORIGIN"
+)
 if(RAYWAVES_DISTRIBUTION_BUILD)
     target_compile_definitions(main PRIVATE RAYWAVES_PROFILER_DISABLED)
 endif()
@@ -267,7 +291,9 @@ add_executable(game
     Game/game.cpp
     Game/DllLoader.cpp
 )
-set_target_properties(game PROPERTIES BUILD_RPATH "$ORIGIN" INSTALL_RPATH "$ORIGIN")
+set_target_properties(game PROPERTIES 
+  BUILD_RPATH "$ORIGIN" INSTALL_RPATH "$ORIGIN"
+)
 if(RAYWAVES_DISTRIBUTION_BUILD)
     target_compile_definitions(game PRIVATE RAYWAVES_PROFILER_DISABLED)
 endif()
@@ -309,7 +335,8 @@ endif()
 
 # Copy GameLogic beside smoketest
 add_custom_command(TARGET smoketest POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:GameLogic> $<TARGET_FILE_DIR:smoketest>
+    COMMAND ${CMAKE_COMMAND} 
+    -E copy_if_different $<TARGET_FILE:GameLogic> $<TARGET_FILE_DIR:smoketest>
 )
 add_dependencies(smoketest stage_raylib)
 
@@ -344,7 +371,8 @@ target_include_directories(tests PRIVATE
 target_link_libraries(tests PRIVATE Engine)
 
 add_custom_command(TARGET tests POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:GameLogic> $<TARGET_FILE_DIR:tests>
+    COMMAND ${CMAKE_COMMAND} 
+    -E copy_if_different $<TARGET_FILE:GameLogic> $<TARGET_FILE_DIR:tests>
 )
 # tests links -lraylib against the staged dir; order after stage_raylib.
 add_dependencies(tests stage_raylib)
@@ -356,7 +384,8 @@ add_test(NAME smoke COMMAND smoketest WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 # Optional export packaging target
 add_custom_target(export_package
     COMMAND ${CMAKE_COMMAND} -E echo "Running export script..."
-    COMMAND "${CMAKE_SOURCE_DIR}/Distribution/distribute.sh" -BuildConfig Release -OutputDir dist
+    COMMAND "${CMAKE_SOURCE_DIR}/Distribution/distribute.sh" 
+    -BuildConfig Release -OutputDir dist
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
     COMMENT "Packaging distribution via distribute.sh"
 )
