@@ -1,4 +1,3 @@
-#include <algorithm>
 #include <iostream>
 #include "ProjectManager.h"
 #include "Platform/PlatformPaths.h"

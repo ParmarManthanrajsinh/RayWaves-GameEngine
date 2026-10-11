@@ -34,6 +34,23 @@ bool g_bNeedsTextureRecreate = false;
 
 namespace
 {
+    // Move path to system trash via freedesktop gio (GNOME/KDE/XFCE).
+    // Returns false if gio missing or trash failed.
+    bool b_MoveToTrash(const std::string& path)
+    {
+        std::string escaped;
+        escaped.reserve(path.size() + 8);
+        for (char c : path)
+        {
+            if (c == '\'')
+                escaped += "'\\''";
+            else
+                escaped += c;
+        }
+        const std::string CMD = "gio trash -- '" + escaped + "' 2>/dev/null";
+        return std::system(CMD.c_str()) == 0;
+    }
+
     // Core panels in draw/dock order. Built fresh per call so repeated
     // GameEditor construction (and tests) never double-register.
     std::vector<FPanelFactory> s_CorePanelFactories()
@@ -378,6 +395,7 @@ void GameEditor::RunBrowser()
                 }
 
                 constexpr float c_ROW_HEIGHT = 48.0f;
+                constexpr float c_TRASH_ZONE_W = 40.0f;
                 float avail_w = ImGui::GetContentRegionAvail().x;
                 ImVec2 row_pos = ImGui::GetCursorScreenPos();
 
@@ -387,13 +405,17 @@ void GameEditor::RunBrowser()
                     display_name += " (missing)";
                 }
 
-                // Clickable row
-                if (ImGui::Selectable("##recent_proj", false, exists ? 0 : ImGuiSelectableFlags_Disabled, ImVec2(avail_w, c_ROW_HEIGHT)))
+                // Row hover — full width including trash zone
+                const bool b_IsHovered = ImGui::IsMouseHoveringRect(
+                    row_pos, ImVec2(row_pos.x + avail_w, row_pos.y + c_ROW_HEIGHT));
+
+                // Clickable row — trash zone excluded so Button can take click
+                if (ImGui::Selectable("##recent_proj", false,
+                        exists ? 0 : ImGuiSelectableFlags_Disabled,
+                        ImVec2(avail_w - c_TRASH_ZONE_W, c_ROW_HEIGHT)))
                 {
                     if (exists) OpenProject(path);
                 }
-
-                bool is_hovered = ImGui::IsItemHovered();
 
                 // Folder icon
                 ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyle().Colors[ImGuiCol_TextDisabled]);
@@ -416,30 +438,102 @@ void GameEditor::RunBrowser()
 
                 if (!exists) ImGui::PopStyleColor();
 
-                // Trash button on hover
-                if (is_hovered)
+                // Trash button on hover — right zone, above row
+                if (b_IsHovered)
                 {
-                    ImGui::SetCursorScreenPos(ImVec2(row_pos.x + avail_w - 36.0f, row_pos.y + ((c_ROW_HEIGHT - 24.0f) * 0.5f)));
-                    if (ImGui::Button(ICON_FA_TRASH_CAN))
+                    ImGui::SetCursorScreenPos(ImVec2(
+                        row_pos.x + avail_w - c_TRASH_ZONE_W + 4.0f,
+                        row_pos.y + ((c_ROW_HEIGHT - 24.0f) * 0.5f)));
+                    if (ImGui::Button(ICON_FA_TRASH_CAN, ImVec2(32.0f, 24.0f)))
                     {
-                        ImGui::OpenPopup("RemoveRecentPopup");
+                        ImGui::OpenPopup("Delete Project");
                     }
                 }
 
-                if (ImGui::BeginPopup("RemoveRecentPopup"))
+                // ── Move to Trash wizard (matches New Project Wizard) ──
+                ImGui::SetNextWindowPos
+                (
+                    ImGui::GetMainViewport()->GetCenter(),
+                    ImGuiCond_Appearing, ImVec2(0.5f, 0.5f)
+                );
+                ImGui::SetNextWindowSizeConstraints
+                (
+                    ImVec2(420, 0), ImVec2(FLT_MAX, FLT_MAX)
+                );
+
+                bool b_DeleteOpen = true;
+                if (ImGui::BeginPopupModal("Delete Project", &b_DeleteOpen,
+                        ImGuiWindowFlags_AlwaysAutoResize |
+                        ImGuiWindowFlags_NoSavedSettings))
                 {
-                    ImGui::Text("Remove from list?");
-                    if (ImGui::Button("Yes", ImVec2(60, 0)))
+                    static std::string s_DeleteError;
+
+                    if (!b_DeleteOpen)
                     {
-                        ProjectManager::RemoveRecent(path);
+                        s_DeleteError.clear();
                         ImGui::CloseCurrentPopup();
+                        ImGui::EndPopup();
                     }
-                    ImGui::SameLine();
-                    if (ImGui::Button("No", ImVec2(60, 0)))
+                    else
                     {
-                        ImGui::CloseCurrentPopup();
+                        ImGui::Text("Are you sure you want to move this to trash?");
+                        ImGui::TextDisabled("%s", path.c_str());
+
+                        std::error_code exists_ec;
+                        const bool b_FolderExists =
+                            std::filesystem::exists(fs_path, exists_ec);
+
+                        if (!b_FolderExists)
+                        {
+                            ImGui::TextColored(
+                                ImVec4(1.0f, 0.8f, 0.3f, 1.0f),
+                                "Folder missing. Will only remove from list.");
+                        }
+
+                        if (!s_DeleteError.empty())
+                        {
+                            ImGui::TextColored(
+                                ImVec4(1.0f, 0.2f, 0.2f, 1.0f),
+                                "%s", s_DeleteError.c_str());
+                        }
+
+                        ImGui::Spacing();
+                        ImGui::Separator();
+                        ImGui::Spacing();
+
+                        if (ImGui::Button("Move to Trash", ImVec2(120, 0)))
+                        {
+                            s_DeleteError.clear();
+                            if (b_FolderExists)
+                            {
+                                if (b_MoveToTrash(path))
+                                {
+                                    ProjectManager::RemoveRecent(path);
+                                    recent_display_names.erase(path);
+                                    ImGui::CloseCurrentPopup();
+                                }
+                                else
+                                {
+                                    s_DeleteError =
+                                        "Move to trash failed (gio missing or permission denied)";
+                                }
+                            }
+                            else
+                            {
+                                ProjectManager::RemoveRecent(path);
+                                recent_display_names.erase(path);
+                                ImGui::CloseCurrentPopup();
+                            }
+                        }
+                        ImGui::SameLine();
+                        if (ImGui::Button("Cancel", ImVec2(120, 0)))
+                        {
+                            s_DeleteError.clear();
+                            ImGui::CloseCurrentPopup();
+                        }
+
+                        ImGui::EndPopup();
                     }
-                    ImGui::EndPopup();
                 }
 
                 ImGui::SetCursorScreenPos(ImVec2(row_pos.x, row_pos.y + c_ROW_HEIGHT));
