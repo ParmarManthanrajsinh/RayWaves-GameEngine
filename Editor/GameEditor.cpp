@@ -38,16 +38,9 @@ namespace
     // Returns false if gio missing or trash failed.
     bool b_MoveToTrash(const std::string& path)
     {
-        std::string escaped;
-        escaped.reserve(path.size() + 8);
-        for (char c : path)
-        {
-            if (c == '\'')
-                escaped += "'\\''";
-            else
-                escaped += c;
-        }
-        const std::string CMD = "gio trash -- '" + escaped + "' 2>/dev/null";
+        const std::string CMD =
+            "gio trash -- '" + EditorUtils::EscapeSingleQuoted(path) +
+            "' 2>/dev/null";
         return std::system(CMD.c_str()) == 0;
     }
 

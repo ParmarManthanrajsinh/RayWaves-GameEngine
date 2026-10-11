@@ -132,7 +132,10 @@ void MapManager::RegisterMap
     };
 
     m_bMapsCacheDirty = true;
-    std::cout << "[MapManager] Registered map: " << map_id << "::" << description << std::endl;
+    std::cout << "[MapManager] Registered map: " << map_id;
+    if (!description.empty())
+        std::cout << " (" << description << ")";
+    std::cout << std::endl;
 }
 /*
 +----------------------------------------------------------------+

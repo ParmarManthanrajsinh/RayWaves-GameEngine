@@ -42,3 +42,20 @@ TEST_CASE("GameEditor: empty path is rejected")
 {
     CHECK_FALSE(EditorUtils::IsShellSafe(""));
 }
+
+TEST_CASE("GameEditor: EscapeSingleQuoted wraps plain path")
+{
+    CHECK(EditorUtils::EscapeSingleQuoted("/home/dev/MyGame") ==
+          "/home/dev/MyGame");
+}
+
+TEST_CASE("GameEditor: EscapeSingleQuoted escapes embedded quote")
+{
+    CHECK(EditorUtils::EscapeSingleQuoted("a'b") == "a'\\''b");
+}
+
+TEST_CASE("GameEditor: EscapeSingleQuoted handles spaces")
+{
+    CHECK(EditorUtils::EscapeSingleQuoted("/tmp/My Project") ==
+          "/tmp/My Project");
+}

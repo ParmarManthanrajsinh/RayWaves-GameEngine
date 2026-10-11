@@ -87,6 +87,20 @@ namespace EditorUtils
         return s.find_first_of(c_DANGEROUS) == std::string_view::npos;
     }
 
+    std::string EscapeSingleQuoted(std::string_view s)
+    {
+        std::string escaped;
+        escaped.reserve(s.size() + 8);
+        for (char c : s)
+        {
+            if (c == '\'')
+                escaped += "'\\''";
+            else
+                escaped += c;
+        }
+        return escaped;
+    }
+
     void EnsureValidCwd()
     {
         namespace fs = std::filesystem;

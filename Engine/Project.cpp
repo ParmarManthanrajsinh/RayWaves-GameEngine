@@ -9,7 +9,7 @@ bool t_Project::m_bLoadFromFile(std::string_view manifest_path)
 {
     std::string path_str(manifest_path);
     std::ifstream file(path_str);
-    if (!file.is_open()) 
+    if (!file.is_open())    
     {
         std::cout << "Project manifest not found: " << manifest_path << "\n";
         return false;

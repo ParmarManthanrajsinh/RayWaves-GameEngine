@@ -9,6 +9,10 @@ namespace EditorUtils
     bool OpenURL(std::string_view url);
     bool IsShellSafe(std::string_view s);
 
+    // Escape a path for a single-quoted POSIX shell argument.
+    // Embedded ' becomes '\'' so gio trash and friends receive the exact path.
+    std::string EscapeSingleQuoted(std::string_view s);
+
     // Recover a usable CWD after the launch directory was deleted or moved
     // while the editor runs. Without this every popen shell prints
     // "getcwd: cannot access" and fs::current_path() throws.

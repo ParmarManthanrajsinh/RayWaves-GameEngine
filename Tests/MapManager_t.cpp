@@ -63,3 +63,19 @@ TEST_CASE("MapManager: unload current map clears pointer")
     mgr.UnloadCurrentMap();
     CHECK_FALSE(mgr.b_IsCurrentMap("test"));
 }
+
+TEST_CASE("MapManager: empty description stores default")
+{
+    MapManager mgr;
+    mgr.RegisterMap<MockGameMap>("menu");
+    std::string info = mgr.GetDebugInfo();
+    CHECK(info.find("'menu': No description") != std::string::npos);
+}
+
+TEST_CASE("MapManager: custom description stored")
+{
+    MapManager mgr;
+    mgr.RegisterMap<MockGameMap>("level1", "Boss fight arena");
+    std::string info = mgr.GetDebugInfo();
+    CHECK(info.find("'level1': Boss fight arena") != std::string::npos);
+}
