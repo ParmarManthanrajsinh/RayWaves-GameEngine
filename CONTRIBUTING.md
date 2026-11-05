@@ -1,21 +1,29 @@
 # Contributing
 
-## Documentation Checklist
+## Local loop
 
-When making code changes, update docs too:
+```powershell
+cmake --preset zig-debug
+cmake --build build/zig-debug
+scripts/test.ps1 -Preset zig-debug
+```
 
-1. **Changed folder structure?** Update `Documentation/ARCHITECTURE.md`.
-2. **Renamed an exe or file?** `grep -rn "oldname" Documentation/ README.md` before committing — update every hit.
-3. **Removed a UI feature?** `grep -rn -i "featurename" Documentation/ README.md` and remove stale references.
-4. **Changed build steps or toolchain?** Update *First-Time Compile* section in `DEVELOPER_GUIDE.md` and any related troubleshooting entries.
+Before opening a PR:
 
-## Naming Convention
+```powershell
+scripts/check.ps1
+```
 
-Follow the existing prefixes — do not introduce new styles:
+`check.ps1` runs the format check when `clang-format` is available, then all test
+suites. `Tools/run_analysis.bat tidy` runs clang-tidy.
+
+## Naming convention
+
+Follow the existing prefixes; do not introduce new styles.
 
 | Prefix | Meaning | Example |
-|--------|---------|---------|
-| `b_` | `bool` variable or bool-returning function | `b_IsPlaying`, `b_LoadGameLogic()` |
+|---|---|---|
+| `b_` | bool variable or bool-returning function | `b_IsPlaying`, `b_LoadGameLogic()` |
 | `m_` | Member variable | `m_GameEngine`, `m_FrameTimes` |
 | `s_` | File-local static / static function | `s_LayoutPath`, `s_fDrawSpinner()` |
 | `t_` | Type / struct name | `t_WindowConfig`, `t_MapInfo` |
@@ -24,9 +32,51 @@ Follow the existing prefixes — do not introduce new styles:
 | `c_` / `k_` | Compile-time constant | `c_NUM_SEGMENTS`, `k_FrameCount` |
 | `m_t` | Member struct instance | `m_SceneSettings`, `m_ExportState` |
 
-## Where New Code Goes
+Formatting: tabs, Allman braces, `snake_case` variables, `PascalCase`
+functions and types.
 
-- **Gameplay (player, enemies, levels):** your project's `GameLogic/` DLL — never `Engine/`. Register maps with `RegisterMap<T>()` in `RootManager.cpp`.
-- **Editor UI:** a new file pair under `Editor/Panels/` implementing `IEditorPanel`, plus one `b_RegisterPanel<T>()` line in its own `.cpp` (see `Editor/PanelRegistry.h`) — no `GameEditor.cpp` edit needed.
-- **Engine systems:** `Engine/` + explicit entry in `CMakeLists.txt` (no `file(GLOB)`) + a `Tests/*_t.cpp` case.
-- **Headers:** include only what the header itself uses (`<string>`, `<string_view>`); put `<iostream>`, `<fstream>`, `<filesystem>` in the `.cpp`.
+## Where new code goes
+
+- **Gameplay (players, enemies, levels):** the project's `GameLogic/` DLL,
+  never `Engine/`. Register maps in `RootManager.cpp`.
+- **Editor UI:** a new file pair under `Editor/Panels/` implementing
+  `IEditorPanel`, plus one `b_RegisterPanel<T>()` line in its own `.cpp`.
+- **Engine systems:** `Engine/`, an explicit entry in `cmake/Engine.cmake`
+  (no `file(GLOB)`), and a test under `tests/unit/` or `tests/integration/`.
+- **Build logic:** `cmake/*.cmake`; keep `CMakeLists.txt` thin.
+- **Developer commands:** `scripts/`; do not scatter runners in source folders.
+
+## Tests
+
+- Unit tests: `tests/unit/<Module>_t.cpp`.
+- Integration tests: `tests/integration/` (DLL builds, filesystem, processes).
+- Smoke: `tests/smoke/` (hot-reload cycles).
+- Shared helpers: `tests/support/` (`TempDir`, doctest main).
+- Add new files to `tests/CMakeLists.txt`.
+
+See [docs/testing.md](docs/testing.md).
+
+## Benchmarks
+
+Add cases under `benchmarks/` and list them in `benchmarks/CMakeLists.txt`.
+Keep correctness tests out of the benchmark binary. See
+[docs/benchmarks.md](docs/benchmarks.md).
+
+## Documentation checklist
+
+When making code changes:
+
+1. Changed folder structure? Update `docs/ARCHITECTURE.md` and the repository map
+   in `README.md`.
+2. Renamed an exe, target, or file? Search the repo for the old name:
+   `git grep -n "oldname"`.
+3. Removed a feature? Remove stale references from `README.md` and `docs/`.
+4. Changed build steps or toolchain? Update `README.md`,
+   `docs/DEVELOPER_GUIDE.md`, and `docs/TROUBLESHOOTING.md`.
+
+## Pull requests
+
+- One concern per PR.
+- Include tests for behavior changes.
+- Run `scripts/check.ps1`.
+- Update docs when paths or commands change.

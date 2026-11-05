@@ -7,7 +7,7 @@
 #include <string>
 #include <string_view>
 
-#include "../Game/DllLoader.h"
+#include "../Runtime/DllLoader.h"
 
 class GameEngine;
 class GameMap;

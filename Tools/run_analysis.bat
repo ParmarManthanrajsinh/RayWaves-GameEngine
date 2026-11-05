@@ -94,7 +94,7 @@ goto :start_commands
     setlocal
     set "OUT=%TEMP%\analysis_sources_%RANDOM%.txt"
     if "%SOURCE_FILTER%"=="" (
-        dir /s /b "%PROJECT_ROOT%\Engine\*.cpp" "%PROJECT_ROOT%\Editor\*.cpp" "%PROJECT_ROOT%\Game\*.cpp" "%PROJECT_ROOT%\Distribution\Templates\*.cpp" "%PROJECT_ROOT%\Tests\*.cpp" 2>nul | findstr /v "imgui tinyfiledialogs" > "%OUT%"
+        dir /s /b "%PROJECT_ROOT%\Engine\*.cpp" "%PROJECT_ROOT%\Editor\*.cpp" "%PROJECT_ROOT%\Runtime\*.cpp" "%PROJECT_ROOT%\templates\*.cpp" "%PROJECT_ROOT%\tests\*.cpp" 2>nul | findstr /v "imgui tinyfiledialogs" > "%OUT%"
     ) else (
         set "FP=%PROJECT_ROOT%\%SOURCE_FILTER%"
         for %%f in ("!FP!") do if /i "%%~xf"==".cpp" (
@@ -172,14 +172,14 @@ if "%CMD%"=="format" (
         "%PROJECT_ROOT%\Editor\*.cpp"    "%PROJECT_ROOT%\Editor\*.h"
         "%PROJECT_ROOT%\Editor\Panels\*.cpp" "%PROJECT_ROOT%\Editor\Panels\*.h"
         "%PROJECT_ROOT%\Editor\terminal\*.cpp" "%PROJECT_ROOT%\Editor\terminal\*.h"
-        "%PROJECT_ROOT%\Game\*.cpp"      "%PROJECT_ROOT%\Game\*.h"
-        "%PROJECT_ROOT%\Tests\*.cpp"     "%PROJECT_ROOT%\Tests\*.h"
-        "%PROJECT_ROOT%\Distribution\Templates\DemoGame\GameLogic\*.cpp"
-        "%PROJECT_ROOT%\Distribution\Templates\DemoGame\GameLogic\*.h"
-        "%PROJECT_ROOT%\Distribution\Templates\Platformer2D\GameLogic\*.cpp"
-        "%PROJECT_ROOT%\Distribution\Templates\Platformer2D\GameLogic\*.h"
-        "%PROJECT_ROOT%\Distribution\Templates\Empty\GameLogic\*.cpp"
-        "%PROJECT_ROOT%\Distribution\Templates\Empty\GameLogic\*.h"
+        "%PROJECT_ROOT%\Runtime\*.cpp"      "%PROJECT_ROOT%\Runtime\*.h"
+        "%PROJECT_ROOT%\tests\*.cpp"     "%PROJECT_ROOT%\tests\*.h"
+        "%PROJECT_ROOT%\templates\SlimeQuest\GameLogic\*.cpp"
+        "%PROJECT_ROOT%\templates\SlimeQuest\GameLogic\*.h"
+        "%PROJECT_ROOT%\templates\Platformer2D\GameLogic\*.cpp"
+        "%PROJECT_ROOT%\templates\Platformer2D\GameLogic\*.h"
+        "%PROJECT_ROOT%\templates\Empty\GameLogic\*.cpp"
+        "%PROJECT_ROOT%\templates\Empty\GameLogic\*.h"
     ) do (
         if exist "%%f" (
             "%CLANG_FORMAT%" -i -style=file "%%f"
@@ -197,14 +197,14 @@ if "%CMD%"=="format-check" (
         "%PROJECT_ROOT%\Editor\*.cpp"    "%PROJECT_ROOT%\Editor\*.h"
         "%PROJECT_ROOT%\Editor\Panels\*.cpp" "%PROJECT_ROOT%\Editor\Panels\*.h"
         "%PROJECT_ROOT%\Editor\terminal\*.cpp" "%PROJECT_ROOT%\Editor\terminal\*.h"
-        "%PROJECT_ROOT%\Game\*.cpp"      "%PROJECT_ROOT%\Game\*.h"
-        "%PROJECT_ROOT%\Tests\*.cpp"     "%PROJECT_ROOT%\Tests\*.h"
-        "%PROJECT_ROOT%\Distribution\Templates\DemoGame\GameLogic\*.cpp"
-        "%PROJECT_ROOT%\Distribution\Templates\DemoGame\GameLogic\*.h"
-        "%PROJECT_ROOT%\Distribution\Templates\Platformer2D\GameLogic\*.cpp"
-        "%PROJECT_ROOT%\Distribution\Templates\Platformer2D\GameLogic\*.h"
-        "%PROJECT_ROOT%\Distribution\Templates\Empty\GameLogic\*.cpp"
-        "%PROJECT_ROOT%\Distribution\Templates\Empty\GameLogic\*.h"
+        "%PROJECT_ROOT%\Runtime\*.cpp"      "%PROJECT_ROOT%\Runtime\*.h"
+        "%PROJECT_ROOT%\tests\*.cpp"     "%PROJECT_ROOT%\tests\*.h"
+        "%PROJECT_ROOT%\templates\SlimeQuest\GameLogic\*.cpp"
+        "%PROJECT_ROOT%\templates\SlimeQuest\GameLogic\*.h"
+        "%PROJECT_ROOT%\templates\Platformer2D\GameLogic\*.cpp"
+        "%PROJECT_ROOT%\templates\Platformer2D\GameLogic\*.h"
+        "%PROJECT_ROOT%\templates\Empty\GameLogic\*.cpp"
+        "%PROJECT_ROOT%\templates\Empty\GameLogic\*.h"
     ) do (
         if exist "%%f" (
             "%CLANG_FORMAT%" -n -style=file -Werror "%%f" 2>&1 | findstr /i "error" >nul

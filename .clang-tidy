@@ -1,4 +1,4 @@
-HeaderFilterRegex: 'Engine/|Editor/|Game/|Distribution/|Tests/(?!doctest)'
+HeaderFilterRegex: 'Engine/|Editor/|Runtime/|packaging/|templates/|tests/'
 Checks: >
   bugprone-*,
   performance-*,

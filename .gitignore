@@ -1,28 +1,42 @@
-*.exe
-*.dsym
+# Build output
+build/
+dist/
+out/
+install/
 
-.vscode
-.vs
-.json
-.agents
-.zed
-.cache
-
+# IDE / local tooling
+.vs/
+.vscode/
+.zed/
+.cache/
+.agents/
 opencode.json
 skills-lock.json
-main
-build
-dist
-out
 
+# Compiled artifacts
+*.exe
+*.dll
+*.pdb
+*.lib
+*.obj
+*.aps
+*.dsym
+
+# Downloadable toolchain binaries (scripts are tracked)
 /Tools/zig/
 /Tools/cmake/
 /Tools/ninja/
 
-
-# Build artifacts in project templates (compiled during development, shouldn't be tracked)
-Distribution/Templates/**/*.dll
-Distribution/Templates/**/*.pdb
-Distribution/Templates/**/*.lib
-
+# Per-project caches and generated build output
 .raywaves/
+templates/**/GameLogic.dll
+templates/**/*.pdb
+templates/**/*.lib
+templates/**/*.obj
+
+# Benchmark output
+benchmarks/results/
+
+# OS noise
+Thumbs.db
+.DS_Store

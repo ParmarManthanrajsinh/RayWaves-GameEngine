@@ -15,7 +15,7 @@ if(CMAKE_C_COMPILER MATCHES "zig-cc" OR CMAKE_CXX_COMPILER MATCHES "zig-cxx")
   endif()
 endif()
 
-project(RayWaves)
+project(RayWaves VERSION 0.1.0 LANGUAGES C CXX)
 
 # Auto-fetch rcedit if missing
 if(NOT EXISTS "${CMAKE_SOURCE_DIR}/Tools/rcedit.exe")
@@ -30,13 +30,16 @@ if(NOT EXISTS "${CMAKE_SOURCE_DIR}/Tools/rcedit.exe")
   endif()
 endif()
 
-
 # Option: strip Profiler + SCOPED_TIMER from release builds
 # Enable with: cmake -B build/zig-release -DRAYWAVES_DISTRIBUTION_BUILD=ON
 option(RAYWAVES_DISTRIBUTION_BUILD "Strip profiler and debug tooling from release build" OFF)
 if(RAYWAVES_DISTRIBUTION_BUILD)
     message(STATUS "Profiler disabled for distribution build")
 endif()
+
+option(RAYWAVES_BUILD_TESTS "Build unit, integration and smoke test suites" ON)
+option(RAYWAVES_BUILD_BENCHMARKS "Build the standalone benchmark suite" ON)
+option(RAYWAVES_BUILD_GAMELOGIC "Build the bundled SlimeQuest GameLogic DLL" ON)
 
 option(ENABLE_CLANG_TIDY "Run clang-tidy static analysis during build" OFF)
 if(ENABLE_CLANG_TIDY)
@@ -57,344 +60,23 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# add_compile_options(/fsanitize=address)
-# add_link_options(/fsanitize=address)
-
 add_compile_options(-msse4.2)
 add_compile_options(-fno-sanitize=all)
 add_compile_options(-Qunused-arguments)
 
-
 add_compile_definitions(IMGUI_DISABLE_SSE)
 
-# Always build raylib from source as a SHARED library so EXE and GameLogic share the same RLGL state
-include(FetchContent)
-set(BUILD_SHARED_LIBS ON CACHE BOOL "Build shared libraries" FORCE)
-set(BUILD_EXAMPLES OFF CACHE BOOL "Disable Raylib examples to speed up build" FORCE)
-set(BUILD_TESTING OFF CACHE BOOL "Disable Raylib tests" FORCE)
-FetchContent_Declare(
-    raylib
-    URL https://github.com/raysan5/raylib/archive/refs/tags/6.0.tar.gz
-    DOWNLOAD_EXTRACT_TIMESTAMP True
-)
-set(CMAKE_C_FLAGS_BACKUP "${CMAKE_C_FLAGS}")
-set(CMAKE_CXX_FLAGS_BACKUP "${CMAKE_CXX_FLAGS}")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -w -Wno-unused-command-line-argument")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -w -Wno-unused-command-line-argument")
-FetchContent_MakeAvailable(raylib)
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS_BACKUP}")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS_BACKUP}")
-unset(CMAKE_C_FLAGS_BACKUP)
-unset(CMAKE_CXX_FLAGS_BACKUP)
+include(cmake/Dependencies.cmake)
+include(cmake/Engine.cmake)
+include(cmake/GameLogic.cmake)
+include(cmake/Editor.cmake)
+include(cmake/Runtime.cmake)
+include(cmake/Packaging.cmake)
 
-# Stage raylib headers + import lib alongside exe so generated
-# per-project CMakeLists.txt can find them with exe-relative paths.
-#
-# NOTE: raylib is built *after* this configure step, so on a clean build
-# directory the import library does not exist yet here. The stage_raylib
-# target below is what guarantees the staged lib/ directory is actually
-# populated; without it, project GameLogic builds fail with
-# "-lraylib not found".
-set(RAYLIB_BUILD_DIR "${CMAKE_BINARY_DIR}/_deps/raylib-build/raylib")
-set(RAYLIB_STAGEDIR "${CMAKE_BINARY_DIR}/raylib")
-file(MAKE_DIRECTORY "${RAYLIB_STAGEDIR}/include" "${RAYLIB_STAGEDIR}/lib" "${RAYLIB_STAGEDIR}/bin")
-
-# Best-effort copy at configure time for build trees where raylib is already
-# built (e.g. re-configuring an existing build directory).
-foreach(HDR raylib.h raymath.h rcamera.h rlgl.h)
-    if(EXISTS "${RAYLIB_BUILD_DIR}/include/${HDR}")
-        file(COPY "${RAYLIB_BUILD_DIR}/include/${HDR}" DESTINATION "${RAYLIB_STAGEDIR}/include/")
-    endif()
-endforeach()
-if(EXISTS "${RAYLIB_BUILD_DIR}/libraylib.dll.a")
-    file(COPY "${RAYLIB_BUILD_DIR}/libraylib.dll.a" DESTINATION "${RAYLIB_STAGEDIR}/lib/")
-    if(EXISTS "${RAYLIB_STAGEDIR}/lib/libraylib.dll.a" AND NOT EXISTS "${RAYLIB_STAGEDIR}/lib/libraylib.a")
-        file(RENAME "${RAYLIB_STAGEDIR}/lib/libraylib.dll.a" "${RAYLIB_STAGEDIR}/lib/libraylib.a")
-    endif()
+if(RAYWAVES_BUILD_TESTS)
+    include(cmake/Tests.cmake)
 endif()
 
-# Stage again after every raylib build. This is required for clean build
-# directories, where the configure-time copy above finds nothing.
-#
-# A custom target is used instead of add_custom_command(TARGET raylib ...)
-# because raylib is created in the FetchContent subdirectory, and CMake
-# rejects POST_BUILD hooks on targets created in another directory.
-add_custom_target(stage_raylib
-    COMMAND ${CMAKE_COMMAND} -E make_directory
-            "${RAYLIB_STAGEDIR}/include" "${RAYLIB_STAGEDIR}/lib" "${RAYLIB_STAGEDIR}/bin"
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "$<TARGET_LINKER_FILE:raylib>" "${RAYLIB_STAGEDIR}/lib/libraylib.a"
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "$<TARGET_FILE:raylib>" "${RAYLIB_STAGEDIR}/bin/libraylib.dll"
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${RAYLIB_BUILD_DIR}/include/raylib.h" "${RAYLIB_STAGEDIR}/include/raylib.h"
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${RAYLIB_BUILD_DIR}/include/raymath.h" "${RAYLIB_STAGEDIR}/include/raymath.h"
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${RAYLIB_BUILD_DIR}/include/rcamera.h" "${RAYLIB_STAGEDIR}/include/rcamera.h"
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${RAYLIB_BUILD_DIR}/include/rlgl.h" "${RAYLIB_STAGEDIR}/include/rlgl.h"
-    COMMENT "Staging raylib for generated project builds"
-    VERBATIM
-)
-add_dependencies(stage_raylib raylib)
-
-# Collect source files
-# Explicitly list Game sources for the editor to avoid pulling in game-only main
-set(GAME_SRC_CPP
-    Game/main.cpp
-    Game/DllLoader.cpp
-    Game/PeCrtCheck.cpp
-)
-set(ENGINE_SRC_CPP
-    Engine/AssetResolver.cpp
-    Engine/GameConfig.cpp
-    Engine/GameEngine.cpp
-    Engine/GameMap.cpp
-    Engine/MapManager.cpp
-    Engine/Profiler.cpp
-    Engine/Project.cpp
-    Engine/ProjectManager.cpp
-    Engine/raygui_impl.cpp
-    Engine/WindowUtils.cpp
-)
-set(EDITOR_SRC_CPP
-    Editor/EditorPreferences.cpp
-    Editor/EditorUtils.cpp
-    Editor/FileAssociation.cpp
-    Editor/GameEditor.cpp
-    Editor/GameLogicLoader.cpp
-    Editor/ThemeService.cpp
-    Editor/ExportService.cpp
-    Editor/ProcessRunner.cpp
-    Editor/terminal/terminal.cpp
-    Editor/Panels/EditorPreferencesPanel.cpp
-    Editor/Panels/ExportPanel.cpp
-    Editor/Panels/MainMenuBar.cpp
-    Editor/Panels/MapSelectionPanel.cpp
-    Editor/Panels/MessageLogPanel.cpp
-    Editor/Panels/PerformanceOverlay.cpp
-    Editor/Panels/SceneSettingsPanel.cpp
-    Editor/Panels/SceneWindow.cpp
-)
-
-# rlImGui and ImGui sources
-set(RLIMGUI_SRC Editor/rlImGui/rlImGui.cpp)
-set(
-    IMGUI_SRC Editor/imgui/imgui.cpp
-    Editor/imgui/imgui_draw.cpp
-    Editor/imgui/imgui_tables.cpp
-    Editor/imgui/imgui_widgets.cpp
-    Editor/imgui/imgui_stdlib.cpp
-)
-set(TINYFILEDIALOGS Editor/tinyfiledialogs/tinyfiledialogs.c)
-
-# Copy engine content to the build directory
-if(EXISTS "${CMAKE_SOURCE_DIR}/EngineContent")
-  file(COPY ${CMAKE_SOURCE_DIR}/EngineContent DESTINATION ${CMAKE_BINARY_DIR})
+if(RAYWAVES_BUILD_BENCHMARKS)
+    include(cmake/Benchmarks.cmake)
 endif()
-if(EXISTS "${CMAKE_SOURCE_DIR}/EngineContent/config.ini")
-  file(COPY ${CMAKE_SOURCE_DIR}/EngineContent/config.ini DESTINATION ${CMAKE_BINARY_DIR})
-endif()
-
-# Copy demo assets from the SlimeQuest template to the build directory
-if(EXISTS "${CMAKE_SOURCE_DIR}/Distribution/Templates/SlimeQuest/Assets")
-  file(COPY ${CMAKE_SOURCE_DIR}/Distribution/Templates/SlimeQuest/Assets DESTINATION ${CMAKE_BINARY_DIR})
-endif()
-
-# Build Engine as a static library so both main and GameLogic can link to it
-add_library(Engine STATIC ${ENGINE_SRC_CPP})
-# Expose Engine headers and link raylib publicly so consumers inherit include dirs/libs
-target_include_directories(Engine PUBLIC
-    ${CMAKE_SOURCE_DIR}/Engine
-)
-target_link_libraries(Engine PUBLIC raylib)
-target_link_libraries(Engine PRIVATE dwmapi)
-
-
-# Create GameLogic shared library (DLL)
-set(GAMELOGIC_SRC_CPP
-    Distribution/Templates/SlimeQuest/GameLogic/DemoLevel.cpp
-    Distribution/Templates/SlimeQuest/GameLogic/DemoMainMenu.cpp
-    Distribution/Templates/SlimeQuest/GameLogic/GameCamera.cpp
-    Distribution/Templates/SlimeQuest/GameLogic/Player.cpp
-    Distribution/Templates/SlimeQuest/GameLogic/RootManager.cpp
-    Distribution/Templates/SlimeQuest/GameLogic/Slime.cpp
-)
-add_library(GameLogic SHARED ${GAMELOGIC_SRC_CPP})
-set_target_properties(GameLogic PROPERTIES PREFIX "")
-# GameLogic needs Engine headers and linkage (for GameMap symbols)
-target_include_directories(GameLogic PRIVATE
-    ${CMAKE_SOURCE_DIR}
-    ${CMAKE_SOURCE_DIR}/Engine
-    ${CMAKE_SOURCE_DIR}/Distribution/Templates/SlimeQuest/GameLogic
-)
-target_link_libraries(GameLogic PRIVATE Engine)
-
-add_executable(main WIN32
-    ${GAME_SRC_CPP}
-    ${EDITOR_SRC_CPP}
-    ${RLIMGUI_SRC}
-    ${IMGUI_SRC}
-    ${TINYFILEDIALOGS}
-    EngineContent/app.rc
-)
-set_target_properties(main PROPERTIES OUTPUT_NAME "RayWaves")
-target_link_options(main PRIVATE -Wl,--subsystem,windows)
-if(RAYWAVES_DISTRIBUTION_BUILD)
-    target_compile_definitions(main PRIVATE RAYWAVES_PROFILER_DISABLED)
-endif()
-
-add_custom_command(TARGET main POST_BUILD
-    COMMAND ${CMAKE_SOURCE_DIR}/Tools/rcedit.exe $<TARGET_FILE:main> --set-icon ${CMAKE_SOURCE_DIR}/EngineContent/icon.ico
-)
-# Add include directories for the main executable
-target_include_directories(main PRIVATE
-    ${CMAKE_SOURCE_DIR}/Editor/imgui
-    ${CMAKE_SOURCE_DIR}/Editor/rlImGui
-    ${CMAKE_SOURCE_DIR}/Editor/tinyfiledialogs
-    ${CMAKE_SOURCE_DIR}/Engine
-    ${CMAKE_SOURCE_DIR}/Editor
-    ${CMAKE_SOURCE_DIR}/Game
-)
-
-# Link libraries
-# Link Engine (which brings raylib transitively)
-target_link_libraries(main PRIVATE Engine)
-
-# Copy GameLogic DLL beside main executable after building 'main'.
-# add_custom_command(TARGET main POST_BUILD
-#     COMMAND ${CMAKE_COMMAND} -E copy_if_different
-#             $<TARGET_FILE:GameLogic>
-#             $<TARGET_FILE_DIR:main>)
-
-# Also copy raylib DLL so both EXE and GameLogic load the same shared raylib
-add_custom_command(TARGET main POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            $<TARGET_FILE:raylib>
-            $<TARGET_FILE_DIR:main>)
-
-# When building GameLogic alone, also copy it next to the main executable
-add_custom_command(TARGET GameLogic POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            $<TARGET_FILE:GameLogic>
-            ${CMAKE_BINARY_DIR})
-
-# ------------------------------
-# Game-only runtime executable
-# ------------------------------
-add_executable(game WIN32
-    Game/game.cpp
-    Game/DllLoader.cpp
-    Game/PeCrtCheck.cpp
-    EngineContent/app.rc
-)
-target_link_options(game PRIVATE -Wl,--subsystem,windows)
-if(RAYWAVES_DISTRIBUTION_BUILD)
-    target_compile_definitions(game PRIVATE RAYWAVES_PROFILER_DISABLED)
-endif()
-
-add_custom_command(TARGET game POST_BUILD
-    COMMAND ${CMAKE_SOURCE_DIR}/Tools/rcedit.exe $<TARGET_FILE:game> --set-icon ${CMAKE_SOURCE_DIR}/EngineContent/icon.ico
-)
-# Includes for game runtime
-target_include_directories(game PRIVATE
-    ${CMAKE_SOURCE_DIR}/Engine
-    ${CMAKE_SOURCE_DIR}/Game
-)
-
-# Link Engine (transitively links raylib)
-target_link_libraries(game PRIVATE Engine)
-
-# Copy GameLogic DLL beside game executable after building 'game'.
-add_custom_command(TARGET game POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            $<TARGET_FILE:GameLogic>
-            $<TARGET_FILE_DIR:game>)
-
-# Also copy raylib DLL so both EXE and GameLogic load the same shared raylib
-add_custom_command(TARGET game POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            $<TARGET_FILE:raylib>
-            $<TARGET_FILE_DIR:game>)
-
-# ------------------------------
-# Smoke Test executable
-# ------------------------------
-add_executable(smoketest
-    Tests/SmokeTest.cpp
-    Game/DllLoader.cpp
-    Game/PeCrtCheck.cpp
-)
-
-target_include_directories(smoketest PRIVATE
-    ${CMAKE_SOURCE_DIR}/Engine
-    ${CMAKE_SOURCE_DIR}/Game
-)
-
-target_link_libraries(smoketest PRIVATE Engine)
-if(RAYWAVES_DISTRIBUTION_BUILD)
-    target_compile_definitions(smoketest PRIVATE RAYWAVES_PROFILER_DISABLED)
-endif()
-
-# Copy GameLogic and raylib DLLs beside smoketest
-add_custom_command(TARGET smoketest POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:GameLogic> $<TARGET_FILE_DIR:smoketest>
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:raylib> $<TARGET_FILE_DIR:smoketest>
-)
-
-# Unit test target
-add_executable(tests
-    Tests/main.cpp
-    Tests/DllLoader_t.cpp
-    Tests/GameConfig_t.cpp
-    Tests/Project_t.cpp
-    Tests/AssetResolver_t.cpp
-    Tests/StateBag_t.cpp
-    Tests/ReloadRoundtrip_t.cpp
-    Tests/ProjectManager_t.cpp
-    Tests/Profiler_t.cpp
-    Tests/GameMap_t.cpp
-    Tests/MapManager_t.cpp
-    Tests/GameEditor_t.cpp
-    Tests/PanelRegistry_t.cpp
-    Tests/ExportService_t.cpp
-    Tests/PerfBenchmark_t.cpp
-    Game/DllLoader.cpp
-    Game/PeCrtCheck.cpp
-    Editor/ExportService.cpp
-    Editor/EditorUtils.cpp
-)
-
-target_include_directories(tests PRIVATE
-    ${CMAKE_SOURCE_DIR}/Engine
-    ${CMAKE_SOURCE_DIR}/Game
-    ${CMAKE_SOURCE_DIR}/Editor
-)
-
-target_link_libraries(tests PRIVATE Engine)
-
-add_custom_command(TARGET tests POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:raylib> $<TARGET_FILE_DIR:tests>
-)
-
-# Stage raylib before any host target builds. Generated per-project builds
-# link against ${CMAKE_BINARY_DIR}/raylib/lib, so it must be populated before
-# the editor is usable.
-add_dependencies(main stage_raylib)
-add_dependencies(game stage_raylib)
-add_dependencies(GameLogic stage_raylib)
-add_dependencies(smoketest stage_raylib)
-add_dependencies(tests stage_raylib)
-
-enable_testing()
-add_test(NAME unit COMMAND tests WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
-add_test(NAME smoke COMMAND smoketest WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
-
-# Optional export packaging target
-add_custom_target(export_package
-    COMMAND ${CMAKE_COMMAND} -E echo "Running export script..."
-    COMMAND powershell -ExecutionPolicy Bypass -File "${CMAKE_SOURCE_DIR}/Distribution/distribute.ps1" -BuildConfig Release -OutputDir dist
-    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-    COMMENT "Packaging distribution via distribute.ps1"
-)

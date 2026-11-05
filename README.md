@@ -1,126 +1,112 @@
-
 <div align="center">
-  <img src="EngineContent/logo.png" alt="RayWaves Logo" width="240" style="margin-bottom: 20px;"/>
+  <img src="EngineContent/logo.png" alt="RayWaves Logo" width="220"/>
   <h1>RayWaves Game Engine</h1>
-  <p><i><b>Where your code changes flow like waves 🌊</b></i></p>
-  <p>
-    <a href="#-quick-start">🚀 Quick Start</a> •
-    <a href="#-features">✨ Features</a> •
-    <a href="#-development-workflow">🎮 Workflow</a> •
-    <a href="#-documentation">📚 Docs</a>
-  </p>
+  <p><b>A lightweight, code-first 2D engine built on Raylib with hot-reloading.</b></p>
 </div>
 
-<br>
+RayWaves is a C++23 game engine for developers who want to edit gameplay code
+and see the result without restarting the game. Gameplay is compiled into a
+`GameLogic.dll` that the editor and runtime reload through a shadow copy, so game
+state survives code changes via opt-in `SaveState` / `LoadState`.
 
-**RayWaves** is a lightweight, **code-first game engine** built on **Raylib**. It's designed for developers who love writing code but hate restarting their game to see changes.
+## Features
 
-With our **hot-reloading magic**, you can tweak movement speeds, adjust physics, or even add new gameplay mechanics—all while the game is still running!
+- Hot-reloading gameplay DLL, typically well under a second.
+- Zero-install toolchain: Zig, Ninja, CMake, and rcedit are fetched on demand.
+- ImGui editor with scene view, asset browser, export panel, and profiler overlay.
+- Simple map system built on `GameMap` and `MapManager`.
+- One-command project templates and distribution packaging.
 
----
+## Screenshots
 
-## ✨ Features
+![Level editor](docs/assets/output1.png)
+*Scene editing, asset browser, and live reload in the editor.*
 
-- **🔥 Limitless Hot-Reloading**  
-  Edit your C++ code and see the results in **~0.5 seconds**. Game state is preserved across reloads via opt-in `SaveState`/`LoadState`. No restarting. Just flow.
+![Export panel](docs/assets/output2.png)
+*Export settings for a standalone build.*
 
-- **⚡ Zero-Install Setup**  
-  Visual Studio is no longer required! The Zig compiler, Ninja build system, and CMake are all fetched automatically on your first compile. No manual PATH setup needed.
+## Quick start
 
-- **🔗 .raywaves File Association**  
-  Register the `.raywaves` extension via *Tools → Register .raywaves file association* in the editor menu. Double-click any `project.raywaves` file in Explorer to launch directly into that project.
+Requirements: Windows and CMake. The rest is downloaded automatically.
 
-- **🎮 Pure Raylib Power**  
-  No proprietary scripting languages or complex ECS layers. It's just you and standard C++ Raylib code.
+```powershell
+cmake --preset zig-release
+cmake --build build/zig-release
+build/zig-release/RayWaves.exe
+```
 
-- **🎨 Visual Editor**  
-  A sleek, ImGui-based editor with a file browser, asset management, and performance tools built right in.
+Run the test suites:
 
-- **🗺️ Smart Map System**  
-  Effortlessly switch between levels or scenes using our intuitive `MapManager`.
+```powershell
+scripts/test.ps1
+```
 
-- **📦 One-Click Distribution**  
-  Pack up your entire engine and game into a standalone zip file ready for your team or players.
+Run benchmarks:
 
----
+```powershell
+scripts/bench.ps1
+```
 
-## 🖼️ See It In Action
+Package a distribution:
 
-### 🛠️ Live Development
-![Level Editor](Documentation/output1.png)
-*Design levels, tweak particles, and switch maps instantly in the visual editor.*
+```powershell
+scripts/package.ps1 -IncludeCompiler -Zip
+```
 
-### 📤 Easy Exporting
-![Export Panel](Documentation/output2.png)
-*Generate standalone game executables with your custom naming and resolution settings.*
+## Repository map
 
----
+| Path | Purpose |
+|---|---|
+| `Engine/` | Core engine static library |
+| `Editor/` | ImGui editor (`RayWaves.exe`) |
+| `Runtime/` | Editor/runtime entry points and DLL loading |
+| `tests/` | Unit, integration, and smoke suites |
+| `benchmarks/` | Standalone performance harness |
+| `templates/` | Starter projects (Empty, Platformer2D, SlimeQuest) |
+| `packaging/` | Distribution scripts and the shared project CMake template |
+| `scripts/` | Day-to-day developer commands |
+| `cmake/` | Build modules |
+| `docs/` | Guides and reference |
 
-## 🚀 Quick Start
+## Commands
 
-### 🔧 For Engine Developers
-*Use these instructions if you want to **modify the engine source code itself** (e.g. `RayWaves.exe`).*
+| Task | Command |
+|---|---|
+| Configure release | `cmake --preset zig-release` |
+| Build editor | `cmake --build build/zig-release --target main` |
+| Build runtime | `cmake --build build/zig-release --target game` |
+| Unit tests | `scripts/test.ps1 -Suite unit` |
+| All tests | `scripts/test.ps1` |
+| Benchmarks | `scripts/bench.ps1` |
+| Formatting + tests | `scripts/check.ps1` |
+| Distribution | `scripts/package.ps1` |
 
-1. **Open any terminal** (PowerShell, Command Prompt, or VS Code terminal).
-2. **Build the engine:**
-    There are two build paths available:
-    
-    **Recommended (Zero-Install)**  
-    Uses the Zig compiler (fetched automatically). No Visual Studio needed.
-    ```powershell
-    cmake --preset zig-release
-    cmake --build build/zig-release
-    ```
-    (Use the `zig-debug` preset instead if you need a debug build — just keep
-    the same preset for the test/run commands below.)
-3. **Run tests:**
-   ```powershell
-   .\build\zig-release\tests.exe
-   ```
-   Or via CTest:
-   ```powershell
-   ctest --test-dir build/zig-release
-   ```
-4. **Launch the editor:**
-   ```powershell
-   build/zig-release/RayWaves.exe
-   ```
+## Documentation
 
-> **Note:** If you are just making games, you don't need to rebuild `RayWaves.exe`.
+- [Documentation index](docs/README.md)
+- [Architecture](docs/ARCHITECTURE.md)
+- [Developer guide](docs/DEVELOPER_GUIDE.md)
+- [Testing](docs/testing.md)
+- [Benchmarks](docs/benchmarks.md)
+- [Distribution](docs/distribution.md)
+- [Game developer guide](docs/GAME_DEVELOPER_GUIDE.md)
+- [Troubleshooting](docs/TROUBLESHOOTING.md)
 
-### 🎮 For Game Developers
-*Use these instructions if you want to **make games** using RayWaves.*
+## Adding a map
 
-👉 **[Read the Game Developer Guide](Documentation/GAME_DEVELOPER_GUIDE.md)**
-
-Start here to learn how to:
-- Run the engine (`RayWaves.exe`)
-- Create levels and write game logic
-- Use hot-reloading for gameplay code
-- Export your game
-
----
-
-## 🎮 Development Workflow
-
-### 🔧 Engine Development
-1. **Launch the Editor** (`RayWaves.exe`).
-2. **Modify engine internals** in `Game/`, `Editor/`, or `Engine/`.
-3. **Rebuild the engine** using CMake.
----
-
-## 🗺️ Adding Your Own Maps
-
-Creating a new level is as simple as inheriting from `GameMap`.
-
-**1. Create a class (`MyLevel.h`):**
 ```cpp
+#include "GameMap.h"
+
 class MyLevel : public GameMap
 {
+public:
+    MyLevel() : GameMap("MyLevel") {}
+
     void Update(float delta_time) override
     {
         if (IsKeyDown(KEY_SPACE)) Jump();
     }
+
     void Draw() override
     {
         DrawText("Hello World!", 100, 100, 20, WHITE);
@@ -128,60 +114,14 @@ class MyLevel : public GameMap
 };
 ```
 
-**2. Register it (`RootManager.cpp`):**
+Register it in your project's `RootManager.cpp`:
+
 ```cpp
 s_GameMapManager->RegisterMap<MyLevel>("Level_1");
 ```
 
-**3. Switch to it:**
-```cpp
-// From anywhere in your code
-RequestGotoMap("Level_1");
-```
+Gameplay code belongs in your project's `GameLogic/`, never in `Engine/`.
 
----
+## License
 
-## 📦 Distribution Game Engine
-
-Want to distribute the engine to your team?
-
-Simply run:
-```cmd
-Distribution\create_distribution.bat -IncludeCompiler
-```
-
-This generates a `dist/` folder with everything they need:
-- `RayWaves.exe` (The visual editor)
-- `Core/runtime.exe` (Standalone runtime)
-- `Core/Tools/zig`, `Core/Tools/ninja`, `Core/Tools/cmake` (Zero-install compile toolchain)
-- All headers, scripts, and assets.
-
-End users get a **zero-install** experience: unzip, run `RayWaves.exe`, create a project, click Compile. No Visual Studio, no CMake on PATH, no manual setup.
-
----
-
-## 📚 Learn More
-
-- **[Architecture Overview](Documentation/ARCHITECTURE.md)** - Engine repo and project folder structure.
-- **[API Reference](Documentation/API_REFERENCE.md)** - Detailed class documentation.
-- **[Developer Guide](Documentation/DEVELOPER_GUIDE.md)** - Best practices and patterns.
-- **[Game Developer Guide](Documentation/GAME_DEVELOPER_GUIDE.md)** - End-user game creation.
-- **[Troubleshooting](Documentation/TROUBLESHOOTING.md)** - Fix common issues.
-
----
-
-## 💡 Top Tips
-
-- **Files:** Use the built-in File Explorer to browse assets.
-- **Reset:** Hit the **Restart** button in the toolbar if you want to force a full reload.
-- **Performance:** Toggle the **Performance Overlay** (chart icon) to see FPS, frame times, and per-system breakdown.
-- **Modes:** 
-  - `RayWaves.exe` = Editor & Hot-Reloading (built from the `main` CMake target: `Editor/` + `Game/main.cpp`)
-  - `game.exe` = Standalone Runtime, pure gameplay (built from the `game` CMake target: `Game/game.cpp`). The distribution script copies it to `Core/runtime.exe`, so in an exported project the runtime is `Core/runtime.exe` — same binary, different path.
-- **Double-click:** Register `.raywaves` file association under *Tools → Register .raywaves file association* to open projects by double-clicking `project.raywaves` in Explorer.
-
----
-
-<div align="center">
-  <b>Happy Coding! 💜</b>
-</div>
+See [LICENSE](LICENSE).

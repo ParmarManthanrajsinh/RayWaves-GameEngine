@@ -1,0 +1,80 @@
+cmake_minimum_required(VERSION 3.10)
+
+if(CMAKE_C_COMPILER MATCHES "zig-cc" OR CMAKE_CXX_COMPILER MATCHES "zig-cxx")
+    if(NOT EXISTS "@TOOLS_DIR@/zig/zig.exe")
+        message(STATUS "Zig toolchain not found. Auto-fetching...")
+        execute_process(
+            COMMAND powershell -ExecutionPolicy Bypass -File "@TOOLS_DIR@/setup_zig.ps1" -SkipRcEdit
+            WORKING_DIRECTORY "@ENGINE_ROOT@"
+            RESULT_VARIABLE ZIG_FETCH_RESULT
+        )
+        if(NOT ZIG_FETCH_RESULT EQUAL 0)
+            message(FATAL_ERROR "Failed to download Zig.")
+        endif()
+    endif()
+endif()
+
+if(NOT EXISTS "@TOOLS_DIR@/ninja/ninja.exe")
+    message(STATUS "Ninja not found. Auto-fetching...")
+    execute_process(
+        COMMAND powershell -ExecutionPolicy Bypass -File "@TOOLS_DIR@/setup_zig.ps1" -SkipZig -SkipRcEdit -SkipCMake
+        WORKING_DIRECTORY "@ENGINE_ROOT@"
+        RESULT_VARIABLE NINJA_FETCH_RESULT
+    )
+    if(NOT NINJA_FETCH_RESULT EQUAL 0)
+        message(FATAL_ERROR "Failed to download Ninja.")
+    endif()
+endif()
+
+set(CMAKE_MAKE_PROGRAM "@TOOLS_DIR@/ninja/ninja.exe" CACHE FILEPATH "Build program" FORCE)
+set(CMAKE_C_COMPILER "@TOOLS_DIR@/zig-cc.bat")
+set(CMAKE_CXX_COMPILER "@TOOLS_DIR@/zig-cxx.bat")
+project(@PROJECT_NAME@)
+
+set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+add_compile_options(-msse4.2)
+
+set(ENGINE_DIR "@ENGINE_DIR@")
+set(RAYLIB_DIR "@RAYLIB_DIR@")
+set(PROJECT_SRC_DIR "${CMAKE_SOURCE_DIR}/../GameLogic")
+
+add_library(GameLogic SHARED)
+set_target_properties(GameLogic PROPERTIES PREFIX "")
+
+file(GLOB_RECURSE SRC_FILES "${PROJECT_SRC_DIR}/*.cpp")
+file(GLOB_RECURSE ENGINE_SRC "${ENGINE_DIR}/Engine/*.cpp")
+target_sources(GameLogic PRIVATE ${SRC_FILES} ${ENGINE_SRC})
+
+target_include_directories(GameLogic PRIVATE
+    "${ENGINE_DIR}"
+    "${ENGINE_DIR}/Engine"
+    "${RAYLIB_DIR}/include"
+)
+
+# Zig's linker only recognizes raylib.dll, raylib.lib or libraylib.a when
+# using -lraylib. raylib's own build produces libraylib.dll.a, so resolve
+# the import library by path instead of relying on -L/-l name matching.
+set(RAYLIB_IMPORT_LIB "")
+foreach(CANDIDATE
+    "${RAYLIB_DIR}/lib/libraylib.a"
+    "${RAYLIB_DIR}/lib/libraylib.dll.a"
+    "${RAYLIB_DIR}/lib/raylib.lib"
+    "${RAYLIB_DIR}/libraylib.dll.a"
+    "${RAYLIB_DIR}/libraylib.a"
+    "${RAYLIB_DIR}/raylib.lib")
+    if(EXISTS "${CANDIDATE}")
+        set(RAYLIB_IMPORT_LIB "${CANDIDATE}")
+        break()
+    endif()
+endforeach()
+if(NOT RAYLIB_IMPORT_LIB)
+    message(FATAL_ERROR "raylib import library not found under ${RAYLIB_DIR}. Rebuild the RayWaves editor so it stages raylib, then reopen the project.")
+endif()
+
+target_link_libraries(GameLogic PRIVATE "${RAYLIB_IMPORT_LIB}" dwmapi)
+
+set_target_properties(GameLogic PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/..")
+set_target_properties(GameLogic PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/..")

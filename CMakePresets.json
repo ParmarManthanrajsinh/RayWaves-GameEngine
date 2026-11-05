@@ -51,5 +51,29 @@
                 "CMAKE_BUILD_TYPE": "Release"
             }
         }
+    ],
+    "testPresets": [
+        {
+            "name": "zig-debug",
+            "displayName": "Zig Debug Tests",
+            "configurePreset": "zig-debug",
+            "output": {
+                "outputOnFailure": true
+            },
+            "execution": {
+                "noTestsAction": "error"
+            }
+        },
+        {
+            "name": "zig-release",
+            "displayName": "Zig Release Tests",
+            "configurePreset": "zig-release",
+            "output": {
+                "outputOnFailure": true
+            },
+            "execution": {
+                "noTestsAction": "error"
+            }
+        }
     ]
 }

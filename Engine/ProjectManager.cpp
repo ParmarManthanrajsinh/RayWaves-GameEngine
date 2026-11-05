@@ -3,6 +3,7 @@
 #include "ProjectManager.h"
 #include <filesystem>
 #include <fstream>
+#include <iterator>
 #include <windows.h>
 #include <shlobj.h>
 
@@ -303,6 +304,46 @@ std::vector<std::string> ProjectManager::GetAvailableTemplates()
     return templates;
 }
 
+namespace
+{
+    std::string ReplaceToken(std::string text, std::string_view token, std::string_view value)
+    {
+        size_t position = 0;
+        while ((position = text.find(token, position)) != std::string::npos)
+        {
+            text.replace(position, token.size(), value);
+            position += value.size();
+        }
+        return text;
+    }
+
+    std::string ToForwardSlashes(fs::path path)
+    {
+        std::string result = path.string();
+        std::ranges::replace(result, '\\', '/');
+        return result;
+    }
+
+    // The same template ships in dev builds (build/<preset>/packaging) and in
+    // distributions (Core/). Keeping one file avoids the two project build
+    // recipes drifting apart again.
+    fs::path FindProjectTemplate(const fs::path& exe_dir, const fs::path& engine_root)
+    {
+        const fs::path candidates[] = {
+            exe_dir / "packaging" / "Project.CMakeLists.in",
+            exe_dir / "Core" / "Project.CMakeLists.in",
+            engine_root / "packaging" / "Project.CMakeLists.in",
+            engine_root / "Core" / "Project.CMakeLists.in",
+        };
+
+        for (const auto& candidate : candidates)
+        {
+            if (fs::exists(candidate)) return candidate;
+        }
+        return {};
+    }
+}
+
 bool ProjectManager::GenerateCMakeLists()
 {
     if (!b_HasOpenProject()) return false;
@@ -316,8 +357,6 @@ bool ProjectManager::GenerateCMakeLists()
     {
         engine_dir = engine_root / "Core";
     }
-    std::string engine_dir_str = engine_dir.string();
-    std::ranges::replace(engine_dir_str, '\\', '/');
 
     // Resolve raylib path relative to exe (staged by main build or dist layout)
     char exe_path[MAX_PATH];
@@ -347,98 +386,28 @@ bool ProjectManager::GenerateCMakeLists()
         if (has_raylib_import(fetched)) raylib_dir = fetched;
     }
 
-    std::string raylib_dir_str = raylib_dir.string();
-    std::ranges::replace(raylib_dir_str, '\\', '/');
+    fs::path template_path = FindProjectTemplate(exe_dir, engine_root);
+    if (template_path.empty())
+    {
+        std::cerr << "Project CMake template not found. Expected packaging/Project.CMakeLists.in "
+                     "next to the editor or in Core/.\n";
+        return false;
+    }
+
+    std::ifstream template_file(template_path);
+    if (!template_file.is_open()) return false;
+
+    std::string content((std::istreambuf_iterator<char>(template_file)),
+                        std::istreambuf_iterator<char>());
+
+    content = ReplaceToken(content, "@PROJECT_NAME@", SanitizeCMakeProjectName(s_Current.m_Name));
+    content = ReplaceToken(content, "@TOOLS_DIR@", ToForwardSlashes(GetToolsDirectory()));
+    content = ReplaceToken(content, "@ENGINE_ROOT@", ToForwardSlashes(engine_root));
+    content = ReplaceToken(content, "@ENGINE_DIR@", ToForwardSlashes(engine_dir));
+    content = ReplaceToken(content, "@RAYLIB_DIR@", ToForwardSlashes(raylib_dir));
 
     std::ofstream file(cmake_path);
     if (!file.is_open()) return false;
-
-    fs::path tools_dir = GetToolsDirectory();
-    std::string tools_dir_str = tools_dir.string();
-    std::ranges::replace(tools_dir_str, '\\', '/');
-
-    file << "cmake_minimum_required(VERSION 3.10)\n\n";
-
-    file << "if(CMAKE_C_COMPILER MATCHES \"zig-cc\" OR CMAKE_CXX_COMPILER MATCHES \"zig-cxx\")\n";
-    file << "    if(NOT EXISTS \"" << tools_dir_str << "/zig/zig.exe\")\n";
-    file << "        message(STATUS \"Zig toolchain not found. Auto-fetching...\")\n";
-    file << "        execute_process(\n";
-    file << "            COMMAND powershell -ExecutionPolicy Bypass -File \"" << tools_dir_str << "/setup_zig.ps1\" -SkipRcEdit\n";
-    std::string engine_root_str = engine_root.string();
-    std::ranges::replace(engine_root_str, '\\', '/');
-    file << "            WORKING_DIRECTORY \"" << engine_root_str << "\"\n";
-    file << "            RESULT_VARIABLE ZIG_FETCH_RESULT\n";
-    file << "        )\n";
-    file << "        if(NOT ZIG_FETCH_RESULT EQUAL 0)\n";
-    file << "            message(FATAL_ERROR \"Failed to download Zig.\")\n";
-    file << "        endif()\n";
-    file << "    endif()\n";
-    file << "endif()\n\n";
-
-    // Auto-fetch Ninja if missing
-    file << "if(NOT EXISTS \"" << tools_dir_str << "/ninja/ninja.exe\")\n";
-    file << "    message(STATUS \"Ninja not found. Auto-fetching...\")\n";
-    file << "    execute_process(\n";
-    file << "        COMMAND powershell -ExecutionPolicy Bypass -File \"" << tools_dir_str << "/setup_zig.ps1\" -SkipZig -SkipRcEdit -SkipCMake\n";
-    file << "        WORKING_DIRECTORY \"" << engine_root_str << "\"\n";
-    file << "        RESULT_VARIABLE NINJA_FETCH_RESULT\n";
-    file << "    )\n";
-    file << "    if(NOT NINJA_FETCH_RESULT EQUAL 0)\n";
-    file << "        message(FATAL_ERROR \"Failed to download Ninja.\")\n";
-    file << "    endif()\n";
-    file << "endif()\n\n";
-
-    file << "set(CMAKE_MAKE_PROGRAM \"" << tools_dir_str << "/ninja/ninja.exe\" CACHE FILEPATH \"Build program\" FORCE)\n";
-    file << "set(CMAKE_C_COMPILER \"" << tools_dir_str << "/zig-cc.bat\")\n";
-    file << "set(CMAKE_CXX_COMPILER \"" << tools_dir_str << "/zig-cxx.bat\")\n";
-    file << "project(" << SanitizeCMakeProjectName(s_Current.m_Name) << ")\n\n";
-
-    file << "set(CMAKE_CXX_STANDARD 23)\n";
-    file << "set(CMAKE_CXX_STANDARD_REQUIRED ON)\n";
-    file << "set(CMAKE_CXX_EXTENSIONS OFF)\n\n";
-    
-    file << "add_compile_options(-msse4.2)\n\n";
-    
-    file << "set(ENGINE_DIR \"" << engine_dir_str << "\")\n";
-    file << "set(RAYLIB_DIR \"" << raylib_dir_str << "\")\n";
-    file << "set(PROJECT_SRC_DIR \"${CMAKE_SOURCE_DIR}/../GameLogic\")\n\n";
-    
-    file << "add_library(GameLogic SHARED)\n";
-    file << "set_target_properties(GameLogic PROPERTIES PREFIX \"\")\n\n";
-    
-    file << "file(GLOB_RECURSE SRC_FILES \"${PROJECT_SRC_DIR}/*.cpp\")\n";
-    file << "file(GLOB_RECURSE ENGINE_SRC \"${ENGINE_DIR}/Engine/*.cpp\")\n";
-    file << "target_sources(GameLogic PRIVATE ${SRC_FILES} ${ENGINE_SRC})\n\n";
-    
-    file << "target_include_directories(GameLogic PRIVATE\n";
-    file << "    \"${ENGINE_DIR}\"\n";
-    file << "    \"${ENGINE_DIR}/Engine\"\n";
-    file << "    \"${RAYLIB_DIR}/include\"\n";
-    file << ")\n\n";
-    
-    // Zig's linker only recognizes raylib.dll, raylib.lib or libraylib.a when
-    // using -lraylib. raylib's own build produces libraylib.dll.a, so resolve
-    // the import library by path instead of relying on -L/-l name matching.
-    file << "set(RAYLIB_IMPORT_LIB \"\")\n";
-    file << "foreach(CANDIDATE\n";
-    file << "    \"${RAYLIB_DIR}/lib/libraylib.a\"\n";
-    file << "    \"${RAYLIB_DIR}/lib/libraylib.dll.a\"\n";
-    file << "    \"${RAYLIB_DIR}/lib/raylib.lib\"\n";
-    file << "    \"${RAYLIB_DIR}/libraylib.dll.a\"\n";
-    file << "    \"${RAYLIB_DIR}/libraylib.a\"\n";
-    file << "    \"${RAYLIB_DIR}/raylib.lib\")\n";
-    file << "    if(EXISTS \"${CANDIDATE}\")\n";
-    file << "        set(RAYLIB_IMPORT_LIB \"${CANDIDATE}\")\n";
-    file << "        break()\n";
-    file << "    endif()\n";
-    file << "endforeach()\n";
-    file << "if(NOT RAYLIB_IMPORT_LIB)\n";
-    file << "    message(FATAL_ERROR \"raylib import library not found under ${RAYLIB_DIR}. Rebuild the RayWaves editor so it stages raylib, then reopen the project.\")\n";
-    file << "endif()\n\n";
-    file << "target_link_libraries(GameLogic PRIVATE \"${RAYLIB_IMPORT_LIB}\" dwmapi)\n\n";
-    
-    file << "set_target_properties(GameLogic PROPERTIES RUNTIME_OUTPUT_DIRECTORY \"${CMAKE_SOURCE_DIR}/..\")\n";
-    file << "set_target_properties(GameLogic PROPERTIES LIBRARY_OUTPUT_DIRECTORY \"${CMAKE_SOURCE_DIR}/..\")\n";
-
-    return true;
+    file << content;
+    return file.good();
 }
