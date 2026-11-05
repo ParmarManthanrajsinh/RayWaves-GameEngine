@@ -96,11 +96,12 @@ int main()
     }
 
     DllHandle game_logic_handle{nullptr, {}};
+    bool b_ExitRequested = false;
     auto *map = s_fLoadGameLogic("GameLogic.dll", game_logic_handle);
     if (map != nullptr)
     {
         GameMap* raw_map = map;
-        raw_map->SetExitCallback([]() { CloseWindow(); });
+        raw_map->SetExitCallback([&b_ExitRequested]() { b_ExitRequested = true; });
         engine.SetMap(map);
     }
     else
@@ -108,7 +109,7 @@ int main()
         std::cerr << "Running without GameLogic ( no map Loaded )." << "\n";
     }
 
-    while (!WindowShouldClose())
+    while (!WindowShouldClose() && !b_ExitRequested)
     {
         // Handle Alt+Enter for fullscreen toggle
         if (IsKeyDown(KEY_LEFT_ALT) && IsKeyPressed(KEY_ENTER))

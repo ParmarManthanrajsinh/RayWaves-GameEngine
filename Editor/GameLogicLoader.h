@@ -73,6 +73,8 @@ private:
     using AbiVersionFunc = uint32_t (*)();
 
     void Log(std::string_view message, bool is_error) const;
+    void AttachMapInternal(GameMap* game_map, bool b_OwnedByDll);
+    void DestroyActiveMap();
 
     GameEngine& m_Engine;
 
@@ -86,6 +88,8 @@ private:
     std::chrono::steady_clock::time_point m_LastReloadCheckTime = std::chrono::steady_clock::now();
 
     MapManager* m_MapManager = nullptr;
+    GameMap* m_ActiveMap = nullptr;
+    bool m_bActiveMapOwnedByDll = false;
 
     LogSink m_LogSink;
     NewMapCallback m_NewMapCallback;

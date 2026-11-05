@@ -1,4 +1,5 @@
 #include "Project.h"
+#include "EngineVersion.h"
 #include <fstream>
 #include <filesystem>
 #include <iostream>
@@ -20,7 +21,7 @@ bool t_Project::m_bLoadFromFile(std::string_view manifest_path)
     // Set default values before parsing
     m_Name = "NewProject";
     m_Version = "1.0.0";
-    m_EngineVersion = "0.6.0";
+    m_EngineVersion = RAYWAVES_VERSION;
     m_SourceDir = "GameLogic";
     m_AssetDir = "Assets";
     m_EntryDll = "GameLogic.dll";

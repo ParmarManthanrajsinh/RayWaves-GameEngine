@@ -7,7 +7,7 @@ RayWaves/
 ├─ CMakeLists.txt              # Thin entry point: options + module includes
 ├─ CMakePresets.json           # zig-debug / zig-release configure + test presets
 ├─ cmake/                      # Build modules (dependencies, targets, tests, packaging)
-├─ Engine/                     # Core static library (libEngine.a)
+├─ Engine/                     # Core static library (libEngine.a), version in EngineVersion.h
 │  ├─ GameMap, MapManager      # Scene/map lifecycle
 │  ├─ Project, ProjectManager  # Project manifest + per-project CMake generation
 │  ├─ Profiler, AssetResolver  # Diagnostics and asset path resolution

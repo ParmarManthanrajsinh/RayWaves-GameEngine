@@ -8,6 +8,7 @@
 #include <functional>
 #include <string>
 #include <string_view>
+#include <utility>
 
 #include "PeCrtCheck.h"
 
@@ -16,11 +17,35 @@ namespace fs = std::filesystem;
 
 struct DllHandle 
 {
-    void* handle;
+    void* handle = nullptr;
     // Absolute path of the shadow-copied DLL actually loaded via LoadLibrary.
     // This allows unloading and deleting the copy so the original DLL remains
     // writable for recompilation while the application is running.
     std::string shadow_path;
+
+    DllHandle() = default;
+    DllHandle(void* h, std::string path)
+        : handle(h), shadow_path(std::move(path)) {}
+
+    DllHandle(const DllHandle&) = delete;
+    DllHandle& operator=(const DllHandle&) = delete;
+
+    DllHandle(DllHandle&& other) noexcept
+        : handle(other.handle), shadow_path(std::move(other.shadow_path))
+    {
+        other.handle = nullptr;
+    }
+
+    DllHandle& operator=(DllHandle&& other) noexcept
+    {
+        if (this != &other)
+        {
+            handle = other.handle;
+            shadow_path = std::move(other.shadow_path);
+            other.handle = nullptr;
+        }
+        return *this;
+    }
 };
 
 DllHandle LoadDll(const char* path);

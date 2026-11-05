@@ -94,6 +94,31 @@ void GameLogicLoader::CheckForChanges()
     }
 }
 
+void GameLogicLoader::DestroyActiveMap()
+{
+    /*
+        The active map may be a MapManager or a plain GameMap. Ownership is
+        tracked separately because external maps attached through AttachMap
+        must not be deleted by the loader.
+    */
+    GameMap* active_map = m_ActiveMap;
+    const bool b_OwnedByDll = m_bActiveMapOwnedByDll && (m_DestroyGameMap != nullptr);
+
+    m_ActiveMap = nullptr;
+    m_bActiveMapOwnedByDll = false;
+    m_MapManager = nullptr;
+
+    // Drop engine references before running the DLL destructor. The destructor
+    // may call back into engine state while it releases assets.
+    m_Engine.SetMap(nullptr);
+    m_Engine.SetMapManager(nullptr);
+
+    if (b_OwnedByDll && active_map != nullptr)
+    {
+        m_DestroyGameMap(active_map);
+    }
+}
+
 void GameLogicLoader::Unload()
 {
     /*
@@ -101,25 +126,27 @@ void GameLogicLoader::Unload()
         BEFORE unloading the DLL, otherwise vtable/function code may be gone
         when the map's destructor runs.
     */
+    DestroyActiveMap();
+
     if (m_GameLogicDll.handle != nullptr)
     {
-        if ((m_DestroyGameMap != nullptr) && (m_MapManager != nullptr))
-        {
-            m_DestroyGameMap(m_MapManager);
-        }
         UnloadDll(m_GameLogicDll);
         m_GameLogicDll = {};
         m_CreateGameMap = nullptr;
         m_DestroyGameMap = nullptr;
     }
-
-    m_MapManager = nullptr;
-    m_Engine.SetMap(nullptr);
-    m_Engine.SetMapManager(nullptr);
 }
 
 void GameLogicLoader::AttachMap(GameMap* game_map)
 {
+    AttachMapInternal(game_map, false);
+}
+
+void GameLogicLoader::AttachMapInternal(GameMap* game_map, bool b_OwnedByDll)
+{
+    m_ActiveMap = game_map;
+    m_bActiveMapOwnedByDll = b_OwnedByDll;
+
     if (game_map != nullptr)
     {
         // Check if the loaded map is a MapManager via the DLL-safe type query
@@ -142,6 +169,7 @@ void GameLogicLoader::AttachMap(GameMap* game_map)
     else
     {
         m_Engine.SetMap(nullptr);
+        m_Engine.SetMapManager(nullptr);
         m_MapManager = nullptr;
     }
 }
@@ -228,17 +256,13 @@ bool GameLogicLoader::b_LoadGameLogic(std::string_view dll_path)
         }
     }
 
-    // 4) Destroy current map to release old DLL code before unloading
-    m_Engine.SetMap(nullptr);
-    m_Engine.SetMapManager(nullptr);
+    // 4) Destroy current map to release old DLL code before unloading.
+    // DestroyActiveMap handles both MapManager and plain GameMap owners.
+    DestroyActiveMap();
 
     // 5) Unload old DLL (if any)
     if (m_GameLogicDll.handle != nullptr)
     {
-        if ((m_DestroyGameMap != nullptr) && (m_MapManager != nullptr))
-        {
-            m_DestroyGameMap(m_MapManager);
-        }
         UnloadDll(m_GameLogicDll);
         m_GameLogicDll = {};
         m_CreateGameMap = nullptr;
@@ -246,11 +270,11 @@ bool GameLogicLoader::b_LoadGameLogic(std::string_view dll_path)
     }
 
     // 6) Swap in new DLL and map
-    m_GameLogicDll = new_dll;
+    m_GameLogicDll = std::move(new_dll);
     m_CreateGameMap = new_factory;
     m_DestroyGameMap = new_destroy;
 
-    AttachMap(new_map);
+    AttachMapInternal(new_map, true);
 
     if (m_NewMapCallback)
     {

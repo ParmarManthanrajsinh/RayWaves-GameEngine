@@ -36,6 +36,11 @@ namespace ExportService
     // absolute paths pass through (pure, unit-tested).
     std::string ResolveExportDir(std::string_view export_path, std::string_view project_root);
 
+    // Produce a safe file name for the exported executable. Replaces path
+    // separators and shell-sensitive characters, trims dots/spaces, and
+    // avoids Windows reserved device names (pure, unit-tested).
+    std::string SanitizeGameName(std::string_view name);
+
     // Write config.ini for the exported game (unit-tested).
     bool b_WriteGameConfig(const std::string& config_path, const FExportSettings& settings,
                            int scene_width, int scene_height, int scene_fps);

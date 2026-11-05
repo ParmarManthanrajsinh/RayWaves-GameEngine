@@ -1,10 +1,13 @@
+#include <algorithm>
 #include <iostream>
 #include "DllLoader.h"
 #include <Windows.h>
 #include <chrono>
+#include <functional>
 #include <random>
 #include <set>
 #include <thread>
+#include <vector>
 
 namespace
 {
@@ -62,34 +65,71 @@ void CleanupStaleShadowCopies()
 {
     try
     {
-        fs::path temp_dirs[] = { 
-            fs::current_path() / ".raywaves" / "shadows",
-            fs::temp_directory_path() 
-        };
+        const fs::path local_shadow_dir = fs::current_path() / ".raywaves" / "shadows";
+        const fs::path temp_root = fs::temp_directory_path();
+        const fs::path temp_dirs[] = { local_shadow_dir, temp_root };
         auto now = fs::file_time_type::clock::now();
         int cleaned = 0;
+
+        auto remove_if_stale = [&](const fs::directory_entry& entry)
+        {
+            std::error_code ec;
+            if (!entry.is_regular_file(ec) || ec) return;
+
+            const std::string filename = entry.path().filename().string();
+            if (!filename.contains(".shadow.")) return;
+            if (entry.path().extension() != ".dll") return;
+
+            // Only delete files older than 1 hour
+            auto age = now - entry.last_write_time(ec);
+            if (ec) return;
+
+            if (age > std::chrono::hours(1))
+            {
+                fs::remove(entry.path(), ec);
+                if (!ec) ++cleaned;
+            }
+        };
 
         for (const auto& temp_dir : temp_dirs)
         {
             if (!fs::exists(temp_dir)) continue;
 
-            for (const auto& entry : fs::directory_iterator(temp_dir))
+            std::error_code ec;
+            if (temp_dir == local_shadow_dir)
             {
-                if (!entry.is_regular_file()) continue;
-                
-                std::string filename = entry.path().filename().string();
-                if (!filename.contains(".shadow.")) continue;
-                if (entry.path().extension() != ".dll") continue;
-
-                // Only delete files older than 1 hour
-                std::error_code ec;
-                auto age = now - entry.last_write_time(ec);
-                if (ec) continue;
-
-                if (age > std::chrono::hours(1))
+                // Older builds wrote shadows into random subdirectories, so
+                // scan recursively and then remove the empty leftovers.
+                std::vector<fs::path> directories;
+                for (fs::recursive_directory_iterator it(temp_dir, fs::directory_options::skip_permission_denied, ec);
+                     !ec && it != fs::recursive_directory_iterator(); it.increment(ec))
                 {
-                    fs::remove(entry.path(), ec);
-                    if (!ec) ++cleaned;
+                    if (it->is_directory(ec))
+                    {
+                        directories.push_back(it->path());
+                    }
+                    else
+                    {
+                        remove_if_stale(*it);
+                    }
+                }
+
+                std::ranges::sort(directories, std::greater<>());
+                for (const auto& directory : directories)
+                {
+                    std::error_code empty_ec;
+                    if (fs::is_empty(directory, empty_ec) && !empty_ec)
+                    {
+                        fs::remove(directory, empty_ec);
+                    }
+                }
+            }
+            else
+            {
+                for (const auto& entry : fs::directory_iterator(temp_dir, ec))
+                {
+                    if (ec) break;
+                    remove_if_stale(entry);
                 }
             }
         }
@@ -157,26 +197,24 @@ DllHandle LoadDll(const char* PATH)
             temp_dir = fs::temp_directory_path();
         }
 
-        // Use random subdirectory to prevent symlink attacks
-        std::random_device rd;
-        std::mt19937 gen(rd());
-        std::uniform_int_distribution<uint64_t> dis;
-        std::string rand_dir = std::to_string(dis(gen));
-        temp_dir = temp_dir / rand_dir;
-        std::error_code ec_dir;
-        fs::create_directories(temp_dir, ec_dir);
-
-        // Build a unique filename: GameLogic.shadow.<pid>.<tick>.dll
+        // Keep shadow files directly in the shadow root. The filename carries
+        // enough uniqueness (pid, tick, random). This makes the stale sweep
+        // able to find every file without scanning arbitrary subdirectories.
         DWORD pid = GetCurrentProcessId();
         auto ticks = static_cast<DWORD>(GetTickCount64());
 
-        // stem() will return file name without extention
+        std::random_device rd;
+        std::mt19937_64 gen(rd());
+        std::uniform_int_distribution<uint64_t> dis;
+
         std::string base_name = src_path.stem().string();
-        std::string unique_name = base_name 
-            + ".shadow." 
-            + std::to_string(pid) 
-            + "." 
-            + std::to_string(ticks) 
+        std::string unique_name = base_name
+            + ".shadow."
+            + std::to_string(pid)
+            + "."
+            + std::to_string(ticks)
+            + "."
+            + std::to_string(dis(gen))
             + src_path.extension().string();
 
         fs::path dest_path = temp_dir / unique_name;
@@ -190,6 +228,15 @@ DllHandle LoadDll(const char* PATH)
         );
 
         HMODULE mod = LoadLibraryA(dest_path.string().c_str());
+        if (mod == nullptr)
+        {
+            // A failed load must not leave a shadow copy behind. The stale
+            // sweep is only a backstop, not part of the normal path.
+            std::error_code remove_ec;
+            fs::remove(dest_path, remove_ec);
+            return result;
+        }
+
         result.handle = reinterpret_cast<void*>(mod);
         result.shadow_path = dest_path.string();
         return result;

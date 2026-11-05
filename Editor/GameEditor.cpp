@@ -91,46 +91,10 @@ GameEditor::GameEditor()
 
 GameEditor::~GameEditor()
 {
-	m_ThreadCancelFlag->store(true);
-
-	// Join export thread before destroying its state
-	if (m_ExportState.m_ExportThread.joinable())
+	// Close is idempotent and owns the correct resource teardown order.
+	if (!m_bClosed)
 	{
-		m_ExportState.m_ExportThread.join();
-	}
-
-	/*
-		Ensure any GameMap instance (potentially from the DLL) is destroyed
-		BEFORE unloading the DLL, otherwise vtable/function code may be gone
-		when the map's destructor runs. GameLogicLoader::Unload() owns that
-		ordering; its own destructor is the final backstop.
-	*/
-	m_LogicLoader.Unload();
-
-	m_GameEngine.SetMap(nullptr);
-	m_GameEngine.SetMapManager(nullptr);
-
-	m_Terminal.add_text("Shutting down...", term::Severity::Debug);
-
-	// Save configurations on exit
-	EditorPreferences::GetInstance().m_bSaveToFile();
-
-	if (m_RaylibTexture.id != 0)
-	{
-		UnloadRenderTexture(m_RaylibTexture);
-		m_RaylibTexture.id = 0;
-	}
-
-	if (m_DisplayTexture.id != 0)
-	{
-		UnloadRenderTexture(m_DisplayTexture);
-		m_DisplayTexture.id = 0;
-	}
-
-	if (m_OpaqueShader.id != 0)
-	{
-		UnloadShader(m_OpaqueShader);
-		m_OpaqueShader.id = 0;
+		Close();
 	}
 }
 
@@ -610,7 +574,7 @@ void GameEditor::Run()
 	while (!WindowShouldClose())
 	{
 		// Clean exit requested from DLL callback
-		if (m_bCloseRequested) CloseWindow();
+		if (m_bCloseRequested) break;
 
 		if (!ProjectManager::b_HasOpenProject())
 		{
@@ -752,6 +716,12 @@ void GameEditor::Run()
 
 void GameEditor::Close()
 {
+	if (m_bClosed)
+	{
+		return;
+	}
+	m_bClosed = true;
+
 	t_WindowConfig& config = GameConfig::GetInstance().GetWindowConfig();
 	config.scene_width = m_SceneSettings.m_SceneWidth;
 	config.scene_height = m_SceneSettings.m_SceneHeight;
@@ -767,6 +737,29 @@ void GameEditor::Close()
 		ProjectManager::b_SaveCurrentProject();
 	}
 
+	// Stop workers before destroying objects captured by their callbacks.
+	m_ThreadCancelFlag->store(true);
+	if (m_BuildThread.joinable())
+	{
+		m_BuildThread.join();
+	}
+	if (m_ExportState.m_ExportThread.joinable())
+	{
+		m_ExportState.m_ExportThread.join();
+	}
+
+	// Destroy DLL-owned maps and unload the DLL while the graphics/audio
+	// contexts are still alive. Map destructors release textures and sounds.
+	m_LogicLoader.Unload();
+	m_GameEngine.SetMap(nullptr);
+	m_GameEngine.SetMapManager(nullptr);
+
+	if (m_OpaqueShader.id != 0)
+	{
+		UnloadShader(m_OpaqueShader);
+		m_OpaqueShader.id = 0;
+	}
+
 	if (m_RaylibTexture.id != 0)
 	{
 		UnloadRenderTexture(m_RaylibTexture);
@@ -778,6 +771,8 @@ void GameEditor::Close()
 		UnloadRenderTexture(m_DisplayTexture);
 		m_DisplayTexture.id = 0;
 	}
+
+	m_Terminal.Shutdown();
 
 	rlImGuiShutdown();
 	CloseAudioDevice();
@@ -925,30 +920,28 @@ void GameEditor::CompileGameLogic()
     }
     else
     {
-        // Dev environment or no project fallback
-        if (std::filesystem::exists(app_dir + "/build_gamelogic.bat"))
+        // Dev environment fallback: build the bundled GameLogic target.
+        fs::path cmakeExe = ProjectManager::GetToolsDirectory() / "cmake" / "bin" / "cmake.exe";
+        if (!fs::exists(cmakeExe))
         {
-            build_cmd = "\"\"" + app_dir + "/build_gamelogic.bat\" nopause\"";
+            m_Terminal.add_text("Downloading CMake (first-time setup)...", term::Severity::Debug);
+            std::string fetchCmd = "powershell -ExecutionPolicy Bypass -File \""
+                + (ProjectManager::GetToolsDirectory() / "setup_zig.ps1").string()
+                + "\" -SkipZig -SkipRcEdit -SkipNinja";
+            std::system(fetchCmd.c_str());
         }
-        else
-        {
-            fs::path cmakeExe = ProjectManager::GetToolsDirectory() / "cmake" / "bin" / "cmake.exe";
-            if (!fs::exists(cmakeExe))
-            {
-                m_Terminal.add_text("Downloading CMake (first-time setup)...", term::Severity::Debug);
-                std::string fetchCmd = "powershell -ExecutionPolicy Bypass -File \""
-                    + (ProjectManager::GetToolsDirectory() / "setup_zig.ps1").string()
-                    + "\" -SkipZig -SkipRcEdit -SkipNinja";
-                std::system(fetchCmd.c_str());
-            }
-            build_cmd = "\"\"" + cmakeExe.string() + "\" --build \"" + app_dir + "\" --target GameLogic\"";
-        }
+        build_cmd = "\"\"" + cmakeExe.string() + "\" --build \"" + app_dir + "\" --target GameLogic\"";
     }
 
     m_Terminal.add_text("Executing: " + build_cmd, term::Severity::Debug);
 
+    if (m_BuildThread.joinable())
+    {
+        m_BuildThread.join();
+    }
+
     auto cancel = m_ThreadCancelFlag;
-    ProcessRunner::RunBuildCommand
+    m_BuildThread = ProcessRunner::RunBuildCommand
     (
         build_cmd,
         [this, cancel](std::string_view line, bool isError)

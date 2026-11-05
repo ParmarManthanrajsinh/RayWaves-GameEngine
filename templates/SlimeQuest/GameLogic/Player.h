@@ -14,6 +14,7 @@ public:
     
     void Initialize(const char* TexturePath);
     void LoadSounds();
+    void Unload();
     void Reset(Vector2 StartPosition);
     void HandleInput(float DeltaTime);
     void Update(float DeltaTime);

@@ -55,14 +55,14 @@ namespace ProcessRunner
         };
     }
 
-    void RunBuildCommand
+    std::thread RunBuildCommand
     (
         std::string_view cmd,
         const std::function<void(std::string_view, bool)>& on_output,
         const std::function<void(bool)>& on_complete
     )
     {
-        std::thread([cmd_str = std::string(cmd), on_output, on_complete]()
+        return std::thread([cmd_str = std::string(cmd), on_output, on_complete]()
         {
             SECURITY_ATTRIBUTES sa{};
             sa.nLength = sizeof(SECURITY_ATTRIBUTES);
@@ -188,6 +188,6 @@ namespace ProcessRunner
                 on_complete(exit_code == 0);
             }
 
-        }).detach();
+        });
     }
 }

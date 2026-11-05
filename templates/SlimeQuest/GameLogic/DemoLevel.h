@@ -24,6 +24,7 @@ private:
     static void DrawSparkles();
     void DrawSlimes();
     void DrawDebugTileset();
+    void UnloadAssets();
 
     Player m_Player;
     GameCamera m_Camera;

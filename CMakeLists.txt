@@ -60,9 +60,14 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-add_compile_options(-msse4.2)
-add_compile_options(-fno-sanitize=all)
-add_compile_options(-Qunused-arguments)
+# Zig/Clang flags only. MSVC does not understand these; the presets use Zig.
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    add_compile_options(-msse4.2)
+    add_compile_options(-fno-sanitize=all)
+    add_compile_options(-Qunused-arguments)
+elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    add_compile_options(-msse4.2)
+endif()
 
 add_compile_definitions(IMGUI_DISABLE_SSE)
 

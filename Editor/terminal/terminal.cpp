@@ -51,6 +51,17 @@ namespace term
     {
         // Signal shutdown to all threads
         m_is_shutting_down = true;
+        m_ThreadCancelFlag->store(true);
+
+        // Join command workers before restoring streams or destroying state.
+        for (auto& thread : m_CommandThreads)
+        {
+            if (thread.joinable())
+            {
+                thread.join();
+            }
+        }
+        m_CommandThreads.clear();
         
         // Unregister from callbacks
         {
@@ -677,8 +688,8 @@ namespace term
 
         // Async execution for system commands
         // Capture shared cancel flag so thread can check it even after Terminal destruction
-        auto& cancel = m_ThreadCancelFlag;
-        std::thread
+        auto cancel = m_ThreadCancelFlag;
+        m_CommandThreads.emplace_back
         (
             [this, cancel, command_str]() 
             {
@@ -745,7 +756,7 @@ namespace term
                     }
                 }
             }
-        ).detach();
+        );
     }
 
 }

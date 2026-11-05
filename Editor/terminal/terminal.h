@@ -51,6 +51,7 @@ namespace term
         std::mutex m_mutex;
         std::atomic<bool> m_is_shutting_down{false};
         std::shared_ptr<std::atomic<bool>> m_ThreadCancelFlag = std::make_shared<std::atomic<bool>>(false);
+        std::vector<std::thread> m_CommandThreads;
 
         // Logs
         std::deque<Message> m_messages;

@@ -5,6 +5,7 @@
 #include <system_error>
 #include <imgui.h>
 #include <raylib.h>
+#include "../Engine/EngineVersion.h"
 #include <rlImGui.h>
 #include <thread>
 #include <tinyfiledialogs.h>
@@ -71,7 +72,7 @@ public:
     
     bool IsWindowResized() const { return b_ResolutionChanged; } // Or ImGui function if needed
 
-    std::string version = "RayWaves v0.6.0";
+    std::string version = std::string("RayWaves v") + RAYWAVES_VERSION;
 
     RenderTexture2D m_RaylibTexture;
     RenderTexture2D m_DisplayTexture;
@@ -108,6 +109,8 @@ public:
     } m_ExportState;
 
     bool m_bShowPerformanceStats = false;
+    std::thread m_BuildThread;
+    bool m_bClosed = false;
     std::array<float, 120> m_FrameTimes{};
     size_t m_FrameOffset;
     

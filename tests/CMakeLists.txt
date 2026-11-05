@@ -51,6 +51,7 @@ add_executable(raywaves_tests_integration
     ${CMAKE_SOURCE_DIR}/Runtime/PeCrtCheck.cpp
     ${CMAKE_SOURCE_DIR}/Editor/ExportService.cpp
     ${CMAKE_SOURCE_DIR}/Editor/EditorUtils.cpp
+    ${CMAKE_SOURCE_DIR}/Editor/GameLogicLoader.cpp
 )
 raywaves_configure_test_target(raywaves_tests_integration)
 

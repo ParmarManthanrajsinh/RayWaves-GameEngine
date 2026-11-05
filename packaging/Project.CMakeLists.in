@@ -44,8 +44,8 @@ set(PROJECT_SRC_DIR "${CMAKE_SOURCE_DIR}/../GameLogic")
 add_library(GameLogic SHARED)
 set_target_properties(GameLogic PROPERTIES PREFIX "")
 
-file(GLOB_RECURSE SRC_FILES "${PROJECT_SRC_DIR}/*.cpp")
-file(GLOB_RECURSE ENGINE_SRC "${ENGINE_DIR}/Engine/*.cpp")
+file(GLOB_RECURSE SRC_FILES CONFIGURE_DEPENDS "${PROJECT_SRC_DIR}/*.cpp")
+file(GLOB_RECURSE ENGINE_SRC CONFIGURE_DEPENDS "${ENGINE_DIR}/Engine/*.cpp")
 target_sources(GameLogic PRIVATE ${SRC_FILES} ${ENGINE_SRC})
 
 target_include_directories(GameLogic PRIVATE

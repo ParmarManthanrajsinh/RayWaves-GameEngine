@@ -11,27 +11,51 @@ constexpr float FloorY = 405.0f;
 
 DemoLevel::DemoLevel()
     : GameMap("Platformer Demo"),
-      m_TilesetTex{ LoadTexture("") }, 
-      m_SlimeTexture{ LoadTexture("") }, 
-      m_SlimeDeathSound{ LoadSound("") } 
+      m_TilesetTex{},
+      m_SlimeTexture{},
+      m_SlimeDeathSound{}
 {
 }
 
 DemoLevel::~DemoLevel()
 {
-    UnloadTexture(m_TilesetTex);
-    UnloadTexture(m_SlimeTexture);
-    UnloadSound(m_SlimeDeathSound);
-    
-    for (auto& Tex : m_BackgroundLayers)
+    UnloadAssets();
+}
+
+void DemoLevel::UnloadAssets()
+{
+    if (IsTextureValid(m_TilesetTex))
     {
-        UnloadTexture(Tex);
+        UnloadTexture(m_TilesetTex);
     }
+    if (IsTextureValid(m_SlimeTexture))
+    {
+        UnloadTexture(m_SlimeTexture);
+    }
+    if (IsSoundValid(m_SlimeDeathSound))
+    {
+        UnloadSound(m_SlimeDeathSound);
+    }
+
+    for (auto& texture : m_BackgroundLayers)
+    {
+        if (IsTextureValid(texture))
+        {
+            UnloadTexture(texture);
+        }
+    }
+
+    m_TilesetTex = {};
+    m_SlimeTexture = {};
+    m_SlimeDeathSound = {};
     m_BackgroundLayers.clear();
 }
 
 void DemoLevel::Initialize()
 {
+    // Initialize can run again after a reset; release old GPU/audio handles first.
+    UnloadAssets();
+
     m_Player.Initialize(AssetResolver::Resolve("player.png").c_str());
     m_TilesetTex = LoadTexture(AssetResolver::Resolve("tileset.png").c_str());
     m_SlimeTexture = LoadTexture(AssetResolver::Resolve("slime.png").c_str());

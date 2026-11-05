@@ -6,25 +6,48 @@
 #include <iostream>
 
 Player::Player()
-    : m_Position{ 0, 0 }
+    : m_Texture{}
+    , m_Position{ 0, 0 }
     , m_Velocity{ 0, 0 }
     , m_bIsGrounded(false)
     , m_bFacingRight(true)
     , m_bIsAttacking(false)
     , m_AttackTimer(0.0f)
     , m_AttackFrame(0)
+    , m_JumpSound{}
+    , m_AttackSound{}
 {
 }
 
 Player::~Player()
 {
-    UnloadTexture(m_Texture);
-    UnloadSound(m_JumpSound);
-    UnloadSound(m_AttackSound);
+    Unload();
+}
+
+void Player::Unload()
+{
+    if (IsTextureValid(m_Texture))
+    {
+        UnloadTexture(m_Texture);
+    }
+    if (IsSoundValid(m_JumpSound))
+    {
+        UnloadSound(m_JumpSound);
+    }
+    if (IsSoundValid(m_AttackSound))
+    {
+        UnloadSound(m_AttackSound);
+    }
+
+    m_Texture = {};
+    m_JumpSound = {};
+    m_AttackSound = {};
 }
 
 void Player::Initialize(const char* TexturePath)
 {
+    // Player may be reinitialized by a map reset; avoid leaking old handles.
+    Unload();
     m_Texture = LoadTexture(TexturePath);
     LoadSounds();
 }

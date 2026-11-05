@@ -34,6 +34,17 @@ TEST_CASE("ExportService: ClampSettings keeps sane ranges")
     CHECK(sane.m_TargetFPS == 60);
 }
 
+TEST_CASE("ExportService: SanitizeGameName rejects traversal and reserved names")
+{
+    CHECK(ExportService::SanitizeGameName("MyGame") == "MyGame");
+    CHECK(ExportService::SanitizeGameName("../evil") == "_evil");
+    CHECK(ExportService::SanitizeGameName("bad:name") == "bad_name");
+    CHECK(ExportService::SanitizeGameName("  spaced  ") == "spaced");
+    CHECK(ExportService::SanitizeGameName("CON") == "_CON");
+    CHECK(ExportService::SanitizeGameName("....") == "Game");
+    CHECK(ExportService::SanitizeGameName("") == "Game");
+}
+
 TEST_CASE("ExportService: ResolveExportDir anchors relatives at project root")
 {
     CHECK(ExportService::ResolveExportDir("export", "C:/Games/MyGame")

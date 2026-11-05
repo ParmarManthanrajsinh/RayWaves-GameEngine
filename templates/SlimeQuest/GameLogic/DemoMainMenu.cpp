@@ -12,11 +12,19 @@ DemoMainMenu::DemoMainMenu()
 
 DemoMainMenu::~DemoMainMenu()
 {
-    if (m_SelectSound.stream.buffer != nullptr) UnloadSound(m_SelectSound);
+    if (IsSoundValid(m_SelectSound))
+    {
+        UnloadSound(m_SelectSound);
+    }
 }
 
 void DemoMainMenu::Initialize()
 {
+    if (IsSoundValid(m_SelectSound))
+    {
+        UnloadSound(m_SelectSound);
+    }
+
     m_TitleFont = GetFontDefault();
     m_SelectSound = LoadSound(AssetResolver::Resolve("Sounds/menu_select.wav").c_str());
     

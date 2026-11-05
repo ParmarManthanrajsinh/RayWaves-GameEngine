@@ -55,7 +55,8 @@ import library and removes build artifacts from templates.
 ## Versioning
 
 The package version comes from `project(RayWaves VERSION x.y.z)` in the root
-`CMakeLists.txt`. The script writes it to `dist/VERSION`. Override it with:
+`CMakeLists.txt`. `Engine/EngineVersion.h` mirrors it for C++ code. The script
+writes it to `dist/VERSION`. Override it with:
 
 ```powershell
 scripts/package.ps1 -Version 0.2.0

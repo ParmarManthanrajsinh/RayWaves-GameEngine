@@ -1,9 +1,9 @@
 {
   "results": {
-    "AssetResolver::Resolve": {"ns_per_op": 1576.3, "ops_per_sec": 634397},
-    "Profiler::Record single name": {"ns_per_op": 22.1398, "ops_per_sec": 4.51676e+07},
-    "Profiler::Record 100-name ring": {"ns_per_op": 43.763, "ops_per_sec": 2.28503e+07},
-    "StateBag GetFloat + GetInt": {"ns_per_op": 22.2268, "ops_per_sec": 4.49907e+07},
-    "StateBag GetVector2": {"ns_per_op": 54.1835, "ops_per_sec": 1.84558e+07}
+    "AssetResolver::Resolve": {"ns_per_op": 41.5419, "ops_per_sec": 2.40721e+07},
+    "Profiler::Record single name": {"ns_per_op": 22.1308, "ops_per_sec": 4.5186e+07},
+    "Profiler::Record 100-name ring": {"ns_per_op": 44.5962, "ops_per_sec": 2.24234e+07},
+    "StateBag GetFloat + GetInt": {"ns_per_op": 22.6445, "ops_per_sec": 4.41608e+07},
+    "StateBag GetVector2": {"ns_per_op": 55.1051, "ops_per_sec": 1.81471e+07}
   }
 }

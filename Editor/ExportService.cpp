@@ -1,8 +1,10 @@
 #include "ExportService.h"
 #include "../Engine/ProjectManager.h"
+#include "../Runtime/DllLoader.h"
 #include "EditorUtils.h"
 #include <algorithm>
 #include <array>
+#include <cctype>
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
@@ -31,6 +33,62 @@ namespace ExportService
             export_dir = fs::path(project_root) / export_dir;
         }
         return export_dir.string();
+    }
+
+    std::string SanitizeGameName(std::string_view name)
+    {
+        std::string result;
+        result.reserve(name.size());
+
+        for (const char c : name)
+        {
+            const unsigned char uc = static_cast<unsigned char>(c);
+            if (std::isalnum(uc) || c == '_' || c == '-' || c == ' ' || c == '.')
+            {
+                result += c;
+            }
+            else
+            {
+                result += '_';
+            }
+        }
+
+        const auto first = result.find_first_not_of(" .");
+        result.erase(0, first == std::string::npos ? result.size() : first);
+        const auto last = result.find_last_not_of(" .");
+        if (last != std::string::npos)
+        {
+            result.erase(last + 1);
+        }
+        else
+        {
+            result.clear();
+        }
+
+        if (result.empty() || result == "." || result == "..")
+        {
+            return "Game";
+        }
+
+        std::string stem = result.substr(0, result.find('.'));
+        std::ranges::transform(stem, stem.begin(),
+            [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+
+        static constexpr const char* reserved[] = {
+            "con", "prn", "aux", "nul",
+            "com1", "com2", "com3", "com4", "com5", "com6", "com7", "com8", "com9",
+            "lpt1", "lpt2", "lpt3", "lpt4", "lpt5", "lpt6", "lpt7", "lpt8", "lpt9"
+        };
+        for (const char* device : reserved)
+        {
+            if (stem == device)
+            {
+                result = "_" + result;
+                break;
+            }
+        }
+
+        return result;
     }
 
     bool b_WriteGameConfig(const std::string& config_path, const FExportSettings& settings,
@@ -143,11 +201,21 @@ namespace ExportService
             fs::path current_path = fs::current_path();
             const auto& proj = ProjectManager::GetCurrent();
 
-            bool b_IsDistribution = fs::exists(current_path / "Core" / "runtime.exe") && !fs::exists(current_path / "Game" / "game.cpp");
-            fs::path game_exe = b_IsDistribution ? (current_path / "Core" / "runtime.exe") : (current_path / "build" / "zig-release" / "game.exe"); // Fallback for source environment
-            fs::path raylib_dll = b_IsDistribution ? (current_path / "libraylib.dll") : (current_path / "build" / "zig-release" / "libraylib.dll");
+            // Resolve next to the running host first. Export must work from
+            // zig-debug, zig-release, and packaged layouts without guessing a
+            // hardcoded build directory.
+            std::string host_exe = GetHostExePath();
+            fs::path host_dir = host_exe.empty()
+                ? current_path
+                : fs::path(host_exe).parent_path();
 
-            if (!fs::exists(game_exe)) game_exe = current_path / "game.exe"; // Generic fallback
+            const bool b_IsDistribution = fs::exists(host_dir / "Core" / "runtime.exe");
+            fs::path game_exe = b_IsDistribution
+                ? (host_dir / "Core" / "runtime.exe")
+                : (host_dir / "game.exe");
+            fs::path raylib_dll = host_dir / "libraylib.dll";
+
+            if (!fs::exists(game_exe)) game_exe = current_path / "game.exe";
             if (!fs::exists(raylib_dll)) raylib_dll = current_path / "libraylib.dll";
 
             if (!fs::exists(game_exe))
@@ -183,22 +251,24 @@ namespace ExportService
             std::string build_cmd = "cd /d \"" + path_str + "\" && (" + cmakePath + " -G Ninja . -B build || " + cmakePath + " --fresh -G Ninja . -B build) && " + cmakePath + " --build build --config Release";
 
             FILE* pipe = _popen(build_cmd.c_str(), "r");
-            if (pipe)
+            if (pipe == nullptr)
             {
-                std::array<char, 1024> buffer{};
-                while (fgets(buffer.data(), static_cast<int>(buffer.size()), pipe) != nullptr)
-                {
-                    std::string line = buffer.data();
-                    line.erase(line.find_last_not_of(" \n\r\t") + 1);
-                    if (!line.empty()) {
-                        log(line);
-                    }
+                return fail("ERROR: Could not start the GameLogic build process.");
+            }
+
+            std::array<char, 1024> buffer{};
+            while (fgets(buffer.data(), static_cast<int>(buffer.size()), pipe) != nullptr)
+            {
+                std::string line = buffer.data();
+                line.erase(line.find_last_not_of(" \n\r\t") + 1);
+                if (!line.empty()) {
+                    log(line);
                 }
-                int build_result = _pclose(pipe);
-                if (build_result != 0)
-                {
-                    return fail("ERROR: Build failed!");
-                }
+            }
+            int build_result = _pclose(pipe);
+            if (build_result != 0)
+            {
+                return fail("ERROR: Build failed!");
             }
 
             fs::path game_logic_dll = fs::path(proj.m_RootPath) / "GameLogic.dll";
@@ -210,14 +280,18 @@ namespace ExportService
             fs::path export_dir = ResolveExportDir(settings.m_ExportPath, proj.m_RootPath);
             fs::create_directories(export_dir);
 
-            std::string game_exe_name = settings.m_GameName + ".exe";
+            const std::string safe_game_name = SanitizeGameName(settings.m_GameName);
+            const std::string game_exe_name = safe_game_name + ".exe";
             log("Creating game executable: " + game_exe_name);
             fs::copy_file(game_exe, export_dir / game_exe_name, fs::copy_options::overwrite_existing);
 
             log("Creating game configuration...");
 
+            FExportSettings safe_settings = settings;
+            safe_settings.m_GameName = safe_game_name;
+
             fs::path config_path = export_dir / "config.ini";
-            if (!b_WriteGameConfig(config_path.string(), settings,
+            if (!b_WriteGameConfig(config_path.string(), safe_settings,
                                    proj.m_SceneWidth, proj.m_SceneHeight, proj.m_TargetFPS))
             {
                 return fail("ERROR: Could not write game configuration.");
@@ -260,35 +334,47 @@ namespace ExportService
                 log("No Assets folder found - skipping asset copy");
             }
 
-            std::string customIcon = proj.m_IconPath;
-            if (customIcon.empty())
+            fs::path icon_path = proj.m_IconPath;
+            if (icon_path.empty())
             {
                 fs::path root = ProjectManager::GetEngineRootDirectory();
                 fs::path defaultIcon = root / "Core" / "EngineContent" / "raylib.ico";
                 if (!fs::exists(defaultIcon)) defaultIcon = root / "EngineContent" / "raylib.ico";
-                customIcon = defaultIcon.string();
+                icon_path = defaultIcon;
+            }
+            else if (icon_path.is_relative())
+            {
+                icon_path = fs::path(proj.m_RootPath) / icon_path;
             }
 
-            if (!customIcon.empty() && fs::exists(customIcon))
+            const std::string custom_icon = icon_path.string();
+            if (!custom_icon.empty() && fs::exists(custom_icon))
             {
-                fs::path rceditExe = ProjectManager::GetToolsDirectory() / "rcedit.exe";
-                if (fs::exists(rceditExe))
+                if (!EditorUtils::IsShellSafe(custom_icon))
                 {
-                    std::string exePath = (export_dir / game_exe_name).string();
-                    // cmd.exe /c strips first+last " when string starts with ". Wrap entire command in outer quotes.
-                    std::string cmd = "\"\"" + rceditExe.string() + "\" \"" + exePath + "\" --set-icon \"" + customIcon + "\"\"";
-                    log("Icon cmd: " + cmd);
-                    int rc = std::system(cmd.c_str());
-                    log("rcedit exit code: " + std::to_string(rc));
+                    log("WARNING: Icon path contains unsafe shell characters; skipping icon update.");
                 }
                 else
                 {
-                    log("WARNING: rcedit.exe not found at: " + rceditExe.string());
+                    fs::path rceditExe = ProjectManager::GetToolsDirectory() / "rcedit.exe";
+                    if (fs::exists(rceditExe))
+                    {
+                        std::string exePath = (export_dir / game_exe_name).string();
+                        // cmd.exe /c strips first+last " when string starts with ". Wrap entire command in outer quotes.
+                        std::string cmd = "\"\"" + rceditExe.string() + "\" \"" + exePath + "\" --set-icon \"" + custom_icon + "\"\"";
+                        log("Icon cmd: " + cmd);
+                        int rc = std::system(cmd.c_str());
+                        log("rcedit exit code: " + std::to_string(rc));
+                    }
+                    else
+                    {
+                        log("WARNING: rcedit.exe not found at: " + rceditExe.string());
+                    }
                 }
             }
             else
             {
-                log("WARNING: No icon found. customIcon=" + customIcon + " exists=" + (fs::exists(customIcon) ? "true" : "false"));
+                log("WARNING: No icon found. customIcon=" + custom_icon + " exists=" + (fs::exists(custom_icon) ? "true" : "false"));
             }
 
             log(std::string("Process completed. Validating export folder: ") + export_dir.string());

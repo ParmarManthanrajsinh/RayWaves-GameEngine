@@ -1,5 +1,7 @@
 #include "doctest/doctest.h"
 #include "Runtime/DllLoader.h"
+#include "Editor/GameLogicLoader.h"
+#include "Engine/GameEngine.h"
 #include "Engine/GameMap.h"
 #include <cstdlib>
 #include <filesystem>
@@ -25,6 +27,8 @@ namespace
     constexpr const char* TEST_DLL_SOURCE = R"SRC(
 #include "Engine/GameMap.h"
 #include <cstdint>
+#include <cstdlib>
+#include <fstream>
 class TestMap : public GameMap {
 public:
     TestMap() : GameMap("TestMap") {}
@@ -32,7 +36,12 @@ public:
     void LoadState(const StateBag& in) override { (void)in.GetInt("value", 0); }
 };
 extern "C" __declspec(dllexport) GameMap* CreateGameMap() { return new TestMap(); }
-extern "C" __declspec(dllexport) void DestroyGameMap(GameMap* m) { delete m; }
+extern "C" __declspec(dllexport) void DestroyGameMap(GameMap* m) {
+    if (const char* marker = std::getenv("RAYWAVES_TEST_DLL_DESTROY_MARKER")) {
+        std::ofstream(marker) << "destroyed";
+    }
+    delete m;
+}
 extern "C" __declspec(dllexport) uint32_t GetGameLogicAbiVersion() { return RAYWAVES_GAMELOGIC_ABI_VERSION; }
 )SRC";
 
@@ -128,6 +137,9 @@ extern "C" __declspec(dllexport) uint32_t GetGameLogicAbiVersion() { return 0xDE
 
 TEST_CASE("DllLoader: shadow copy load, symbol resolve, unload")
 {
+    const fs::path shadow_root = fs::current_path() / ".raywaves" / "shadows";
+    fs::create_directories(shadow_root);
+
     std::string dll_path = WriteTestDll(TEST_DLL_SOURCE, "_ok");
     if (dll_path.empty())
     {
@@ -138,8 +150,9 @@ TEST_CASE("DllLoader: shadow copy load, symbol resolve, unload")
     DllHandle dll = LoadDll(dll_path.c_str());
     REQUIRE(dll.handle != nullptr);
 
-    // Must be a shadow copy, not the original file
+    // Must be a shadow copy, not the original file, and directly in the root.
     CHECK(fs::path(dll.shadow_path).filename().string().find(".shadow.") != std::string::npos);
+    CHECK(fs::path(dll.shadow_path).parent_path() == shadow_root);
     CHECK(fs::path(dll.shadow_path).string() != dll_path);
 
     // Symbols resolve
@@ -169,6 +182,34 @@ TEST_CASE("DllLoader: shadow copy load, symbol resolve, unload")
     UnloadDll(dll);
     CHECK(dll.handle == nullptr);
     CHECK(!fs::exists(shadow));
+}
+
+TEST_CASE("GameLogicLoader: unload destroys a plain DLL-backed GameMap")
+{
+    std::string dll_path = WriteTestDll(TEST_DLL_SOURCE, "_loader_destroy");
+    if (dll_path.empty())
+    {
+        FAIL("Failed to build test DLL (zig not on PATH?)");
+        return;
+    }
+
+    const fs::path marker = fs::temp_directory_path() / "raywaves_loader_destroy_marker.txt";
+    fs::remove(marker);
+    REQUIRE(_putenv_s("RAYWAVES_TEST_DLL_DESTROY_MARKER", marker.string().c_str()) == 0);
+
+    {
+        GameEngine engine;
+        GameLogicLoader loader(engine);
+        REQUIRE(loader.b_LoadGameLogic(dll_path));
+        REQUIRE(engine.GetMap() != nullptr);
+
+        loader.Unload();
+        CHECK(engine.GetMap() == nullptr);
+        CHECK(fs::exists(marker));
+    }
+
+    _putenv_s("RAYWAVES_TEST_DLL_DESTROY_MARKER", "");
+    fs::remove(marker);
 }
 
 TEST_CASE("DllLoader: unload keeps original DLL file writable and intact")
@@ -264,15 +305,30 @@ TEST_CASE("DllLoader: CleanupStaleShadowCopies removes only old shadow DLLs")
     REQUIRE(fs::exists(fresh));
     REQUIRE(fs::exists(foreign));
 
-    // Backdate 'stale' by 2 hours
+    // Older builds created shadows inside random subdirectories. The sweep
+    // must find those files and remove empty leftovers.
+    fs::path nested_dir = shadow_dir / "123456789";
+    fs::create_directories(nested_dir);
+    fs::path nested_stale = nested_dir / "GameLogic.shadow.7.8.9.dll";
+    { std::ofstream(nested_stale) << "x"; }
+    REQUIRE(fs::exists(nested_stale));
+
+    fs::path empty_dir = shadow_dir / "empty-leftover";
+    fs::create_directories(empty_dir);
+
+    // Backdate stale copies by 2 hours
     auto old_time = fs::file_time_type::clock::now() - std::chrono::hours(2);
     fs::last_write_time(stale, old_time);
+    fs::last_write_time(nested_stale, old_time);
 
     CleanupStaleShadowCopies();
 
-    CHECK(!fs::exists(stale));   // old shadow copy removed
-    CHECK(fs::exists(fresh));   // recent shadow copy kept
-    CHECK(fs::exists(foreign)); // non-shadow file untouched
+    CHECK(!fs::exists(stale));        // old shadow copy removed
+    CHECK(!fs::exists(nested_stale)); // nested old shadow copy removed
+    CHECK(!fs::exists(nested_dir));   // empty nested directory removed
+    CHECK(!fs::exists(empty_dir));    // empty leftover directory removed
+    CHECK(fs::exists(fresh));         // recent shadow copy kept
+    CHECK(fs::exists(foreign));       // non-shadow file untouched
 
     fs::remove(fresh);
     fs::remove(foreign);
