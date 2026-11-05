@@ -19,6 +19,7 @@
 | [API reference](API_REFERENCE.md) | Game creators | Engine class reference |
 | [Fundamentals](GUIDE_FUNDAMENTALS.md) | Game creators | Core concepts |
 | [Reference](GUIDE_REFERENCE.md) | Game creators | Detailed engine reference |
+| [Terminal](TERMINAL.md) | Contributors | ConPTY, libvterm, console tabs, shortcuts |
 
 ## Repository map
 

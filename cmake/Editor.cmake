@@ -8,6 +8,7 @@ set(EDITOR_SRC_CPP
     Editor/ExportService.cpp
     Editor/ProcessRunner.cpp
     Editor/terminal/terminal.cpp
+    Editor/terminal/terminal_view.cpp
     Editor/Panels/EditorPreferencesPanel.cpp
     Editor/Panels/ExportPanel.cpp
     Editor/Panels/MainMenuBar.cpp
@@ -16,6 +17,7 @@ set(EDITOR_SRC_CPP
     Editor/Panels/PerformanceOverlay.cpp
     Editor/Panels/SceneSettingsPanel.cpp
     Editor/Panels/SceneWindow.cpp
+    Editor/Panels/TerminalPanel.cpp
 )
 
 set(RLIMGUI_SRC Editor/rlImGui/rlImGui.cpp)
@@ -27,6 +29,35 @@ set(IMGUI_SRC
     Editor/imgui/imgui_stdlib.cpp
 )
 set(TINYFILEDIALOGS Editor/tinyfiledialogs/tinyfiledialogs.c)
+
+set(LIBVTERM_SRC
+    third_party/libvterm/src/encoding.c
+    third_party/libvterm/src/keyboard.c
+    third_party/libvterm/src/mouse.c
+    third_party/libvterm/src/parser.c
+    third_party/libvterm/src/pen.c
+    third_party/libvterm/src/screen.c
+    third_party/libvterm/src/state.c
+    third_party/libvterm/src/unicode.c
+    third_party/libvterm/src/vterm.c
+)
+
+# Terminal core: no ImGui/editor dependencies so unit and integration tests
+# can link it directly.
+add_library(raywaves_terminal_core STATIC
+    Editor/terminal/pty_session.cpp
+    Editor/terminal/shell_detect.cpp
+    Editor/terminal/terminal_session.cpp
+    Editor/terminal/vterm_screen.cpp
+    ${LIBVTERM_SRC}
+)
+target_include_directories(raywaves_terminal_core PUBLIC
+    ${CMAKE_SOURCE_DIR}/Editor/terminal
+    ${CMAKE_SOURCE_DIR}/third_party/libvterm/include
+)
+target_include_directories(raywaves_terminal_core PRIVATE
+    ${CMAKE_SOURCE_DIR}/third_party/libvterm/src
+)
 
 add_executable(main WIN32
     Runtime/main.cpp
@@ -55,7 +86,7 @@ target_include_directories(main PRIVATE
     ${CMAKE_SOURCE_DIR}/Runtime
 )
 
-target_link_libraries(main PRIVATE Engine)
+target_link_libraries(main PRIVATE Engine raywaves_terminal_core)
 add_dependencies(main stage_raylib)
 
 add_custom_command(TARGET main POST_BUILD

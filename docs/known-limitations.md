@@ -13,6 +13,11 @@ Current, intentional limits. Update this page when one changes.
 - No tabbed multi-project workspace.
 - Compile from the bare launcher with no project open depends on system CMake; the
   normal project path uses the bundled toolchain.
+- **Terminal memory:** the terminal is Windows-only (ConPTY). Shell tabs need
+  Windows 10 1809 or newer. Scrollback is capped at 5000 lines per tab and is not
+  reflowed when the window width changes. Private-use Nerd Font prompt glyphs need
+  a fallback font added to the ImGui atlas; raw application mouse reporting is not
+  forwarded.
 
 ## Hot reload
 

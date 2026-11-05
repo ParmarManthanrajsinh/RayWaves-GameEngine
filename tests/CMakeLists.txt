@@ -14,9 +14,11 @@ set(UNIT_TEST_SRC
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/Project_t.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/ReloadRoundtrip_t.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/StateBag_t.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/unit/Terminal_t.cpp
 )
 
 set(INTEGRATION_TEST_SRC
+    ${CMAKE_CURRENT_SOURCE_DIR}/integration/ConPty_t.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/integration/DllLoader_t.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/integration/ExportService_t.cpp
 )
@@ -32,7 +34,7 @@ function(raywaves_configure_test_target target)
         ${CMAKE_SOURCE_DIR}/Editor
         ${CMAKE_SOURCE_DIR}/Runtime
     )
-    target_link_libraries(${target} PRIVATE Engine doctest)
+    target_link_libraries(${target} PRIVATE Engine doctest raywaves_terminal_core)
     add_dependencies(${target} stage_raylib)
     add_custom_command(TARGET ${target} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different

@@ -15,6 +15,7 @@ RayWaves/
 ├─ Editor/                     # RayWaves.exe (ImGui editor)
 │  ├─ GameEditor.cpp           # Main editor loop + orchestration
 │  ├─ Panels/                  # Self-registering editor panels
+│  ├─ terminal/                # Console log tab + ConPTY shell tabs (libvterm)
 │  ├─ ExportService            # Game export pipeline (UI-free)
 │  ├─ GameLogicLoader          # DLL lifecycle + ABI validation
 │  └─ imgui/, rlImGui/         # Vendored UI dependencies
@@ -33,6 +34,7 @@ RayWaves/
 ├─ scripts/                    # build/test/bench/package/check entry points
 ├─ docs/                       # Documentation index and guides
 ├─ third_party/doctest/        # Vendored test framework
+├─ third_party/libvterm/       # Vendored VT parser/screen (MIT)
 ├─ EngineContent/              # Runtime assets: fonts, icons, logo
 └─ Tools/                      # Committed scripts + downloaded zig/ninja/cmake
 ```

@@ -314,13 +314,30 @@ Compile again. Press SPACE to transition from menu to level.
 
 ## 5. Debugging
 
-### Console Panel
+### Terminal and Console
 
-The editor's Console shows output from `std::cout` and `std::cerr`. Use it liberally:
+The editor has one **Terminal** window with tabs:
+
+- **Console** is a non-interactive tab. It shows `std::cout`, `std::cerr`, raylib logs, loader diagnostics, and build output. It supports selection, copy, timestamps, and clearing.
+- **Shell tabs** are real Windows shells attached to a ConPTY. They start in the project root, accept input, run interactive commands, and keep their own scrollback.
 
 ```cpp
 std::cout << "Player position: " << m_PlayerPos.x << ", " << m_PlayerPos.y << std::endl;
 ```
+
+Shell shortcuts:
+
+| Shortcut | Action |
+|---|---|
+| `Ctrl+C` | Copy selection, or send SIGINT to the shell |
+| `Ctrl+V` / `Ctrl+Shift+V` | Paste |
+| `Ctrl+Shift+A` | Select all |
+| `Ctrl+Shift+T` | New shell tab |
+| `Ctrl+Shift+W` | Close active shell tab |
+| `Ctrl+Home` / `Ctrl+End` | Scroll to top / bottom |
+| `Shift+PageUp` / `Shift+PageDown` | Scroll history |
+
+The shell is auto-detected in this order: PowerShell 7 (`pwsh.exe`), Windows PowerShell, then `cmd.exe`. ConPTY requires Windows 10 version 1809 or newer; on older systems the Console tab still works.
 
 ### Common Crash Causes
 

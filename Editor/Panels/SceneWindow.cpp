@@ -196,7 +196,7 @@ void SceneWindow::Draw(GameEditor* editor)
 	// Terminal Toggle
 	const ImVec4 TERM_COLOR = editor->m_bShowTerminal ? ImGui::GetStyle().Colors[ImGuiCol_Text] : ImGui::GetStyle().Colors[ImGuiCol_TextDisabled];
 	ImGui::PushStyleColor(ImGuiCol_Text, TERM_COLOR);
-	if (s_bIconButton("term_btn", ICON_FA_TERMINAL, ImVec2(32, 32), "Debug Console")) editor->m_bShowTerminal = !editor->m_bShowTerminal;
+	if (s_bIconButton("term_btn", ICON_FA_TERMINAL, ImVec2(32, 32), "Terminal")) editor->m_bShowTerminal = !editor->m_bShowTerminal;
 	ImGui::PopStyleColor();
 	ImGui::SameLine();
 

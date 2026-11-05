@@ -21,6 +21,7 @@ using Clock = std::chrono::steady_clock;
 #include "Panels/PerformanceOverlay.h"
 #include "Panels/MessageLogPanel.h"
 #include "Panels/EditorPreferencesPanel.h"
+#include "Panels/TerminalPanel.h"
 #include "EditorPreferences.h"
 #include "PanelRegistry.h"
 #include <memory>
@@ -45,6 +46,7 @@ namespace
             &s_fMakePanel<PerformanceOverlay>,
             &s_fMakePanel<MessageLogPanel>,
             &s_fMakePanel<EditorPreferencesPanel>,
+            &s_fMakePanel<TerminalPanel>,
         };
     }
 }
@@ -64,6 +66,11 @@ GameEditor::GameEditor()
 {
     m_Terminal.InitCapture();
 
+    if (ProjectManager::b_HasOpenProject())
+    {
+        m_Terminal.SetWorkingDirectory(ProjectManager::GetCurrent().m_RootPath);
+    }
+
     // Route loader diagnostics into the editor terminal (stderr is invisible
     // in the GUI app) and wire DLL exit requests to window close.
     m_LogicLoader.SetLogSink([this](std::string_view message, bool is_error)
@@ -78,7 +85,7 @@ GameEditor::GameEditor()
         }
     });
 
-	m_Panels.reserve(8);
+	m_Panels.reserve(9);
     for (FPanelFactory factory : s_CorePanelFactories())
     {
         m_Panels.push_back(factory());
@@ -539,6 +546,7 @@ void GameEditor::OpenProject(std::string_view folderPath)
     }
 
     std::filesystem::path proj_dir = ProjectManager::GetCurrent().m_RootPath;
+    m_Terminal.SetWorkingDirectory(proj_dir.string());
     s_LayoutPath = (proj_dir / ".raywaves" / "layout.ini").string();
     ImGui::GetIO().IniFilename = s_LayoutPath.c_str();
 
@@ -700,11 +708,6 @@ void GameEditor::Run()
         for (auto& panel : m_Panels)
         {
             panel->Draw(this);
-        }
-
-        if (m_bShowTerminal)
-        {
-            m_Terminal.show(ICON_FA_TERMINAL " Console", &m_bShowTerminal);
         }
 
 		rlImGuiEnd();
@@ -878,6 +881,7 @@ void GameEditor::CompileGameLogic()
     b_IsPlaying = false;
 
     m_bShowTerminal = true;
+    m_Terminal.SelectConsole();
     m_Terminal.add_text("Starting build process...", term::Severity::Debug);
 
     BuildStatus = EBuildStatus::Compiling;

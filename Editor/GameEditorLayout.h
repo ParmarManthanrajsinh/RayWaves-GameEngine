@@ -52,7 +52,7 @@ Pos=10,140
 Size=220,182
 Collapsed=0
 
-[Window][)" + ICON_FA_TERMINAL + R"( Console]
+[Window][)" + ICON_FA_TERMINAL + R"( Terminal]
 Pos=0,505
 Size=966,215
 Collapsed=0

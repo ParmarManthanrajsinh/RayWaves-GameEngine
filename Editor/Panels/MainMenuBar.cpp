@@ -50,15 +50,17 @@ void MainMenuBar::Draw(GameEditor* editor)
             ImGui::EndMenu();
         }
 
-        // Global Ctrl+S shortcut (works even when menu is not focused)
-        if (ImGui::IsKeyChordPressed(ImGuiMod_Ctrl | ImGuiKey_S))
+        // Global Ctrl+S shortcut (works even when menu is not focused).
+        // Do not steal it from a focused terminal shell.
+        if (!editor->GetTerminal().b_IsKeyboardCaptured() &&
+            ImGui::IsKeyChordPressed(ImGuiMod_Ctrl | ImGuiKey_S))
         {
             SaveProjectWithSceneSettings(editor);
         }
 
         if (ImGui::BeginMenu("View"))
         {
-            ImGui::MenuItem(ICON_FA_TERMINAL " Console", nullptr, &editor->m_bShowTerminal);
+            ImGui::MenuItem(ICON_FA_TERMINAL " Terminal", nullptr, &editor->m_bShowTerminal);
             ImGui::MenuItem(ICON_FA_CHART_LINE " Performance Stats", nullptr, &editor->m_bShowPerformanceStats);
             ImGui::MenuItem(ICON_FA_LIST " Message Log", nullptr, &editor->bShowMessageLog);
             ImGui::EndMenu();
