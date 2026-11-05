@@ -87,11 +87,20 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS_BACKUP}")
 unset(CMAKE_C_FLAGS_BACKUP)
 unset(CMAKE_CXX_FLAGS_BACKUP)
 
-# Stage raylib headers + static lib alongside exe so generated
-# per-project CMakeLists.txt can find them with exe-relative path.
+# Stage raylib headers + import lib alongside exe so generated
+# per-project CMakeLists.txt can find them with exe-relative paths.
+#
+# NOTE: raylib is built *after* this configure step, so on a clean build
+# directory the import library does not exist yet here. The stage_raylib
+# target below is what guarantees the staged lib/ directory is actually
+# populated; without it, project GameLogic builds fail with
+# "-lraylib not found".
 set(RAYLIB_BUILD_DIR "${CMAKE_BINARY_DIR}/_deps/raylib-build/raylib")
 set(RAYLIB_STAGEDIR "${CMAKE_BINARY_DIR}/raylib")
-file(MAKE_DIRECTORY "${RAYLIB_STAGEDIR}/include" "${RAYLIB_STAGEDIR}/lib")
+file(MAKE_DIRECTORY "${RAYLIB_STAGEDIR}/include" "${RAYLIB_STAGEDIR}/lib" "${RAYLIB_STAGEDIR}/bin")
+
+# Best-effort copy at configure time for build trees where raylib is already
+# built (e.g. re-configuring an existing build directory).
 foreach(HDR raylib.h raymath.h rcamera.h rlgl.h)
     if(EXISTS "${RAYLIB_BUILD_DIR}/include/${HDR}")
         file(COPY "${RAYLIB_BUILD_DIR}/include/${HDR}" DESTINATION "${RAYLIB_STAGEDIR}/include/")
@@ -103,6 +112,32 @@ if(EXISTS "${RAYLIB_BUILD_DIR}/libraylib.dll.a")
         file(RENAME "${RAYLIB_STAGEDIR}/lib/libraylib.dll.a" "${RAYLIB_STAGEDIR}/lib/libraylib.a")
     endif()
 endif()
+
+# Stage again after every raylib build. This is required for clean build
+# directories, where the configure-time copy above finds nothing.
+#
+# A custom target is used instead of add_custom_command(TARGET raylib ...)
+# because raylib is created in the FetchContent subdirectory, and CMake
+# rejects POST_BUILD hooks on targets created in another directory.
+add_custom_target(stage_raylib
+    COMMAND ${CMAKE_COMMAND} -E make_directory
+            "${RAYLIB_STAGEDIR}/include" "${RAYLIB_STAGEDIR}/lib" "${RAYLIB_STAGEDIR}/bin"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "$<TARGET_LINKER_FILE:raylib>" "${RAYLIB_STAGEDIR}/lib/libraylib.a"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "$<TARGET_FILE:raylib>" "${RAYLIB_STAGEDIR}/bin/libraylib.dll"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${RAYLIB_BUILD_DIR}/include/raylib.h" "${RAYLIB_STAGEDIR}/include/raylib.h"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${RAYLIB_BUILD_DIR}/include/raymath.h" "${RAYLIB_STAGEDIR}/include/raymath.h"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${RAYLIB_BUILD_DIR}/include/rcamera.h" "${RAYLIB_STAGEDIR}/include/rcamera.h"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${RAYLIB_BUILD_DIR}/include/rlgl.h" "${RAYLIB_STAGEDIR}/include/rlgl.h"
+    COMMENT "Staging raylib for generated project builds"
+    VERBATIM
+)
+add_dependencies(stage_raylib raylib)
 
 # Collect source files
 # Explicitly list Game sources for the editor to avoid pulling in game-only main
@@ -342,6 +377,15 @@ target_link_libraries(tests PRIVATE Engine)
 add_custom_command(TARGET tests POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:raylib> $<TARGET_FILE_DIR:tests>
 )
+
+# Stage raylib before any host target builds. Generated per-project builds
+# link against ${CMAKE_BINARY_DIR}/raylib/lib, so it must be populated before
+# the editor is usable.
+add_dependencies(main stage_raylib)
+add_dependencies(game stage_raylib)
+add_dependencies(GameLogic stage_raylib)
+add_dependencies(smoketest stage_raylib)
+add_dependencies(tests stage_raylib)
 
 enable_testing()
 add_test(NAME unit COMMAND tests WORKING_DIRECTORY ${CMAKE_BINARY_DIR})

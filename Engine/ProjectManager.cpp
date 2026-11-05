@@ -328,6 +328,25 @@ bool ProjectManager::GenerateCMakeLists()
     {
         raylib_dir = exe_dir / "Core" / "raylib";
     }
+
+    // Older build trees predate raylib staging and leave raylib/lib empty.
+    // Fall back to the FetchContent build tree so project builds keep working
+    // until the engine is rebuilt.
+    auto has_raylib_import = [](const fs::path& dir)
+    {
+        return fs::exists(dir / "lib" / "libraylib.a")
+            || fs::exists(dir / "lib" / "libraylib.dll.a")
+            || fs::exists(dir / "lib" / "raylib.lib")
+            || fs::exists(dir / "libraylib.dll.a")
+            || fs::exists(dir / "libraylib.a")
+            || fs::exists(dir / "raylib.lib");
+    };
+    if (!has_raylib_import(raylib_dir))
+    {
+        fs::path fetched = exe_dir / "_deps" / "raylib-build" / "raylib";
+        if (has_raylib_import(fetched)) raylib_dir = fetched;
+    }
+
     std::string raylib_dir_str = raylib_dir.string();
     std::ranges::replace(raylib_dir_str, '\\', '/');
 
@@ -397,8 +416,26 @@ bool ProjectManager::GenerateCMakeLists()
     file << "    \"${RAYLIB_DIR}/include\"\n";
     file << ")\n\n";
     
-    file << "target_link_directories(GameLogic PRIVATE \"${RAYLIB_DIR}/lib\")\n";
-    file << "target_link_libraries(GameLogic PRIVATE raylib dwmapi)\n\n";
+    // Zig's linker only recognizes raylib.dll, raylib.lib or libraylib.a when
+    // using -lraylib. raylib's own build produces libraylib.dll.a, so resolve
+    // the import library by path instead of relying on -L/-l name matching.
+    file << "set(RAYLIB_IMPORT_LIB \"\")\n";
+    file << "foreach(CANDIDATE\n";
+    file << "    \"${RAYLIB_DIR}/lib/libraylib.a\"\n";
+    file << "    \"${RAYLIB_DIR}/lib/libraylib.dll.a\"\n";
+    file << "    \"${RAYLIB_DIR}/lib/raylib.lib\"\n";
+    file << "    \"${RAYLIB_DIR}/libraylib.dll.a\"\n";
+    file << "    \"${RAYLIB_DIR}/libraylib.a\"\n";
+    file << "    \"${RAYLIB_DIR}/raylib.lib\")\n";
+    file << "    if(EXISTS \"${CANDIDATE}\")\n";
+    file << "        set(RAYLIB_IMPORT_LIB \"${CANDIDATE}\")\n";
+    file << "        break()\n";
+    file << "    endif()\n";
+    file << "endforeach()\n";
+    file << "if(NOT RAYLIB_IMPORT_LIB)\n";
+    file << "    message(FATAL_ERROR \"raylib import library not found under ${RAYLIB_DIR}. Rebuild the RayWaves editor so it stages raylib, then reopen the project.\")\n";
+    file << "endif()\n\n";
+    file << "target_link_libraries(GameLogic PRIVATE \"${RAYLIB_IMPORT_LIB}\" dwmapi)\n\n";
     
     file << "set_target_properties(GameLogic PROPERTIES RUNTIME_OUTPUT_DIRECTORY \"${CMAKE_SOURCE_DIR}/..\")\n";
     file << "set_target_properties(GameLogic PROPERTIES LIBRARY_OUTPUT_DIRECTORY \"${CMAKE_SOURCE_DIR}/..\")\n";
