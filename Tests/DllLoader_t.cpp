@@ -53,9 +53,46 @@ extern "C" __declspec(dllexport) uint32_t GetGameLogicAbiVersion() { return 0xDE
     // <repo>/build/<config>/tests.exe
     fs::path repo_root = GetRepoRoot();
     fs::path zig_exe = repo_root / "Tools" / "zig" / "zig.exe";
-    // Staged raylib headers next to the build dir (CMake copies them there)
-    fs::path raylib_include = fs::path(GetHostExePath()).parent_path() / "raylib" / "include";
-    fs::path raylib_lib = fs::path(GetHostExePath()).parent_path() / "raylib" / "lib";
+    // Staged raylib root next to the test executable, with a fallback to the
+    // FetchContent build tree. The staged lib/ directory is only populated by
+    // a configure pass that runs after raylib has been built, so on a fresh
+    // build directory it can be missing entirely.
+    fs::path build_dir = fs::path(GetHostExePath()).parent_path();
+    fs::path raylib_staged = build_dir / "raylib";
+    fs::path raylib_fetched = build_dir / "_deps" / "raylib-build" / "raylib";
+
+    fs::path ResolveRaylibInclude()
+    {
+        for (const auto& candidate : {raylib_staged / "include", raylib_fetched / "include"})
+        {
+            if (fs::exists(candidate)) return candidate;
+        }
+        return raylib_staged / "include";
+    }
+
+    // Zig looks for raylib.dll, raylib.lib or libraylib.a. raylib's Zig build
+    // produces an import library named libraylib.dll.a, so point the compiler
+    // at the file directly (matching what distribute.ps1 does).
+    fs::path ResolveRaylibImportLib()
+    {
+        for (const auto& candidate : {
+                 raylib_staged / "lib" / "libraylib.a",
+                 raylib_staged / "lib" / "libraylib.dll.a",
+                 raylib_fetched / "libraylib.dll.a",
+                 raylib_fetched / "libraylib.a",
+             })
+        {
+            if (fs::exists(candidate)) return candidate;
+        }
+        return {};
+    }
+
+    // std::system goes through cmd.exe, so any path containing spaces must be
+    // quoted or it is split into several arguments.
+    std::string Quote(const fs::path& path)
+    {
+        return "\"" + path.string() + "\"";
+    }
 
     std::string WriteTestDll(const char* source, const std::string& tag)
     {
@@ -66,18 +103,25 @@ extern "C" __declspec(dllexport) uint32_t GetGameLogicAbiVersion() { return 0xDE
 
         if (!fs::exists(zig_exe)) return "";
 
+        fs::path raylib_include = ResolveRaylibInclude();
+        fs::path raylib_import = ResolveRaylibImportLib();
+        if (!fs::exists(raylib_import)) return "";
+
         // GameMap isn't header-only; compile the minimal Engine translation
         // units it depends on (same approach the export pipeline uses).
-        std::string cmd = "\"" + zig_exe.string() + "\" c++ -shared -std=c++23 -o "
-            + (tmp / "TestGameLogic.dll").string()
-            + " " + cpp.string()
-            + " " + (repo_root / "Engine" / "GameMap.cpp").string()
-            + " " + (repo_root / "Engine" / "AssetResolver.cpp").string()
-            + " -I" + repo_root.string()
-            + " -I" + raylib_include.string()
-            + " -L" + raylib_lib.string()
-            + " -lraylib";
-        if (std::system(cmd.c_str()) != 0) return "";
+        std::string cmd = Quote(zig_exe) + " c++ -shared -std=c++23 -o "
+            + Quote(tmp / "TestGameLogic.dll")
+            + " " + Quote(cpp)
+            + " " + Quote(repo_root / "Engine" / "GameMap.cpp")
+            + " " + Quote(repo_root / "Engine" / "AssetResolver.cpp")
+            + " -I" + Quote(repo_root)
+            + " -I" + Quote(raylib_include)
+            + " " + Quote(raylib_import);
+        // cmd.exe /c strips the first and last quote when the command starts
+        // with a quoted path, which breaks paths containing spaces. Wrapping
+        // the whole command in an extra pair of quotes preserves them.
+        std::string wrapped = "\"" + cmd + "\"";
+        if (std::system(wrapped.c_str()) != 0) return "";
         return (tmp / "TestGameLogic.dll").string();
     }
 }
