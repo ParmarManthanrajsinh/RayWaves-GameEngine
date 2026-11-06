@@ -208,7 +208,14 @@ void ProjectManager::AddRecent(std::string_view path)
 {
     InitializeRecentPath();
     std::vector<std::string> recent = GetRecent();
-    
+
+    // Normalize all paths so comparison works even for legacy entries
+    // stored without normalization.
+    for (auto& entry : recent)
+    {
+        entry = fs::path(entry).lexically_normal().string();
+    }
+
     // Normalize path
     std::string norm_path = fs::path(path).lexically_normal().string();
 
@@ -236,7 +243,14 @@ void ProjectManager::RemoveRecent(std::string_view path)
 {
     InitializeRecentPath();
     std::vector<std::string> recent = GetRecent();
-    
+
+    // Normalize all paths so comparison works even for legacy entries
+    // stored without normalization.
+    for (auto& entry : recent)
+    {
+        entry = fs::path(entry).lexically_normal().string();
+    }
+
     // Normalize path
     std::string norm_path = fs::path(path).lexically_normal().string();
 
@@ -271,7 +285,9 @@ std::vector<std::string> ProjectManager::GetRecent()
             std::string value(line.begin() + equal_pos + 1, line.end());
             value.erase(0, value.find_first_not_of(" \t"));
             value.erase(value.find_last_not_of(" \t") + 1);
-            if (!value.empty() && t_Project::b_IsProjectFolder(value))
+            // Keep missing entries: UI shows them greyed as "(missing)" and
+            // lets the user remove them from the list.
+            if (!value.empty())
             {
                 recent.push_back(value);
             }

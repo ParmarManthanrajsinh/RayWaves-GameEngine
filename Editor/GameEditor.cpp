@@ -313,6 +313,12 @@ void GameEditor::RunBrowser()
                 float availW = ImGui::GetContentRegionAvail().x;
                 ImVec2 rowPos = ImGui::GetCursorScreenPos();
 
+                // Leave a gutter for the trash button. Drawing the button
+                // overlapping the Selectable race: it unmounts/mounts under
+                // the mouse and can never receive a click.
+                float btnW = 36.0f;
+                float rowW = availW - btnW - 8.0f;
+
                 if (!exists)
                 {
                     ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyle().Colors[ImGuiCol_TextDisabled]);
@@ -320,12 +326,10 @@ void GameEditor::RunBrowser()
                 }
 
                 // Clickable row
-                if (ImGui::Selectable("##recent_proj", false, exists ? 0 : ImGuiSelectableFlags_Disabled, ImVec2(availW, rowHeight)))
+                if (ImGui::Selectable("##recent_proj", false, exists ? 0 : ImGuiSelectableFlags_Disabled, ImVec2(rowW, rowHeight)))
                 {
                     if (exists) OpenProject(path);
                 }
-
-                bool isHovered = ImGui::IsItemHovered();
 
                 // Folder icon
                 ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyle().Colors[ImGuiCol_TextDisabled]);
@@ -334,28 +338,28 @@ void GameEditor::RunBrowser()
                 ImGui::Text(ICON_FA_FOLDER);
                 ImGui::PopStyleColor();
 
-                // Project name
+                // Project name + path, clipped to the row so long strings
+                // never render underneath the trash button.
+                ImGui::PushClipRect(ImVec2(rowPos.x, rowPos.y), ImVec2(rowPos.x + rowW, rowPos.y + rowHeight), true);
                 ImVec2 namePos(rowPos.x + 40.0f, rowPos.y + 5.0f);
                 ImGui::SetCursorScreenPos(namePos);
                 ImGui::Text("%s", displayName.c_str());
 
-                // Path
                 ImVec2 pathPos(rowPos.x + 40.0f, rowPos.y + 25.0f);
                 ImGui::SetCursorScreenPos(pathPos);
                 ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyle().Colors[ImGuiCol_TextDisabled]);
                 ImGui::Text("%s", path.c_str());
                 ImGui::PopStyleColor();
+                ImGui::PopClipRect();
 
                 if (!exists) ImGui::PopStyleColor();
 
-                // Trash button on hover
-                if (isHovered)
+                // Trash button: always mounted next to the row, never
+                // overlapping it, so the mouse can always hover/click it.
+                ImGui::SetCursorScreenPos(ImVec2(rowPos.x + availW - btnW, rowPos.y + ((rowHeight - 24.0f) * 0.5f)));
+                if (ImGui::Button(ICON_FA_TRASH_CAN "##del"))
                 {
-                    ImGui::SetCursorScreenPos(ImVec2(rowPos.x + availW - 36.0f, rowPos.y + ((rowHeight - 24.0f) * 0.5f)));
-                    if (ImGui::Button(ICON_FA_TRASH_CAN))
-                    {
-                        ImGui::OpenPopup("RemoveRecentPopup");
-                    }
+                    ImGui::OpenPopup("RemoveRecentPopup");
                 }
 
                 if (ImGui::BeginPopup("RemoveRecentPopup"))
