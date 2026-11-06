@@ -181,7 +181,7 @@ if "%CMD%"=="format" (
         "%PROJECT_ROOT%\templates\Empty\GameLogic\*.cpp"
         "%PROJECT_ROOT%\templates\Empty\GameLogic\*.h"
     ) do (
-        if exist "%%f" (
+        if exist "%%f" if /i not "%%~nxf"=="raygui.h" (
             "%CLANG_FORMAT%" -i -style=file "%%f"
         )
     )
@@ -206,7 +206,7 @@ if "%CMD%"=="format-check" (
         "%PROJECT_ROOT%\templates\Empty\GameLogic\*.cpp"
         "%PROJECT_ROOT%\templates\Empty\GameLogic\*.h"
     ) do (
-        if exist "%%f" (
+        if exist "%%f" if /i not "%%~nxf"=="raygui.h" (
             "%CLANG_FORMAT%" -n -style=file -Werror "%%f" 2>&1 | findstr /i "error" >nul
             if !ERRORLEVEL! equ 0 (
                 echo [UNFORMATTED] %%f

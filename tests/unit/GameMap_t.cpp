@@ -1,9 +1,10 @@
-﻿#include "doctest/doctest.h"
+﻿#include "Engine/AssetResolver.h"
 #include "Engine/GameMap.h"
 #include "Engine/GameState.h"
-#include "Engine/AssetResolver.h"
+#include "doctest/doctest.h"
 
-class TestGameMap : public GameMap {
+class TestGameMap : public GameMap
+{
 public:
     using GameMap::GameMap;
 

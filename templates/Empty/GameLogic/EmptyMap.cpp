@@ -1,26 +1,30 @@
 #include "EmptyMap.h"
-#include <iostream>
 #include <cmath>
+#include <iostream>
 
-void EmptyMap::Initialize() 
+void EmptyMap::Initialize()
 {
     std::cout << "EmptyMap initialized\n";
     playerPos = { 400.0f, 300.0f };
     time = 0.0f;
 }
 
-void EmptyMap::Update(float delta_time) 
+void EmptyMap::Update(float delta_time)
 {
     time += delta_time;
     float speed = 200.0f * delta_time;
 
-    if (IsKeyDown(KEY_RIGHT)) playerPos.x += speed;
-    if (IsKeyDown(KEY_LEFT)) playerPos.x -= speed;
-    if (IsKeyDown(KEY_DOWN)) playerPos.y += speed;
-    if (IsKeyDown(KEY_UP)) playerPos.y -= speed;
+    if (IsKeyDown(KEY_RIGHT))
+        playerPos.x += speed;
+    if (IsKeyDown(KEY_LEFT))
+        playerPos.x -= speed;
+    if (IsKeyDown(KEY_DOWN))
+        playerPos.y += speed;
+    if (IsKeyDown(KEY_UP))
+        playerPos.y -= speed;
 }
 
-void EmptyMap::Draw() 
+void EmptyMap::Draw()
 {
     // Dark background
     Color bg = { 24, 24, 24, 255 }; // #181818
@@ -44,7 +48,7 @@ void EmptyMap::Draw()
     const char* title = "Welcome to RayWaves Engine";
     int titleWidth = MeasureText(title, 30);
     DrawText(title, (screenWidth / 2) - (titleWidth / 2), 50 + static_cast<int>(textYOffset), 30, LIGHTGRAY);
-    
+
     const char* subtext = "Edit GameLogic to start";
     int subWidth = MeasureText(subtext, 20);
     DrawText(subtext, (screenWidth / 2) - (subWidth / 2), 90 + static_cast<int>(textYOffset), 20, GRAY);

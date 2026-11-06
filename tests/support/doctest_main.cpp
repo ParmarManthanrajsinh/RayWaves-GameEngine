@@ -2,10 +2,13 @@
 #include "doctest/doctest.h"
 int main(int argc, char** argv)
 {
-    try {
+    try
+    {
         doctest::Context ctx(argc, argv);
         return ctx.run();
-    } catch (...) {
+    }
+    catch (...)
+    {
         return -1;
     }
 }

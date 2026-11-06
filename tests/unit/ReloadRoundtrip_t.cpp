@@ -1,47 +1,47 @@
-﻿#include "doctest/doctest.h"
+﻿#include "Engine/GameMap.h"
 #include "Engine/GameState.h"
-#include "Engine/GameMap.h"
 #include "Engine/MapManager.h"
+#include "doctest/doctest.h"
 #include <memory>
 
 namespace
 {
-    // Simulates a game map that participates in hot-reload state preservation:
-    // fills the StateBag on save, reads it back on load, exactly like the
-    // editor's reload flow (SaveState -> destroy -> new instance -> LoadState).
-    class ReloadTestMap : public GameMap
+// Simulates a game map that participates in hot-reload state preservation:
+// fills the StateBag on save, reads it back on load, exactly like the
+// editor's reload flow (SaveState -> destroy -> new instance -> LoadState).
+class ReloadTestMap : public GameMap
+{
+public:
+    ReloadTestMap() : GameMap("ReloadTestMap") {}
+
+    void SaveState(StateBag& out) const override
     {
-    public:
-        ReloadTestMap() : GameMap("ReloadTestMap") {}
+        out.SetFloat("player_x", 120.5f);
+        out.SetFloat("player_y", -33.25f);
+        out.SetInt("score", 4200);
+        out.SetBool("paused", true);
+        out.SetString("level_name", "DemoLevel");
+        out.SetVector2("velocity", { -4.5f, 9.75f });
+    }
 
-        void SaveState(StateBag& out) const override
-        {
-            out.SetFloat("player_x", 120.5f);
-            out.SetFloat("player_y", -33.25f);
-            out.SetInt("score", 4200);
-            out.SetBool("paused", true);
-            out.SetString("level_name", "DemoLevel");
-            out.SetVector2("velocity", {-4.5f, 9.75f});
-        }
+    void LoadState(const StateBag& in) override
+    {
+        m_PlayerX = in.GetFloat("player_x");
+        m_PlayerY = in.GetFloat("player_y");
+        m_Score = in.GetInt("score");
+        m_bPaused = in.GetBool("paused");
+        m_LevelName = in.GetString("level_name");
+        m_Velocity = in.GetVector2("velocity");
+    }
 
-        void LoadState(const StateBag& in) override
-        {
-            m_PlayerX = in.GetFloat("player_x");
-            m_PlayerY = in.GetFloat("player_y");
-            m_Score = in.GetInt("score");
-            m_bPaused = in.GetBool("paused");
-            m_LevelName = in.GetString("level_name");
-            m_Velocity = in.GetVector2("velocity");
-        }
-
-        float m_PlayerX = 0.0f;
-        float m_PlayerY = 0.0f;
-        int m_Score = 0;
-        bool m_bPaused = false;
-        std::string m_LevelName;
-        Vector2 m_Velocity{};
-    };
-}
+    float m_PlayerX = 0.0f;
+    float m_PlayerY = 0.0f;
+    int m_Score = 0;
+    bool m_bPaused = false;
+    std::string m_LevelName;
+    Vector2 m_Velocity{};
+};
+} // namespace
 
 TEST_CASE("Reload round-trip: state survives instance swap")
 {

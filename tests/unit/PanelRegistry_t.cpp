@@ -1,17 +1,21 @@
-﻿#include "doctest/doctest.h"
-#include "PanelRegistry.h"
+﻿#include "PanelRegistry.h"
+#include "doctest/doctest.h"
 #include <cstddef>
 
 namespace
 {
-    class FakePanel : public IEditorPanel
+class FakePanel : public IEditorPanel
+{
+public:
+    void Draw(GameEditor* editor) override
     {
-    public:
-        void Draw(GameEditor* editor) override { (void)editor; ++s_Draws; }
-        static int s_Draws;
-    };
-    int FakePanel::s_Draws = 0;
-}
+        (void)editor;
+        ++s_Draws;
+    }
+    static int s_Draws;
+};
+int FakePanel::s_Draws = 0;
+} // namespace
 
 TEST_CASE("PanelRegistry: extension panel self-registers and builds")
 {

@@ -1,8 +1,8 @@
 #pragma once
-#include<cstring>
-#include<string>
-#include<imgui.h>
 #include "rlImGui/extras/IconsFontAwesome6.h"
+#include <cstring>
+#include <imgui.h>
+#include <string>
 
 inline void LoadEditorDefaultIni()
 {
@@ -20,24 +20,28 @@ Pos=60,60
 Size=400,400
 Collapsed=0
 
-[Window][)") + ICON_FA_IMAGE + R"( Scene]
+[Window][)") +
+        ICON_FA_IMAGE + R"( Scene]
 Pos=0,25
 Size=966,478
 Collapsed=1
 DockId=0x00000001,0
 
-[Window][)" + ICON_FA_MAP + R"( Map Selection]
+[Window][)" +
+        ICON_FA_MAP + R"( Map Selection]
 Pos=968,25
 Size=312,695
 Collapsed=0
 DockId=0x00000003,0
 
-[Window][)" + ICON_FA_FILE_EXPORT + R"( Export]
+[Window][)" +
+        ICON_FA_FILE_EXPORT + R"( Export]
 Pos=141,134
 Size=695,748
 Collapsed=0
 
-[Window][)" + ICON_FA_GEARS + R"( Scene Settings]
+[Window][)" +
+        ICON_FA_GEARS + R"( Scene Settings]
 Pos=65,116
 Size=564,222
 Collapsed=0
@@ -52,7 +56,8 @@ Pos=10,140
 Size=220,182
 Collapsed=0
 
-[Window][)" + ICON_FA_TERMINAL + R"( Terminal]
+[Window][)" +
+        ICON_FA_TERMINAL + R"( Terminal]
 Pos=0,505
 Size=966,215
 Collapsed=0
@@ -70,10 +75,7 @@ DockSpace     ID=0x08BD597D Window=0x1BBC0F80 Pos=0,25 Size=1280,695 Split=X
   DockNode    ID=0x00000003 Parent=0x08BD597D SizeRef=312,695 Selected=0x38B9FCCC
 )";
 
-    ImGui::LoadIniSettingsFromMemory
-    (
-        ini.c_str(), ini.size()
-    );
+    ImGui::LoadIniSettingsFromMemory(ini.c_str(), ini.size());
 }
 
 // Core Shaders for raylib
@@ -108,8 +110,5 @@ void main()
 
 inline Shader LoadOpaqueShader()
 {
-    return LoadShaderFromMemory
-    (
-        c_OPAQUE_VERT_SHADER_SRC.data(), c_OPAQUE_FRAG_SHADER_SRC.data()
-    );
+    return LoadShaderFromMemory(c_OPAQUE_VERT_SHADER_SRC.data(), c_OPAQUE_FRAG_SHADER_SRC.data());
 }

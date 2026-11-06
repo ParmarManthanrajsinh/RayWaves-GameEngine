@@ -4,18 +4,17 @@
 
 std::string AssetResolver::s_BasePath;
 std::string AssetResolver::s_BaseAbs;
-std::unordered_map<std::string, std::string, AssetResolver::StringHash, std::equal_to<>>
-    AssetResolver::s_Cache;
+std::unordered_map<std::string, std::string, AssetResolver::StringHash, std::equal_to<>> AssetResolver::s_Cache;
 
-void AssetResolver::SetProjectAssetPath(std::string_view path) {
+void AssetResolver::SetProjectAssetPath(std::string_view path)
+{
     s_BasePath = std::string(path);
-    s_BaseAbs = s_BasePath.empty()
-        ? std::string()
-        : std::filesystem::absolute(s_BasePath).lexically_normal().string();
+    s_BaseAbs = s_BasePath.empty() ? std::string() : std::filesystem::absolute(s_BasePath).lexically_normal().string();
     s_Cache.clear();
 }
 
-std::string AssetResolver::Resolve(std::string_view relativePath) {
+std::string AssetResolver::Resolve(std::string_view relativePath)
+{
     if (s_BaseAbs.empty())
         return std::string(relativePath);
     if (relativePath.empty())
@@ -47,6 +46,7 @@ std::string AssetResolver::Resolve(std::string_view relativePath) {
     return resolved_str;
 }
 
-std::string AssetResolver::GetProjectAssetPath() {
+std::string AssetResolver::GetProjectAssetPath()
+{
     return s_BasePath;
 }

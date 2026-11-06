@@ -5,7 +5,7 @@ class GameCamera
 {
 public:
     GameCamera();
-    
+
     void Initialize(Vector2 Target, float Zoom = 2.5f);
     void Reset(Vector2 Target);
     void FollowTarget(Vector2 Target, float DeltaTime, float SmoothSpeed = 5.0f);
@@ -14,17 +14,17 @@ public:
     void SetZoom(float Zoom);
     void SetMinZoom(float MinZoom);
     void UpdateViewport(float width, float height);
-    
+
     void Begin() const;
-    static void End() ;
-    
+    static void End();
+
     Camera2D GetRaylibCamera() const { return m_Camera; }
     Vector2 GetTarget() const { return m_Camera.target; }
     float GetZoom() const { return m_Camera.zoom; }
-    
+
 private:
     Camera2D m_Camera;
-    
+
     float m_ViewportWidth;
     float m_ViewportHeight;
     float m_BoundsLeft;

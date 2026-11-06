@@ -15,7 +15,7 @@
 namespace fs = std::filesystem;
 #define WIN32_LEAN_AND_MEAN
 
-struct DllHandle 
+struct DllHandle
 {
     void* handle = nullptr;
     // Absolute path of the shadow-copied DLL actually loaded via LoadLibrary.
@@ -24,14 +24,12 @@ struct DllHandle
     std::string shadow_path;
 
     DllHandle() = default;
-    DllHandle(void* h, std::string path)
-        : handle(h), shadow_path(std::move(path)) {}
+    DllHandle(void* h, std::string path) : handle(h), shadow_path(std::move(path)) {}
 
     DllHandle(const DllHandle&) = delete;
     DllHandle& operator=(const DllHandle&) = delete;
 
-    DllHandle(DllHandle&& other) noexcept
-        : handle(other.handle), shadow_path(std::move(other.shadow_path))
+    DllHandle(DllHandle&& other) noexcept : handle(other.handle), shadow_path(std::move(other.shadow_path))
     {
         other.handle = nullptr;
     }

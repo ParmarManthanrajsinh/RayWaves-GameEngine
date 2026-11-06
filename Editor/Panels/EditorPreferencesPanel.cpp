@@ -1,13 +1,14 @@
 #include "EditorPreferencesPanel.h"
-#include "../GameEditor.h"
 #include "../EditorPreferences.h"
+#include "../GameEditor.h"
 #include "../GameEditorLayout.h"
 #include "../GameEditorTheme.h"
 #include <filesystem>
 
 void EditorPreferencesPanel::Draw(GameEditor* editor)
 {
-    if (!editor->m_bShowEditorPreferences) return;
+    if (!editor->m_bShowEditorPreferences)
+        return;
 
     if (ImGui::Begin(ICON_FA_SLIDERS " Editor Preferences", &editor->m_bShowEditorPreferences))
     {
@@ -16,7 +17,8 @@ void EditorPreferencesPanel::Draw(GameEditor* editor)
         bool bSavePrefs = false;
 
         // GUI Scale
-        if (!m_bIsDraggingScale) m_DraggingGuiScale = prefs.GuiScale;
+        if (!m_bIsDraggingScale)
+            m_DraggingGuiScale = prefs.GuiScale;
 
         ImGui::Text("GUI Scale");
         if (ImGui::SliderFloat("##GuiScale", &m_DraggingGuiScale, 0.75f, 2.0f, "%.2f"))
@@ -48,7 +50,8 @@ void EditorPreferencesPanel::Draw(GameEditor* editor)
                     bNeedsRebake = true;
                     bSavePrefs = true;
                 }
-                if (is_selected) ImGui::SetItemDefaultFocus();
+                if (is_selected)
+                    ImGui::SetItemDefaultFocus();
             }
             ImGui::EndCombo();
         }
@@ -58,7 +61,7 @@ void EditorPreferencesPanel::Draw(GameEditor* editor)
         const char* fonts[] = { "Roboto", "Consolas" };
         if (ImGui::BeginCombo("##FontCombo", prefs.FontFamily.c_str()))
         {
-            for (auto & font : fonts)
+            for (auto& font : fonts)
             {
                 bool is_selected = (prefs.FontFamily == font);
                 if (ImGui::Selectable(font, is_selected))
@@ -67,7 +70,8 @@ void EditorPreferencesPanel::Draw(GameEditor* editor)
                     bNeedsRebake = true;
                     bSavePrefs = true;
                 }
-                if (is_selected) ImGui::SetItemDefaultFocus();
+                if (is_selected)
+                    ImGui::SetItemDefaultFocus();
             }
             ImGui::EndCombo();
         }

@@ -1,9 +1,9 @@
-#include <algorithm>
-#include <iostream>
 #include "DllLoader.h"
 #include <Windows.h>
+#include <algorithm>
 #include <chrono>
 #include <functional>
+#include <iostream>
 #include <random>
 #include <set>
 #include <thread>
@@ -11,30 +11,30 @@
 
 namespace
 {
-    void DefaultLog(std::string_view message, bool is_error)
-    {
-        (is_error ? std::cerr : std::cout) << message << "\n";
-    }
+void DefaultLog(std::string_view message, bool is_error)
+{
+    (is_error ? std::cerr : std::cout) << message << "\n";
+}
 
-    DllLogSink& GetLogSink()
-    {
-        static DllLogSink sink;
-        return sink;
-    }
+DllLogSink& GetLogSink()
+{
+    static DllLogSink sink;
+    return sink;
+}
 
-    void Log(std::string_view message, bool is_error)
+void Log(std::string_view message, bool is_error)
+{
+    DllLogSink& sink = GetLogSink();
+    if (sink)
     {
-        DllLogSink& sink = GetLogSink();
-        if (sink)
-        {
-            sink(message, is_error);
-        }
-        else
-        {
-            DefaultLog(message, is_error);
-        }
+        sink(message, is_error);
+    }
+    else
+    {
+        DefaultLog(message, is_error);
     }
 }
+} // namespace
 
 std::string GetHostExePath()
 {
@@ -56,9 +56,10 @@ std::string FormatAbiMismatchMessage(bool has_version_export, uint32_t dll_versi
                " it was built with an older engine version)."
                " Rebuild GameLogic (Compile in the editor) with the current engine version.";
     }
-    return "GameLogic ABI mismatch: DLL reports version " + std::to_string(dll_version)
-        + ", engine expects version " + std::to_string(expected_version) + "."
-          " Rebuild GameLogic (Compile in the editor) with the current engine version.";
+    return "GameLogic ABI mismatch: DLL reports version " + std::to_string(dll_version) + ", engine expects version " +
+        std::to_string(expected_version) +
+        "."
+        " Rebuild GameLogic (Compile in the editor) with the current engine version.";
 }
 
 void CleanupStaleShadowCopies()
@@ -74,26 +75,32 @@ void CleanupStaleShadowCopies()
         auto remove_if_stale = [&](const fs::directory_entry& entry)
         {
             std::error_code ec;
-            if (!entry.is_regular_file(ec) || ec) return;
+            if (!entry.is_regular_file(ec) || ec)
+                return;
 
             const std::string filename = entry.path().filename().string();
-            if (!filename.contains(".shadow.")) return;
-            if (entry.path().extension() != ".dll") return;
+            if (!filename.contains(".shadow."))
+                return;
+            if (entry.path().extension() != ".dll")
+                return;
 
             // Only delete files older than 1 hour
             auto age = now - entry.last_write_time(ec);
-            if (ec) return;
+            if (ec)
+                return;
 
             if (age > std::chrono::hours(1))
             {
                 fs::remove(entry.path(), ec);
-                if (!ec) ++cleaned;
+                if (!ec)
+                    ++cleaned;
             }
         };
 
         for (const auto& temp_dir : temp_dirs)
         {
-            if (!fs::exists(temp_dir)) continue;
+            if (!fs::exists(temp_dir))
+                continue;
 
             std::error_code ec;
             if (temp_dir == local_shadow_dir)
@@ -102,7 +109,7 @@ void CleanupStaleShadowCopies()
                 // scan recursively and then remove the empty leftovers.
                 std::vector<fs::path> directories;
                 for (fs::recursive_directory_iterator it(temp_dir, fs::directory_options::skip_permission_denied, ec);
-                     !ec && it != fs::recursive_directory_iterator(); it.increment(ec))
+                    !ec && it != fs::recursive_directory_iterator(); it.increment(ec))
                 {
                     if (it->is_directory(ec))
                     {
@@ -128,7 +135,8 @@ void CleanupStaleShadowCopies()
             {
                 for (const auto& entry : fs::directory_iterator(temp_dir, ec))
                 {
-                    if (ec) break;
+                    if (ec)
+                        break;
                     remove_if_stale(entry);
                 }
             }
@@ -149,7 +157,7 @@ void CleanupStaleShadowCopies()
     }
 }
 
-DllHandle LoadDll(const char* PATH) 
+DllHandle LoadDll(const char* PATH)
 {
     /*
       On Windows, LoadLibrary locks the file on disk, which prevents recompiling the DLL while the application is running. To avoid this, copy the DLL to a temporary uniquely named file (shadow copy) and load that instead.  
@@ -180,9 +188,9 @@ DllHandle LoadDll(const char* PATH)
                 std::vector<std::string> dll_imports = GetModuleCrtImports(PATH);
                 if (!b_CrtImportsCompatible(exe_imports, dll_imports))
                 {
-                    Log(std::string("CRT mismatch: host EXE and ") + PATH
-                        + " link different CRT flavors (static vs dynamic)."
-                          " Rebuild GameLogic with the same CRT (/MD).",
+                    Log(std::string("CRT mismatch: host EXE and ") + PATH +
+                            " link different CRT flavors (static vs dynamic)."
+                            " Rebuild GameLogic with the same CRT (/MD).",
                         true);
                     return result; // null handle, empty shadow path
                 }
@@ -208,24 +216,13 @@ DllHandle LoadDll(const char* PATH)
         std::uniform_int_distribution<uint64_t> dis;
 
         std::string base_name = src_path.stem().string();
-        std::string unique_name = base_name
-            + ".shadow."
-            + std::to_string(pid)
-            + "."
-            + std::to_string(ticks)
-            + "."
-            + std::to_string(dis(gen))
-            + src_path.extension().string();
+        std::string unique_name = base_name + ".shadow." + std::to_string(pid) + "." + std::to_string(ticks) + "." +
+            std::to_string(dis(gen)) + src_path.extension().string();
 
         fs::path dest_path = temp_dir / unique_name;
 
         // Copy to destination (overwrite not expected due to uniqueness)
-        fs::copy_file
-        (
-            src_path, 
-            dest_path, 
-            fs::copy_options::overwrite_existing
-        );
+        fs::copy_file(src_path, dest_path, fs::copy_options::overwrite_existing);
 
         HMODULE mod = LoadLibraryA(dest_path.string().c_str());
         if (mod == nullptr)
@@ -259,14 +256,11 @@ DllHandle LoadDll(const char* PATH)
     }
 }
 
-void UnloadDll(DllHandle& dll) 
+void UnloadDll(DllHandle& dll)
 {
-    if (dll.handle != nullptr) 
+    if (dll.handle != nullptr)
     {
-        FreeLibrary
-        (
-            reinterpret_cast<HMODULE>(dll.handle)
-        );
+        FreeLibrary(reinterpret_cast<HMODULE>(dll.handle));
         dll.handle = nullptr;
     }
 
@@ -276,7 +270,7 @@ void UnloadDll(DllHandle& dll)
     if (!dll.shadow_path.empty())
     {
         fs::path p = fs::path(dll.shadow_path);
-        
+
         // Only delete if it looks like one of our shadow copies
         std::string filename = p.filename().string();
         if (filename.contains(".shadow."))
@@ -286,7 +280,8 @@ void UnloadDll(DllHandle& dll)
             for (int attempt = 0; attempt < MAX_DELETE_ATTEMPTS; ++attempt)
             {
                 fs::remove(p, ec);
-                if (!ec) break;
+                if (!ec)
+                    break;
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
             }
             if (ec)
@@ -298,18 +293,11 @@ void UnloadDll(DllHandle& dll)
     }
 }
 
-void* GetDllSymbol(const DllHandle& dll, const char* SYMBOL_NAME) 
+void* GetDllSymbol(const DllHandle& dll, const char* SYMBOL_NAME)
 {
     if (dll.handle == nullptr)
     {
         return nullptr;
     }
-    return reinterpret_cast<void*>
-    (
-        GetProcAddress
-        (
-            reinterpret_cast<HMODULE>(dll.handle),
-            SYMBOL_NAME
-        )
-    );
+    return reinterpret_cast<void*>(GetProcAddress(reinterpret_cast<HMODULE>(dll.handle), SYMBOL_NAME));
 }

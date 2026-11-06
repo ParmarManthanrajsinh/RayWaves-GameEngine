@@ -27,30 +27,28 @@ struct FExportResult
 
 namespace ExportService
 {
-    using LogSink = std::function<void(std::string_view line)>;
+using LogSink = std::function<void(std::string_view line)>;
 
-    // Clamp dimensions/fps to sane ranges (pure, unit-tested).
-    void ClampSettings(FExportSettings& settings);
+// Clamp dimensions/fps to sane ranges (pure, unit-tested).
+void ClampSettings(FExportSettings& settings);
 
-    // Resolve the export dir: relative paths anchor at the project root,
-    // absolute paths pass through (pure, unit-tested).
-    std::string ResolveExportDir(std::string_view export_path, std::string_view project_root);
+// Resolve the export dir: relative paths anchor at the project root,
+// absolute paths pass through (pure, unit-tested).
+std::string ResolveExportDir(std::string_view export_path, std::string_view project_root);
 
-    // Produce a safe file name for the exported executable. Replaces path
-    // separators and shell-sensitive characters, trims dots/spaces, and
-    // avoids Windows reserved device names (pure, unit-tested).
-    std::string SanitizeGameName(std::string_view name);
+// Produce a safe file name for the exported executable. Replaces path
+// separators and shell-sensitive characters, trims dots/spaces, and
+// avoids Windows reserved device names (pure, unit-tested).
+std::string SanitizeGameName(std::string_view name);
 
-    // Write config.ini for the exported game (unit-tested).
-    bool b_WriteGameConfig(const std::string& config_path, const FExportSettings& settings,
-                           int scene_width, int scene_height, int scene_fps);
+// Write config.ini for the exported game (unit-tested).
+bool b_WriteGameConfig(
+    const std::string& config_path, const FExportSettings& settings, int scene_width, int scene_height, int scene_fps);
 
-    // Check a finished export folder for the required files (unit-tested).
-    bool b_ValidateExportFolder(std::string_view out_dir, LogSink log);
+// Check a finished export folder for the required files (unit-tested).
+bool b_ValidateExportFolder(std::string_view out_dir, LogSink log);
 
-    // Full export on the caller's thread (the panel runs it on its worker
-    // thread). Reads the open project via ProjectManager and honors cancel.
-    FExportResult RunExport(const FExportSettings& settings,
-                            const std::shared_ptr<std::atomic<bool>>& cancel,
-                            LogSink log);
-}
+// Full export on the caller's thread (the panel runs it on its worker
+// thread). Reads the open project via ProjectManager and honors cancel.
+FExportResult RunExport(const FExportSettings& settings, const std::shared_ptr<std::atomic<bool>>& cancel, LogSink log);
+} // namespace ExportService

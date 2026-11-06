@@ -1,15 +1,15 @@
 #include "EditorPreferences.h"
-#include <fstream>
-#include <sstream>
-#include <iostream>
 #include <filesystem>
+#include <fstream>
+#include <iostream>
+#include <sstream>
 EditorPreferences& EditorPreferences::GetInstance()
 {
     static EditorPreferences s_Instance;
     return s_Instance;
 }
 
-std::string EditorPreferences::GetConfigPath() 
+std::string EditorPreferences::GetConfigPath()
 {
     const char* appdata = std::getenv("APPDATA");
     if (appdata != nullptr)
@@ -54,7 +54,13 @@ bool EditorPreferences::m_bLoadFromFile()
 
         if (key == "GuiScale")
         {
-            try { m_Preferences.GuiScale = std::stof(value); } catch (...) {}
+            try
+            {
+                m_Preferences.GuiScale = std::stof(value);
+            }
+            catch (...)
+            {
+            }
         }
         else if (key == "ThemeName")
         {
@@ -73,7 +79,7 @@ bool EditorPreferences::m_bLoadFromFile()
 bool EditorPreferences::m_bSaveToFile() const
 {
     std::string config_path = GetConfigPath();
-    
+
     // Ensure directory exists
     std::filesystem::path dir = std::filesystem::path(config_path).parent_path();
     if (!dir.empty() && !std::filesystem::exists(dir))

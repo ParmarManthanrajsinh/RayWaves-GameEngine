@@ -1,14 +1,14 @@
 #pragma once
 #include "../Engine/MapManager.h"
-#include <raylib.h>
 #include "GameCamera.h"
+#include <raylib.h>
 
 class PlatformerMap : public GameMap
 {
 private:
     Vector2 m_PlayerPos;
     Vector2 m_Velocity;
-    
+
     float m_Speed;
     float m_JumpForce;
     float m_Gravity;
@@ -16,12 +16,12 @@ private:
 
     GameCamera m_Camera;
 
-    struct Platform 
+    struct Platform
     {
         Rectangle rect;
         Color color;
     };
-    
+
     Platform m_Platforms[3];
 
 public:

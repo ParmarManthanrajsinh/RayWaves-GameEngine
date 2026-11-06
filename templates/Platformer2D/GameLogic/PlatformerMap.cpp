@@ -1,7 +1,7 @@
 #include "PlatformerMap.h"
 #include <algorithm>
-#include <iostream>
 #include <cmath>
+#include <iostream>
 
 PlatformerMap::PlatformerMap()
     : m_PlayerPos{ 400.0f, 300.0f }
@@ -58,7 +58,7 @@ void PlatformerMap::Update(float delta_time)
     Rectangle playerRect = { m_PlayerPos.x, m_PlayerPos.y, 64, 64 };
     m_IsGrounded = false;
 
-    for (auto & m_Platform : m_Platforms)
+    for (auto& m_Platform : m_Platforms)
     {
         if (CheckCollisionRecs(playerRect, m_Platform.rect))
         {
@@ -96,11 +96,12 @@ void PlatformerMap::Draw()
     }
 
     // Draw Environment
-    for (auto & m_Platform : m_Platforms)
+    for (auto& m_Platform : m_Platforms)
     {
         DrawRectangleRec(m_Platform.rect, m_Platform.color);
         // Add neon red accent line on top of platforms
-        DrawRectangle(static_cast<int>(m_Platform.rect.x), static_cast<int>(m_Platform.rect.y), static_cast<int>(m_Platform.rect.width), 4, { 50, 200, 100, 255 });
+        DrawRectangle(static_cast<int>(m_Platform.rect.x), static_cast<int>(m_Platform.rect.y),
+            static_cast<int>(m_Platform.rect.width), 4, { 50, 200, 100, 255 });
     }
 
     // Draw instructions in world

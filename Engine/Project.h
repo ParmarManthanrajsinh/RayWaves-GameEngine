@@ -1,7 +1,7 @@
 #pragma once
 #include <string>
 
-struct t_Project 
+struct t_Project
 {
     std::string m_RootPath;
     std::string m_Name;
@@ -11,7 +11,7 @@ struct t_Project
     std::string m_AssetDir = "Assets";
     std::string m_EntryDll = "GameLogic.dll";
     std::string m_IconPath = "";
-    
+
     std::string m_SourcePath;
     std::string m_AssetPath;
     std::string m_DllPath;
@@ -27,6 +27,6 @@ struct t_Project
     bool m_bLoadFromFile(std::string_view manifest_path);
     bool m_bSaveToFile() const;
     bool m_bIsValid() const;
-    
+
     static bool b_IsProjectFolder(std::string_view folder);
 };

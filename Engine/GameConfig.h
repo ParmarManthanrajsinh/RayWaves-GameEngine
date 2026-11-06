@@ -2,7 +2,7 @@
 #include <string>
 #include <string_view>
 
-struct t_WindowConfig 
+struct t_WindowConfig
 {
     int width = 1280;
     int height = 720;
@@ -18,25 +18,17 @@ struct t_WindowConfig
     int scene_fps = 60;
 };
 
-class GameConfig 
+class GameConfig
 {
 public:
     static GameConfig& GetInstance();
     bool m_bLoadFromFile(std::string_view config_path = "config.ini");
-    bool m_bSaveToFile
-    (
-        std::string_view config_path = "config.ini"
-    ) const;
-    
+    bool m_bSaveToFile(std::string_view config_path = "config.ini") const;
+
     t_WindowConfig& GetWindowConfig() { return m_WindowConfig; }
     const t_WindowConfig& GetWindowConfig() const { return m_WindowConfig; }
     std::string GenerateConfigString() const;
-    void ApplyExportSettings
-    (
-        int width, int height,
-        bool fullscreen, bool resizable,
-        bool vsync, int target_fps
-    );
+    void ApplyExportSettings(int width, int height, bool fullscreen, bool resizable, bool vsync, int target_fps);
 
 private:
     t_WindowConfig m_WindowConfig;

@@ -4,14 +4,16 @@
 #include <string_view>
 #include <unordered_map>
 
-class AssetResolver {
+class AssetResolver
+{
 public:
     static void SetProjectAssetPath(std::string_view path);
     static std::string Resolve(std::string_view relativePath);
     static std::string GetProjectAssetPath();
 
 private:
-    struct StringHash {
+    struct StringHash
+    {
         using is_transparent = void;
         size_t operator()(std::string_view value) const { return std::hash<std::string_view>{}(value); }
         size_t operator()(const std::string& value) const { return std::hash<std::string>{}(value); }

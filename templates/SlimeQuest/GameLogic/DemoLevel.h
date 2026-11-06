@@ -1,7 +1,7 @@
 #pragma once
 #include "Engine/GameMap.h"
-#include "Player.h"
 #include "GameCamera.h"
+#include "Player.h"
 #include "Slime.h"
 #include <raylib.h>
 #include <vector>
@@ -12,11 +12,11 @@ struct GroundTile
     int32_t Type;
 };
 
-class DemoLevel : public GameMap 
+class DemoLevel : public GameMap
 {
 private:
-    static Rectangle GetTileRect(int32_t Col, int32_t Row) ;
-    static int32_t PseudoRandom(int32_t X, int32_t Seed) ;
+    static Rectangle GetTileRect(int32_t Col, int32_t Row);
+    static int32_t PseudoRandom(int32_t X, int32_t Seed);
 
     void DrawBackground();
     void DrawTrees(float InFloorY);
@@ -29,7 +29,7 @@ private:
     Player m_Player;
     GameCamera m_Camera;
     std::vector<Slime> m_Slimes;
-    
+
     Texture2D m_TilesetTex;
     Texture2D m_SlimeTexture;
     Sound m_SlimeDeathSound;
@@ -44,9 +44,9 @@ public:
     void Initialize() override;
     void Update(float DeltaTime) override;
     void Draw() override;
-    
+
     void SaveState(StateBag& out) const override;
     void LoadState(const StateBag& in) override;
-    
+
     void Reset();
 };

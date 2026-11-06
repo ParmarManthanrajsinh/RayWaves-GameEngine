@@ -4,37 +4,45 @@
 
 namespace
 {
-    // Classify a CRT import name. "dynamic" = ucrtbase/api-ms-ucrt/vcruntime/msvcrt
-    // loaded from system; "static" = statically linked CRT has no such imports.
-    bool b_IsCrtImport(const std::string& dll_name)
-    {
-        auto contains = [&dll_name](const char* frag)
-        {
-            return dll_name.find(frag) != std::string::npos;
-        };
-        return contains("ucrtbase")
-            || contains("api-ms-win-crt")
-            || contains("vcruntime")
-            || contains("msvcrt");
-    }
+// Classify a CRT import name. "dynamic" = ucrtbase/api-ms-ucrt/vcruntime/msvcrt
+// loaded from system; "static" = statically linked CRT has no such imports.
+bool b_IsCrtImport(const std::string& dll_name)
+{
+    auto contains = [&dll_name](const char* frag) { return dll_name.find(frag) != std::string::npos; };
+    return contains("ucrtbase") || contains("api-ms-win-crt") || contains("vcruntime") || contains("msvcrt");
 }
+} // namespace
 
 std::vector<std::string> GetModuleCrtImports(const char* module_path)
 {
     std::vector<std::string> crt_imports;
-    HANDLE file = CreateFileA(module_path, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE,
-                              nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
-    if (file == INVALID_HANDLE_VALUE) return crt_imports;
+    HANDLE file = CreateFileA(module_path, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING,
+        FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (file == INVALID_HANDLE_VALUE)
+        return crt_imports;
 
     LARGE_INTEGER size{};
-    if (!GetFileSizeEx(file, &size) || size.QuadPart <= 0) { CloseHandle(file); return crt_imports; }
+    if (!GetFileSizeEx(file, &size) || size.QuadPart <= 0)
+    {
+        CloseHandle(file);
+        return crt_imports;
+    }
     const size_t file_size = static_cast<size_t>(size.QuadPart);
 
     HANDLE mapping = CreateFileMappingA(file, nullptr, PAGE_READONLY, 0, 0, nullptr);
-    if (mapping == nullptr) { CloseHandle(file); return crt_imports; }
+    if (mapping == nullptr)
+    {
+        CloseHandle(file);
+        return crt_imports;
+    }
 
     HANDLE view = MapViewOfFile(mapping, FILE_MAP_READ, 0, 0, 0);
-    if (view == nullptr) { CloseHandle(mapping); CloseHandle(file); return crt_imports; }
+    if (view == nullptr)
+    {
+        CloseHandle(mapping);
+        CloseHandle(file);
+        return crt_imports;
+    }
 
     const BYTE* base = static_cast<const BYTE*>(view);
 
@@ -47,15 +55,17 @@ std::vector<std::string> GetModuleCrtImports(const char* module_path)
 
     const auto fail = [&]() -> std::vector<std::string>
     {
-        UnmapViewOfFile(view); CloseHandle(mapping); CloseHandle(file);
+        UnmapViewOfFile(view);
+        CloseHandle(mapping);
+        CloseHandle(file);
         return crt_imports;
     };
 
-    if (read_u16(0) != IMAGE_DOS_SIGNATURE) return fail();
+    if (read_u16(0) != IMAGE_DOS_SIGNATURE)
+        return fail();
 
     const size_t e_lfanew = read_u32(offsetof(IMAGE_DOS_HEADER, e_lfanew));
-    if (e_lfanew == 0 || e_lfanew + 4 > file_size
-        || read_u32(e_lfanew) != IMAGE_NT_SIGNATURE)
+    if (e_lfanew == 0 || e_lfanew + 4 > file_size || read_u32(e_lfanew) != IMAGE_NT_SIGNATURE)
     {
         return fail();
     }
@@ -69,13 +79,13 @@ std::vector<std::string> GetModuleCrtImports(const char* module_path)
     size_t import_dir_off = 0;
     if (opt_magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC)
     {
-        import_dir_off = opt_off + offsetof(IMAGE_OPTIONAL_HEADER32, DataDirectory)
-            + IMAGE_DIRECTORY_ENTRY_IMPORT * sizeof(IMAGE_DATA_DIRECTORY);
+        import_dir_off = opt_off + offsetof(IMAGE_OPTIONAL_HEADER32, DataDirectory) +
+            IMAGE_DIRECTORY_ENTRY_IMPORT * sizeof(IMAGE_DATA_DIRECTORY);
     }
     else if (opt_magic == IMAGE_NT_OPTIONAL_HDR64_MAGIC)
     {
-        import_dir_off = opt_off + offsetof(IMAGE_OPTIONAL_HEADER64, DataDirectory)
-            + IMAGE_DIRECTORY_ENTRY_IMPORT * sizeof(IMAGE_DATA_DIRECTORY);
+        import_dir_off = opt_off + offsetof(IMAGE_OPTIONAL_HEADER64, DataDirectory) +
+            IMAGE_DIRECTORY_ENTRY_IMPORT * sizeof(IMAGE_DATA_DIRECTORY);
     }
     else
     {
@@ -91,8 +101,8 @@ std::vector<std::string> GetModuleCrtImports(const char* module_path)
 
     // Section table: needed to translate RVAs to file offsets
     const size_t section_table_off = opt_off + opt_size;
-    const size_t section_table_end = section_table_off
-        + static_cast<size_t>(num_sections) * sizeof(IMAGE_SECTION_HEADER);
+    const size_t section_table_end =
+        section_table_off + static_cast<size_t>(num_sections) * sizeof(IMAGE_SECTION_HEADER);
     if (num_sections == 0 || section_table_end > file_size)
     {
         return fail();
@@ -127,10 +137,12 @@ std::vector<std::string> GetModuleCrtImports(const char* module_path)
     {
         const size_t d = desc + i * sizeof(IMAGE_IMPORT_DESCRIPTOR);
         const uint32_t name_rva = read_u32(d + offsetof(IMAGE_IMPORT_DESCRIPTOR, Name));
-        if (name_rva == 0) break;
+        if (name_rva == 0)
+            break;
 
         const size_t name_off = rva_to_file(name_rva);
-        if (name_off == static_cast<size_t>(-1) || name_off >= file_size) continue;
+        if (name_off == static_cast<size_t>(-1) || name_off >= file_size)
+            continue;
 
         std::string dll_name;
         for (size_t j = name_off; j < file_size && base[j] != 0 && dll_name.size() < 256; ++j)
@@ -149,8 +161,7 @@ std::vector<std::string> GetModuleCrtImports(const char* module_path)
     return crt_imports;
 }
 
-bool b_CrtImportsCompatible(const std::vector<std::string>& exe_imports,
-                            const std::vector<std::string>& dll_imports)
+bool b_CrtImportsCompatible(const std::vector<std::string>& exe_imports, const std::vector<std::string>& dll_imports)
 {
     // Normalize: we only care about dynamic-vs-static flavor and, for vcruntime,
     // matching major version digits.
@@ -159,14 +170,12 @@ bool b_CrtImportsCompatible(const std::vector<std::string>& exe_imports,
         std::set<std::string> set;
         for (const auto& name : imports)
         {
-            if (name.find("vcruntime140") != std::string::npos
-                || name.find("vcruntime141") != std::string::npos)
+            if (name.find("vcruntime140") != std::string::npos || name.find("vcruntime141") != std::string::npos)
             {
                 set.insert("vcruntime-dynamic");
             }
-            else if (name.find("ucrtbase") != std::string::npos
-                || name.find("api-ms-win-crt") != std::string::npos
-                || name.find("msvcrt") != std::string::npos)
+            else if (name.find("ucrtbase") != std::string::npos || name.find("api-ms-win-crt") != std::string::npos ||
+                name.find("msvcrt") != std::string::npos)
             {
                 set.insert("ucrt-dynamic");
             }

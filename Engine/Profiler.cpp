@@ -24,7 +24,8 @@ void Profiler::NextFrame()
 {
     m_CurrentFrame = (m_CurrentFrame + 1) % k_FrameCount;
     m_Frames[m_CurrentFrame].m_NameToUs.clear();
-    if (m_FramesRecorded < k_FrameCount) ++m_FramesRecorded;
+    if (m_FramesRecorded < k_FrameCount)
+        ++m_FramesRecorded;
 }
 
 std::vector<ProfilerSnapshot> Profiler::GetAverages() const
@@ -61,7 +62,7 @@ std::vector<ProfilerSnapshot> Profiler::GetAverages() const
             }
         }
         double avg = (count > 0) ? total / count : 0.0;
-        result.push_back({name, avg, max_val, last});
+        result.push_back({ name, avg, max_val, last });
     }
     return result;
 }
@@ -69,7 +70,8 @@ std::vector<ProfilerSnapshot> Profiler::GetAverages() const
 bool Profiler::SaveToFile(const std::string& path) const
 {
     std::ofstream file(path);
-    if (!file.is_open()) return false;
+    if (!file.is_open())
+        return false;
 
     size_t count = std::min(m_FramesRecorded, k_FrameCount);
     size_t oldest = (m_FramesRecorded < k_FrameCount) ? 0 : (m_CurrentFrame + 1) % k_FrameCount;
@@ -85,7 +87,8 @@ bool Profiler::SaveToFile(const std::string& path) const
     }
 
     file << "frame";
-    for (const auto& name : all_names) file << "," << name << "_us";
+    for (const auto& name : all_names)
+        file << "," << name << "_us";
     file << "\n";
 
     for (size_t j = 0; j < count; ++j)

@@ -1,14 +1,13 @@
 #include "GameLogicLoader.h"
 #include "../Engine/GameEngine.h"
-#include "../Engine/MapManager.h"
 #include "../Engine/GameState.h"
+#include "../Engine/MapManager.h"
 #include "../Engine/Profiler.h"
 #include <system_error>
 
 using Clock = std::chrono::steady_clock;
 
-GameLogicLoader::GameLogicLoader(GameEngine& engine)
-    : m_Engine(engine)
+GameLogicLoader::GameLogicLoader(GameEngine& engine) : m_Engine(engine)
 {
 }
 
@@ -25,10 +24,7 @@ void GameLogicLoader::SetLogSink(LogSink sink)
     if (m_LogSink)
     {
         LogSink forward = m_LogSink;
-        SetDllLogSink([forward](std::string_view message, bool is_error)
-        {
-            forward(message, is_error);
-        });
+        SetDllLogSink([forward](std::string_view message, bool is_error) { forward(message, is_error); });
     }
     else
     {
@@ -186,17 +182,9 @@ bool GameLogicLoader::b_LoadGameLogic(std::string_view dll_path)
     }
 
     // 2) Get factory
-    auto new_factory =
-    reinterpret_cast<CreateGameMapFunc>
-    (
-        GetDllSymbol(new_dll, "CreateGameMap")
-    );
+    auto new_factory = reinterpret_cast<CreateGameMapFunc>(GetDllSymbol(new_dll, "CreateGameMap"));
 
-    auto new_destroy =
-        reinterpret_cast<DestroyGameMapFunc>
-    (
-        GetDllSymbol(new_dll, "DestroyGameMap")
-    );
+    auto new_destroy = reinterpret_cast<DestroyGameMapFunc>(GetDllSymbol(new_dll, "DestroyGameMap"));
 
     if ((new_factory == nullptr) || (new_destroy == nullptr))
     {
@@ -207,11 +195,7 @@ bool GameLogicLoader::b_LoadGameLogic(std::string_view dll_path)
 
     // ABI version check: refuse mismatched DLLs loudly instead of risking
     // heap corruption across the DLL boundary (StateBag shares the CRT heap).
-    auto abi_version_fn =
-        reinterpret_cast<AbiVersionFunc>
-    (
-        GetDllSymbol(new_dll, "GetGameLogicAbiVersion")
-    );
+    auto abi_version_fn = reinterpret_cast<AbiVersionFunc>(GetDllSymbol(new_dll, "GetGameLogicAbiVersion"));
     const bool b_HasVersionExport = (abi_version_fn != nullptr);
     const uint32_t dll_version = b_HasVersionExport ? abi_version_fn() : 0;
     if (!b_HasVersionExport || (dll_version != RAYWAVES_GAMELOGIC_ABI_VERSION))

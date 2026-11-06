@@ -1,9 +1,9 @@
-#include <iostream>
 #include "GameEditor.h"
 #include "GameEngine.h"
 #include "GameMap.h"
 #include <crtdbg.h>
 #include <filesystem>
+#include <iostream>
 
 #include "../Engine/ProjectManager.h"
 
@@ -43,7 +43,7 @@ int main(int argc, char** argv)
     CleanupStaleShadowCopies();
     std::cout << "Game Engine Starting..." << "\n";
     GameEditor editor;
-    editor.Init(1280,720,"RayWaves");
+    editor.Init(1280, 720, "RayWaves");
 
     // Load logic DLL if a project was opened from command line
     if (ProjectManager::b_HasOpenProject())

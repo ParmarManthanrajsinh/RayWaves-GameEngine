@@ -56,7 +56,7 @@ void Player::LoadSounds()
 {
     m_JumpSound = LoadSound(AssetResolver::Resolve("Sounds/jump.wav").c_str());
     m_AttackSound = LoadSound(AssetResolver::Resolve("Sounds/attack.wav").c_str());
-    
+
     std::cout << "[Player] Audio Device Ready: " << IsAudioDeviceReady() << '\n';
     std::cout << "[Player] Jump Sound Loaded: " << (m_JumpSound.frameCount > 0) << '\n';
     std::cout << "[Player] Attack Sound Loaded: " << (m_AttackSound.frameCount > 0) << '\n';
@@ -97,12 +97,13 @@ void Player::HandleInput(float DeltaTime)
         m_bIsAttacking = true;
         m_AttackTimer = 0.0f;
         m_AttackFrame = 0;
-        if (m_AttackSound.frameCount > 0) PlaySound(m_AttackSound);
+        if (m_AttackSound.frameCount > 0)
+            PlaySound(m_AttackSound);
     }
-    
+
     // Movement speed modifier (slower while attacking)
     float MoveSpeed = m_bIsAttacking ? SPEED * 0.3f : SPEED;
-    
+
     // Movement
     if (IsKeyDown(KEY_RIGHT) || IsKeyDown(KEY_D))
     {
@@ -124,7 +125,8 @@ void Player::HandleInput(float DeltaTime)
     {
         m_Velocity.y = JUMP_FORCE;
         m_bIsGrounded = false;
-        if (m_JumpSound.frameCount > 0) PlaySound(m_JumpSound);
+        if (m_JumpSound.frameCount > 0)
+            PlaySound(m_JumpSound);
     }
 }
 
@@ -134,10 +136,10 @@ void Player::Update(float DeltaTime)
     if (m_bIsAttacking)
     {
         m_AttackTimer += DeltaTime;
-        
+
         float FrameDuration = ATTACK_DURATION / ATTACK_FRAMES;
         m_AttackFrame = static_cast<int32_t>(m_AttackTimer / FrameDuration);
-        
+
         if (m_AttackTimer >= ATTACK_DURATION)
         {
             m_bIsAttacking = false;
@@ -157,7 +159,7 @@ void Player::ResolveCollisions(float DeltaTime, const std::vector<GroundTile>& T
     // Horizontal collision
     float NextX = m_Position.x + (m_Velocity.x * DeltaTime);
     Rectangle NextHitboxX = { NextX - HITBOX_OFFSET_X, m_Position.y - HITBOX_OFFSET_Y, HITBOX_WIDTH, HITBOX_HEIGHT };
-    
+
     bool bHitX = false;
     for (const auto& Tile : Tiles)
     {
@@ -176,7 +178,7 @@ void Player::ResolveCollisions(float DeltaTime, const std::vector<GroundTile>& T
             break;
         }
     }
-    
+
     if (!bHitX)
     {
         m_Position.x = NextX;
@@ -185,10 +187,10 @@ void Player::ResolveCollisions(float DeltaTime, const std::vector<GroundTile>& T
     // Vertical collision
     float NextY = m_Position.y + (m_Velocity.y * DeltaTime);
     Rectangle NextHitboxY = { m_Position.x - HITBOX_OFFSET_X, NextY - HITBOX_OFFSET_Y, HITBOX_WIDTH, HITBOX_HEIGHT };
-    
+
     m_bIsGrounded = false;
     bool bHitY = false;
-    
+
     for (const auto& Tile : Tiles)
     {
         if (CheckCollisionRecs(NextHitboxY, Tile.Rect))
@@ -204,10 +206,10 @@ void Player::ResolveCollisions(float DeltaTime, const std::vector<GroundTile>& T
             }
             m_Velocity.y = 0;
             bHitY = true;
-            break; 
+            break;
         }
     }
-    
+
     if (!bHitY)
     {
         m_Position.y = NextY;
@@ -225,35 +227,28 @@ void Player::Draw()
     int32_t Row = 0;
     int32_t MaxFrames = 1;
     float AnimSpeed = 6.0f;
-    
+
     // Attack animation takes priority
     if (m_bIsAttacking)
     {
-        Row = 8;  // Attack animation row
+        Row = 8; // Attack animation row
         MaxFrames = ATTACK_FRAMES;
         int32_t Frame = (m_AttackFrame < MaxFrames) ? m_AttackFrame : MaxFrames - 1;
-        
+
         float PlayerFrameW = 32.0f;
         float PlayerFrameH = 32.0f;
-        
+
         Rectangle Source = { Frame * PlayerFrameW, Row * PlayerFrameH, PlayerFrameW, PlayerFrameH };
-        
+
         if (!m_bFacingRight)
         {
             Source.width *= -1;
         }
-        
-        DrawTexturePro(
-            m_Texture,
-            Source,
-            { m_Position.x - 16, m_Position.y - 16 + 32, 64, 64 },
-            { 0, 0 },
-            0,
-            WHITE
-        );
+
+        DrawTexturePro(m_Texture, Source, { m_Position.x - 16, m_Position.y - 16 + 32, 64, 64 }, { 0, 0 }, 0, WHITE);
         return;
     }
-    
+
     // Normal animations
     if (!m_bIsGrounded)
     {
@@ -266,26 +261,19 @@ void Player::Draw()
         MaxFrames = 8;
         AnimSpeed = 12.0f;
     }
-    
+
     float PlayerFrameW = 32.0f;
     float PlayerFrameH = 32.0f;
     int32_t Frame = static_cast<int32_t>(GetTime() * AnimSpeed) % MaxFrames;
-    
+
     Rectangle Source = { Frame * PlayerFrameW, Row * PlayerFrameH, PlayerFrameW, PlayerFrameH };
-    
+
     if (!m_bFacingRight)
     {
         Source.width *= -1;
     }
-    
-    DrawTexturePro(
-        m_Texture,
-        Source,
-        { m_Position.x - 16, m_Position.y - 16 + 32, 64, 64 },
-        { 0, 0 },
-        0,
-        WHITE
-    );
+
+    DrawTexturePro(m_Texture, Source, { m_Position.x - 16, m_Position.y - 16 + 32, 64, 64 }, { 0, 0 }, 0, WHITE);
 }
 
 Rectangle Player::GetAttackHitbox() const
@@ -294,17 +282,11 @@ Rectangle Player::GetAttackHitbox() const
     {
         return { 0, 0, 0, 0 };
     }
-    
+
     // Attack hitbox extends in front of player
     float HitboxWidth = 30.0f;
     float HitboxHeight = 60.0f;
     float OffsetX = m_bFacingRight ? 25.0f : -25.0f - HitboxWidth;
-    
-    return 
-    {
-        m_Position.x + OffsetX,
-        m_Position.y,
-        HitboxWidth,
-        HitboxHeight
-    };
+
+    return { m_Position.x + OffsetX, m_Position.y, HitboxWidth, HitboxHeight };
 }

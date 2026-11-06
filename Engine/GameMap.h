@@ -1,10 +1,10 @@
 #pragma once
+#include "GameState.h"
 #include <cstdint>
+#include <functional>
 #include <raylib.h>
 #include <string>
 #include <string_view>
-#include <functional>
-#include "GameState.h"
 
 // GameLogic DLL ABI version. GameLogic DLLs must export
 // GetGameLogicAbiVersion() returning this value. The editor/runtime reject
@@ -16,9 +16,9 @@ class GameMap
 {
 protected:
     std::string m_MapName;
-    float m_SceneWidth = 0.0f;   
-    float m_SceneHeight = 0.0f;  
-	int m_TargetFPS = 60;
+    float m_SceneWidth = 0.0f;
+    float m_SceneHeight = 0.0f;
+    int m_TargetFPS = 60;
     std::string m_ProjectAssetPath;
 
     // Transition callback to request a map change via the manager
@@ -28,16 +28,16 @@ protected:
     std::function<void()> m_ExitCallback;
 
 public:
-    GameMap(); 
+    GameMap();
     GameMap(std::string_view map_name);
-    virtual ~GameMap() = default;  
+    virtual ~GameMap() = default;
 
     virtual void Initialize();
     virtual void Update(float delta_time);
     virtual void Draw();
-    
+
     virtual void SetProjectAssetPath(const std::string& path);
-    
+
     virtual void SaveState(StateBag& out) const {}
     virtual void LoadState(const StateBag& in) {}
 
@@ -45,20 +45,17 @@ public:
     // between separately linked modules, so MapManager identifies itself
     // via this virtual instead. Never guess by map name.
     virtual bool b_IsMapManager() const { return false; }
-    
+
     void SetMapName(std::string_view map_name);
     std::string GetMapName() const;
     void SetSceneBounds(float width, float height);
-	Vector2 GetSceneBounds() const;
-	void SetTargetFPS(int fps);
-	int GetTargetFPS() const;
+    Vector2 GetSceneBounds() const;
+    void SetTargetFPS(int fps);
+    int GetTargetFPS() const;
 
     // Hook for MapManager: injects a function that executes a map transition.
     // Maps call RequestGotoMap to trigger transitions safely (no global/static).
-    void SetTransitionCallback
-    (
-        std::function<void(std::string_view, bool)> callback
-    );
+    void SetTransitionCallback(std::function<void(std::string_view, bool)> callback);
 
     void SetExitCallback(std::function<void()> callback);
 

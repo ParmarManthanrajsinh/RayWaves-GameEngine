@@ -16,5 +16,4 @@ std::vector<std::string> GetModuleCrtImports(const char* module_path);
 // True when host EXE and DLL import the same CRT flavor (both dynamic or
 // both static). A static-vs-dynamic mix corrupts the heap the moment a
 // std::string/std::unordered_map (StateBag) crosses the boundary.
-bool b_CrtImportsCompatible(const std::vector<std::string>& exe_imports,
-                            const std::vector<std::string>& dll_imports);
+bool b_CrtImportsCompatible(const std::vector<std::string>& exe_imports, const std::vector<std::string>& dll_imports);

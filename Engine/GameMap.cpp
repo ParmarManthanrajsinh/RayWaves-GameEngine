@@ -1,12 +1,14 @@
-#include <iostream>
 #include "GameMap.h"
 #include "AssetResolver.h"
+#include <iostream>
 
-GameMap::GameMap()
-	: m_MapName("DefaultMap") {}
+GameMap::GameMap() : m_MapName("DefaultMap")
+{
+}
 
-GameMap::GameMap(std::string_view map_name)
-	: m_MapName(map_name) {}
+GameMap::GameMap(std::string_view map_name) : m_MapName(map_name)
+{
+}
 
 void GameMap::Initialize()
 {
@@ -48,13 +50,13 @@ void GameMap::SetSceneBounds(float width, float height)
 
 Vector2 GameMap::GetSceneBounds() const
 {
-	return Vector2{m_SceneWidth, m_SceneHeight};
+    return Vector2{ m_SceneWidth, m_SceneHeight };
 }
 
 void GameMap::SetTargetFPS(int fps)
 {
     ::SetTargetFPS(fps);
-	m_TargetFPS = fps;
+    m_TargetFPS = fps;
 }
 
 int GameMap::GetTargetFPS() const
@@ -62,10 +64,7 @@ int GameMap::GetTargetFPS() const
     return m_TargetFPS;
 }
 
-void GameMap::SetTransitionCallback
-(
-    std::function<void(std::string_view, bool)> callback
-)
+void GameMap::SetTransitionCallback(std::function<void(std::string_view, bool)> callback)
 {
     m_TransitionCallback = std::move(callback);
 }
@@ -95,6 +94,6 @@ void GameMap::RequestGotoMap(std::string_view map_id, bool force_reload) const
     }
     else
     {
-		std::cerr << "Transition callback not set!\n";
+        std::cerr << "Transition callback not set!\n";
     }
 }

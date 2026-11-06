@@ -1,8 +1,8 @@
-﻿#include "doctest/doctest.h"
-#include "Engine/Project.h"
+﻿#include "Engine/Project.h"
+#include "doctest/doctest.h"
 #include "support/TempDir.h"
-#include <fstream>
 #include <filesystem>
+#include <fstream>
 
 TEST_CASE("t_Project: default values")
 {

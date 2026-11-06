@@ -4,25 +4,25 @@
 #include <iostream>
 #include <string>
 
-#include "Runtime/DllLoader.h"
 #include "Engine/GameMap.h"
 #include "Engine/GameState.h"
+#include "Runtime/DllLoader.h"
 
 namespace
 {
-    int ParseIterations(int argc, char** argv)
+int ParseIterations(int argc, char** argv)
+{
+    for (int i = 1; i < argc; ++i)
     {
-        for (int i = 1; i < argc; ++i)
+        const std::string arg = argv[i];
+        if (arg == "--iterations" && i + 1 < argc)
         {
-            const std::string arg = argv[i];
-            if (arg == "--iterations" && i + 1 < argc)
-            {
-                return std::max(1, std::atoi(argv[++i]));
-            }
+            return std::max(1, std::atoi(argv[++i]));
         }
-        return 3;
     }
+    return 3;
 }
+} // namespace
 
 int main(int argc, char** argv)
 {
@@ -59,8 +59,8 @@ int main(int argc, char** argv)
 
         if (abi_version() != RAYWAVES_GAMELOGIC_ABI_VERSION)
         {
-            std::cerr << "GameLogic ABI mismatch: " << abi_version()
-                      << " (DLL) vs " << RAYWAVES_GAMELOGIC_ABI_VERSION << " (engine)\n";
+            std::cerr << "GameLogic ABI mismatch: " << abi_version() << " (DLL) vs " << RAYWAVES_GAMELOGIC_ABI_VERSION
+                      << " (engine)\n";
             UnloadDll(dll);
             return 1;
         }

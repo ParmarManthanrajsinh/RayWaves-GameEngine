@@ -1,8 +1,8 @@
-﻿#include "doctest/doctest.h"
-#include "Engine/GameConfig.h"
+﻿#include "Engine/GameConfig.h"
+#include "doctest/doctest.h"
 #include "support/TempDir.h"
-#include <fstream>
 #include <filesystem>
+#include <fstream>
 
 TEST_CASE("GameConfig: default values")
 {

@@ -1,9 +1,9 @@
 #pragma once
-#include <string>
-#include <vector>
-#include <chrono>
-#include <unordered_map>
 #include <array>
+#include <chrono>
+#include <string>
+#include <unordered_map>
+#include <vector>
 
 #ifdef RAYWAVES_PROFILER_DISABLED
 
@@ -20,11 +20,16 @@ struct ProfilerSnapshot
 class Profiler
 {
 public:
-    static Profiler& Get() { static Profiler p; return p; }
+    static Profiler& Get()
+    {
+        static Profiler p;
+        return p;
+    }
     void Record(const char*, uint64_t) {}
     void NextFrame() {}
     std::vector<ProfilerSnapshot> GetAverages() const { return {}; }
     bool SaveToFile(const std::string&) const { return false; }
+
 private:
     Profiler() = default;
 };
@@ -81,15 +86,13 @@ class ScopedTimer
 {
     const char* m_Name;
     std::chrono::steady_clock::time_point m_Start;
+
 public:
-    ScopedTimer(const char* name)
-        : m_Name(name)
-        , m_Start(std::chrono::steady_clock::now())
-    {}
+    ScopedTimer(const char* name) : m_Name(name), m_Start(std::chrono::steady_clock::now()) {}
     ~ScopedTimer()
     {
-        auto us = std::chrono::duration_cast<std::chrono::microseconds>(
-            std::chrono::steady_clock::now() - m_Start).count();
+        auto us =
+            std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - m_Start).count();
         Profiler::Get().Record(m_Name, us);
     }
 };

@@ -7,8 +7,7 @@ TEST_CASE("GameEditor: fallback build cmd quoting")
     std::string appDir = R"(C:\project)";
     std::string cmd = "\"\"" + rawExe + "\" --build \"" + appDir + "\" --target GameLogic\"";
 
-    CHECK(cmd ==
-        "\"\"D:\\tools\\cmake.exe\" --build \"C:\\project\" --target GameLogic\"");
+    CHECK(cmd == "\"\"D:\\tools\\cmake.exe\" --build \"C:\\project\" --target GameLogic\"");
 }
 
 TEST_CASE("GameEditor: fallback build cmd leading quote count")

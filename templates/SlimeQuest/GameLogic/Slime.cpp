@@ -32,7 +32,7 @@ void Slime::Update(float DeltaTime)
     {
         m_DeathTimer += DeltaTime * DEATH_ANIM_SPEED;
         m_DeathFrame = static_cast<int32_t>(m_DeathTimer);
-        
+
         if (m_DeathFrame >= DEATH_FRAME_COUNT)
         {
             m_bIsDying = false;
@@ -40,19 +40,19 @@ void Slime::Update(float DeltaTime)
         }
         return;
     }
-    
+
     if (!m_bIsAlive)
     {
         return;
     }
-    
+
     // Update animation
     m_AnimTimer += DeltaTime * ANIM_SPEED;
     m_CurrentFrame = static_cast<int32_t>(m_AnimTimer) % FRAME_COUNT;
-    
+
     // Patrol movement
     m_Position.x += m_Velocity.x * DeltaTime;
-    
+
     // Turn around at patrol bounds
     if (m_Position.x <= m_PatrolLeft)
     {
@@ -74,15 +74,16 @@ void Slime::Draw() const
     {
         return;
     }
-    
+
     float FrameX;
     float FrameY;
-    
+
     if (m_bIsDying)
     {
         // Death animation - row 4 (5th row, 0-indexed)
-        FrameX = static_cast<float>((m_DeathFrame < DEATH_FRAME_COUNT ? m_DeathFrame : DEATH_FRAME_COUNT - 1) * FRAME_WIDTH);
-        FrameY = static_cast<float>(4 * FRAME_HEIGHT);  // 5th row for death
+        FrameX =
+            static_cast<float>((m_DeathFrame < DEATH_FRAME_COUNT ? m_DeathFrame : DEATH_FRAME_COUNT - 1) * FRAME_WIDTH);
+        FrameY = static_cast<float>(4 * FRAME_HEIGHT); // 5th row for death
     }
     else
     {
@@ -90,24 +91,19 @@ void Slime::Draw() const
         FrameX = static_cast<float>(m_CurrentFrame * FRAME_WIDTH);
         FrameY = 0.0f;
     }
-    
+
     Rectangle Source = { FrameX, FrameY, FRAME_WIDTH, FRAME_HEIGHT };
-    
+
     // Flip sprite based on direction
     if (!m_bFacingRight)
     {
         Source.width *= -1;
     }
-    
+
     // Position is center of slime, draw centered
-    Rectangle Dest = 
-    { 
-        m_Position.x - (RENDER_SIZE / 2.0f), 
-        m_Position.y - (RENDER_SIZE / 2.0f),
-        RENDER_SIZE, 
-        RENDER_SIZE 
-    };
-    
+    Rectangle Dest = { m_Position.x - (RENDER_SIZE / 2.0f), m_Position.y - (RENDER_SIZE / 2.0f), RENDER_SIZE,
+        RENDER_SIZE };
+
     // Fade out during death
     auto TintColor = WHITE;
     if (m_bIsDying)
@@ -115,15 +111,8 @@ void Slime::Draw() const
         float Alpha = 1.0f - (static_cast<float>(m_DeathFrame) / DEATH_FRAME_COUNT);
         TintColor.a = static_cast<unsigned char>(Alpha * 255);
     }
-    
-    DrawTexturePro(
-        m_Texture,
-        Source,
-        Dest,
-        { 0, 0 },
-        0,
-        TintColor
-    );
+
+    DrawTexturePro(m_Texture, Source, Dest, { 0, 0 }, 0, TintColor);
 }
 
 Rectangle Slime::GetHitbox() const
@@ -133,17 +122,11 @@ Rectangle Slime::GetHitbox() const
     {
         return { 0, 0, 0, 0 };
     }
-    
+
     // Hitbox centered on slime position
     float HitboxWidth = RENDER_SIZE * 0.7f;
     float HitboxHeight = RENDER_SIZE * 0.7f;
-    return 
-    { 
-        m_Position.x - (HitboxWidth / 2.0f), 
-        m_Position.y - (HitboxHeight / 2.0f), 
-        HitboxWidth, 
-        HitboxHeight 
-    };
+    return { m_Position.x - (HitboxWidth / 2.0f), m_Position.y - (HitboxHeight / 2.0f), HitboxWidth, HitboxHeight };
 }
 
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
@@ -161,6 +144,7 @@ void Slime::TakeDamage()
         m_DeathTimer = 0.0f;
         m_DeathFrame = 0;
         m_Velocity = { 0, 0 };
-        if (m_DeathSound.frameCount > 0) PlaySound(m_DeathSound);
+        if (m_DeathSound.frameCount > 0)
+            PlaySound(m_DeathSound);
     }
 }

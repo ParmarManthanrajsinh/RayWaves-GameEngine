@@ -1,19 +1,15 @@
 #include "DemoLevel.h"
 #include "Engine/AssetResolver.h"
-#include <iostream>
 #include <algorithm>
-#include <cmath>
 #include <array>
+#include <cmath>
+#include <iostream>
 
 constexpr float TileSrcSize = 16.0f;
 constexpr float TileRenderSize = 32.0f;
 constexpr float FloorY = 405.0f;
 
-DemoLevel::DemoLevel()
-    : GameMap("Platformer Demo"),
-      m_TilesetTex{},
-      m_SlimeTexture{},
-      m_SlimeDeathSound{}
+DemoLevel::DemoLevel() : GameMap("Platformer Demo"), m_TilesetTex{}, m_SlimeTexture{}, m_SlimeDeathSound{}
 {
 }
 
@@ -73,10 +69,10 @@ void DemoLevel::Initialize()
 void DemoLevel::Reset()
 {
     m_Player.Reset({ 100, 300 });
-    
+
     m_Camera.Initialize(m_Player.GetPosition(), 2.5f);
     m_Camera.SetMinZoom(2.5f);
-    
+
     float LevelLeft = -10.0f * TileRenderSize;
     float LevelRight = 60.0f * TileRenderSize;
     float LevelTop = 0.0f;
@@ -86,49 +82,36 @@ void DemoLevel::Reset()
     m_GroundTiles.clear();
     for (int32_t i = -10; i < 60; ++i)
     {
-        m_GroundTiles.push_back
-        ({
-            { 
-                static_cast<float>(i) * TileRenderSize,
-                FloorY,
-                TileRenderSize,
-                TileRenderSize 
-            }, 0
-        });
+        m_GroundTiles.push_back(
+            { { static_cast<float>(i) * TileRenderSize, FloorY, TileRenderSize, TileRenderSize }, 0 });
     }
-    
+
     // Initialize slimes - Y is center of slime, so offset by half render size (36) from ground
     m_Slimes.clear();
     float SlimeGroundY = FloorY + 15.f;
-    
+
     Slime Slime1;
     Slime1.Initialize(m_SlimeTexture, m_SlimeDeathSound, { 400, SlimeGroundY });
     Slime1.SetPatrolBounds(300, 500);
     m_Slimes.push_back(Slime1);
-    
+
     Slime Slime2;
     Slime2.Initialize(m_SlimeTexture, m_SlimeDeathSound, { 800, SlimeGroundY });
     Slime2.SetPatrolBounds(700, 900);
     m_Slimes.push_back(Slime2);
-    
+
     Slime Slime3;
     Slime3.Initialize(m_SlimeTexture, m_SlimeDeathSound, { 1200, SlimeGroundY });
     Slime3.SetPatrolBounds(1100, 1400);
     m_Slimes.push_back(Slime3);
 }
 
-inline Rectangle DemoLevel::GetTileRect(int32_t Col, int32_t Row) 
+inline Rectangle DemoLevel::GetTileRect(int32_t Col, int32_t Row)
 {
-    return 
-    { 
-        static_cast<float>(Col) * TileSrcSize, 
-        static_cast<float>(Row) * TileSrcSize, 
-        TileSrcSize, 
-        TileSrcSize 
-    };
+    return { static_cast<float>(Col) * TileSrcSize, static_cast<float>(Row) * TileSrcSize, TileSrcSize, TileSrcSize };
 }
 
-inline int32_t DemoLevel::PseudoRandom(int32_t posX, int32_t Seed) 
+inline int32_t DemoLevel::PseudoRandom(int32_t posX, int32_t Seed)
 {
     int32_t Hash = (posX * 374761393) + (Seed * 668265263);
     Hash = (Hash ^ (Hash >> 13)) * 1274126177;
@@ -153,19 +136,19 @@ void DemoLevel::Update(float DeltaTime)
     m_Player.Update(DeltaTime);
     m_Player.ApplyGravity(DeltaTime, GRAVITY);
     m_Player.ResolveCollisions(DeltaTime, m_GroundTiles);
-    
+
     float LevelLeft = (-10.0f * TileRenderSize) + 32.0f;
     float LevelRight = (60.0f * TileRenderSize) - 32.0f;
     m_Player.ClampToLevel(LevelLeft, LevelRight);
-    
+
     m_Camera.FollowTarget(m_Player.GetPosition(), DeltaTime, 5.0f);
-    
+
     // Update slimes
     for (auto& SlimeEnemy : m_Slimes)
     {
         SlimeEnemy.Update(DeltaTime);
     }
-    
+
     // Check player attack vs slimes
     if (m_Player.IsAttacking())
     {
@@ -182,7 +165,7 @@ void DemoLevel::Update(float DeltaTime)
             }
         }
     }
-    
+
     if (m_Player.GetPosition().y > 1000)
     {
         Reset();
@@ -213,46 +196,32 @@ void DemoLevel::DrawBackground()
     for (size_t i = 0; i < m_BackgroundLayers.size(); ++i)
     {
         Texture2D& Tex = m_BackgroundLayers[i];
-        
+
         if (Tex.id <= 0)
         {
             continue;
         }
-        
+
         float Speed = 0.05f + (static_cast<float>(i) * 0.15f);
         float Scale = 2.0f;
         float ScaledW = static_cast<float>(Tex.width) * Scale;
         float ScaledH = static_cast<float>(Tex.height) * Scale;
-        
+
         float BgX = CamTarget.x * (1.0f - Speed);
         float AlignedX = floor(BgX / ScaledW) * ScaledW;
-        
+
         float Overlap = 64.0f;
         float Offset = (FloorY - ScaledH) - (GroundCamY * (1.0f - Speed)) + Overlap;
         float BgY = (CamTarget.y * (1.0f - Speed)) + Offset;
-        
+
         for (int32_t k = -1; k <= 2; ++k)
         {
-            DrawTexturePro
-            (
-                Tex,
-                { 0, 0, static_cast<float>(Tex.width), static_cast<float>(Tex.height) },
-                { AlignedX + (static_cast<float>(k) * ScaledW), BgY, ScaledW, ScaledH },
-                { 0, 0 },
-                0,
-                WHITE
-            );
+            DrawTexturePro(Tex, { 0, 0, static_cast<float>(Tex.width), static_cast<float>(Tex.height) },
+                { AlignedX + (static_cast<float>(k) * ScaledW), BgY, ScaledW, ScaledH }, { 0, 0 }, 0, WHITE);
         }
     }
-    
-    DrawRectangle
-    (
-        -2000, 
-        static_cast<int>(FloorY + TileRenderSize), 
-        5000, 
-        1000, 
-        Color{ 15, 12, 22, 255 }
-    );
+
+    DrawRectangle(-2000, static_cast<int>(FloorY + TileRenderSize), 5000, 1000, Color{ 15, 12, 22, 255 });
 }
 
 void DemoLevel::DrawTrees(float InFloorY)
@@ -263,7 +232,7 @@ void DemoLevel::DrawTrees(float InFloorY)
         Rectangle Dst = { posX - 128, posY - 256 + 32, 256, 256 };
         DrawTexturePro(m_TilesetTex, Src, Dst, { 0, 0 }, 0, WHITE);
     };
-    
+
     DrawTree(200, InFloorY);
     DrawTree(900, InFloorY);
     DrawTree(1500, InFloorY);
@@ -280,20 +249,12 @@ void DemoLevel::DrawGround(float InFloorY)
     int32_t DeepUnderPatternLen = 3;
 
     int32_t TileIndex = 0;
-    
+
     for (const auto& Tile : m_GroundTiles)
     {
         int32_t SurfaceCol = SurfacePattern[TileIndex % SurfacePatternLen];
-        DrawTexturePro
-        (
-            m_TilesetTex, 
-            GetTileRect(SurfaceCol, 8), 
-            Tile.Rect, 
-            { 0, 0 }, 
-            0, 
-            WHITE
-        );
-        
+        DrawTexturePro(m_TilesetTex, GetTileRect(SurfaceCol, 8), Tile.Rect, { 0, 0 }, 0, WHITE);
+
         for (int32_t Depth = 1; Depth <= 6; ++Depth)
         {
             Rectangle DeepRect = Tile.Rect;
@@ -302,31 +263,15 @@ void DemoLevel::DrawGround(float InFloorY)
             if (Depth <= 1)
             {
                 int32_t UnderCol = UnderPattern[TileIndex % UnderPatternLen];
-                DrawTexturePro
-                (
-                    m_TilesetTex, 
-                    GetTileRect(UnderCol, 9), 
-                    DeepRect, 
-                    { 0, 0 }, 
-                    0, 
-                    WHITE
-                );
+                DrawTexturePro(m_TilesetTex, GetTileRect(UnderCol, 9), DeepRect, { 0, 0 }, 0, WHITE);
             }
             else
             {
                 int32_t UnderCol = DeepUnderPattern[TileIndex % 3];
-                DrawTexturePro
-                (
-                    m_TilesetTex, 
-                    GetTileRect(UnderCol, 9), 
-                    DeepRect, 
-                    { 0, 0 }, 
-                    0, 
-                    WHITE
-                );
+                DrawTexturePro(m_TilesetTex, GetTileRect(UnderCol, 9), DeepRect, { 0, 0 }, 0, WHITE);
             }
         }
-        
+
         TileIndex++;
     }
 }
@@ -334,24 +279,17 @@ void DemoLevel::DrawGround(float InFloorY)
 void DemoLevel::DrawSparkles()
 {
     double Time = GetTime();
-    
+
     for (int32_t s = 0; s < 12; ++s)
     {
-        float SparkleX = 
-            50.0f + (s * 120.0f) + (static_cast<float>(sin((Time * 0.5) + s)) * 8.0f);
+        float SparkleX = 50.0f + (s * 120.0f) + (static_cast<float>(sin((Time * 0.5) + s)) * 8.0f);
 
-        float SparkleY = 
-            280.0f + (static_cast<float>(cos((Time * 0.3) + (s * 0.7))) * 40.0f);
+        float SparkleY = 280.0f + (static_cast<float>(cos((Time * 0.3) + (s * 0.7))) * 40.0f);
 
         float Alpha = (static_cast<float>(sin((Time * 2.0) + s)) + 1.0f) * 0.4f;
-        
-        DrawCircle
-        (
-            static_cast<int>(SparkleX),
-            static_cast<int>(SparkleY),
-            2.0f,
-            Color{ 255, 230, 180, static_cast<unsigned char>(Alpha * 200) }
-        );
+
+        DrawCircle(static_cast<int>(SparkleX), static_cast<int>(SparkleY), 2.0f,
+            Color{ 255, 230, 180, static_cast<unsigned char>(Alpha * 200) });
     }
 }
 
@@ -368,43 +306,16 @@ void DemoLevel::DrawDebugTileset()
     float Scale = 2.0f;
     float StartX = 50;
     float StartY = 80;
-    
+
     DrawTextureEx(m_TilesetTex, { StartX, StartY }, 0, Scale, WHITE);
-    DrawRectangleLinesEx
-    (
-        Rectangle
-        { 
-            StartX, StartY, 
-            m_TilesetTex.width * Scale, 
-            m_TilesetTex.height * Scale 
-        },
-        2.0f,
-        YELLOW
-    );
-    
+    DrawRectangleLinesEx(
+        Rectangle{ StartX, StartY, m_TilesetTex.width * Scale, m_TilesetTex.height * Scale }, 2.0f, YELLOW);
+
     float YLedge = 64.0f;
     float YGround = 128.0f;
-    
-    DrawRectangleLinesEx
-    (
-        Rectangle
-        { 
-            StartX, StartY + (YGround * Scale), 
-            m_TilesetTex.width * Scale, 
-            16 * Scale 
-        },
-        2.0f,
-        Color{ 255, 0, 0, 255 }
-    );
-    DrawRectangleLinesEx
-    (
-        Rectangle
-        {
-            StartX, StartY + (YLedge * Scale), 
-            m_TilesetTex.width * Scale, 
-            16 * Scale 
-        },
-        2.0f,
-        Color{ 0, 255, 0, 255 }
-    );
+
+    DrawRectangleLinesEx(Rectangle{ StartX, StartY + (YGround * Scale), m_TilesetTex.width * Scale, 16 * Scale }, 2.0f,
+        Color{ 255, 0, 0, 255 });
+    DrawRectangleLinesEx(Rectangle{ StartX, StartY + (YLedge * Scale), m_TilesetTex.width * Scale, 16 * Scale }, 2.0f,
+        Color{ 0, 255, 0, 255 });
 }

@@ -8,12 +8,12 @@ class DemoMainMenu : public GameMap
 private:
     Font m_TitleFont = {};
     Sound m_SelectSound = {};
-    
+
     // UI State
     int m_SelectedOption = 0;
     const int OPTION_PLAY = 0;
     const int OPTION_EXIT = 1;
-    
+
     // Animation
     float m_Time = 0.0f;
     float m_PulseScale = 1.0f;

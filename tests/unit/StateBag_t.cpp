@@ -1,5 +1,5 @@
-﻿#include "doctest/doctest.h"
-#include "Engine/GameState.h"
+﻿#include "Engine/GameState.h"
+#include "doctest/doctest.h"
 
 TEST_CASE("StateBag: float set/get")
 {
@@ -51,7 +51,7 @@ TEST_CASE("StateBag: Vector2 set/get")
     CHECK(pos.x == doctest::Approx(0.0f));
     CHECK(pos.y == doctest::Approx(0.0f));
 
-    bag.SetVector2("position", {100.0f, 200.0f});
+    bag.SetVector2("position", { 100.0f, 200.0f });
     Vector2 got = bag.GetVector2("position");
     CHECK(got.x == doctest::Approx(100.0f));
     CHECK(got.y == doctest::Approx(200.0f));

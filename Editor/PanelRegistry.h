@@ -1,14 +1,14 @@
 #pragma once
 
+#include "Panels/IEditorPanel.h"
 #include <memory>
 #include <vector>
-#include "Panels/IEditorPanel.h"
 
 // Panel registry: core panels are listed in s_CorePanelFactories() order by
 // GameEditor; anything extra self-registers from its own translation unit via
 // b_RegisterPanel<T>() and is appended after the core panels. Adding a panel
 // means new files + one registration line, never an edit to GameEditor.cpp.
-using FPanelFactory = std::unique_ptr<IEditorPanel>(*)();
+using FPanelFactory = std::unique_ptr<IEditorPanel> (*)();
 
 template <typename T>
 std::unique_ptr<IEditorPanel> s_fMakePanel()

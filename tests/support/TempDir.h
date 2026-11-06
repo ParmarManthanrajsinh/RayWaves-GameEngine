@@ -13,10 +13,10 @@ class TempDir
 public:
     explicit TempDir(std::string_view prefix = "raywaves_test")
     {
-        static std::atomic<unsigned long long> counter{0};
+        static std::atomic<unsigned long long> counter{ 0 };
         const auto stamp = std::chrono::steady_clock::now().time_since_epoch().count();
-        m_Path = std::filesystem::temp_directory_path()
-            / (std::string(prefix) + "_" + std::to_string(stamp) + "_" + std::to_string(counter++));
+        m_Path = std::filesystem::temp_directory_path() /
+            (std::string(prefix) + "_" + std::to_string(stamp) + "_" + std::to_string(counter++));
         std::filesystem::create_directories(m_Path);
     }
 

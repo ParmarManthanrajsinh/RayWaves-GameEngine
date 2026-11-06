@@ -12,14 +12,14 @@ class EditorPreferences
 {
 public:
     static EditorPreferences& GetInstance();
-    
+
     bool m_bLoadFromFile();
     bool m_bSaveToFile() const;
 
     t_EditorPreferences& GetPreferences() { return m_Preferences; }
     const t_EditorPreferences& GetPreferences() const { return m_Preferences; }
-    
-    static std::string GetConfigPath() ;
+
+    static std::string GetConfigPath();
 
 private:
     EditorPreferences() = default;

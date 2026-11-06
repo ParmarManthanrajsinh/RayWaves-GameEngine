@@ -1,5 +1,5 @@
-﻿#include "doctest/doctest.h"
-#include "ExportService.h"
+﻿#include "ExportService.h"
+#include "doctest/doctest.h"
 #include "support/TempDir.h"
 #include <filesystem>
 #include <fstream>
@@ -47,8 +47,8 @@ TEST_CASE("ExportService: SanitizeGameName rejects traversal and reserved names"
 
 TEST_CASE("ExportService: ResolveExportDir anchors relatives at project root")
 {
-    CHECK(ExportService::ResolveExportDir("export", "C:/Games/MyGame")
-        == (fs::path("C:/Games/MyGame") / "export").string());
+    CHECK(ExportService::ResolveExportDir("export", "C:/Games/MyGame") ==
+        (fs::path("C:/Games/MyGame") / "export").string());
     CHECK(ExportService::ResolveExportDir("C:/Out/Game", "C:/Games/MyGame") == "C:/Out/Game");
 }
 
@@ -70,7 +70,10 @@ TEST_CASE("ExportService: b_WriteGameConfig round-trips all keys")
     REQUIRE(ExportService::b_WriteGameConfig(cfg.string(), settings, 800, 600, 60));
 
     std::string content;
-    { std::ifstream ifs(cfg); content.assign(std::istreambuf_iterator<char>(ifs), {}); }
+    {
+        std::ifstream ifs(cfg);
+        content.assign(std::istreambuf_iterator<char>(ifs), {});
+    }
     CHECK(content.find("width=1920") != std::string::npos);
     CHECK(content.find("height=1080") != std::string::npos);
     CHECK(content.find("b_Fullscreen=true") != std::string::npos);
@@ -97,14 +100,21 @@ TEST_CASE("ExportService: b_ValidateExportFolder detects missing and complete ex
     bool b_HasExeError = false;
     for (const auto& line : logs)
     {
-        if (line.find("Game executable") != std::string::npos) b_HasExeError = true;
+        if (line.find("Game executable") != std::string::npos)
+            b_HasExeError = true;
     }
     CHECK(b_HasExeError);
 
     // Complete folder passes
-    { std::ofstream(tmp / "MyGame.exe") << "x"; }
-    { std::ofstream(tmp / "GameLogic.dll") << "x"; }
-    { std::ofstream(tmp / "libraylib.dll") << "x"; }
+    {
+        std::ofstream(tmp / "MyGame.exe") << "x";
+    }
+    {
+        std::ofstream(tmp / "GameLogic.dll") << "x";
+    }
+    {
+        std::ofstream(tmp / "libraylib.dll") << "x";
+    }
     logs.clear();
     CHECK(ExportService::b_ValidateExportFolder(tmp.string(), sink));
 

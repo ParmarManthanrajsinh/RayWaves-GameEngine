@@ -1,6 +1,6 @@
 #pragma once
-#include "IEditorPanel.h"
 #include "../../Engine/Profiler.h"
+#include "IEditorPanel.h"
 #include <vector>
 
 class PerformanceOverlay : public IEditorPanel
