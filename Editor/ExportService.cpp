@@ -2,11 +2,9 @@
 #include "../Engine/ProjectManager.h"
 #include "../Runtime/DllLoader.h"
 #include "EditorUtils.h"
+#include "ProcessRunner.h"
 #include <algorithm>
-#include <array>
 #include <cctype>
-#include <cstdio>
-#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -199,7 +197,10 @@ namespace ExportService
             log("Starting export process...");
 
             fs::path current_path = fs::current_path();
-            const auto& proj = ProjectManager::GetCurrent();
+            // Snapshot under the lock: the UI thread can keep editing the
+            // live project (icon, name, scene settings) while this worker
+            // runs, and the reference from GetCurrent() escapes that lock.
+            t_Project proj = ProjectManager::GetCurrentCopy();
 
             // Resolve next to the running host first. Export must work from
             // zig-debug, zig-release, and packaged layouts without guessing a
@@ -237,6 +238,14 @@ namespace ExportService
                 return fail("ERROR: Project path contains unsafe characters!");
             }
 
+            auto forward_output = [&log](std::string_view line, bool)
+            {
+                if (!line.empty())
+                {
+                    log(line);
+                }
+            };
+
             fs::path cmakeExe = ProjectManager::GetToolsDirectory() / "cmake" / "bin" / "cmake.exe";
             if (!fs::exists(cmakeExe))
             {
@@ -244,29 +253,18 @@ namespace ExportService
                 std::string fetchCmd = "powershell -ExecutionPolicy Bypass -File \""
                     + (ProjectManager::GetToolsDirectory() / "setup_zig.ps1").string()
                     + "\" -SkipZig -SkipRcEdit -SkipNinja";
-                std::system(fetchCmd.c_str());
+                ProcessRunner::RunAndWait(fetchCmd, forward_output, cancel);
+                if (is_cancelled()) return result;
             }
 
             std::string cmakePath = "\"" + cmakeExe.string() + "\"";
             std::string build_cmd = "cd /d \"" + path_str + "\" && (" + cmakePath + " -G Ninja . -B build || " + cmakePath + " --fresh -G Ninja . -B build) && " + cmakePath + " --build build --config Release";
 
-            FILE* pipe = _popen(build_cmd.c_str(), "r");
-            if (pipe == nullptr)
-            {
-                return fail("ERROR: Could not start the GameLogic build process.");
-            }
-
-            std::array<char, 1024> buffer{};
-            while (fgets(buffer.data(), static_cast<int>(buffer.size()), pipe) != nullptr)
-            {
-                std::string line = buffer.data();
-                line.erase(line.find_last_not_of(" \n\r\t") + 1);
-                if (!line.empty()) {
-                    log(line);
-                }
-            }
-            int build_result = _pclose(pipe);
-            if (build_result != 0)
+            // Blocking, but cancellable: the runner kills the whole build tree
+            // when cancel is set, so Close() cannot hang on an export.
+            const bool b_BuildOk = ProcessRunner::RunAndWait(build_cmd, forward_output, cancel);
+            if (is_cancelled()) return result;
+            if (!b_BuildOk)
             {
                 return fail("ERROR: Build failed!");
             }
@@ -363,8 +361,8 @@ namespace ExportService
                         // cmd.exe /c strips first+last " when string starts with ". Wrap entire command in outer quotes.
                         std::string cmd = "\"\"" + rceditExe.string() + "\" \"" + exePath + "\" --set-icon \"" + custom_icon + "\"\"";
                         log("Icon cmd: " + cmd);
-                        int rc = std::system(cmd.c_str());
-                        log("rcedit exit code: " + std::to_string(rc));
+                        const bool b_IconOk = ProcessRunner::RunAndWait(cmd, forward_output, cancel);
+                        log(b_IconOk ? "rcedit: icon applied" : "rcedit: icon update failed");
                     }
                     else
                     {

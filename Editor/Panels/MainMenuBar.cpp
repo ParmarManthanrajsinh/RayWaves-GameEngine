@@ -62,7 +62,13 @@ void MainMenuBar::Draw(GameEditor* editor)
         {
             ImGui::MenuItem(ICON_FA_TERMINAL " Terminal", nullptr, &editor->m_bShowTerminal);
             ImGui::MenuItem(ICON_FA_CHART_LINE " Performance Stats", nullptr, &editor->m_bShowPerformanceStats);
-            ImGui::MenuItem(ICON_FA_LIST " Message Log", nullptr, &editor->bShowMessageLog);
+            // bShowMessageLog is atomic (written from the build worker);
+            // proxy through a local bool for ImGui.
+            bool show_msg_log = editor->bShowMessageLog.load();
+            if (ImGui::MenuItem(ICON_FA_LIST " Message Log", nullptr, &show_msg_log))
+            {
+                editor->bShowMessageLog.store(show_msg_log);
+            }
             ImGui::EndMenu();
         }
 

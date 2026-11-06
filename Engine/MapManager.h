@@ -52,6 +52,16 @@ private:
     mutable bool m_bMapsCacheDirty = true;
     bool m_bUsingDefaultMap;
 
+    // Deferred transition queue. A map that calls RequestGotoMap from
+    // inside Initialize/Update/Draw cannot be destroyed synchronously:
+    // b_GotoMap would delete the map whose stack frame is still running
+    // (use-after-free). Callbacks stash the request here; Update()/Draw()
+    // drain it once the caller has returned.
+    std::string m_PendingMapId;
+    bool m_bPendingForce = false;
+    bool m_bPendingTransition = false;
+    bool m_bInTransition = false;
+
 public:
     MapManager();
     ~MapManager() override;
@@ -81,6 +91,8 @@ public:
         std::string_view map_id, 
         std::string_view description = ""
     );
+    // Returns true when the swap happened, or when it was queued because a
+    // swap is already in progress (applied by the next Update()/Draw()).
     bool b_GotoMap(std::string_view map_id, bool force_reload = false);
     bool b_IsCurrentMap(std::string_view map_id) const;
     bool b_IsMapRegistered(std::string_view map_id) const;
@@ -94,8 +106,19 @@ public:
     void UnloadCurrentMap();
     std::string GetDebugInfo() const;
 
+    // Upper bound on map swaps applied from one drain. Stops two maps that
+    // request each other from Initialize() from looping forever.
+    static constexpr int k_MaxTransitionsPerDrain = 8;
+
     
 private:
+
+    // Queue a transition requested through a map callback. Deferred so the
+    // requesting map is never destroyed while its own code is running.
+    void QueueTransition(std::string_view map_id, bool force_reload = false);
+    // Applies queued transitions. Only called from the top-level entry
+    // points (Initialize, Update, Draw), never from inside b_GotoMap.
+    void ProcessPendingTransition();
 
     static void LoadDefaultMap();
 };
@@ -164,15 +187,4 @@ inline void RegisterMap
 ) 
 {
     manager.template RegisterMap<MapClass>(std::string(name));
-}
-
-template <typename MapClass, typename Manager>
-inline void RegisterMapAs
-(
-    Manager& manager, 
-    int map_id, 
-    std::string_view desc
-)
-{
-    manager.template RegisterMap<MapClass>(map_id, desc);
 }

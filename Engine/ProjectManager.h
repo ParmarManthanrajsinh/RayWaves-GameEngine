@@ -20,12 +20,21 @@ public:
 
     static std::string SanitizeCMakeProjectName(std::string_view name);
 
+    // NOTE: GetCurrent() hands out a live reference that escapes the
+    // internal lock. Use only on the UI thread. Prefer GetCurrentCopy()
+    // on worker threads (e.g. export) so background work never races
+    // with UI-thread edits to the project.
     static t_Project& GetCurrent();
+    static t_Project GetCurrentCopy();
     static bool b_HasOpenProject();
 
     static void AddRecent(std::string_view path);
     static void RemoveRecent(std::string_view path);
     static std::vector<std::string> GetRecent();
+
+    // Test seam: redirects recent.ini away from %APPDATA%. Returns the
+    // previous path so the caller can restore it.
+    static std::string SetRecentPathForTesting(std::string_view path);
 
     static std::vector<std::string> GetAvailableTemplates();
 

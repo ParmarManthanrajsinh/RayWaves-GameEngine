@@ -59,8 +59,12 @@ void MessageLogPanel::Draw(GameEditor* editor)
 	}
 
     ImGui::SetNextWindowSize(ImVec2(800, 300), ImGuiCond_FirstUseEver);
-    if (ImGui::Begin("Message Log", &editor->bShowMessageLog))
+    // bShowMessageLog is atomic (build worker writes it); ImGui wants a
+    // bool*, so proxy through a local and sync back on close.
+    bool show_msg_log = editor->bShowMessageLog.load();
+    if (ImGui::Begin("Message Log", &show_msg_log))
     {
+        editor->bShowMessageLog.store(show_msg_log);
         float content_width = ImGui::GetContentRegionAvail().x;
         ImGui::SetCursorPosX(ImGui::GetCursorPosX() + content_width - 135.0f);
         if (ImGui::Button("Copy All", ImVec2(65, 0)))

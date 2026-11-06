@@ -60,7 +60,12 @@ public:
     void RunBrowser();
     void Run();
     
+    // Starts a build. If one is already running it is cancelled first, so
+    // only one build exists at a time.
     void CompileGameLogic();
+    // Requests cancellation of the running build; the worker kills the
+    // build's process tree and exits shortly after.
+    void CancelBuild();
     void OpenProject(std::string_view folderPath);
     void CloseProject();
     void CleanupProject();
@@ -69,16 +74,13 @@ public:
     GameLogicLoader& GetLogicLoader() { return m_LogicLoader; }
     std::shared_ptr<std::atomic<bool>> GetThreadCancelFlag() const { return m_ThreadCancelFlag; }
     term::Terminal& GetTerminal() { return m_Terminal; }
-    
-    bool IsWindowResized() const { return b_ResolutionChanged; } // Or ImGui function if needed
 
     std::string version = std::string("RayWaves v") + RAYWAVES_VERSION;
 
     RenderTexture2D m_RaylibTexture;
     RenderTexture2D m_DisplayTexture;
     Texture2D m_SourceTexture;
-    
-    bool b_ResolutionChanged = false;
+
     bool b_FPSChanged = false;
     
     struct m_tSceneSettings
@@ -110,6 +112,9 @@ public:
 
     bool m_bShowPerformanceStats = false;
     std::thread m_BuildThread;
+    // Per-build cancel flag. Replaced on every CompileGameLogic(), so a
+    // cancelled build cannot cancel its successor.
+    std::shared_ptr<std::atomic<bool>> m_BuildCancel = std::make_shared<std::atomic<bool>>(false);
     bool m_bClosed = false;
     std::array<float, 120> m_FrameTimes{};
     size_t m_FrameOffset;
@@ -118,7 +123,10 @@ public:
     std::atomic<float> NotificationTimer = 0.0f;
     std::vector<FBuildMessage> BuildMessages;
     std::mutex BuildMessagesMutex;
-    bool bShowMessageLog = false;
+    // Written from the build worker thread on failure, read on the UI
+    // thread. Must be atomic to avoid a data race. ImGui wants a bool*,
+    // so call sites proxy through a local bool.
+    std::atomic<bool> bShowMessageLog{false};
     void ParseBuildLine(std::string_view line);
     
     bool m_bShowTerminal = true;

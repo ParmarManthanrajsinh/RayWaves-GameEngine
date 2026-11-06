@@ -21,6 +21,7 @@ set(INTEGRATION_TEST_SRC
     ${CMAKE_CURRENT_SOURCE_DIR}/integration/ConPty_t.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/integration/DllLoader_t.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/integration/ExportService_t.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/integration/ProcessRunner_t.cpp
 )
 
 function(raywaves_configure_test_target target)
@@ -54,6 +55,7 @@ add_executable(raywaves_tests_integration
     ${CMAKE_SOURCE_DIR}/Editor/ExportService.cpp
     ${CMAKE_SOURCE_DIR}/Editor/EditorUtils.cpp
     ${CMAKE_SOURCE_DIR}/Editor/GameLogicLoader.cpp
+    ${CMAKE_SOURCE_DIR}/Editor/ProcessRunner.cpp
 )
 raywaves_configure_test_target(raywaves_tests_integration)
 

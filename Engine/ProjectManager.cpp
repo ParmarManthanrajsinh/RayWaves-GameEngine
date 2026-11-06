@@ -198,10 +198,24 @@ t_Project& ProjectManager::GetCurrent()
     return s_Current;
 }
 
+t_Project ProjectManager::GetCurrentCopy()
+{
+    std::scoped_lock lock(s_Mutex);
+    return s_Current;
+}
+
 bool ProjectManager::b_HasOpenProject()
 {
     std::scoped_lock lock(s_Mutex);
     return s_bOpen;
+}
+
+std::string ProjectManager::SetRecentPathForTesting(std::string_view path)
+{
+    std::scoped_lock lock(s_Mutex);
+    std::string previous = s_RecentPath;
+    s_RecentPath = std::string(path);
+    return previous;
 }
 
 void ProjectManager::AddRecent(std::string_view path)

@@ -32,12 +32,14 @@ void MapManager::Initialize()
         m_CurrentMap->SetSceneBounds(bounds.x, bounds.y);
         m_CurrentMap->SetProjectAssetPath(m_ProjectAssetPath);
 
-        // Inject transition callback so the map can request transitions
+        // Inject transition callback so the map can request transitions.
+        // Deferred via QueueTransition: never destroys the calling map
+        // from inside its own Initialize/Update/Draw (use-after-free).
         m_CurrentMap->SetTransitionCallback
         (
             [this](std::string_view map_id, bool force)
             {
-                this->b_GotoMap(std::string(map_id), force);
+                this->QueueTransition(map_id, force);
             }
         );
 
@@ -51,6 +53,9 @@ void MapManager::Initialize()
 
         m_CurrentMap->Initialize();
         std::cout << "[MapManager] Successfully initialized with map: '" << m_CurrentMapId << "'" << "\n";
+        // The current map requested a transition from its own
+        // Initialize(); its frame has returned, so swapping is safe.
+        ProcessPendingTransition();
     }
     else if (!m_MapRegistry.empty())
     {
@@ -83,6 +88,10 @@ void MapManager::Update(float delta_time)
     {
         m_CurrentMap->Update(delta_time);
     }
+
+    // Apply transitions requested from inside Update(): the old map's
+    // frame has fully returned, so destroying it is safe now.
+    ProcessPendingTransition();
 }
 
 void MapManager::Draw()
@@ -125,6 +134,10 @@ void MapManager::Draw()
             );
         }
     }
+
+    // Apply transitions requested from inside Draw() for the same reason
+    // as in Update(). No-op when nothing is queued.
+    ProcessPendingTransition();
 }
 
 void MapManager::SaveState(StateBag& out) const
@@ -173,8 +186,54 @@ Vector2 MapManager::GetSceneBounds() const
     return GameMap::GetSceneBounds();
 }
 
+void MapManager::QueueTransition(std::string_view map_id, bool force_reload)
+{
+    // Last request wins; at most one deferred swap is pending at a time.
+    m_PendingMapId = std::string(map_id);
+    m_bPendingForce = force_reload;
+    m_bPendingTransition = true;
+}
+
+void MapManager::ProcessPendingTransition()
+{
+    // A swap can queue another transition from the new map's Initialize(),
+    // so keep going until the queue is empty. Capped: without the cap, two
+    // maps requesting each other would loop here forever.
+    int applied = 0;
+    while (m_bPendingTransition)
+    {
+        if (applied >= k_MaxTransitionsPerDrain)
+        {
+            std::cerr << "[MapManager] Transition limit reached (" << k_MaxTransitionsPerDrain
+                      << " per frame); dropping request for '" << m_PendingMapId << "'\n";
+            m_bPendingTransition = false;
+            m_PendingMapId.clear();
+            m_bPendingForce = false;
+            break;
+        }
+        ++applied;
+
+        std::string next_id = m_PendingMapId;
+        bool force = m_bPendingForce;
+        m_bPendingTransition = false;
+        m_PendingMapId.clear();
+        m_bPendingForce = false;
+
+        b_GotoMap(next_id, force);
+    }
+}
+
 bool MapManager::b_GotoMap(std::string_view map_id, bool force_reload)
 {
+    // Re-entrancy guard: a map asked us to switch while we were already
+    // mid-swap (e.g. from its own Initialize()). Queue instead of
+    // recursing: the caller is still on the stack.
+    if (m_bInTransition)
+    {
+        QueueTransition(map_id, force_reload);
+        return true;
+    }
+
     // Check if map is registered
     if (!b_IsMapRegistered(map_id))
     {
@@ -199,16 +258,25 @@ bool MapManager::b_GotoMap(std::string_view map_id, bool force_reload)
 
     std::cout << "[MapManager] Switching to map: '" << map_id << "'" << "\n";
 
+    // Set the guard for the rest of this function. Cleared on every exit
+    // path below so a queued transition can be applied afterwards.
+    m_bInTransition = true;
+
     try
     {
         // Create the new map
         auto reg_it = m_MapRegistry.find(map_id);
-        if (reg_it == m_MapRegistry.end()) return false;
+        if (reg_it == m_MapRegistry.end())
+        {
+            m_bInTransition = false;
+            return false;
+        }
         auto new_map = reg_it->second();
 
         if (!new_map)
         {
             std::cerr << "[MapManager] Error: Factory for map '" << map_id << "' returned null!" << "\n";
+            m_bInTransition = false;
             return false;
         }
 
@@ -226,12 +294,14 @@ bool MapManager::b_GotoMap(std::string_view map_id, bool force_reload)
             m_CurrentMap->SetSceneBounds(bounds.x, bounds.y);
             m_CurrentMap->SetProjectAssetPath(m_ProjectAssetPath);
 
-            // Inject transition callback for map-driven transitions
+            // Inject transition callback for map-driven transitions.
+            // Deferred: destroying the current map from inside its own
+            // Initialize() would be a use-after-free.
             m_CurrentMap->SetTransitionCallback
             (
                 [this](std::string_view request_id, bool force)
                 {
-                    this->b_GotoMap(std::string(request_id), force);
+                    this->QueueTransition(request_id, force);
                 }
             );
 
@@ -246,19 +316,26 @@ bool MapManager::b_GotoMap(std::string_view map_id, bool force_reload)
             m_CurrentMap->Initialize();
         }
 
+        m_bInTransition = false;
+
         std::cout << "[MapManager] Successfully loaded map: '" << map_id << "'" << "\n";
 
         std::cout << "[MapManager] Current map Id: '" << m_CurrentMapId << "'" << "\n";
 
+        // A transition requested from the new map's Initialize() is applied
+        // by the next Update()/Draw(), not here. Draining here would nest
+        // swaps inside this call and recurse without bound.
         return true;
     }
     catch (const std::exception& e)
     {
+        m_bInTransition = false;
         std::cerr << "[MapManager] Error creating map '" << map_id << "': " << e.what() << "\n";
         return false;
     }
     catch (...)
     {
+        m_bInTransition = false;
         std::cerr << "[MapManager] Unknown error creating map '" << map_id << "'\n";
         return false;
     }
@@ -307,6 +384,9 @@ void MapManager::UnloadCurrentMap()
         m_CurrentMap.reset();
         m_CurrentMapId = "";
         m_bUsingDefaultMap = false;
+        m_bPendingTransition = false;
+        m_PendingMapId.clear();
+        m_bPendingForce = false;
     }
     else
     {

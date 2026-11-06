@@ -746,6 +746,7 @@ void GameEditor::Close()
 
 	// Stop workers before destroying objects captured by their callbacks.
 	m_ThreadCancelFlag->store(true);
+	CancelBuild();
 	if (m_BuildThread.joinable())
 	{
 		m_BuildThread.join();
@@ -879,8 +880,25 @@ void GameEditor::ParseBuildLine(std::string_view line)
     }
 }
 
+void GameEditor::CancelBuild()
+{
+    if (m_BuildCancel)
+    {
+        m_BuildCancel->store(true);
+    }
+}
+
 void GameEditor::CompileGameLogic()
 {
+    // A running build is cancelled, not waited on. The worker notices within
+    // one poll interval and kills its process tree, so this join stays short.
+    CancelBuild();
+    if (m_BuildThread.joinable())
+    {
+        m_BuildThread.join();
+    }
+    m_BuildCancel = std::make_shared<std::atomic<bool>>(false);
+
     b_IsCompiling = true;
     b_IsPlaying = false;
 
@@ -908,47 +926,46 @@ void GameEditor::CompileGameLogic()
         }
         else
         {
-            // Ensure bundled cmake exists
+            // Ensure bundled cmake exists. The fetch runs on the build
+            // worker (prepended to build_cmd), never on the UI thread:
+            // a first-time CMake download would otherwise freeze the
+            // editor for its whole duration.
             fs::path cmake_exe = ProjectManager::GetToolsDirectory() / "cmake" / "bin" / "cmake.exe";
+            std::string setup_prefix;
             if (!fs::exists(cmake_exe))
             {
-                m_Terminal.add_text("Downloading CMake (first-time setup)...", term::Severity::Debug);
-                std::string fetch_cmd = "powershell -ExecutionPolicy Bypass -File \""
+                m_Terminal.add_text("Downloading CMake (first-time setup, in background)...", term::Severity::Debug);
+                setup_prefix = "powershell -ExecutionPolicy Bypass -File \""
                     + (ProjectManager::GetToolsDirectory() / "setup_zig.ps1").string()
-                    + "\" -SkipZig -SkipRcEdit -SkipNinja";
-                std::system(fetch_cmd.c_str());
+                    + "\" -SkipZig -SkipRcEdit -SkipNinja && ";
             }
 
             std::string cmake_path = "\"" + cmake_exe.string() + "\"";
 
             // Project folders are portable, but CMake caches contain absolute paths.
             // Try normal configure first, if it fails (e.g. moved project), fallback to --fresh.
-            build_cmd = "cd /d \"" + path_str + "\" && (" + cmake_path + " -G Ninja . -B build || " + cmake_path + " --fresh -G Ninja . -B build) && " + cmake_path + " --build build --config Release";
+            build_cmd = setup_prefix + "cd /d \"" + path_str + "\" && (" + cmake_path + " -G Ninja . -B build || " + cmake_path + " --fresh -G Ninja . -B build) && " + cmake_path + " --build build --config Release";
         }
     }
     else
     {
         // Dev environment fallback: build the bundled GameLogic target.
+        // Same rule as above: any setup runs on the worker, not the UI.
         fs::path cmakeExe = ProjectManager::GetToolsDirectory() / "cmake" / "bin" / "cmake.exe";
+        std::string setupPrefix;
         if (!fs::exists(cmakeExe))
         {
-            m_Terminal.add_text("Downloading CMake (first-time setup)...", term::Severity::Debug);
-            std::string fetchCmd = "powershell -ExecutionPolicy Bypass -File \""
+            m_Terminal.add_text("Downloading CMake (first-time setup, in background)...", term::Severity::Debug);
+            setupPrefix = "powershell -ExecutionPolicy Bypass -File \""
                 + (ProjectManager::GetToolsDirectory() / "setup_zig.ps1").string()
-                + "\" -SkipZig -SkipRcEdit -SkipNinja";
-            std::system(fetchCmd.c_str());
+                + "\" -SkipZig -SkipRcEdit -SkipNinja && ";
         }
-        build_cmd = "\"\"" + cmakeExe.string() + "\" --build \"" + app_dir + "\" --target GameLogic\"";
+        build_cmd = setupPrefix + "\"\"" + cmakeExe.string() + "\" --build \"" + app_dir + "\" --target GameLogic\"";
     }
 
     m_Terminal.add_text("Executing: " + build_cmd, term::Severity::Debug);
 
-    if (m_BuildThread.joinable())
-    {
-        m_BuildThread.join();
-    }
-
-    auto cancel = m_ThreadCancelFlag;
+    auto cancel = m_BuildCancel;
     m_BuildThread = ProcessRunner::RunBuildCommand
     (
         build_cmd,
@@ -960,7 +977,11 @@ void GameEditor::CompileGameLogic()
         },
         [this, cancel](bool success)
         {
-            if (cancel->load()) return;
+            if (cancel->load())
+            {
+                b_IsCompiling = false;
+                return;
+            }
             if (success)
             {
                 m_Terminal.add_text("Build Successful.", term::Severity::Debug);
@@ -976,6 +997,7 @@ void GameEditor::CompileGameLogic()
                 NotificationTimer = 10.0f;
             }
             b_IsCompiling = false;
-        }
+        },
+        cancel
     );
 }

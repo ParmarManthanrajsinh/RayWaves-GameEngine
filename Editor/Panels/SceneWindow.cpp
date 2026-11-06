@@ -123,12 +123,19 @@ void SceneWindow::Draw(GameEditor* editor)
 
 	ImGui::SameLine();
 
-	// Restart
-	if (s_bIconButton("restart_btn", ICON_FA_ARROW_ROTATE_RIGHT, ImVec2(32, 32), "Restart") || editor->IsWindowResized())
+	// Restart reloads through MapManager. Plain GameMap projects have none,
+	// so the button is disabled there rather than doing nothing on click.
+	MapManager* restart_map_manager = editor->GetMapManager();
+	const bool b_CanRestart = restart_map_manager != nullptr;
+	if (!b_CanRestart) ImGui::PushStyleVar(ImGuiStyleVar_Alpha, 0.5f);
+	if (s_bIconButton("restart_btn", ICON_FA_ARROW_ROTATE_RIGHT, ImVec2(32, 32),
+		b_CanRestart ? "Restart" : "Restart unavailable: project has no MapManager")
+		&& b_CanRestart)
 	{
 		editor->b_IsPlaying = false;
-		editor->GetMapManager()->b_ReloadCurrentMap();
+		restart_map_manager->b_ReloadCurrentMap();
 	}
+	if (!b_CanRestart) ImGui::PopStyleVar();
 
 	ImGui::SameLine();
 	ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 12);
