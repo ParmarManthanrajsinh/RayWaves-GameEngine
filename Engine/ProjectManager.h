@@ -1,12 +1,12 @@
 #pragma once
 #include "Project.h"
-#include <string>
 #include <filesystem>
+#include <mutex>
+#include <string>
 #include <string_view>
 #include <vector>
-#include <mutex>
 
-class ProjectManager 
+class ProjectManager
 {
 public:
     static std::filesystem::path GetEngineRootDirectory();

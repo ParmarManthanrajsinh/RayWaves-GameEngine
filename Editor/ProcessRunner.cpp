@@ -10,159 +10,157 @@
 
 namespace ProcessRunner
 {
-    namespace
+namespace
+{
+constexpr int k_MaxChunksPerDrain = 64;
+constexpr int k_MaxFinalDrains = 1024;
+constexpr DWORD k_PollIntervalMs = 10;
+constexpr DWORD k_ExitWaitMs = 5000;
+
+struct Handle
+{
+    HANDLE h{ nullptr };
+
+    Handle() = default;
+    Handle(HANDLE h_) : h(h_) {}
+
+    ~Handle() { Close(); }
+
+    Handle(const Handle&) = delete;
+    Handle& operator=(const Handle&) = delete;
+
+    Handle(Handle&& other) noexcept : h(other.h) { other.h = nullptr; }
+
+    Handle& operator=(Handle&& other) noexcept
     {
-        constexpr int k_MaxChunksPerDrain = 64;
-        constexpr int k_MaxFinalDrains = 1024;
-        constexpr DWORD k_PollIntervalMs = 10;
-        constexpr DWORD k_ExitWaitMs = 5000;
-
-        struct Handle
+        if (this != std::addressof(other))
         {
-            HANDLE h{ nullptr };
-
-            Handle() = default;
-            Handle(HANDLE h_) : h(h_) {}
-
-            ~Handle() { Close(); }
-
-            Handle(const Handle&) = delete;
-            Handle& operator=(const Handle&) = delete;
-
-            Handle(Handle&& other) noexcept : h(other.h)
-            {
-                other.h = nullptr;
-            }
-
-            Handle& operator=(Handle&& other) noexcept
-            {
-                if (this != std::addressof(other))
-                {
-                    Close();
-                    h = other.h;
-                    other.h = nullptr;
-                }
-                return *this;
-            }
-
-            void Close()
-            {
-                if (h != nullptr)
-                {
-                    CloseHandle(h);
-                    h = nullptr;
-                }
-            }
-
-            operator HANDLE() const { return h; }
-            HANDLE* operator&() { return &h; }
-        };
-
-        // cmd.exe spawns cmake, ninja, and the compilers. The job lets us kill
-        // that whole tree at once, and KILL_ON_JOB_CLOSE reaps anything left
-        // behind when the run ends.
-        struct Job
-        {
-            Handle h;
-
-            Job() : h(CreateJobObjectA(nullptr, nullptr))
-            {
-                if (h.h == nullptr) return;
-
-                JOBOBJECT_EXTENDED_LIMIT_INFORMATION info{};
-                info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
-                SetInformationJobObject(h, JobObjectExtendedLimitInformation, &info, sizeof(info));
-            }
-        };
-
-        enum class EDrain { Idle, Busy, Closed };
-
-        // Turns pipe bytes into complete lines. Output is read until the pipe
-        // reports no data, so text written just before the child exits is
-        // still delivered.
-        class PipeReader
-        {
-        public:
-            PipeReader(HANDLE pipe, std::function<void(std::string_view, bool)> on_output)
-                : m_Pipe(pipe)
-                , m_OnOutput(std::move(on_output))
-            {
-            }
-
-            EDrain Drain()
-            {
-                for (int chunk = 0; chunk < k_MaxChunksPerDrain; ++chunk)
-                {
-                    DWORD avail = 0;
-                    if (!PeekNamedPipe(m_Pipe, nullptr, 0, nullptr, &avail, nullptr))
-                    {
-                        return EDrain::Closed;
-                    }
-                    if (avail == 0)
-                    {
-                        return EDrain::Idle;
-                    }
-
-                    DWORD bytes_read = 0;
-                    const DWORD want = std::min<DWORD>(avail, static_cast<DWORD>(m_Buffer.size()));
-                    if (!ReadFile(m_Pipe, m_Buffer.data(), want, &bytes_read, nullptr) || bytes_read == 0)
-                    {
-                        return EDrain::Closed;
-                    }
-
-                    m_Pending.append(m_Buffer.data(), bytes_read);
-                    EmitCompleteLines();
-                }
-                return EDrain::Busy;
-            }
-
-            void Flush()
-            {
-                if (!m_Pending.empty() && m_OnOutput)
-                {
-                    m_OnOutput(m_Pending, false);
-                }
-                m_Pending.clear();
-            }
-
-        private:
-            void EmitCompleteLines()
-            {
-                size_t start = 0;
-                size_t newline = m_Pending.find('\n');
-                while (newline != std::string::npos)
-                {
-                    std::string_view line(m_Pending.data() + start, newline - start);
-                    if (!line.empty() && line.back() == '\r')
-                    {
-                        line.remove_suffix(1);
-                    }
-                    if (m_OnOutput)
-                    {
-                        m_OnOutput(line, false);
-                    }
-                    start = newline + 1;
-                    newline = m_Pending.find('\n', start);
-                }
-                m_Pending.erase(0, start);
-            }
-
-            HANDLE m_Pipe;
-            std::function<void(std::string_view, bool)> m_OnOutput;
-            std::array<char, 4096> m_Buffer{};
-            std::string m_Pending;
-        };
+            Close();
+            h = other.h;
+            other.h = nullptr;
+        }
+        return *this;
     }
 
-    std::thread RunBuildCommand
-    (
-        std::string_view cmd,
-        const std::function<void(std::string_view, bool)>& on_output,
-        const std::function<void(bool)>& on_complete,
-        const std::shared_ptr<std::atomic<bool>>& cancel
-    )
+    void Close()
     {
-        return std::thread([cmd_str = std::string(cmd), on_output, on_complete, cancel]()
+        if (h != nullptr)
+        {
+            CloseHandle(h);
+            h = nullptr;
+        }
+    }
+
+    operator HANDLE() const { return h; }
+    HANDLE* operator&() { return &h; }
+};
+
+// cmd.exe spawns cmake, ninja, and the compilers. The job lets us kill
+// that whole tree at once, and KILL_ON_JOB_CLOSE reaps anything left
+// behind when the run ends.
+struct Job
+{
+    Handle h;
+
+    Job() : h(CreateJobObjectA(nullptr, nullptr))
+    {
+        if (h.h == nullptr)
+            return;
+
+        JOBOBJECT_EXTENDED_LIMIT_INFORMATION info{};
+        info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+        SetInformationJobObject(h, JobObjectExtendedLimitInformation, &info, sizeof(info));
+    }
+};
+
+enum class EDrain
+{
+    Idle,
+    Busy,
+    Closed
+};
+
+// Turns pipe bytes into complete lines. Output is read until the pipe
+// reports no data, so text written just before the child exits is
+// still delivered.
+class PipeReader
+{
+public:
+    PipeReader(HANDLE pipe, std::function<void(std::string_view, bool)> on_output)
+        : m_Pipe(pipe), m_OnOutput(std::move(on_output))
+    {
+    }
+
+    EDrain Drain()
+    {
+        for (int chunk = 0; chunk < k_MaxChunksPerDrain; ++chunk)
+        {
+            DWORD avail = 0;
+            if (!PeekNamedPipe(m_Pipe, nullptr, 0, nullptr, &avail, nullptr))
+            {
+                return EDrain::Closed;
+            }
+            if (avail == 0)
+            {
+                return EDrain::Idle;
+            }
+
+            DWORD bytes_read = 0;
+            const DWORD want = std::min<DWORD>(avail, static_cast<DWORD>(m_Buffer.size()));
+            if (!ReadFile(m_Pipe, m_Buffer.data(), want, &bytes_read, nullptr) || bytes_read == 0)
+            {
+                return EDrain::Closed;
+            }
+
+            m_Pending.append(m_Buffer.data(), bytes_read);
+            EmitCompleteLines();
+        }
+        return EDrain::Busy;
+    }
+
+    void Flush()
+    {
+        if (!m_Pending.empty() && m_OnOutput)
+        {
+            m_OnOutput(m_Pending, false);
+        }
+        m_Pending.clear();
+    }
+
+private:
+    void EmitCompleteLines()
+    {
+        size_t start = 0;
+        size_t newline = m_Pending.find('\n');
+        while (newline != std::string::npos)
+        {
+            std::string_view line(m_Pending.data() + start, newline - start);
+            if (!line.empty() && line.back() == '\r')
+            {
+                line.remove_suffix(1);
+            }
+            if (m_OnOutput)
+            {
+                m_OnOutput(line, false);
+            }
+            start = newline + 1;
+            newline = m_Pending.find('\n', start);
+        }
+        m_Pending.erase(0, start);
+    }
+
+    HANDLE m_Pipe;
+    std::function<void(std::string_view, bool)> m_OnOutput;
+    std::array<char, 4096> m_Buffer{};
+    std::string m_Pending;
+};
+} // namespace
+
+std::thread RunBuildCommand(std::string_view cmd, const std::function<void(std::string_view, bool)>& on_output,
+    const std::function<void(bool)>& on_complete, const std::shared_ptr<std::atomic<bool>>& cancel)
+{
+    return std::thread(
+        [cmd_str = std::string(cmd), on_output, on_complete, cancel]()
         {
             auto report_failure = [&](std::string_view message)
             {
@@ -207,19 +205,8 @@ namespace ProcessRunner
 
             // Created suspended so the job assignment happens before cmd.exe
             // can spawn children that would escape the job.
-            if (!CreateProcessA
-                (
-                    nullptr,
-                    cmd_mutable.data(),
-                    nullptr,
-                    nullptr,
-                    TRUE,
-                    CREATE_NO_WINDOW | CREATE_SUSPENDED,
-                    nullptr,
-                    nullptr,
-                    &si,
-                    &pi
-                ))
+            if (!CreateProcessA(nullptr, cmd_mutable.data(), nullptr, nullptr, TRUE,
+                    CREATE_NO_WINDOW | CREATE_SUSPENDED, nullptr, nullptr, &si, &pi))
             {
                 report_failure("Failed to create process.");
                 return;
@@ -287,24 +274,14 @@ namespace ProcessRunner
                 on_complete(!b_Cancelled && exit_code == 0);
             }
         });
-    }
-
-    bool RunAndWait
-    (
-        std::string_view cmd,
-        const std::function<void(std::string_view, bool)>& on_output,
-        const std::shared_ptr<std::atomic<bool>>& cancel
-    )
-    {
-        bool b_Success = false;
-        std::thread worker = RunBuildCommand
-        (
-            cmd,
-            on_output,
-            [&b_Success](bool success) { b_Success = success; },
-            cancel
-        );
-        worker.join();
-        return b_Success;
-    }
 }
+
+bool RunAndWait(std::string_view cmd, const std::function<void(std::string_view, bool)>& on_output,
+    const std::shared_ptr<std::atomic<bool>>& cancel)
+{
+    bool b_Success = false;
+    std::thread worker = RunBuildCommand(cmd, on_output, [&b_Success](bool success) { b_Success = success; }, cancel);
+    worker.join();
+    return b_Success;
+}
+} // namespace ProcessRunner

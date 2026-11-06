@@ -1,11 +1,8 @@
+#include "MapManager.h"
 #include <iostream>
 #include <sstream>
-#include "MapManager.h"
 
-MapManager::MapManager()
-    : m_CurrentMap(nullptr)
-    , 
-     m_bUsingDefaultMap(false)
+MapManager::MapManager() : m_CurrentMap(nullptr), m_bUsingDefaultMap(false)
 {
     m_MapName = "MapManager";
     std::cout << "[MapManager] Initialized - ready for map registration\n";
@@ -35,21 +32,10 @@ void MapManager::Initialize()
         // Inject transition callback so the map can request transitions.
         // Deferred via QueueTransition: never destroys the calling map
         // from inside its own Initialize/Update/Draw (use-after-free).
-        m_CurrentMap->SetTransitionCallback
-        (
-            [this](std::string_view map_id, bool force)
-            {
-                this->QueueTransition(map_id, force);
-            }
-        );
+        m_CurrentMap->SetTransitionCallback(
+            [this](std::string_view map_id, bool force) { this->QueueTransition(map_id, force); });
 
-        m_CurrentMap->SetExitCallback
-        (
-            [this]()
-            {
-                this->RequestExit();
-            }
-        );
+        m_CurrentMap->SetExitCallback([this]() { this->RequestExit(); });
 
         m_CurrentMap->Initialize();
         std::cout << "[MapManager] Successfully initialized with map: '" << m_CurrentMapId << "'" << "\n";
@@ -106,32 +92,11 @@ void MapManager::Draw()
         // Check if the window is ready before drawing
         if (GetWindowHandle() != nullptr)
         {
-            DrawRectangle
-            (
-                0, 
-                0, 
-                static_cast<int>(GetSceneBounds().x), 
-                static_cast<int>(GetSceneBounds().y), 
-                DARKGRAY
-            );
+            DrawRectangle(0, 0, static_cast<int>(GetSceneBounds().x), static_cast<int>(GetSceneBounds().y), DARKGRAY);
 
-            DrawText
-            (
-                "No map loaded - use GotoMap() to load a map", 
-                50, 
-                50, 
-                20, 
-                RED
-            );
+            DrawText("No map loaded - use GotoMap() to load a map", 50, 50, 20, RED);
 
-            DrawText
-            (
-                "Register maps using RegisterMap<YourMap>(\"MAP_ID\")",
-                50, 
-                100, 
-                16, 
-                WHITE
-            );
+            DrawText("Register maps using RegisterMap<YourMap>(\"MAP_ID\")", 50, 100, 16, WHITE);
         }
     }
 
@@ -156,7 +121,7 @@ void MapManager::LoadState(const StateBag& in_state)
     {
         b_GotoMap(map_id);
     }
-    
+
     if (m_CurrentMap)
     {
         m_CurrentMap->LoadState(in_state);
@@ -167,7 +132,7 @@ void MapManager::SetSceneBounds(float width, float height)
 {
     // Update our own bounds first
     GameMap::SetSceneBounds(width, height);
-    
+
     // Forward to current map if it exists
     if (m_CurrentMap)
     {
@@ -182,7 +147,7 @@ Vector2 MapManager::GetSceneBounds() const
     {
         return m_CurrentMap->GetSceneBounds();
     }
-    
+
     return GameMap::GetSceneBounds();
 }
 
@@ -280,11 +245,12 @@ bool MapManager::b_GotoMap(std::string_view map_id, bool force_reload)
             return false;
         }
 
-        // Created new map 
+        // Created new map
         m_CurrentMap = std::move(new_map);
         m_CurrentMapId = map_id;
         auto info_it = m_MapInfo.find(map_id);
-        if (info_it != m_MapInfo.end()) info_it->second.b_IsLoaded = true;
+        if (info_it != m_MapInfo.end())
+            info_it->second.b_IsLoaded = true;
         m_bUsingDefaultMap = false;
 
         // Set up the new map with current scene bounds
@@ -297,21 +263,10 @@ bool MapManager::b_GotoMap(std::string_view map_id, bool force_reload)
             // Inject transition callback for map-driven transitions.
             // Deferred: destroying the current map from inside its own
             // Initialize() would be a use-after-free.
-            m_CurrentMap->SetTransitionCallback
-            (
-                [this](std::string_view request_id, bool force)
-                {
-                    this->QueueTransition(request_id, force);
-                }
-            );
+            m_CurrentMap->SetTransitionCallback(
+                [this](std::string_view request_id, bool force) { this->QueueTransition(request_id, force); });
 
-            m_CurrentMap->SetExitCallback
-            (
-                [this]()
-                {
-                    this->RequestExit();
-                }
-            );
+            m_CurrentMap->SetExitCallback([this]() { this->RequestExit(); });
 
             m_CurrentMap->Initialize();
         }
@@ -341,11 +296,9 @@ bool MapManager::b_GotoMap(std::string_view map_id, bool force_reload)
     }
 }
 
-
 bool MapManager::b_IsCurrentMap(std::string_view map_id) const
 {
-    return m_CurrentMapId == map_id &&
-           m_CurrentMap != nullptr;
+    return m_CurrentMapId == map_id && m_CurrentMap != nullptr;
 }
 
 const std::vector<std::string>& MapManager::GetAvailableMaps() const
@@ -380,7 +333,7 @@ void MapManager::UnloadCurrentMap()
         {
             info_it->second.b_IsLoaded = false;
         }
-        
+
         m_CurrentMap.reset();
         m_CurrentMapId = "";
         m_bUsingDefaultMap = false;
@@ -401,10 +354,10 @@ bool MapManager::b_ReloadCurrentMap()
         std::cout << "[MapManager] No current map to reload" << "\n";
         return false;
     }
-    
+
     std::string map_to_reload = m_CurrentMapId;
     std::cout << "[MapManager] Reloading map: '" << map_to_reload << "'" << "\n";
-    
+
     return b_GotoMap(map_to_reload, true);
 }
 
@@ -413,16 +366,12 @@ std::string MapManager::GetDebugInfo() const
     std::stringstream debug_info;
     debug_info << "=== MapManager Debug Info ===\n";
 
-    debug_info << "Current Map: " 
-       << ( m_CurrentMapId.empty() ? "None" : m_CurrentMapId) 
-       << "\n";
+    debug_info << "Current Map: " << (m_CurrentMapId.empty() ? "None" : m_CurrentMapId) << "\n";
 
-    debug_info << "Using Default Map: " 
-       << (m_bUsingDefaultMap ? "Yes" : "No") 
-       << "\n";
+    debug_info << "Using Default Map: " << (m_bUsingDefaultMap ? "Yes" : "No") << "\n";
 
     debug_info << "Registered Maps (" << m_MapRegistry.size() << "):";
-    
+
     for (const auto& PAIR : m_MapInfo)
     {
         std::string_view MAP_ID = PAIR.first;
@@ -430,12 +379,12 @@ std::string MapManager::GetDebugInfo() const
         debug_info << "\n  - '" << MAP_ID << "': " << INFO.description;
         debug_info << " [" << (INFO.b_IsLoaded ? "LOADED" : "NOT LOADED") << "]";
     }
-    
+
     if (m_MapRegistry.empty())
     {
         debug_info << "\n  (No maps registered - call RegisterMap<YourMap>() to register maps)";
     }
-    
+
     return debug_info.str();
 }
 

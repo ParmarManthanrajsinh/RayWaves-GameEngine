@@ -2,8 +2,8 @@
 #pragma once
 #include "GameMap.h"
 #include <functional>
-#include <memory>
 #include <map>
+#include <memory>
 #include <vector>
 /**
  * @brief Developer-friendly MapManager for easy game map management
@@ -33,15 +33,14 @@ class MapManager : public GameMap
 {
 private:
     std::unique_ptr<GameMap> m_CurrentMap;
-    
+
     // Registry of available maps with their factory functions
-    std::map<std::string, 
-    std::function<std::unique_ptr<GameMap>()>, std::less<>> m_MapRegistry;
+    std::map<std::string, std::function<std::unique_ptr<GameMap>()>, std::less<>> m_MapRegistry;
     std::string m_CurrentMapId;
     std::string m_InitialMapId;
-    
+
     // Map metadata for better developer experience
-    struct t_MapInfo 
+    struct t_MapInfo
     {
         std::string description;
         bool b_IsLoaded = false;
@@ -65,39 +64,35 @@ private:
 public:
     MapManager();
     ~MapManager() override;
-    
+
     // Explicitly declare move constructor and assignment operator
     MapManager(MapManager&&) noexcept = default;
     MapManager& operator=(MapManager&&) noexcept = default;
-    
+
     // Delete copy constructor and assignment operator
     MapManager(const MapManager&) = delete;
     MapManager& operator=(const MapManager&) = delete;
-    
+
     void Initialize() override;
     void Update(float delta_time) override;
     void Draw() override;
-    
+
     void SaveState(StateBag& out) const override;
     void LoadState(const StateBag& in) override;
     bool b_IsMapManager() const override { return true; }
-    
+
     void SetSceneBounds(float width, float height);
     Vector2 GetSceneBounds() const;
- 
-    template<typename T>
-    void RegisterMap
-    (
-        std::string_view map_id, 
-        std::string_view description = ""
-    );
+
+    template <typename T>
+    void RegisterMap(std::string_view map_id, std::string_view description = "");
     // Returns true when the swap happened, or when it was queued because a
     // swap is already in progress (applied by the next Update()/Draw()).
     bool b_GotoMap(std::string_view map_id, bool force_reload = false);
     bool b_IsCurrentMap(std::string_view map_id) const;
     bool b_IsMapRegistered(std::string_view map_id) const;
     bool b_ReloadCurrentMap();
-    
+
     void SetInitialMap(std::string_view map_id) { m_InitialMapId = std::string(map_id); }
 
     std::string_view GetCurrentMapId() const { return m_CurrentMapId; }
@@ -110,9 +105,7 @@ public:
     // request each other from Initialize() from looping forever.
     static constexpr int k_MaxTransitionsPerDrain = 8;
 
-    
 private:
-
     // Queue a transition requested through a map callback. Deferred so the
     // requesting map is never destroyed while its own code is running.
     void QueueTransition(std::string_view map_id, bool force_reload = false);
@@ -129,30 +122,16 @@ private:
 +--------------------------------------------------------+
 */
 
-template<typename T>
-void MapManager::RegisterMap
-(
-    std::string_view map_id, 
-    std::string_view description
-)
+template <typename T>
+void MapManager::RegisterMap(std::string_view map_id, std::string_view description)
 {
-    static_assert
-    (
-        std::is_base_of_v<GameMap, T>, 
-        "Map type must inherit from GameMap"
-    );
-    
+    static_assert(std::is_base_of_v<GameMap, T>, "Map type must inherit from GameMap");
+
     // Create factory function that creates instances of type T
-    m_MapRegistry[std::string(map_id)] = []() -> std::unique_ptr<GameMap> 
-    {
-        return std::make_unique<T>();
-    };
-    
+    m_MapRegistry[std::string(map_id)] = []() -> std::unique_ptr<GameMap> { return std::make_unique<T>(); };
+
     // Store metadata
-    m_MapInfo[std::string(map_id)] = 
-    { 
-        description.empty() ? "No description" : std::string(description), false 
-    };
+    m_MapInfo[std::string(map_id)] = { description.empty() ? "No description" : std::string(description), false };
 
     m_bMapsCacheDirty = true;
     std::cout << "[MapManager] Registered map: " << map_id << "::" << description << std::endl;
@@ -180,11 +159,7 @@ Can accidentally evaluate arguments multiple times.
 //    (manager).RegisterMap<MapClass>(#MapClass)
 
 template <typename MapClass, typename Manager>
-inline void RegisterMap
-(
-    Manager& manager, 
-    std::string_view name = typeid(MapClass).name()
-) 
+inline void RegisterMap(Manager& manager, std::string_view name = typeid(MapClass).name())
 {
     manager.template RegisterMap<MapClass>(std::string(name));
 }

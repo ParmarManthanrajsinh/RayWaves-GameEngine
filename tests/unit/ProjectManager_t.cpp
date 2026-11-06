@@ -1,5 +1,5 @@
-﻿#include "doctest/doctest.h"
-#include "Engine/ProjectManager.h"
+﻿#include "Engine/ProjectManager.h"
+#include "doctest/doctest.h"
 #include "support/TempDir.h"
 #include <algorithm>
 #include <filesystem>
@@ -7,28 +7,25 @@
 
 namespace
 {
-    // Points recent.ini at a temp file for the test's lifetime, so the suite
-    // never edits the real %APPDATA%\RayWaves\recent.ini.
-    class RecentPathOverride
+// Points recent.ini at a temp file for the test's lifetime, so the suite
+// never edits the real %APPDATA%\RayWaves\recent.ini.
+class RecentPathOverride
+{
+public:
+    explicit RecentPathOverride(const std::filesystem::path& path)
+        : m_Previous(ProjectManager::SetRecentPathForTesting(path.string()))
     {
-    public:
-        explicit RecentPathOverride(const std::filesystem::path& path)
-            : m_Previous(ProjectManager::SetRecentPathForTesting(path.string()))
-        {
-        }
+    }
 
-        ~RecentPathOverride()
-        {
-            ProjectManager::SetRecentPathForTesting(m_Previous);
-        }
+    ~RecentPathOverride() { ProjectManager::SetRecentPathForTesting(m_Previous); }
 
-        RecentPathOverride(const RecentPathOverride&) = delete;
-        RecentPathOverride& operator=(const RecentPathOverride&) = delete;
+    RecentPathOverride(const RecentPathOverride&) = delete;
+    RecentPathOverride& operator=(const RecentPathOverride&) = delete;
 
-    private:
-        std::string m_Previous;
-    };
-}
+private:
+    std::string m_Previous;
+};
+} // namespace
 
 TEST_CASE("ProjectManager: SanitizeCMakeProjectName")
 {

@@ -1,5 +1,5 @@
-#include "doctest/doctest.h"
 #include "ProcessRunner.h"
+#include "doctest/doctest.h"
 #include <atomic>
 #include <chrono>
 #include <memory>
@@ -11,8 +11,8 @@ TEST_CASE("ProcessRunner: RunAndWait streams lines and reports success")
 {
     std::vector<std::string> lines;
     // No space before '&': cmd keeps trailing spaces in echo output.
-    const bool ok = ProcessRunner::RunAndWait("echo hello&echo world",
-        [&lines](std::string_view line, bool) { lines.emplace_back(line); });
+    const bool ok = ProcessRunner::RunAndWait(
+        "echo hello&echo world", [&lines](std::string_view line, bool) { lines.emplace_back(line); });
 
     CHECK(ok);
     REQUIRE(lines.size() == 2);
@@ -45,17 +45,14 @@ TEST_CASE("ProcessRunner: cancel stops a long-running command promptly")
     bool completed = false;
     bool success = true;
 
-    std::thread worker = ProcessRunner::RunBuildCommand
-    (
-        "ping -n 60 127.0.0.1 > nul",
-        nullptr,
+    std::thread worker = ProcessRunner::RunBuildCommand(
+        "ping -n 60 127.0.0.1 > nul", nullptr,
         [&](bool ok)
         {
             completed = true;
             success = ok;
         },
-        cancel
-    );
+        cancel);
 
     std::this_thread::sleep_for(std::chrono::milliseconds(300));
     const auto requested = std::chrono::steady_clock::now();

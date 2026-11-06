@@ -1,36 +1,48 @@
 #pragma once
 
-#include <chrono>
-#include <filesystem>
-#include <system_error>
-#include <imgui.h>
-#include <raylib.h>
 #include "../Engine/EngineVersion.h"
+#include <array>
+#include <atomic>
+#include <chrono>
+#include <cstdio>
+#include <filesystem>
+#include <fstream>
+#include <imgui.h>
+#include <mutex>
+#include <print>
+#include <raylib.h>
 #include <rlImGui.h>
+#include <sstream>
+#include <string>
+#include <system_error>
 #include <thread>
 #include <tinyfiledialogs.h>
-#include <atomic>
-#include <mutex>
 #include <vector>
-#include <array>
-#include <cstdio>
-#include <sstream>
-#include <fstream>
-#include <string>
-#include <print>
 
-#include "GameLogicLoader.h"
+#include "../Engine/GameState.h"
 #include "GameEditorLayout.h"
 #include "GameEditorTheme.h"
 #include "GameEngine.h"
+#include "GameLogicLoader.h"
 #include "terminal/terminal.h"
-#include "../Engine/GameState.h"
 namespace fs = std::filesystem;
 
-enum class EBuildStatus { None, Compiling, Success, Failed };
+enum class EBuildStatus
+{
+    None,
+    Compiling,
+    Success,
+    Failed
+};
 
-struct FBuildMessage {
-    enum class ESeverity { Info, Warning, Error };
+struct FBuildMessage
+{
+    enum class ESeverity
+    {
+        Info,
+        Warning,
+        Error
+    };
     ESeverity Severity = ESeverity::Info;
     std::string File;
     int Line = 0;
@@ -59,7 +71,7 @@ public:
 
     void RunBrowser();
     void Run();
-    
+
     // Starts a build. If one is already running it is cancelled first, so
     // only one build exists at a time.
     void CompileGameLogic();
@@ -82,17 +94,17 @@ public:
     Texture2D m_SourceTexture;
 
     bool b_FPSChanged = false;
-    
+
     struct m_tSceneSettings
     {
         int m_SceneWidth = 1280;
         int m_SceneHeight = 720;
-		int m_TargetFPS = 60;
+        int m_TargetFPS = 60;
     } m_SceneSettings;
-    
-    struct m_tExportState 
+
+    struct m_tExportState
     {
-        std::atomic<bool> m_bIsExporting{false};
+        std::atomic<bool> m_bIsExporting{ false };
         std::string m_ExportPath = "";
         std::string m_GameName = "MyGame";
 
@@ -118,7 +130,7 @@ public:
     bool m_bClosed = false;
     std::array<float, 120> m_FrameTimes{};
     size_t m_FrameOffset;
-    
+
     std::atomic<EBuildStatus> BuildStatus = EBuildStatus::None;
     std::atomic<float> NotificationTimer = 0.0f;
     std::vector<FBuildMessage> BuildMessages;
@@ -126,9 +138,9 @@ public:
     // Written from the build worker thread on failure, read on the UI
     // thread. Must be atomic to avoid a data race. ImGui wants a bool*,
     // so call sites proxy through a local bool.
-    std::atomic<bool> bShowMessageLog{false};
+    std::atomic<bool> bShowMessageLog{ false };
     void ParseBuildLine(std::string_view line);
-    
+
     bool m_bShowTerminal = true;
     bool m_bShowSceneSettings = false;
     bool m_bShowExport = false;
@@ -136,7 +148,7 @@ public:
     bool m_bNeedsThemeRebake = false;
     bool m_bNeedsLayoutReset = false;
     bool m_bNeedsIniLoad = false;
-    
+
     bool m_bUseOpaquePass = true;
 
     std::string m_SelectedMapId;

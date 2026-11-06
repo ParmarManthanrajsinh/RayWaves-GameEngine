@@ -1,7 +1,8 @@
-﻿#include "doctest/doctest.h"
-#include "Engine/MapManager.h"
+﻿#include "Engine/MapManager.h"
+#include "doctest/doctest.h"
 
-class MockGameMap : public GameMap {
+class MockGameMap : public GameMap
+{
 public:
     using GameMap::GameMap;
 
@@ -17,7 +18,8 @@ public:
 // Requests a transition from inside Initialize(). If the swap were applied
 // synchronously, this map would be destroyed while Initialize() is still on
 // the stack. The counters detect that without touching freed memory.
-class ChainedInitMap : public GameMap {
+class ChainedInitMap : public GameMap
+{
 public:
     using GameMap::GameMap;
 
@@ -26,7 +28,8 @@ public:
 
     ~ChainedInitMap() override
     {
-        if (s_InitDepth > 0) ++s_DestroyedDuringInit;
+        if (s_InitDepth > 0)
+            ++s_DestroyedDuringInit;
     }
 
     void Initialize() override
@@ -38,14 +41,12 @@ public:
 };
 
 // Requests a transition from inside Update().
-class ChainedUpdateMap : public GameMap {
+class ChainedUpdateMap : public GameMap
+{
 public:
     using GameMap::GameMap;
 
-    void Update(float /*delta_time*/) override
-    {
-        RequestGotoMap("b", false);
-    }
+    void Update(float /*delta_time*/) override { RequestGotoMap("b", false); }
 };
 
 struct PingPongTally
@@ -55,7 +56,8 @@ struct PingPongTally
 
 // Each map asks for the other from Initialize(). Applied synchronously this
 // recurses without bound; with the per-frame cap it stops after a few swaps.
-class PingMap : public GameMap {
+class PingMap : public GameMap
+{
 public:
     using GameMap::GameMap;
 
@@ -66,7 +68,8 @@ public:
     }
 };
 
-class PongMap : public GameMap {
+class PongMap : public GameMap
+{
 public:
     using GameMap::GameMap;
 

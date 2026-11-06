@@ -1,16 +1,17 @@
 #include "MainMenuBar.h"
-#include "../GameEditor.h"
+#include "../../Engine/Profiler.h"
 #include "../../Engine/ProjectManager.h"
+#include "../EditorUtils.h"
 #include "../FileAssociation.h"
+#include "../GameEditor.h"
 #include <imgui.h>
 #include <rlImGui.h>
 #include <tinyfiledialogs.h>
-#include "../EditorUtils.h"
-#include "../../Engine/Profiler.h"
 
 static void SaveProjectWithSceneSettings(GameEditor* editor)
 {
-    if (!ProjectManager::b_HasOpenProject()) return;
+    if (!ProjectManager::b_HasOpenProject())
+        return;
     auto& prj = ProjectManager::GetCurrent();
     prj.m_SceneWidth = editor->m_SceneSettings.m_SceneWidth;
     prj.m_SceneHeight = editor->m_SceneSettings.m_SceneHeight;
@@ -20,7 +21,7 @@ static void SaveProjectWithSceneSettings(GameEditor* editor)
 
 void MainMenuBar::Draw(GameEditor* editor)
 {
-	SCOPED_TIMER("panel_menu_bar");
+    SCOPED_TIMER("panel_menu_bar");
     if (ImGui::BeginMainMenuBar())
     {
         if (ImGui::BeginMenu("File"))
@@ -43,7 +44,8 @@ void MainMenuBar::Draw(GameEditor* editor)
                 editor->CloseProject();
             }
             ImGui::Separator();
-            if (ImGui::MenuItem(ICON_FA_FOLDER_OPEN " Open Project Folder", nullptr, false, ProjectManager::b_HasOpenProject()))
+            if (ImGui::MenuItem(
+                    ICON_FA_FOLDER_OPEN " Open Project Folder", nullptr, false, ProjectManager::b_HasOpenProject()))
             {
                 EditorUtils::OpenInExplorer(ProjectManager::GetCurrent().m_RootPath);
             }
@@ -52,8 +54,7 @@ void MainMenuBar::Draw(GameEditor* editor)
 
         // Global Ctrl+S shortcut (works even when menu is not focused).
         // Do not steal it from a focused terminal shell.
-        if (!editor->GetTerminal().b_IsKeyboardCaptured() &&
-            ImGui::IsKeyChordPressed(ImGuiMod_Ctrl | ImGuiKey_S))
+        if (!editor->GetTerminal().b_IsKeyboardCaptured() && ImGui::IsKeyChordPressed(ImGuiMod_Ctrl | ImGuiKey_S))
         {
             SaveProjectWithSceneSettings(editor);
         }
@@ -83,7 +84,7 @@ void MainMenuBar::Draw(GameEditor* editor)
         }
 
         if (ImGui::BeginMenu("Tools"))
-        {            
+        {
             if (ImGui::MenuItem(ICON_FA_HAMMER " Force Recompile"))
             {
                 editor->CompileGameLogic();
@@ -92,20 +93,17 @@ void MainMenuBar::Draw(GameEditor* editor)
             ImGui::Separator();
 
             bool bRegistered = IsRayWavesFileAssociationRegistered();
-            if (ImGui::MenuItem(ICON_FA_LINK " Register .raywaves file association",
-                nullptr, false, !bRegistered))
+            if (ImGui::MenuItem(ICON_FA_LINK " Register .raywaves file association", nullptr, false, !bRegistered))
             {
                 if (RegisterRayWavesFileAssociation())
                 {
                     editor->GetTerminal().add_text(
-                        ".raywaves file association registered successfully.",
-                        term::Severity::Debug);
+                        ".raywaves file association registered successfully.", term::Severity::Debug);
                 }
                 else
                 {
                     editor->GetTerminal().add_text(
-                        "Failed to register .raywaves file association.",
-                        term::Severity::Error);
+                        "Failed to register .raywaves file association.", term::Severity::Error);
                 }
             }
             if (bRegistered)
@@ -117,7 +115,7 @@ void MainMenuBar::Draw(GameEditor* editor)
 
             ImGui::EndMenu();
         }
-        
+
         if (ImGui::BeginMenu("Export"))
         {
             ImGui::MenuItem(ICON_FA_FILE_EXPORT " Export Game", nullptr, &editor->m_bShowExport);

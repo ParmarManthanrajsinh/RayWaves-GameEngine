@@ -1,31 +1,31 @@
-#include <iostream>
-#include "../Engine/MapManager.h"
-#include "../Engine/ProjectManager.h"
-#include "../Engine/Profiler.h"
-#include "../Engine/AssetResolver.h"
 #include "GameEditor.h"
-#include "ThemeService.h"
+#include "../Engine/AssetResolver.h"
+#include "../Engine/MapManager.h"
+#include "../Engine/Profiler.h"
+#include "../Engine/ProjectManager.h"
 #include "EditorUtils.h"
 #include "ProcessRunner.h"
+#include "ThemeService.h"
+#include <cstdio>
+#include <filesystem>
 #include <imgui/imgui_stdlib.h>
 #include <imgui_internal.h>
-#include <filesystem>
-#include <cstdio>
+#include <iostream>
 using Clock = std::chrono::steady_clock;
 
-#include "Panels/MainMenuBar.h"
-#include "Panels/SceneWindow.h"
-#include "Panels/MapSelectionPanel.h"
-#include "Panels/ExportPanel.h"
-#include "Panels/SceneSettingsPanel.h"
-#include "Panels/PerformanceOverlay.h"
-#include "Panels/MessageLogPanel.h"
-#include "Panels/EditorPreferencesPanel.h"
-#include "Panels/TerminalPanel.h"
 #include "EditorPreferences.h"
 #include "PanelRegistry.h"
-#include <memory>
+#include "Panels/EditorPreferencesPanel.h"
+#include "Panels/ExportPanel.h"
+#include "Panels/MainMenuBar.h"
+#include "Panels/MapSelectionPanel.h"
+#include "Panels/MessageLogPanel.h"
+#include "Panels/PerformanceOverlay.h"
+#include "Panels/SceneSettingsPanel.h"
+#include "Panels/SceneWindow.h"
+#include "Panels/TerminalPanel.h"
 #include <cstdlib>
+#include <memory>
 
 static std::string s_LayoutPath;
 
@@ -33,36 +33,38 @@ bool g_bNeedsTextureRecreate = false;
 
 namespace
 {
-    // Core panels in draw/dock order. Built fresh per call so repeated
-    // GameEditor construction (and tests) never double-register.
-    std::vector<FPanelFactory> s_CorePanelFactories()
-    {
-        return {
-            &s_fMakePanel<MainMenuBar>,
-            &s_fMakePanel<MapSelectionPanel>,
-            &s_fMakePanel<ExportPanel>,
-            &s_fMakePanel<SceneSettingsPanel>,
-            &s_fMakePanel<SceneWindow>,
-            &s_fMakePanel<PerformanceOverlay>,
-            &s_fMakePanel<MessageLogPanel>,
-            &s_fMakePanel<EditorPreferencesPanel>,
-            &s_fMakePanel<TerminalPanel>,
-        };
-    }
+// Core panels in draw/dock order. Built fresh per call so repeated
+// GameEditor construction (and tests) never double-register.
+std::vector<FPanelFactory> s_CorePanelFactories()
+{
+    return {
+        &s_fMakePanel<MainMenuBar>,
+        &s_fMakePanel<MapSelectionPanel>,
+        &s_fMakePanel<ExportPanel>,
+        &s_fMakePanel<SceneSettingsPanel>,
+        &s_fMakePanel<SceneWindow>,
+        &s_fMakePanel<PerformanceOverlay>,
+        &s_fMakePanel<MessageLogPanel>,
+        &s_fMakePanel<EditorPreferencesPanel>,
+        &s_fMakePanel<TerminalPanel>,
+    };
 }
+} // namespace
 
 GameEditor::GameEditor()
-	: m_Viewport(nullptr),
-	  m_RaylibTexture({ 0 }),
-	  m_DisplayTexture({ 0 }),
-	  m_SourceTexture({ 0 , 0 }),
-	  b_IsPlaying(false),
-	  b_IsCompiling(false),
-	  m_LogicLoader(m_GameEngine),
-	  
-	  m_OpaqueShader({ 0 }),
-	  
-	  m_FrameOffset(0)
+    : m_Viewport(nullptr)
+    , m_RaylibTexture({ 0 })
+    , m_DisplayTexture({ 0 })
+    , m_SourceTexture({ 0, 0 })
+    , b_IsPlaying(false)
+    , b_IsCompiling(false)
+    , m_LogicLoader(m_GameEngine)
+    ,
+
+    m_OpaqueShader({ 0 })
+    ,
+
+    m_FrameOffset(0)
 {
     m_Terminal.InitCapture();
 
@@ -74,18 +76,17 @@ GameEditor::GameEditor()
     // Route loader diagnostics into the editor terminal (stderr is invisible
     // in the GUI app) and wire DLL exit requests to window close.
     m_LogicLoader.SetLogSink([this](std::string_view message, bool is_error)
-    {
-        m_Terminal.add_text(message, is_error ? term::Severity::Error : term::Severity::Debug);
-    });
-    m_LogicLoader.SetNewMapCallback([this](GameMap* new_map)
-    {
-        if (new_map != nullptr)
+        { m_Terminal.add_text(message, is_error ? term::Severity::Error : term::Severity::Debug); });
+    m_LogicLoader.SetNewMapCallback(
+        [this](GameMap* new_map)
         {
-            new_map->SetExitCallback([this]() { m_bCloseRequested = true; });
-        }
-    });
+            if (new_map != nullptr)
+            {
+                new_map->SetExitCallback([this]() { m_bCloseRequested = true; });
+            }
+        });
 
-	m_Panels.reserve(9);
+    m_Panels.reserve(9);
     for (FPanelFactory factory : s_CorePanelFactories())
     {
         m_Panels.push_back(factory());
@@ -98,99 +99,85 @@ GameEditor::GameEditor()
 
 GameEditor::~GameEditor()
 {
-	// Close is idempotent and owns the correct resource teardown order.
-	if (!m_bClosed)
-	{
-		Close();
-	}
+    // Close is idempotent and owns the correct resource teardown order.
+    if (!m_bClosed)
+    {
+        Close();
+    }
 }
 
 void GameEditor::Init(int width, int height, std::string_view title)
 {
-	m_GameEngine.LaunchWindow(width, height, title.data());
-	SetWindowState(FLAG_WINDOW_RESIZABLE);
+    m_GameEngine.LaunchWindow(width, height, title.data());
+    SetWindowState(FLAG_WINDOW_RESIZABLE);
 
-	// Set window icon
-	Image icon = LoadImage(ThemeService::GetEngineContentPath("icon.png").c_str());
-	if (icon.data != nullptr)
-	{
-		SetWindowIcon(icon);
-		UnloadImage(icon);
-		std::cout << "Window icon loaded successfully from Assets / icon.png\n";
-	}
-	else
-	{
-		std::cout << "Failed to load icon from Assets/icon.png\n";
-	}
+    // Set window icon
+    Image icon = LoadImage(ThemeService::GetEngineContentPath("icon.png").c_str());
+    if (icon.data != nullptr)
+    {
+        SetWindowIcon(icon);
+        UnloadImage(icon);
+        std::cout << "Window icon loaded successfully from Assets / icon.png\n";
+    }
+    else
+    {
+        std::cout << "Failed to load icon from Assets/icon.png\n";
+    }
 
-	rlImGuiSetup(true);
+    rlImGuiSetup(true);
 
-	// Load Editor Preferences
-	EditorPreferences::GetInstance().m_bLoadFromFile();
-	ThemeService::RebakeNow();
+    // Load Editor Preferences
+    EditorPreferences::GetInstance().m_bLoadFromFile();
+    ThemeService::RebakeNow();
 
     // Layout persistence
-	std::filesystem::path dir = std::filesystem::path(EditorPreferences::GetInstance().GetConfigPath()).parent_path();
-	s_LayoutPath = (dir / "editor_layout.ini").string();
+    std::filesystem::path dir = std::filesystem::path(EditorPreferences::GetInstance().GetConfigPath()).parent_path();
+    s_LayoutPath = (dir / "editor_layout.ini").string();
 
-	if (ProjectManager::b_HasOpenProject())
-	{
-		std::filesystem::path proj_dir = ProjectManager::GetCurrent().m_RootPath;
-		s_LayoutPath = (proj_dir / ".raywaves" / "layout.ini").string();
-	}
+    if (ProjectManager::b_HasOpenProject())
+    {
+        std::filesystem::path proj_dir = ProjectManager::GetCurrent().m_RootPath;
+        s_LayoutPath = (proj_dir / ".raywaves" / "layout.ini").string();
+    }
 
-	if (std::filesystem::exists(s_LayoutPath))
-	{
-		ImGui::GetIO().IniFilename = s_LayoutPath.c_str();
-		ImGui::LoadIniSettingsFromDisk(s_LayoutPath.c_str());
-	}
-	else
-	{
-		LoadEditorDefaultIni();
-		ImGui::GetIO().IniFilename = s_LayoutPath.c_str();
-	}
+    if (std::filesystem::exists(s_LayoutPath))
+    {
+        ImGui::GetIO().IniFilename = s_LayoutPath.c_str();
+        ImGui::LoadIniSettingsFromDisk(s_LayoutPath.c_str());
+    }
+    else
+    {
+        LoadEditorDefaultIni();
+        ImGui::GetIO().IniFilename = s_LayoutPath.c_str();
+    }
 
-	if (GameConfig::GetInstance().m_bLoadFromFile("config.ini"))
-	{
-		const auto& CONFIG = GameConfig::GetInstance().GetWindowConfig();
-		m_SceneSettings.m_SceneWidth = CONFIG.scene_width;
-		m_SceneSettings.m_SceneHeight = CONFIG.scene_height;
-		m_SceneSettings.m_TargetFPS = CONFIG.scene_fps;
-	}
+    if (GameConfig::GetInstance().m_bLoadFromFile("config.ini"))
+    {
+        const auto& CONFIG = GameConfig::GetInstance().GetWindowConfig();
+        m_SceneSettings.m_SceneWidth = CONFIG.scene_width;
+        m_SceneSettings.m_SceneHeight = CONFIG.scene_height;
+        m_SceneSettings.m_TargetFPS = CONFIG.scene_fps;
+    }
 
-	if (ProjectManager::b_HasOpenProject())
-	{
-		const auto& prj = ProjectManager::GetCurrent();
-		m_SceneSettings.m_SceneWidth = prj.m_SceneWidth;
-		m_SceneSettings.m_SceneHeight = prj.m_SceneHeight;
-		m_SceneSettings.m_TargetFPS = prj.m_TargetFPS;
-	}
+    if (ProjectManager::b_HasOpenProject())
+    {
+        const auto& prj = ProjectManager::GetCurrent();
+        m_SceneSettings.m_SceneWidth = prj.m_SceneWidth;
+        m_SceneSettings.m_SceneHeight = prj.m_SceneHeight;
+        m_SceneSettings.m_TargetFPS = prj.m_TargetFPS;
+    }
 
-	SetTargetFPS(m_SceneSettings.m_TargetFPS);
+    SetTargetFPS(m_SceneSettings.m_TargetFPS);
 
-	m_Viewport = ImGui::GetMainViewport();
+    m_Viewport = ImGui::GetMainViewport();
 
-	m_RaylibTexture = LoadRenderTexture
-	(
-		m_SceneSettings.m_SceneWidth,
-		m_SceneSettings.m_SceneHeight
-	);
-	m_DisplayTexture = LoadRenderTexture
-	(
-		m_SceneSettings.m_SceneWidth,
-		m_SceneSettings.m_SceneHeight
-	);
+    m_RaylibTexture = LoadRenderTexture(m_SceneSettings.m_SceneWidth, m_SceneSettings.m_SceneHeight);
+    m_DisplayTexture = LoadRenderTexture(m_SceneSettings.m_SceneWidth, m_SceneSettings.m_SceneHeight);
 
-	SetTextureFilter
-	(
-		m_RaylibTexture.texture, TEXTURE_FILTER_BILINEAR
-	);
-	SetTextureFilter
-	(
-		m_DisplayTexture.texture, TEXTURE_FILTER_BILINEAR
-	);
+    SetTextureFilter(m_RaylibTexture.texture, TEXTURE_FILTER_BILINEAR);
+    SetTextureFilter(m_DisplayTexture.texture, TEXTURE_FILTER_BILINEAR);
 
-	m_OpaqueShader = LoadOpaqueShader();
+    m_OpaqueShader = LoadOpaqueShader();
 }
 
 void GameEditor::RunBrowser()
@@ -220,7 +207,9 @@ void GameEditor::RunBrowser()
         ImGui::SetNextWindowSize(ImVec2(viewport->Size.x - (margin * 2.0f), viewport->Size.y - (margin * 2.0f)));
         ImGui::SetNextWindowViewport(viewport->ID);
 
-        ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
+        ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse |
+            ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBringToFrontOnFocus |
+            ImGuiWindowFlags_NoNavFocus;
 
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(40.0f, 40.0f));
         ImGui::Begin("Project Browser", nullptr, window_flags);
@@ -243,7 +232,8 @@ void GameEditor::RunBrowser()
             rlImGuiImageSize(&logo, static_cast<int>(lw * scale), static_cast<int>(displayH));
             ImGui::SameLine();
             ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 12.0f);
-            float textGroupH = (ImGui::GetTextLineHeight() * 1.5f) + ImGui::GetStyle().ItemSpacing.y + ImGui::GetTextLineHeight();
+            float textGroupH =
+                (ImGui::GetTextLineHeight() * 1.5f) + ImGui::GetStyle().ItemSpacing.y + ImGui::GetTextLineHeight();
             ImGui::SetCursorPosY(logoY + ((displayH - textGroupH) * 0.5f));
         }
 
@@ -259,11 +249,8 @@ void GameEditor::RunBrowser()
 
         // Subtle separator line under header
         float lineY = ImGui::GetCursorScreenPos().y + 12.0f;
-        drawList->AddRectFilled(
-            ImVec2(contentLeft, lineY),
-            ImVec2(contentLeft + contentWidth, lineY + 1.0f),
-            ImGui::GetColorU32(ImGuiCol_Separator)
-        );
+        drawList->AddRectFilled(ImVec2(contentLeft, lineY), ImVec2(contentLeft + contentWidth, lineY + 1.0f),
+            ImGui::GetColorU32(ImGuiCol_Separator));
         ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 24.0f);
 
         // ── Two columns ────────────────────────────────────────────────
@@ -326,9 +313,11 @@ void GameEditor::RunBrowser()
                 }
 
                 // Clickable row
-                if (ImGui::Selectable("##recent_proj", false, exists ? 0 : ImGuiSelectableFlags_Disabled, ImVec2(rowW, rowHeight)))
+                if (ImGui::Selectable(
+                        "##recent_proj", false, exists ? 0 : ImGuiSelectableFlags_Disabled, ImVec2(rowW, rowHeight)))
                 {
-                    if (exists) OpenProject(path);
+                    if (exists)
+                        OpenProject(path);
                 }
 
                 // Folder icon
@@ -352,7 +341,8 @@ void GameEditor::RunBrowser()
                 ImGui::PopStyleColor();
                 ImGui::PopClipRect();
 
-                if (!exists) ImGui::PopStyleColor();
+                if (!exists)
+                    ImGui::PopStyleColor();
 
                 // Trash button: always mounted next to the row, never
                 // overlapping it, so the mouse can always hover/click it.
@@ -509,7 +499,8 @@ void GameEditor::RunBrowser()
         EndDrawing();
     }
 
-    if (logo.id != 0) UnloadTexture(logo);
+    if (logo.id != 0)
+        UnloadTexture(logo);
 }
 
 void GameEditor::OpenProject(std::string_view folderPath)
@@ -521,7 +512,8 @@ void GameEditor::OpenProject(std::string_view folderPath)
     //    inside the DLL's MapManager, which was destroyed and unloaded in step 1.
 
     // 3. Open project metadata
-    if (!ProjectManager::b_OpenProject(folderPath)) return;
+    if (!ProjectManager::b_OpenProject(folderPath))
+        return;
 
     // Set Window Title
     std::string windowTitle = "RayWaves — " + ProjectManager::GetCurrent().m_Name;
@@ -540,10 +532,10 @@ void GameEditor::OpenProject(std::string_view folderPath)
     auto& prj = ProjectManager::GetCurrent();
     m_SceneSettings.m_SceneWidth = prj.m_SceneWidth;
     m_SceneSettings.m_SceneHeight = prj.m_SceneHeight;
-	m_SceneSettings.m_TargetFPS = prj.m_TargetFPS;
-	SetTargetFPS(m_SceneSettings.m_TargetFPS);
+    m_SceneSettings.m_TargetFPS = prj.m_TargetFPS;
+    SetTargetFPS(m_SceneSettings.m_TargetFPS);
 
-	// 8. Update workspace layout path and load it
+    // 8. Update workspace layout path and load it
     if (ImGui::GetIO().IniFilename != nullptr)
     {
         ImGui::SaveIniSettingsToDisk(ImGui::GetIO().IniFilename);
@@ -567,227 +559,221 @@ void GameEditor::OpenProject(std::string_view folderPath)
 
 void GameEditor::CleanupProject()
 {
-	m_LogicLoader.Unload();
-	m_LogicLoader.SetGameLogicPath("");
+    m_LogicLoader.Unload();
+    m_LogicLoader.SetGameLogicPath("");
 }
 
 void GameEditor::CloseProject()
 {
-	CleanupProject();
-	ProjectManager::CloseProject();
-	m_SceneSettings.m_SceneWidth = 1280;
-	m_SceneSettings.m_SceneHeight = 720;
-	m_SceneSettings.m_TargetFPS = 60;
-	SetWindowTitle("RayWaves");
+    CleanupProject();
+    ProjectManager::CloseProject();
+    m_SceneSettings.m_SceneWidth = 1280;
+    m_SceneSettings.m_SceneHeight = 720;
+    m_SceneSettings.m_TargetFPS = 60;
+    SetWindowTitle("RayWaves");
 }
 
 void GameEditor::Run()
 {
-	while (!WindowShouldClose())
-	{
-		// Clean exit requested from DLL callback
-		if (m_bCloseRequested) break;
+    while (!WindowShouldClose())
+    {
+        // Clean exit requested from DLL callback
+        if (m_bCloseRequested)
+            break;
 
-		if (!ProjectManager::b_HasOpenProject())
-		{
-			// Cleanup current project state before opening browser
-			CleanupProject();
+        if (!ProjectManager::b_HasOpenProject())
+        {
+            // Cleanup current project state before opening browser
+            CleanupProject();
 
-			// Show browser
-			RunBrowser();
+            // Show browser
+            RunBrowser();
 
-			// If a new project was opened from the browser
-			if (ProjectManager::b_HasOpenProject())
-			{
-				// OpenProject() already triggered CompileGameLogic() async.
-				// DLL will be loaded when the loader drains its reload request.
-				continue;
-			}
-			
-			
-				// User closed the window from the browser
-				break;
-		
-		}
+            // If a new project was opened from the browser
+            if (ProjectManager::b_HasOpenProject())
+            {
+                // OpenProject() already triggered CompileGameLogic() async.
+                // DLL will be loaded when the loader drains its reload request.
+                continue;
+            }
 
-		SCOPED_TIMER("frame_total");
+            // User closed the window from the browser
+            break;
+        }
 
-		// DLL change detection runs first so timestamp-triggered reloads apply
-		// the same frame; the drain below pauses playback around the swap.
-		m_LogicLoader.CheckForChanges();
+        SCOPED_TIMER("frame_total");
 
-		// A build completed and the DLL needs reloading (flagged by the
-		// CompileGameLogic completion callback, possibly off-thread).
-		// The wrapper owns play-state around the swap; this just drains the flag.
-		if (m_LogicLoader.PollReloadRequested())
-		{
-			b_ReloadGameLogic();
-		}
+        // DLL change detection runs first so timestamp-triggered reloads apply
+        // the same frame; the drain below pauses playback around the swap.
+        m_LogicLoader.CheckForChanges();
 
-		UpdatePerformanceMetrics();
+        // A build completed and the DLL needs reloading (flagged by the
+        // CompileGameLogic completion callback, possibly off-thread).
+        // The wrapper owns play-state around the swap; this just drains the flag.
+        if (m_LogicLoader.PollReloadRequested())
+        {
+            b_ReloadGameLogic();
+        }
 
-		float delta_time = GetFrameTime();
+        UpdatePerformanceMetrics();
+
+        float delta_time = GetFrameTime();
         m_GameEngine.SetViewportSize(m_SceneSettings.m_SceneWidth, m_SceneSettings.m_SceneHeight);
-		if (b_IsPlaying)
-		{
-			m_GameEngine.UpdateMap(delta_time);
-		}
+        if (b_IsPlaying)
+        {
+            m_GameEngine.UpdateMap(delta_time);
+        }
 
-		// Handle deferred texture recreation outside ImGui render loop to avoid OpenGL crashes
-		
-		if (g_bNeedsTextureRecreate)
-		{
-			SCOPED_TIMER("texture_recreate");
-			g_bNeedsTextureRecreate = false;
-			UnloadRenderTexture(m_RaylibTexture);
-			if (m_DisplayTexture.id != 0) UnloadRenderTexture(m_DisplayTexture);
+        // Handle deferred texture recreation outside ImGui render loop to avoid OpenGL crashes
 
-			m_RaylibTexture = LoadRenderTexture(m_SceneSettings.m_SceneWidth, m_SceneSettings.m_SceneHeight);
-			m_DisplayTexture = LoadRenderTexture(m_SceneSettings.m_SceneWidth, m_SceneSettings.m_SceneHeight);
+        if (g_bNeedsTextureRecreate)
+        {
+            SCOPED_TIMER("texture_recreate");
+            g_bNeedsTextureRecreate = false;
+            UnloadRenderTexture(m_RaylibTexture);
+            if (m_DisplayTexture.id != 0)
+                UnloadRenderTexture(m_DisplayTexture);
 
-			SetTextureFilter(m_RaylibTexture.texture, TEXTURE_FILTER_BILINEAR);
-			SetTextureFilter(m_DisplayTexture.texture, TEXTURE_FILTER_BILINEAR);
-		}
+            m_RaylibTexture = LoadRenderTexture(m_SceneSettings.m_SceneWidth, m_SceneSettings.m_SceneHeight);
+            m_DisplayTexture = LoadRenderTexture(m_SceneSettings.m_SceneWidth, m_SceneSettings.m_SceneHeight);
 
-		BeginDrawing();
+            SetTextureFilter(m_RaylibTexture.texture, TEXTURE_FILTER_BILINEAR);
+            SetTextureFilter(m_DisplayTexture.texture, TEXTURE_FILTER_BILINEAR);
+        }
 
-		BeginTextureMode(m_RaylibTexture);
-		ClearBackground(RAYWHITE);
+        BeginDrawing();
 
-		m_GameEngine.DrawMap();
-		EndTextureMode();
+        BeginTextureMode(m_RaylibTexture);
+        ClearBackground(RAYWHITE);
 
-		m_SourceTexture = m_RaylibTexture.texture;
+        m_GameEngine.DrawMap();
+        EndTextureMode();
 
-		// Opaque pass to strip alpha before presenting via ImGui
-		if (m_bUseOpaquePass)
-		{
-			BeginTextureMode(m_DisplayTexture);
-			ClearBackground(BLANK);
-			BeginShaderMode(m_OpaqueShader);
-			Rectangle src =
-			{
-				0,
-				0,
-				static_cast<float>(m_SourceTexture.width),
-				-static_cast<float>(m_SourceTexture.height)
-			};
-			DrawTextureRec(m_SourceTexture, src, { 0.0f, 0.0f }, WHITE);
-			EndShaderMode();
-			EndTextureMode();
-			m_SourceTexture = m_DisplayTexture.texture;
-		}
+        m_SourceTexture = m_RaylibTexture.texture;
 
-		if (m_bNeedsThemeRebake)
-		{
-			m_bNeedsThemeRebake = false;
-			ThemeService::RebakeNow();
-		}
+        // Opaque pass to strip alpha before presenting via ImGui
+        if (m_bUseOpaquePass)
+        {
+            BeginTextureMode(m_DisplayTexture);
+            ClearBackground(BLANK);
+            BeginShaderMode(m_OpaqueShader);
+            Rectangle src = { 0, 0, static_cast<float>(m_SourceTexture.width),
+                -static_cast<float>(m_SourceTexture.height) };
+            DrawTextureRec(m_SourceTexture, src, { 0.0f, 0.0f }, WHITE);
+            EndShaderMode();
+            EndTextureMode();
+            m_SourceTexture = m_DisplayTexture.texture;
+        }
 
-		if (m_bNeedsLayoutReset)
-		{
-			m_bNeedsLayoutReset = false;
-			LoadEditorDefaultIni();
+        if (m_bNeedsThemeRebake)
+        {
+            m_bNeedsThemeRebake = false;
+            ThemeService::RebakeNow();
+        }
 
-			if (ProjectManager::b_HasOpenProject())
-			{
-				std::filesystem::path proj_dir = ProjectManager::GetCurrent().m_RootPath;
-				s_LayoutPath = (proj_dir / ".raywaves" / "layout.ini").string();
-			}
-			else
-			{
-				std::filesystem::path dir = std::filesystem::path(EditorPreferences::GetInstance().GetConfigPath()).parent_path();
-				s_LayoutPath = (dir / "editor_layout.ini").string();
-			}
+        if (m_bNeedsLayoutReset)
+        {
+            m_bNeedsLayoutReset = false;
+            LoadEditorDefaultIni();
 
-			ImGui::GetIO().IniFilename = s_LayoutPath.c_str();
-		}
+            if (ProjectManager::b_HasOpenProject())
+            {
+                std::filesystem::path proj_dir = ProjectManager::GetCurrent().m_RootPath;
+                s_LayoutPath = (proj_dir / ".raywaves" / "layout.ini").string();
+            }
+            else
+            {
+                std::filesystem::path dir =
+                    std::filesystem::path(EditorPreferences::GetInstance().GetConfigPath()).parent_path();
+                s_LayoutPath = (dir / "editor_layout.ini").string();
+            }
 
-		Profiler::Get().NextFrame();
+            ImGui::GetIO().IniFilename = s_LayoutPath.c_str();
+        }
 
-		rlImGuiBegin();
+        Profiler::Get().NextFrame();
 
-		ImGui::DockSpaceOverViewport(0, m_Viewport);
+        rlImGuiBegin();
+
+        ImGui::DockSpaceOverViewport(0, m_Viewport);
 
         for (auto& panel : m_Panels)
         {
             panel->Draw(this);
         }
 
-		rlImGuiEnd();
-		EndDrawing();
-	}
+        rlImGuiEnd();
+        EndDrawing();
+    }
 
-	Close();
+    Close();
 }
 
 void GameEditor::Close()
 {
-	if (m_bClosed)
-	{
-		return;
-	}
-	m_bClosed = true;
+    if (m_bClosed)
+    {
+        return;
+    }
+    m_bClosed = true;
 
-	t_WindowConfig& config = GameConfig::GetInstance().GetWindowConfig();
-	config.scene_width = m_SceneSettings.m_SceneWidth;
-	config.scene_height = m_SceneSettings.m_SceneHeight;
-	config.scene_fps = m_SceneSettings.m_TargetFPS;
-	GameConfig::GetInstance().m_bSaveToFile("config.ini");
+    t_WindowConfig& config = GameConfig::GetInstance().GetWindowConfig();
+    config.scene_width = m_SceneSettings.m_SceneWidth;
+    config.scene_height = m_SceneSettings.m_SceneHeight;
+    config.scene_fps = m_SceneSettings.m_TargetFPS;
+    GameConfig::GetInstance().m_bSaveToFile("config.ini");
 
-	if (ProjectManager::b_HasOpenProject())
-	{
-		auto& prj = ProjectManager::GetCurrent();
-		prj.m_SceneWidth = m_SceneSettings.m_SceneWidth;
-		prj.m_SceneHeight = m_SceneSettings.m_SceneHeight;
-		prj.m_TargetFPS = m_SceneSettings.m_TargetFPS;
-		ProjectManager::b_SaveCurrentProject();
-	}
+    if (ProjectManager::b_HasOpenProject())
+    {
+        auto& prj = ProjectManager::GetCurrent();
+        prj.m_SceneWidth = m_SceneSettings.m_SceneWidth;
+        prj.m_SceneHeight = m_SceneSettings.m_SceneHeight;
+        prj.m_TargetFPS = m_SceneSettings.m_TargetFPS;
+        ProjectManager::b_SaveCurrentProject();
+    }
 
-	// Stop workers before destroying objects captured by their callbacks.
-	m_ThreadCancelFlag->store(true);
-	CancelBuild();
-	if (m_BuildThread.joinable())
-	{
-		m_BuildThread.join();
-	}
-	if (m_ExportState.m_ExportThread.joinable())
-	{
-		m_ExportState.m_ExportThread.join();
-	}
+    // Stop workers before destroying objects captured by their callbacks.
+    m_ThreadCancelFlag->store(true);
+    CancelBuild();
+    if (m_BuildThread.joinable())
+    {
+        m_BuildThread.join();
+    }
+    if (m_ExportState.m_ExportThread.joinable())
+    {
+        m_ExportState.m_ExportThread.join();
+    }
 
-	// Destroy DLL-owned maps and unload the DLL while the graphics/audio
-	// contexts are still alive. Map destructors release textures and sounds.
-	m_LogicLoader.Unload();
-	m_GameEngine.SetMap(nullptr);
-	m_GameEngine.SetMapManager(nullptr);
+    // Destroy DLL-owned maps and unload the DLL while the graphics/audio
+    // contexts are still alive. Map destructors release textures and sounds.
+    m_LogicLoader.Unload();
+    m_GameEngine.SetMap(nullptr);
+    m_GameEngine.SetMapManager(nullptr);
 
-	if (m_OpaqueShader.id != 0)
-	{
-		UnloadShader(m_OpaqueShader);
-		m_OpaqueShader.id = 0;
-	}
+    if (m_OpaqueShader.id != 0)
+    {
+        UnloadShader(m_OpaqueShader);
+        m_OpaqueShader.id = 0;
+    }
 
-	if (m_RaylibTexture.id != 0)
-	{
-		UnloadRenderTexture(m_RaylibTexture);
-		m_RaylibTexture.id = 0;
-	}
+    if (m_RaylibTexture.id != 0)
+    {
+        UnloadRenderTexture(m_RaylibTexture);
+        m_RaylibTexture.id = 0;
+    }
 
-	if (m_DisplayTexture.id != 0)
-	{
-		UnloadRenderTexture(m_DisplayTexture);
-		m_DisplayTexture.id = 0;
-	}
+    if (m_DisplayTexture.id != 0)
+    {
+        UnloadRenderTexture(m_DisplayTexture);
+        m_DisplayTexture.id = 0;
+    }
 
-	m_Terminal.Shutdown();
+    m_Terminal.Shutdown();
 
-	rlImGuiShutdown();
-	CloseAudioDevice();
-	CloseWindow();
+    rlImGuiShutdown();
+    CloseAudioDevice();
+    CloseWindow();
 }
-
-
 
 void GameEditor::LoadMap(GameMap* game_map)
 {
@@ -796,56 +782,55 @@ void GameEditor::LoadMap(GameMap* game_map)
 
 bool GameEditor::b_LoadGameLogic(std::string_view dll_path)
 {
-	// Exit-request wiring lives in the loader's new-map callback (see constructor).
-	return m_LogicLoader.b_LoadGameLogic(dll_path);
+    // Exit-request wiring lives in the loader's new-map callback (see constructor).
+    return m_LogicLoader.b_LoadGameLogic(dll_path);
 }
 
 bool GameEditor::b_ReloadGameLogic()
 {
-	bool b_WasPlaying = b_IsPlaying;
-	b_IsPlaying = false;
+    bool b_WasPlaying = b_IsPlaying;
+    b_IsPlaying = false;
 
-	bool b_Ok = m_LogicLoader.b_ReloadGameLogic();
-	b_IsPlaying = b_WasPlaying;
+    bool b_Ok = m_LogicLoader.b_ReloadGameLogic();
+    b_IsPlaying = b_WasPlaying;
 
-	return b_Ok;
+    return b_Ok;
 }
 
 void GameEditor::UpdatePerformanceMetrics()
 {
-	if (m_FrameTimes.empty())
-	{
-		return;
-	}
+    if (m_FrameTimes.empty())
+    {
+        return;
+    }
 
-	m_FrameTimes[m_FrameOffset] = GetFrameTime() * 1000.0f;
-	m_FrameOffset = (m_FrameOffset + 1) % m_FrameTimes.size();
+    m_FrameTimes[m_FrameOffset] = GetFrameTime() * 1000.0f;
+    m_FrameOffset = (m_FrameOffset + 1) % m_FrameTimes.size();
 }
-
-
 
 void GameEditor::ParseBuildLine(std::string_view line)
 {
     auto err_pos = line.find("error:");
     if (err_pos == std::string_view::npos)
-	{
-		err_pos = line.find("error C");
-	}
+    {
+        err_pos = line.find("error C");
+    }
     if (err_pos == std::string_view::npos)
-	{
-		err_pos = line.find("FAILED:");
-	}
+    {
+        err_pos = line.find("FAILED:");
+    }
 
     auto warn_pos = line.find("warning:");
-	if (warn_pos == std::string_view::npos)
-	{
-		warn_pos = line.find("warning C");
-	}
+    if (warn_pos == std::string_view::npos)
+    {
+        warn_pos = line.find("warning C");
+    }
 
     if (err_pos != std::string_view::npos || warn_pos != std::string_view::npos)
     {
         FBuildMessage msg;
-        msg.Severity = (err_pos != std::string_view::npos) ? FBuildMessage::ESeverity::Error : FBuildMessage::ESeverity::Warning;
+        msg.Severity =
+            (err_pos != std::string_view::npos) ? FBuildMessage::ESeverity::Error : FBuildMessage::ESeverity::Warning;
         msg.Text = std::string(line);
 
         size_t keyword_pos = (err_pos != std::string_view::npos) ? err_pos : warn_pos;
@@ -935,16 +920,17 @@ void GameEditor::CompileGameLogic()
             if (!fs::exists(cmake_exe))
             {
                 m_Terminal.add_text("Downloading CMake (first-time setup, in background)...", term::Severity::Debug);
-                setup_prefix = "powershell -ExecutionPolicy Bypass -File \""
-                    + (ProjectManager::GetToolsDirectory() / "setup_zig.ps1").string()
-                    + "\" -SkipZig -SkipRcEdit -SkipNinja && ";
+                setup_prefix = "powershell -ExecutionPolicy Bypass -File \"" +
+                    (ProjectManager::GetToolsDirectory() / "setup_zig.ps1").string() +
+                    "\" -SkipZig -SkipRcEdit -SkipNinja && ";
             }
 
             std::string cmake_path = "\"" + cmake_exe.string() + "\"";
 
             // Project folders are portable, but CMake caches contain absolute paths.
             // Try normal configure first, if it fails (e.g. moved project), fallback to --fresh.
-            build_cmd = setup_prefix + "cd /d \"" + path_str + "\" && (" + cmake_path + " -G Ninja . -B build || " + cmake_path + " --fresh -G Ninja . -B build) && " + cmake_path + " --build build --config Release";
+            build_cmd = setup_prefix + "cd /d \"" + path_str + "\" && (" + cmake_path + " -G Ninja . -B build || " +
+                cmake_path + " --fresh -G Ninja . -B build) && " + cmake_path + " --build build --config Release";
         }
     }
     else
@@ -956,9 +942,9 @@ void GameEditor::CompileGameLogic()
         if (!fs::exists(cmakeExe))
         {
             m_Terminal.add_text("Downloading CMake (first-time setup, in background)...", term::Severity::Debug);
-            setupPrefix = "powershell -ExecutionPolicy Bypass -File \""
-                + (ProjectManager::GetToolsDirectory() / "setup_zig.ps1").string()
-                + "\" -SkipZig -SkipRcEdit -SkipNinja && ";
+            setupPrefix = "powershell -ExecutionPolicy Bypass -File \"" +
+                (ProjectManager::GetToolsDirectory() / "setup_zig.ps1").string() +
+                "\" -SkipZig -SkipRcEdit -SkipNinja && ";
         }
         build_cmd = setupPrefix + "\"\"" + cmakeExe.string() + "\" --build \"" + app_dir + "\" --target GameLogic\"";
     }
@@ -966,12 +952,12 @@ void GameEditor::CompileGameLogic()
     m_Terminal.add_text("Executing: " + build_cmd, term::Severity::Debug);
 
     auto cancel = m_BuildCancel;
-    m_BuildThread = ProcessRunner::RunBuildCommand
-    (
+    m_BuildThread = ProcessRunner::RunBuildCommand(
         build_cmd,
         [this, cancel](std::string_view line, bool isError)
         {
-            if (cancel->load()) return;
+            if (cancel->load())
+                return;
             ParseBuildLine(line);
             m_Terminal.add_text(line, isError ? term::Severity::Error : term::Severity::Debug);
         },
@@ -987,7 +973,7 @@ void GameEditor::CompileGameLogic()
                 m_Terminal.add_text("Build Successful.", term::Severity::Debug);
                 BuildStatus = EBuildStatus::Success;
                 NotificationTimer = 4.0f;
-				m_LogicLoader.RequestReload();
+                m_LogicLoader.RequestReload();
             }
             else
             {
@@ -998,6 +984,5 @@ void GameEditor::CompileGameLogic()
             }
             b_IsCompiling = false;
         },
-        cancel
-    );
+        cancel);
 }

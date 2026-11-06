@@ -1,11 +1,11 @@
-#include <algorithm>
-#include <iostream>
 #include "ProjectManager.h"
+#include <algorithm>
 #include <filesystem>
 #include <fstream>
+#include <iostream>
 #include <iterator>
-#include <windows.h>
 #include <shlobj.h>
+#include <windows.h>
 
 namespace fs = std::filesystem;
 
@@ -95,13 +95,15 @@ std::recursive_mutex ProjectManager::s_Mutex;
 
 void ProjectManager::InitializeRecentPath()
 {
-    if (!s_RecentPath.empty()) return;
-    
+    if (!s_RecentPath.empty())
+        return;
+
     char path[MAX_PATH];
     if (SUCCEEDED(SHGetFolderPathA(nullptr, CSIDL_APPDATA, nullptr, 0, path)))
     {
         fs::path dir = fs::path(path) / "RayWaves";
-        if (!fs::exists(dir)) fs::create_directories(dir);
+        if (!fs::exists(dir))
+            fs::create_directories(dir);
         s_RecentPath = (dir / "recent.ini").string();
     }
 }
@@ -152,7 +154,7 @@ bool ProjectManager::b_CreateProject(std::string_view target_folder, std::string
     // Resolve template path using robust root discovery
     fs::path root_dir = GetEngineRootDirectory();
     fs::path template_dir = root_dir / "Templates" / template_name;
-    
+
     if (!fs::exists(template_dir))
     {
         template_dir = root_dir / "Distribution" / "Templates" / template_name;
@@ -167,7 +169,7 @@ bool ProjectManager::b_CreateProject(std::string_view target_folder, std::string
     try
     {
         fs::copy(template_dir, target_path, fs::copy_options::recursive);
-        
+
         // Rewrite the manifest name
         std::string manifest_path = (target_path / "project.raywaves").string();
         t_Project proj;
@@ -188,7 +190,8 @@ bool ProjectManager::b_CreateProject(std::string_view target_folder, std::string
 bool ProjectManager::b_SaveCurrentProject()
 {
     std::scoped_lock lock(s_Mutex);
-    if (!s_bOpen) return false;
+    if (!s_bOpen)
+        return false;
     return s_Current.m_bSaveToFile();
 }
 
@@ -235,13 +238,14 @@ void ProjectManager::AddRecent(std::string_view path)
 
     // Remove if already exists
     std::erase(recent, norm_path);
-    
+
     // Insert at front
     recent.insert(recent.begin(), norm_path);
-    
+
     // Keep only top 10
-    if (recent.size() > 10) recent.resize(10);
-    
+    if (recent.size() > 10)
+        recent.resize(10);
+
     // Save
     std::ofstream file(s_RecentPath);
     if (file.is_open())
@@ -270,7 +274,7 @@ void ProjectManager::RemoveRecent(std::string_view path)
 
     // Remove if exists
     std::erase(recent, norm_path);
-    
+
     // Save
     std::ofstream file(s_RecentPath);
     if (file.is_open())
@@ -286,10 +290,11 @@ std::vector<std::string> ProjectManager::GetRecent()
 {
     InitializeRecentPath();
     std::vector<std::string> recent;
-    
+
     std::ifstream file(s_RecentPath);
-    if (!file.is_open()) return recent;
-    
+    if (!file.is_open())
+        return recent;
+
     std::string line;
     while (std::getline(file, line))
     {
@@ -315,7 +320,7 @@ std::vector<std::string> ProjectManager::GetAvailableTemplates()
     std::vector<std::string> templates;
     fs::path root_dir = GetEngineRootDirectory();
     fs::path template_dir = root_dir / "Templates";
-    
+
     if (!fs::exists(template_dir))
     {
         template_dir = root_dir / "Distribution" / "Templates";
@@ -336,47 +341,49 @@ std::vector<std::string> ProjectManager::GetAvailableTemplates()
 
 namespace
 {
-    std::string ReplaceToken(std::string text, std::string_view token, std::string_view value)
+std::string ReplaceToken(std::string text, std::string_view token, std::string_view value)
+{
+    size_t position = 0;
+    while ((position = text.find(token, position)) != std::string::npos)
     {
-        size_t position = 0;
-        while ((position = text.find(token, position)) != std::string::npos)
-        {
-            text.replace(position, token.size(), value);
-            position += value.size();
-        }
-        return text;
+        text.replace(position, token.size(), value);
+        position += value.size();
     }
-
-    std::string ToForwardSlashes(fs::path path)
-    {
-        std::string result = path.string();
-        std::ranges::replace(result, '\\', '/');
-        return result;
-    }
-
-    // The same template ships in dev builds (build/<preset>/packaging) and in
-    // distributions (Core/). Keeping one file avoids the two project build
-    // recipes drifting apart again.
-    fs::path FindProjectTemplate(const fs::path& exe_dir, const fs::path& engine_root)
-    {
-        const fs::path candidates[] = {
-            exe_dir / "packaging" / "Project.CMakeLists.in",
-            exe_dir / "Core" / "Project.CMakeLists.in",
-            engine_root / "packaging" / "Project.CMakeLists.in",
-            engine_root / "Core" / "Project.CMakeLists.in",
-        };
-
-        for (const auto& candidate : candidates)
-        {
-            if (fs::exists(candidate)) return candidate;
-        }
-        return {};
-    }
+    return text;
 }
+
+std::string ToForwardSlashes(fs::path path)
+{
+    std::string result = path.string();
+    std::ranges::replace(result, '\\', '/');
+    return result;
+}
+
+// The same template ships in dev builds (build/<preset>/packaging) and in
+// distributions (Core/). Keeping one file avoids the two project build
+// recipes drifting apart again.
+fs::path FindProjectTemplate(const fs::path& exe_dir, const fs::path& engine_root)
+{
+    const fs::path candidates[] = {
+        exe_dir / "packaging" / "Project.CMakeLists.in",
+        exe_dir / "Core" / "Project.CMakeLists.in",
+        engine_root / "packaging" / "Project.CMakeLists.in",
+        engine_root / "Core" / "Project.CMakeLists.in",
+    };
+
+    for (const auto& candidate : candidates)
+    {
+        if (fs::exists(candidate))
+            return candidate;
+    }
+    return {};
+}
+} // namespace
 
 bool ProjectManager::GenerateCMakeLists()
 {
-    if (!b_HasOpenProject()) return false;
+    if (!b_HasOpenProject())
+        return false;
 
     fs::path raywaves_dir = fs::path(s_Current.m_RootPath) / ".raywaves";
     fs::path cmake_path = raywaves_dir / "CMakeLists.txt";
@@ -403,17 +410,15 @@ bool ProjectManager::GenerateCMakeLists()
     // until the engine is rebuilt.
     auto has_raylib_import = [](const fs::path& dir)
     {
-        return fs::exists(dir / "lib" / "libraylib.a")
-            || fs::exists(dir / "lib" / "libraylib.dll.a")
-            || fs::exists(dir / "lib" / "raylib.lib")
-            || fs::exists(dir / "libraylib.dll.a")
-            || fs::exists(dir / "libraylib.a")
-            || fs::exists(dir / "raylib.lib");
+        return fs::exists(dir / "lib" / "libraylib.a") || fs::exists(dir / "lib" / "libraylib.dll.a") ||
+            fs::exists(dir / "lib" / "raylib.lib") || fs::exists(dir / "libraylib.dll.a") ||
+            fs::exists(dir / "libraylib.a") || fs::exists(dir / "raylib.lib");
     };
     if (!has_raylib_import(raylib_dir))
     {
         fs::path fetched = exe_dir / "_deps" / "raylib-build" / "raylib";
-        if (has_raylib_import(fetched)) raylib_dir = fetched;
+        if (has_raylib_import(fetched))
+            raylib_dir = fetched;
     }
 
     fs::path template_path = FindProjectTemplate(exe_dir, engine_root);
@@ -425,10 +430,10 @@ bool ProjectManager::GenerateCMakeLists()
     }
 
     std::ifstream template_file(template_path);
-    if (!template_file.is_open()) return false;
+    if (!template_file.is_open())
+        return false;
 
-    std::string content((std::istreambuf_iterator<char>(template_file)),
-                        std::istreambuf_iterator<char>());
+    std::string content((std::istreambuf_iterator<char>(template_file)), std::istreambuf_iterator<char>());
 
     content = ReplaceToken(content, "@PROJECT_NAME@", SanitizeCMakeProjectName(s_Current.m_Name));
     content = ReplaceToken(content, "@TOOLS_DIR@", ToForwardSlashes(GetToolsDirectory()));
@@ -437,7 +442,8 @@ bool ProjectManager::GenerateCMakeLists()
     content = ReplaceToken(content, "@RAYLIB_DIR@", ToForwardSlashes(raylib_dir));
 
     std::ofstream file(cmake_path);
-    if (!file.is_open()) return false;
+    if (!file.is_open())
+        return false;
     file << content;
     return file.good();
 }
