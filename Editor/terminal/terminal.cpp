@@ -6,6 +6,7 @@
 #include "vterm_screen.h"
 
 #include "../../Engine/Profiler.h"
+#include "../EditorWidgets.h"
 #include "../GameEditorTheme.h"
 
 #include <algorithm>
@@ -487,25 +488,6 @@ void Terminal::ShutdownTabs()
 
 void Terminal::RenderConsoleTab()
 {
-    bool b_timestamps = m_bShowTimestamps.load();
-    if (ImGui::Checkbox("Timestamps", &b_timestamps))
-    {
-        m_bShowTimestamps.store(b_timestamps);
-    }
-    ImGui::SameLine();
-    if (ImGui::Button("Clear"))
-    {
-        clear();
-    }
-    ImGui::SameLine();
-    if (ImGui::Button("Copy All"))
-    {
-        CopyConsoleToClipboard();
-    }
-    ImGui::SameLine();
-    ImGui::TextDisabled("%zu lines", m_ConsoleScreen->ScrollbackSize() + static_cast<size_t>(m_ConsoleScreen->Rows()));
-
-    ImGui::Separator();
     m_ConsoleView->SetFont(s_MonoFont());
     m_ConsoleView->SetDefaultColors(ImGui::GetColorU32(ImGuiCol_Text), ImGui::GetColorU32(ImGuiCol_FrameBg));
     m_ConsoleView->Draw("##console_grid", *m_ConsoleScreen, false, {});
@@ -516,43 +498,87 @@ void Terminal::RenderShellTab(t_Tab& tab)
     t_TerminalSession& session = *tab.session;
     session.Pump();
 
-    if (ImGui::Button("Restart"))
-    {
-        session.b_Start(tab.shell, m_WorkingDirectory);
-    }
-    ImGui::SameLine();
-    if (ImGui::Button("Clear"))
-    {
-        session.Screen().Reset();
-        tab.view.ScrollToBottom();
-    }
-    ImGui::SameLine();
-    if (ImGui::Button(session.b_IsRunning() ? "Kill" : "Start"))
-    {
-        if (session.b_IsRunning())
-        {
-            session.Stop();
-        }
-        else
-        {
-            session.b_Start(tab.shell, m_WorkingDirectory);
-        }
-    }
-    ImGui::SameLine();
-    ImGui::TextDisabled("%s", tab.shell.display_name.c_str());
-
-    if (!session.b_IsRunning() && session.b_HasExited())
-    {
-        ImGui::SameLine();
-        ImGui::TextDisabled("(exit %d)", session.ExitCode());
-    }
-
-    ImGui::Separator();
-
     tab.view.SetFont(s_MonoFont());
     tab.view.SetDefaultColors(ImGui::GetColorU32(ImGuiCol_Text), ImGui::GetColorU32(ImGuiCol_FrameBg));
     tab.view.Draw(
         tab.name.c_str(), session.Screen(), true, [&session](int rows, int cols) { session.Resize(rows, cols); });
+}
+
+bool Terminal::b_RenderTabBarActions()
+{
+    const bool b_valid_tab = m_ActiveTab >= 0 && m_ActiveTab < static_cast<int>(m_Tabs.size());
+    const bool b_console = b_valid_tab && m_Tabs[static_cast<size_t>(m_ActiveTab)]->b_Console;
+
+    if (b_console)
+    {
+        const size_t line_count = m_ConsoleScreen->ScrollbackSize() + static_cast<size_t>(m_ConsoleScreen->Rows());
+        EditorWidgets::TabStatusText("##console_line_count", std::to_string(line_count) + " lines");
+    }
+    else if (b_valid_tab)
+    {
+        t_Tab& tab = *m_Tabs[static_cast<size_t>(m_ActiveTab)];
+        if (tab.session && !tab.session->b_IsRunning() && tab.session->b_HasExited())
+        {
+            EditorWidgets::TabStatusText("##shell_exit_code", "(exit " + std::to_string(tab.session->ExitCode()) + ")");
+        }
+    }
+
+    bool b_open_new_tab = false;
+    if (EditorWidgets::TabIconButton("##new_terminal", ICON_FA_PLUS, "New terminal"))
+    {
+        b_open_new_tab = true;
+    }
+
+    if (b_console)
+    {
+        if (EditorWidgets::TabIconButton("##timestamps", ICON_FA_CLOCK, "Show timestamps", m_bShowTimestamps.load()))
+        {
+            m_bShowTimestamps.store(!m_bShowTimestamps.load());
+        }
+
+        if (EditorWidgets::TabIconButton("##clear_console", ICON_FA_BROOM, "Clear console"))
+        {
+            clear();
+        }
+
+        if (EditorWidgets::TabIconButton("##copy_console", ICON_FA_COPY, "Copy all output"))
+        {
+            CopyConsoleToClipboard();
+        }
+    }
+    else if (b_valid_tab)
+    {
+        t_Tab& tab = *m_Tabs[static_cast<size_t>(m_ActiveTab)];
+        if (tab.session)
+        {
+            if (EditorWidgets::TabIconButton("##restart_shell", ICON_FA_ROTATE_RIGHT, "Restart terminal"))
+            {
+                tab.session->b_Start(tab.shell, m_WorkingDirectory);
+            }
+
+            if (EditorWidgets::TabIconButton("##clear_shell", ICON_FA_BROOM, "Clear terminal"))
+            {
+                tab.session->Screen().Reset();
+                tab.view.ScrollToBottom();
+            }
+
+            const bool b_running = tab.session->b_IsRunning();
+            if (EditorWidgets::TabIconButton("##start_stop_shell", b_running ? ICON_FA_STOP : ICON_FA_PLAY,
+                    b_running ? "Kill terminal" : "Start terminal"))
+            {
+                if (b_running)
+                {
+                    tab.session->Stop();
+                }
+                else
+                {
+                    tab.session->b_Start(tab.shell, m_WorkingDirectory);
+                }
+            }
+        }
+    }
+
+    return b_open_new_tab;
 }
 
 void Terminal::show(std::string_view window_title, bool* p_open)
@@ -659,10 +685,7 @@ void Terminal::show(std::string_view window_title, bool* p_open)
             }
         }
 
-        if (ImGui::TabItemButton(ICON_FA_PLUS "##new_terminal", ImGuiTabItemFlags_Trailing))
-        {
-            b_open_new_tab = true;
-        }
+        b_open_new_tab = b_RenderTabBarActions();
 
         ImGui::EndTabBar();
     }

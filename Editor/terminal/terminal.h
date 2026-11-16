@@ -76,6 +76,7 @@ private:
     void NewShellTab(const t_ShellSpec& shell);
     void RenderConsoleTab();
     void RenderShellTab(t_Tab& tab);
+    bool b_RenderTabBarActions();
     void ApplyThemeToScreen(t_VTermScreen& screen);
     void CopyConsoleToClipboard();
     void ShutdownTabs();

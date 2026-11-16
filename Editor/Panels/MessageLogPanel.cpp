@@ -1,4 +1,5 @@
 #include "MessageLogPanel.h"
+#include "../EditorWidgets.h"
 #include "../GameEditor.h"
 #include <imgui.h>
 #include <mutex>
@@ -69,9 +70,12 @@ void MessageLogPanel::Draw(GameEditor* editor)
     if (ImGui::Begin("Message Log", &show_msg_log))
     {
         editor->bShowMessageLog.store(show_msg_log);
-        float content_width = ImGui::GetContentRegionAvail().x;
-        ImGui::SetCursorPosX(ImGui::GetCursorPosX() + content_width - 135.0f);
-        if (ImGui::Button("Copy All", ImVec2(65, 0)))
+        const float content_width = ImGui::GetContentRegionAvail().x;
+        const float icon_size = 24.0f;
+        const float icons_width = icon_size * 2.0f + ImGui::GetStyle().ItemSpacing.x;
+        ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImMax(content_width - icons_width, 0.0f));
+
+        if (EditorWidgets::IconButton("log_copy_all", ICON_FA_COPY, "Copy all", ImVec2(icon_size, icon_size)))
         {
             std::scoped_lock lock(editor->BuildMessagesMutex);
             std::string all_msgs;
@@ -86,7 +90,7 @@ void MessageLogPanel::Draw(GameEditor* editor)
             ImGui::SetClipboardText(all_msgs.c_str());
         }
         ImGui::SameLine();
-        if (ImGui::Button("Clear", ImVec2(60, 0)))
+        if (EditorWidgets::IconButton("log_clear", ICON_FA_BROOM, "Clear log", ImVec2(icon_size, icon_size)))
         {
             std::scoped_lock lock(editor->BuildMessagesMutex);
             editor->BuildMessages.clear();
