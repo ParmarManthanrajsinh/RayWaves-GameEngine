@@ -15,6 +15,18 @@ public:
     bool m_Initialized = false;
 };
 
+// Records the runtime mode visible to the map when it is initialized, so the
+// test proves MapManager forwards standalone mode to newly created maps.
+class StandaloneProbeMap : public GameMap
+{
+public:
+    using GameMap::GameMap;
+
+    static inline bool s_StandaloneAtInit = false;
+
+    void Initialize() override { s_StandaloneAtInit = b_IsStandalone(); }
+};
+
 // Requests a transition from inside Initialize(). If the swap were applied
 // synchronously, this map would be destroyed while Initialize() is still on
 // the stack. The counters detect that without touching freed memory.
@@ -117,6 +129,26 @@ TEST_CASE("MapManager: set initial map")
     mgr.SetInitialMap("start");
     mgr.Initialize();
     CHECK(mgr.b_IsCurrentMap("start"));
+}
+
+TEST_CASE("MapManager: standalone mode reaches new maps")
+{
+    StandaloneProbeMap::s_StandaloneAtInit = false;
+
+    MapManager mgr;
+    mgr.SetStandaloneMode(true);
+    CHECK(mgr.b_IsStandalone());
+
+    mgr.RegisterMap<StandaloneProbeMap>("probe");
+    mgr.SetInitialMap("probe");
+    mgr.Initialize();
+    CHECK(StandaloneProbeMap::s_StandaloneAtInit);
+
+    // Future transitions must inherit the same mode.
+    mgr.SetStandaloneMode(false);
+    mgr.RegisterMap<StandaloneProbeMap>("other");
+    CHECK(mgr.b_GotoMap("other", false));
+    CHECK_FALSE(StandaloneProbeMap::s_StandaloneAtInit);
 }
 
 TEST_CASE("MapManager: unload current map clears pointer")

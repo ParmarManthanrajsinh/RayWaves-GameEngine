@@ -48,6 +48,18 @@ TEST_CASE("GameMap: GetMapName")
     CHECK(map.GetMapName() == "test_map");
 }
 
+TEST_CASE("GameMap: standalone mode defaults off and round-trips")
+{
+    TestGameMap map;
+    CHECK_FALSE(map.b_IsStandalone());
+
+    map.SetStandaloneMode(true);
+    CHECK(map.b_IsStandalone());
+
+    map.SetStandaloneMode(false);
+    CHECK_FALSE(map.b_IsStandalone());
+}
+
 TEST_CASE("GameMap: SaveState/LoadState roundtrip")
 {
     TestGameMap map;

@@ -85,6 +85,10 @@ int main()
     auto* map = s_fLoadGameLogic("GameLogic.dll", game_logic_handle);
     if (map != nullptr)
     {
+        // Standalone: GameLogic may capture the cursor. The editor never sets
+        // this, so editing keeps a usable mouse.
+        map->SetStandaloneMode(true);
+
         GameMap* raw_map = map;
         raw_map->SetExitCallback([&b_ExitRequested]() { b_ExitRequested = true; });
         engine.SetMap(map);

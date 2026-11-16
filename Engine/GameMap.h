@@ -10,7 +10,7 @@
 // GetGameLogicAbiVersion() returning this value. The editor/runtime reject
 // DLLs with a different (or missing) version instead of risking heap
 // corruption across the DLL boundary.
-inline constexpr uint32_t RAYWAVES_GAMELOGIC_ABI_VERSION = 1;
+inline constexpr uint32_t RAYWAVES_GAMELOGIC_ABI_VERSION = 2;
 
 class GameMap
 {
@@ -20,6 +20,7 @@ protected:
     float m_SceneHeight = 0.0f;
     int m_TargetFPS = 60;
     std::string m_ProjectAssetPath;
+    bool m_bStandalone = false;
 
     // Transition callback to request a map change via the manager
     std::function<void(std::string_view, bool)> m_TransitionCallback;
@@ -52,6 +53,12 @@ public:
     Vector2 GetSceneBounds() const;
     void SetTargetFPS(int fps);
     int GetTargetFPS() const;
+
+    // True when the map runs inside the standalone runtime (game.exe), false
+    // inside the editor. Templates use this to capture the cursor only in a
+    // real game, never while editing.
+    virtual void SetStandaloneMode(bool b_Standalone);
+    bool b_IsStandalone() const;
 
     // Hook for MapManager: injects a function that executes a map transition.
     // Maps call RequestGotoMap to trigger transitions safely (no global/static).

@@ -49,6 +49,49 @@ When the viewport changes (window resize), call `m_Camera.UpdateViewport(width, 
 | `Begin() / End()` | Wrap world-space drawing calls |
 | `UpdateViewport(w, h)` | Update when window is resized |
 
+### 3D Cameras
+
+The `ThirdPerson3D` and `FirstPerson3D` templates ship gameplay-side 3D
+cameras. They are template classes, not engine classes; copy the one you need
+into your project.
+
+**Third-person orbit** (`ThirdPersonCamera`):
+
+```cpp
+m_Camera.Initialize(target);          // start behind the target
+m_Camera.UpdateInput();               // right-drag orbit, wheel zoom
+m_Camera.Follow(target, delta_time);  // smooth follow
+m_Camera.Begin();
+// draw 3D world here
+m_Camera.End();
+```
+
+**First-person look** (`FirstPersonCamera`):
+
+```cpp
+m_Camera.Initialize(position);
+m_Camera.UpdateInput();                      // hold right mouse to look
+Vector3 forward = m_Camera.GetFlatForward(); // ground-plane movement
+m_Camera.Begin();
+// draw 3D world here
+m_Camera.End();
+```
+
+The editor keeps a visible cursor: both cameras look only while right-dragging.
+The standalone runtime calls `DisableCursor()` and looks continuously, using
+`GameMap::b_IsStandalone()` to tell the two apart. `MapManager` forwards that
+mode to every new map, so transitions and hot starts behave the same. The
+cursor is restored when a standalone map is destroyed.
+
+3D drawing works inside `GameMap::Draw()`: call `BeginMode3D` (or a camera
+helper's `Begin()`), draw, then `EndMode3D()`. The editor renders the result
+into the scene texture, depth buffer included.
+
+Both 3D templates include `SceneTarget`, a 2x supersampling target (SSAA).
+Raylib render textures cannot request MSAA, so the scene renders at twice the
+viewport size and downsamples with bilinear filtering. HUD is drawn after the
+resolve, so text stays sharp.
+
 ---
 
 ## 2. Input Handling

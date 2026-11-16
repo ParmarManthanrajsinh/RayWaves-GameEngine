@@ -26,6 +26,7 @@ The `GameMap` class is the foundation of every level, scene, or screen in your g
 | `RequestGotoMap("MapID")` | Request a switch to another registered map. |
 | `GetMapName()` | Returns the ID string of the current map. |
 | `SetTargetFPS(int fps)` | Set the target frame rate for this map. |
+| `b_IsStandalone()` | True in the exported game runtime, false in the editor. Useful for cursor capture and runtime-only systems. |
 
 ### Example Implementation
 

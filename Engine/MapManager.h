@@ -84,6 +84,8 @@ public:
     void SetSceneBounds(float width, float height);
     Vector2 GetSceneBounds() const;
 
+    void SetStandaloneMode(bool b_Standalone) override;
+
     template <typename T>
     void RegisterMap(std::string_view map_id, std::string_view description = "");
     // Returns true when the swap happened, or when it was queued because a

@@ -1,7 +1,7 @@
 <div align="center">
   <img src="EngineContent/logo.png" alt="RayWaves Logo" width="220"/>
   <h1>RayWaves Game Engine</h1>
-  <p><b>A lightweight, code-first 2D engine built on Raylib with hot-reloading.</b></p>
+  <p><b>A lightweight, code-first game engine built on Raylib with hot-reloading.</b></p>
 </div>
 
 RayWaves is a C++23 game engine for developers who want to edit gameplay code
@@ -62,7 +62,7 @@ scripts/package.ps1 -IncludeCompiler -Zip
 | `Runtime/` | Editor/runtime entry points and DLL loading |
 | `tests/` | Unit, integration, and smoke suites |
 | `benchmarks/` | Standalone performance harness |
-| `templates/` | Starter projects (Empty, Platformer2D, SlimeQuest) |
+| `templates/` | Starter projects (Empty, Platformer2D, ThirdPerson3D, FirstPerson3D, SlimeQuest) |
 | `packaging/` | Distribution scripts and the shared project CMake template |
 | `scripts/` | Day-to-day developer commands |
 | `cmake/` | Build modules |

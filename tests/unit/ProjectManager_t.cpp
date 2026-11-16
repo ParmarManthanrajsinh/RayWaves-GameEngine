@@ -58,3 +58,25 @@ TEST_CASE("ProjectManager: AddRecent/RemoveRecent round-trip")
     recent = ProjectManager::GetRecent();
     CHECK(std::find(recent.begin(), recent.end(), fake_path) == recent.end());
 }
+
+TEST_CASE("ProjectManager: b_CreateProject copies 3D templates")
+{
+    TempDir dir;
+
+    auto available = ProjectManager::GetAvailableTemplates();
+    CHECK(std::find(available.begin(), available.end(), "ThirdPerson3D") != available.end());
+    CHECK(std::find(available.begin(), available.end(), "FirstPerson3D") != available.end());
+
+    for (const char* name : { "ThirdPerson3D", "FirstPerson3D" })
+    {
+        std::filesystem::path target = dir.Path() / name;
+        REQUIRE(ProjectManager::b_CreateProject(target.string(), name));
+
+        CHECK(std::filesystem::exists(target / "project.raywaves"));
+        CHECK(std::filesystem::exists(target / "GameLogic" / "RootManager.cpp"));
+
+        t_Project project;
+        REQUIRE(project.m_bLoadFromFile((target / "project.raywaves").string()));
+        CHECK(project.m_Name == name);
+    }
+}

@@ -28,6 +28,7 @@ void MapManager::Initialize()
         Vector2 bounds = GameMap::GetSceneBounds();
         m_CurrentMap->SetSceneBounds(bounds.x, bounds.y);
         m_CurrentMap->SetProjectAssetPath(m_ProjectAssetPath);
+        m_CurrentMap->SetStandaloneMode(b_IsStandalone());
 
         // Inject transition callback so the map can request transitions.
         // Deferred via QueueTransition: never destroys the calling map
@@ -151,6 +152,16 @@ Vector2 MapManager::GetSceneBounds() const
     return GameMap::GetSceneBounds();
 }
 
+void MapManager::SetStandaloneMode(bool b_Standalone)
+{
+    GameMap::SetStandaloneMode(b_Standalone);
+
+    if (m_CurrentMap)
+    {
+        m_CurrentMap->SetStandaloneMode(b_Standalone);
+    }
+}
+
 void MapManager::QueueTransition(std::string_view map_id, bool force_reload)
 {
     // Last request wins; at most one deferred swap is pending at a time.
@@ -259,6 +270,7 @@ bool MapManager::b_GotoMap(std::string_view map_id, bool force_reload)
         {
             m_CurrentMap->SetSceneBounds(bounds.x, bounds.y);
             m_CurrentMap->SetProjectAssetPath(m_ProjectAssetPath);
+            m_CurrentMap->SetStandaloneMode(b_IsStandalone());
 
             // Inject transition callback for map-driven transitions.
             // Deferred: destroying the current map from inside its own

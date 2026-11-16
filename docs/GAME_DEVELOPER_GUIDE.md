@@ -83,6 +83,8 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for the full engine repo structure.
 |----------|------|-----------|----------|
 | **Empty** | 1 inline map | Minimal | Learning, prototyping |
 | **Platformer2D** | 1 map + camera + movement | Low | Need scrolling camera fast |
+| **ThirdPerson3D** | 1 map + orbit camera + capsule | Low | Third-person 3D starter |
+| **FirstPerson3D** | 1 map + look camera | Low | First-person 3D starter |
 | **SlimeQuest** | Multi-map, entities, audio, parallax | Full | Reference for production game |
 
 See [GUIDE_FUNDAMENTALS.md](GUIDE_FUNDAMENTALS.md) for understanding the DLL contract, map lifecycle, StateBag, and your first map tutorial.

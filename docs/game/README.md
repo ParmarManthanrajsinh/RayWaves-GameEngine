@@ -5,7 +5,7 @@ Start here if you are making a game with RayWaves.
 ## First steps
 
 1. Run `RayWaves.exe`.
-2. Create a project from a template: `Empty`, `Platformer2D`, or `SlimeQuest`.
+2. Create a project from a template: `Empty`, `Platformer2D`, `ThirdPerson3D`, `FirstPerson3D`, or `SlimeQuest`.
 3. Edit gameplay code in your project's `GameLogic/` folder.
 4. Click **Compile** in the editor.
 5. Export when ready.

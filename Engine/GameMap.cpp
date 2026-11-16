@@ -64,6 +64,16 @@ int GameMap::GetTargetFPS() const
     return m_TargetFPS;
 }
 
+void GameMap::SetStandaloneMode(bool b_Standalone)
+{
+    m_bStandalone = b_Standalone;
+}
+
+bool GameMap::b_IsStandalone() const
+{
+    return m_bStandalone;
+}
+
 void GameMap::SetTransitionCallback(std::function<void(std::string_view, bool)> callback)
 {
     m_TransitionCallback = std::move(callback);
