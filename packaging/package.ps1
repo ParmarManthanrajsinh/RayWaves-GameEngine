@@ -55,11 +55,12 @@ if (-not (Test-Path $BuildPath)) {
 }
 
 Write-Host "Building runtime and editor..." -ForegroundColor Yellow
-& cmake --build $BuildPath --config $Config --target game main
+& cmake --build $BuildPath --config $Config --target game main rwcli
 if ($LASTEXITCODE -ne 0) { throw "Build failed" }
 
 $GameExe = Join-Path $BuildPath "game.exe"
 $EditorExe = Join-Path $BuildPath "RayWaves.exe"
+$CliExe = Join-Path $BuildPath "rwcli.exe"
 $RaylibDll = Join-Path $BuildPath "libraylib.dll"
 $RaylibImport = Join-Path $BuildPath "raylib/lib/libraylib.a"
 if (-not (Test-Path $RaylibImport)) {
@@ -96,6 +97,7 @@ New-Item -ItemType Directory -Force -Path (Join-Path $DistPath "docs") | Out-Nul
 Write-Host "Copying binaries..." -ForegroundColor Yellow
 Copy-Item $GameExe (Join-Path $CorePath "runtime.exe") -Force
 Copy-Item $EditorExe (Join-Path $DistPath "RayWaves.exe") -Force
+Copy-Item $CliExe (Join-Path $DistPath "rwcli.exe") -Force
 Copy-Item $RaylibDll (Join-Path $DistPath "libraylib.dll") -Force
 Copy-Item $RaylibDll (Join-Path $CorePath "raylib/bin/libraylib.dll") -Force
 Copy-Item $RaylibImport (Join-Path $CorePath "raylib/lib/libraylib.a") -Force
@@ -106,6 +108,16 @@ New-Item -ItemType Directory -Force -Path (Join-Path $CorePath "Engine") | Out-N
 Copy-Item (Join-Path $Root "Engine/*.h") (Join-Path $CorePath "Engine") -Force
 Copy-Item (Join-Path $Root "Engine/*.cpp") (Join-Path $CorePath "Engine") -Force
 Copy-Item (Join-Path $Root "packaging/Project.CMakeLists.in") (Join-Path $CorePath "Project.CMakeLists.in") -Force
+Copy-Item (Join-Path $Root "packaging/Project.AGENTS.md.in") (Join-Path $CorePath "Project.AGENTS.md.in") -Force
+Copy-Item (Join-Path $Root "packaging/Project.SKILL.md.in") (Join-Path $CorePath "Project.SKILL.md.in") -Force
+Copy-Item (Join-Path $Root "packaging/Project.rwcli-reference.md.in") (Join-Path $CorePath "Project.rwcli-reference.md.in") -Force
+Copy-Item (Join-Path $Root "packaging/Project.clangd.in") (Join-Path $CorePath "Project.clangd.in") -Force
+Copy-Item (Join-Path $Root "packaging/Project.vscode.c_cpp_properties.json.in") (Join-Path $CorePath "Project.vscode.c_cpp_properties.json.in") -Force
+Copy-Item (Join-Path $Root "packaging/Project.vscode.settings.json.in") (Join-Path $CorePath "Project.vscode.settings.json.in") -Force
+Copy-Item (Join-Path $Root "packaging/Project.vscode.extensions.json.in") (Join-Path $CorePath "Project.vscode.extensions.json.in") -Force
+if (Test-Path (Join-Path $Root ".clang-format")) {
+    Copy-Item (Join-Path $Root ".clang-format") (Join-Path $CorePath ".clang-format") -Force
+}
 
 Copy-Path (Join-Path $Root "templates") (Join-Path $DistPath "templates")
 Copy-Path (Join-Path $Root "EngineContent") (Join-Path $CorePath "EngineContent")
@@ -143,11 +155,17 @@ Get-ChildItem (Join-Path $DistPath "templates") -Recurse -Directory -Filter .ray
 Write-Host "Validating package..." -ForegroundColor Yellow
 $required = @(
     "RayWaves.exe",
+    "rwcli.exe",
     "libraylib.dll",
     "config.ini",
     "VERSION",
     "Core/runtime.exe",
     "Core/Project.CMakeLists.in",
+    "Core/Project.AGENTS.md.in",
+    "Core/Project.SKILL.md.in",
+    "Core/Project.rwcli-reference.md.in",
+    "Core/Project.clangd.in",
+    "Core/Project.vscode.c_cpp_properties.json.in",
     "Core/raylib/include/raylib.h",
     "Core/raylib/lib/libraylib.a",
     "docs/README.md"

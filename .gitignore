@@ -40,3 +40,6 @@ benchmarks/results/
 # OS noise
 Thumbs.db
 .DS_Store
+
+# Editor runtime artifact written at the repo root when running RayWaves.exe
+/config.ini

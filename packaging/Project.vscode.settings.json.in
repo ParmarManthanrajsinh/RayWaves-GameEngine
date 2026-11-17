@@ -1,0 +1,9 @@
+{
+    "clangd.arguments": [],
+    "C_Cpp.default.compileCommands": "${workspaceFolder}/compile_commands.json",
+    "C_Cpp.default.cppStandard": "c++23",
+    "C_Cpp.default.intelliSenseMode": "windows-clang-x64",
+    "terminal.integrated.env.windows": {
+        "PATH": "${env:PATH};@PACKAGE_ROOT@"
+    }
+}

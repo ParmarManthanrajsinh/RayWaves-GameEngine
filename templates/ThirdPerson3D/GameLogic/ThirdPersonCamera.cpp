@@ -1,3 +1,4 @@
+#include "rw.h"
 #include "ThirdPersonCamera.h"
 #include <algorithm>
 #include <cmath>
@@ -36,7 +37,7 @@ void ThirdPersonCamera::UpdateInput(bool b_CursorCaptured, float delta_time)
     }
     m_bCursorCaptured = b_CursorCaptured;
 
-    bool b_look = b_CursorCaptured || IsMouseButtonDown(MOUSE_BUTTON_RIGHT);
+    bool b_look = b_CursorCaptured || rw::IsMouseButtonDown(MOUSE_BUTTON_RIGHT);
     if (b_look)
     {
         Vector2 delta = GetMouseDelta();

@@ -2,58 +2,9 @@
 #include "DllLoader.h"
 #include "GameConfig.h"
 #include "GameEngine.h"
+#include "GameLogicHost.h"
 #include <cstdint>
 #include <iostream>
-using CreateGameMapFunc = GameMap* (*)();
-using DestroyGameMapFunc = void (*)(GameMap*);
-
-static DestroyGameMapFunc s_DestroyGameMap = nullptr;
-
-static GameMap* s_fLoadGameLogic(std::string_view dll_path, DllHandle& out_handle)
-{
-    out_handle = LoadDll(dll_path.data());
-    if (out_handle.handle == nullptr)
-    {
-        std::cerr << "Fatal error: failed to load GameLogic DLL: " << dll_path << "\n";
-        return nullptr;
-    }
-
-    auto CreateFn = reinterpret_cast<CreateGameMapFunc>(GetDllSymbol(out_handle, "CreateGameMap"));
-
-    s_DestroyGameMap = reinterpret_cast<DestroyGameMapFunc>(GetDllSymbol(out_handle, "DestroyGameMap"));
-
-    if ((CreateFn == nullptr) || (s_DestroyGameMap == nullptr))
-    {
-        std::cerr << "Failed to find symbol CreateGameMap/DestroyGameMap in GameLogic DLL" << "\n";
-        UnloadDll(out_handle);
-        out_handle = { nullptr, {} };
-        return nullptr;
-    }
-
-    // ABI version check: refuse outdated DLLs loudly instead of risking
-    // heap corruption across the DLL boundary.
-    auto AbiFn = reinterpret_cast<uint32_t (*)()>(GetDllSymbol(out_handle, "GetGameLogicAbiVersion"));
-    const bool b_HasVersionExport = (AbiFn != nullptr);
-    const uint32_t dll_version = b_HasVersionExport ? AbiFn() : 0;
-    if (!b_HasVersionExport || (dll_version != RAYWAVES_GAMELOGIC_ABI_VERSION))
-    {
-        std::cerr << FormatAbiMismatchMessage(b_HasVersionExport, dll_version, RAYWAVES_GAMELOGIC_ABI_VERSION) << "\n";
-        UnloadDll(out_handle);
-        out_handle = { nullptr, {} };
-        return nullptr;
-    }
-
-    GameMap* raw = CreateFn();
-    if (raw == nullptr)
-    {
-        std::cerr << "CreateGameMap returned null" << "\n";
-        UnloadDll(out_handle);
-        out_handle = { nullptr, {} };
-        return nullptr;
-    }
-
-    return raw;
-}
 
 int main()
 {
@@ -80,21 +31,22 @@ int main()
         SetTargetFPS(config.GetWindowConfig().target_fps);
     }
 
-    DllHandle game_logic_handle{ nullptr, {} };
+    GameLogicHost host(engine);
     bool b_ExitRequested = false;
-    auto* map = s_fLoadGameLogic("GameLogic.dll", game_logic_handle);
-    if (map != nullptr)
+
+    std::string load_error;
+    if (host.b_Load("GameLogic.dll", load_error))
     {
         // Standalone: GameLogic may capture the cursor. The editor never sets
         // this, so editing keeps a usable mouse.
-        map->SetStandaloneMode(true);
+        host.GetMap()->SetStandaloneMode(true);
 
-        GameMap* raw_map = map;
+        GameMap* raw_map = host.GetMap();
         raw_map->SetExitCallback([&b_ExitRequested]() { b_ExitRequested = true; });
-        engine.SetMap(map);
     }
     else
     {
+        std::cerr << load_error << "\n";
         std::cerr << "Running without GameLogic ( no map Loaded )." << "\n";
     }
 
@@ -116,15 +68,8 @@ int main()
         EndDrawing();
     }
 
-    if ((s_DestroyGameMap != nullptr) && (engine.GetMap() != nullptr))
-    {
-        s_DestroyGameMap(engine.GetMap());
-    }
+    host.Unload();
 
-    // Clear the map pointer from engine since we just destroyed it
-    engine.SetMap(nullptr);
-
-    UnloadDll(game_logic_handle);
     CloseAudioDevice();
     CloseWindow();
     return 0;

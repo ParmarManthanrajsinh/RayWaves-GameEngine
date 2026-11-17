@@ -6,18 +6,37 @@ procedural boxes.
 
 ## Controls
 
+### Editor (stopped)
+
+| Input | Action |
+|---|---|
+| Hold right mouse | Look around |
+| `WASD` (while looking) | Fly forward/back/strafe |
+| `Q` / `E` | Move down / up |
+| `Shift` | Fly faster |
+| Middle mouse drag | Pan |
+| Mouse wheel | Dolly in/out |
+| `F` | Frame the selected entity |
+| Left click | Select the nearest entity |
+
+The editor camera is derived from the gameplay camera and owned by the editor,
+so flying around the scene never changes what the game sees. `ThirdPersonMap::Draw`
+calls `BeginView3D()`/`EndView3D()`, which swap in the editor camera while
+stopped and the gameplay camera while playing.
+
+### Play / standalone
+
 | Input | Action |
 |---|---|
 | `WASD` / arrow keys | Move relative to the camera |
 | `Space` | Jump |
 | `Shift` | Sprint |
-| Right mouse drag | Orbit (editor) |
+| Right mouse drag | Orbit (editor play) |
 | Mouse movement | Orbit (standalone game) |
 | Mouse wheel | Zoom |
 
-The editor keeps a visible cursor and orbits on right-drag. The standalone
-runtime disables the cursor through `GameMap::b_IsStandalone()` and orbits
-continuously; the cursor is restored when the map is destroyed.
+The standalone runtime disables the cursor through `GameMap::b_IsStandalone()`
+and orbits continuously; the cursor is restored when the map is destroyed.
 
 ## Files
 
@@ -29,6 +48,11 @@ continuously; the cursor is restored when the map is destroyed.
 
 The template is asset-free and uses only raylib primitives. Replace the
 procedural boxes and capsule with your own models when ready.
+
+The map exposes its 3D camera and registers the player as an editor entity with
+`GameMap::AddEntity`, so selecting `Player` in the Scene panel shows a 3D
+translate gizmo in the viewport while stopped. The Inspector edits the live
+position and size the gameplay code uses.
 
 ## Antialiasing
 
@@ -44,5 +68,7 @@ yaw, pitch, and distance. Compiling keeps you in the same spot.
 
 ## Notes
 
-RayWaves does not provide a 3D scene editor yet. The camera lives in gameplay
-code, which makes it easy to tune but means no viewport gizmos.
+This template uses the raw `GameMap` API because it is 3D; the `rw` facade in
+`Engine/rw.h` is 2D-only. For a 2D starter use `Simple2D` or `Platformer2D`.
+The only editor-visible object is `Player`; everything else is drawn from
+gameplay code.

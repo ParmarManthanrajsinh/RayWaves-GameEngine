@@ -12,6 +12,7 @@ public:
     void Draw() const;
 
     Vector2 GetPosition() const { return m_Position; }
+    Vector2* GetEditorPosition() { return &m_Position; }
     Rectangle GetHitbox() const;
     bool IsAlive() const { return m_bIsAlive; }
     bool IsDying() const { return m_bIsDying; }

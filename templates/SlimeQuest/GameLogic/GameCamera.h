@@ -19,6 +19,7 @@ public:
     static void End();
 
     Camera2D GetRaylibCamera() const { return m_Camera; }
+    Camera2D* GetRaylibCameraPtr() { return &m_Camera; }
     Vector2 GetTarget() const { return m_Camera.target; }
     float GetZoom() const { return m_Camera.zoom; }
 

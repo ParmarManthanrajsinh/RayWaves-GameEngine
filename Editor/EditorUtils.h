@@ -5,6 +5,7 @@
 namespace EditorUtils
 {
 bool OpenInExplorer(const std::filesystem::path& path);
+bool OpenInDefaultApp(const std::filesystem::path& path);
 bool OpenURL(std::string_view url);
 bool IsShellSafe(std::string_view s);
 } // namespace EditorUtils

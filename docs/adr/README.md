@@ -9,3 +9,7 @@ Format: context, decision, consequences.
 - [0002 — GameLogic as a hot-reloaded DLL](0002-gamelogic-hot-reload-dll.md)
 - [0003 — One project CMake template](0003-single-project-cmake-template.md)
 - [0004 — Benchmarks separate from tests](0004-benchmarks-separate.md)
+- [0005 — A small game-facing API (`rw`)](0005-simple-game-api.md)
+- [0006 — Editor-owned 3D camera](0006-editor-3d-camera.md)
+- [0006 — Agent-facing CLI (`rwcli`)](0006-agent-cli.md)
+- [0007 — Project agent bundle and IDE/LSP files](0007-agent-template-and-lsp.md)

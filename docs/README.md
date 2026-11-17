@@ -5,6 +5,8 @@
 | Document | Audience | Contents |
 |---|---|---|
 | [Getting started](../README.md) | Everyone | Clone, build, run the editor |
+| [Agent CLI](agent/README.md) | Agents + automation | `rwcli` build/run/scene/lsp commands and JSON contract |
+| [rwcli reference](agent/rwcli-reference.md) | Agents + automation | Every command, flag, exit code, wrapper/tooling |
 | [Engine docs](engine/README.md) | Engine contributors | Index for engine, build, tests, packaging |
 | [Game docs](game/README.md) | Game creators | Index for maps, assets, hot reload, export |
 | [Architecture](ARCHITECTURE.md) | Engine contributors | Repository map, build modules, project layout |
@@ -25,9 +27,10 @@
 
 | Folder | Purpose | Start with |
 |---|---|---|
-| `Engine/` | Core engine library | `GameMap.h`, `MapManager.h` |
+| `Engine/` | Core engine library | `rw.h`, `GameMap.h`, `MapManager.h`, `Scene.h` |
 | `Editor/` | ImGui editor | `GameEditor.cpp`, `Panels/` |
 | `Runtime/` | Editor/runtime entry points + DLL loading | `main.cpp`, `DllLoader.h` |
+| `Cli/` | Agent CLI (`rwcli.exe`) | `Commands.cpp`, `RunWorker.cpp` |
 | `tests/` | Unit, integration, smoke tests | `tests/CMakeLists.txt` |
 | `benchmarks/` | Standalone performance harness | `benchmarks/main.cpp` |
 | `templates/` | New-project templates | `templates/SlimeQuest/` |

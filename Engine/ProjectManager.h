@@ -12,11 +12,12 @@ public:
     static std::filesystem::path GetEngineRootDirectory();
     static std::filesystem::path GetToolsDirectory();
 
-    static bool b_OpenProject(std::string_view folder_path);
+    static bool b_OpenProject(std::string_view folder_path, bool b_add_recent = true);
     static void CloseProject();
-    static bool b_CreateProject(std::string_view target_folder, std::string_view template_name = "Empty");
+    static bool b_CreateProject(std::string_view target_folder, std::string_view template_name = "Simple2D");
     static bool b_SaveCurrentProject();
     static bool GenerateCMakeLists();
+    static bool b_WriteIdeConfigs(bool b_force = false);
 
     static std::string SanitizeCMakeProjectName(std::string_view name);
 

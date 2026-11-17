@@ -1,4 +1,4 @@
-﻿#include "Engine/ProjectManager.h"
+#include "Engine/ProjectManager.h"
 #include "doctest/doctest.h"
 #include "support/TempDir.h"
 #include <algorithm>
@@ -59,24 +59,80 @@ TEST_CASE("ProjectManager: AddRecent/RemoveRecent round-trip")
     CHECK(std::find(recent.begin(), recent.end(), fake_path) == recent.end());
 }
 
-TEST_CASE("ProjectManager: b_CreateProject copies 3D templates")
+TEST_CASE("ProjectManager: b_CreateProject copies templates")
 {
     TempDir dir;
 
     auto available = ProjectManager::GetAvailableTemplates();
+    CHECK(std::find(available.begin(), available.end(), "Simple2D") != available.end());
+    CHECK(std::find(available.begin(), available.end(), "Platformer2D") != available.end());
     CHECK(std::find(available.begin(), available.end(), "ThirdPerson3D") != available.end());
-    CHECK(std::find(available.begin(), available.end(), "FirstPerson3D") != available.end());
+    CHECK(std::find(available.begin(), available.end(), "SlimeQuest") != available.end());
+    CHECK(std::find(available.begin(), available.end(), "Empty") == available.end());
+    CHECK(std::find(available.begin(), available.end(), "FirstPerson3D") == available.end());
 
-    for (const char* name : { "ThirdPerson3D", "FirstPerson3D" })
+    // Sorted so the New Project wizard has a stable default order.
+    CHECK(std::is_sorted(available.begin(), available.end()));
+
+    for (const char* name : { "Simple2D", "ThirdPerson3D" })
     {
         std::filesystem::path target = dir.Path() / name;
         REQUIRE(ProjectManager::b_CreateProject(target.string(), name));
 
         CHECK(std::filesystem::exists(target / "project.raywaves"));
-        CHECK(std::filesystem::exists(target / "GameLogic" / "RootManager.cpp"));
+        CHECK(std::filesystem::is_directory(target / "GameLogic"));
+        CHECK(std::filesystem::is_directory(target / "Assets"));
+        CHECK(std::filesystem::exists(target / "AGENTS.md"));
+        CHECK(std::filesystem::exists(target / ".agents" / "skills" / "raywaves-game" / "SKILL.md"));
+        CHECK(std::filesystem::exists(target / ".agents" / "skills" / "raywaves-game" / "reference.md"));
+        CHECK(std::filesystem::exists(target / ".raywaves" / "tooling.ini"));
+        CHECK(std::filesystem::exists(target / ".raywaves" / "bin" / "rwcli.cmd"));
+        CHECK(std::filesystem::exists(target / ".clangd"));
+        CHECK(std::filesystem::exists(target / ".vscode" / "c_cpp_properties.json"));
 
         t_Project project;
         REQUIRE(project.m_bLoadFromFile((target / "project.raywaves").string()));
         CHECK(project.m_Name == name);
     }
+
+    CHECK(std::filesystem::exists(dir.Path() / "Simple2D" / "GameLogic" / "Game.cpp"));
+    CHECK(std::filesystem::exists(dir.Path() / "ThirdPerson3D" / "GameLogic" / "RootManager.cpp"));
+}
+
+TEST_CASE("ProjectManager: b_CreateProject creates asset and source folders")
+{
+    TempDir dir;
+    const std::filesystem::path target = dir.Path() / "EmptyProject";
+
+    REQUIRE(ProjectManager::b_CreateProject(target.string(), "Simple2D"));
+
+    CHECK(std::filesystem::exists(target / "project.raywaves"));
+    CHECK(std::filesystem::is_directory(target / "Assets"));
+    CHECK(std::filesystem::is_directory(target / "GameLogic"));
+}
+
+TEST_CASE("ProjectManager: opening a project creates missing contract folders")
+{
+    TempDir dir;
+    RecentPathOverride recent_override(dir.Path() / "recent.ini");
+
+    const std::filesystem::path project_root = dir.Path() / "LegacyProject";
+    std::filesystem::create_directories(project_root);
+    {
+        std::ofstream manifest(project_root / "project.raywaves");
+        manifest << "[project]\n";
+        manifest << "name=LegacyProject\n";
+        manifest << "assetDir=Assets\n";
+        manifest << "sourceDir=GameLogic\n";
+    }
+
+    // GenerateCMakeLists may fail in a bare test tree; opening the project must
+    // still repair the folders older projects are missing.
+    ProjectManager::b_OpenProject(project_root.string());
+
+    CHECK(ProjectManager::b_HasOpenProject());
+    CHECK(std::filesystem::is_directory(project_root / "Assets"));
+    CHECK(std::filesystem::is_directory(project_root / "GameLogic"));
+
+    ProjectManager::CloseProject();
 }

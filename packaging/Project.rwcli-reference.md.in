@@ -1,0 +1,201 @@
+# rwcli reference
+
+`rwcli` is the RayWaves package CLI. It is not inside the project folder.
+Projects get a wrapper that points at the installed copy.
+
+## Run it
+
+From the project root (the folder with `project.raywaves`):
+
+```powershell
+.\.raywaves\bin\rwcli.cmd doctor . --json
+.\.raywaves\bin\rwcli.cmd build . --json
+.\.raywaves\bin\rwcli.cmd run . --frames 60 --json
+```
+
+If the wrapper is missing or stale:
+
+```powershell
+Get-Content .\.raywaves\tooling.ini
+# then call the path in [rwcli] path
+```
+
+If neither exists, open the project in RayWaves once, or run `rwcli lsp` from
+the package. Do not guess the package location.
+
+`tooling.ini` has `[rwcli] available=1|0`, `path`, `packageRoot`, `engineRoot`,
+and `version`. `available=0` means the package CLI was not found when the
+project was opened; build `rwcli` or install it on `PATH`.
+
+PowerShell notes:
+
+- `rwcli` alone is not on `PATH`; use `.\rwcli.cmd` or the absolute path.
+- Engine logs go to stderr. `2>$null` suppresses the red text:
+  ```powershell
+  $project = (Get-Location).Path
+  $json = & .\.raywaves\bin\rwcli.cmd info $project --json 2>$null | ConvertFrom-Json
+  ```
+- Quote paths containing spaces.
+- `--json` may appear anywhere after the command.
+
+## Commands
+
+| Command | Purpose |
+|---|---|
+| `help [command]` | general or per-command usage |
+| `--version` | CLI/engine version |
+| `doctor <project>` | toolchain, manifest, scenes, lock, IDE config |
+| `info <project>` | manifest paths, scenes, tools |
+| `maps <project>` | map ids from the DLL, or scene filenames |
+| `validate <project>` | manifest, scene ids, texture refs, `RW_GAME` |
+| `build <project>` | configure + build GameLogic |
+| `run <project>` | headless fixed-frame run |
+| `lsp <project>` | write editor configs + compile database |
+| `scene <sub> <project>` | list/add/set/remove/duplicate scene objects |
+| `assets <sub> <project>` | list/import assets |
+
+### doctor
+
+```powershell
+rwcli doctor . --json
+rwcli doctor . --fix --json
+```
+
+`--fix` clears a stale `.raywaves/agent.lock`. Checks use `ok|warn|error`.
+
+### info
+
+```powershell
+rwcli info . --json
+```
+
+Returns `project.{name,root,sourceDir,assetDir,entryDll,dllExists,sceneWidth,sceneHeight,targetFPS}`,
+`scenes[]`, and `tools.{cmake,ninja,zig,raylib}`.
+
+### build
+
+```powershell
+rwcli build . --json
+rwcli build . --clean --jobs 8 --json
+```
+
+- Uses `.raywaves/build-agent`.
+- Takes `.raywaves/agent.lock`; exits `7` if another live build owns it.
+- `diagnostics[]` entries: `file`, `line`, `column`, `severity`, `message`.
+- `rawTail` has the last build lines.
+
+### run
+
+```powershell
+rwcli run . --frames 120 --json
+rwcli run . --frames 120 --screenshot shot.png --state state.json --json
+rwcli run . --frames 120 --input input.txt --json
+```
+
+Flags:
+
+- `--frames N` default 60
+- `--dt seconds` default `1/60`
+- `--seed N` default 1
+- `--screenshot path` project-relative or absolute
+- `--screenshot-frame N` default last frame
+- `--state path` writes the same state object to a file
+- `--size WxH`
+- `--timeout seconds` default 60
+- `--visible` show the window
+- `--audio` enable audio
+- `--input script.txt` replay keys
+
+Result:
+
+```json
+{"ok":true,"map":"Platformer2D","frames":120,"dt":0.0166667,
+ "durationMs":900,"seed":1,"input":null,
+ "screenshot":{"path":"...","bytes":38000,"nonEmpty":true},
+ "entities":[{"id":1,"name":"Player","type":"Player",
+              "position":[400,305],"size":[64,64],"rotation":0,"visible":true}],
+ "state":{"rw.entity.count":1}}
+```
+
+Input script:
+
+```text
+# frame,key,down|up
+0,KEY_RIGHT,down
+30,KEY_RIGHT,up
+0,mouse,640,360
+```
+
+### lsp
+
+```powershell
+rwcli lsp . --json
+rwcli lsp . --check --json
+rwcli lsp . --force --json
+```
+
+- Writes `.clangd`, `.vscode/`, `AGENTS.md`, `.agents/skills/raywaves-game/`.
+- Refreshes `.raywaves/tooling.ini` and `.raywaves/bin/rwcli.cmd`.
+- Configures `.raywaves/build-ide` and copies `compile_commands.json` to the
+  project root.
+- `--check` runs `clangd --check` on `GameLogic/**/*.cpp` and returns
+  `diagnostics[]`.
+- `--force` overwrites generated configs.
+
+### scene
+
+```powershell
+rwcli scene list . --json
+rwcli scene list . --map Platformer2D --json
+rwcli scene add . --map Platformer2D --name Crate --texture crate.png --position 620,300
+rwcli scene set . --map Platformer2D --id 1 --position 700,300 --rotation 15 --visible 0
+rwcli scene duplicate . --map Platformer2D --id 1
+rwcli scene remove . --map Platformer2D --id 1
+```
+
+- `--map` is required when more than one `.scene` exists.
+- `--scale 2` or `--scale 2,3`
+- `--layer N`
+- `--dry-run` validates without writing.
+
+### assets
+
+```powershell
+rwcli assets list . --json
+rwcli assets import . "C:\art\player.png"
+rwcli assets import . "C:\art\player.png" --force
+```
+
+Imported files land in `Assets/` with unsafe characters replaced by `_`.
+
+## Exit codes
+
+| Code | Meaning |
+|---|---|
+| 0 | success |
+| 2 | usage error |
+| 3 | project/validation/LSP error |
+| 4 | build failed |
+| 5 | run failed |
+| 6 | timeout |
+| 7 | locked by another process |
+| 8 | game process crashed |
+
+JSON failure shape:
+
+```json
+{"ok":false,"error":{"code":"build_failed","message":"..."},
+ "diagnostics":[{"file":"GameLogic/Player.cpp","line":42,"column":7,
+                 "severity":"error","message":"..."}],
+ "rawTail":"..."}
+```
+
+## Common failures
+
+- `The term 'rwcli' is not recognized`: use `.\rwcli.exe` or the project wrapper.
+- `invalid_project`: pass the folder containing `project.raywaves`.
+- `dll_missing`: run `build` first.
+- `build_locked`: wait, or `doctor --fix` after the owner died.
+- `clangd_missing`: install LLVM, then rerun `lsp --check`.
+- Red stderr text with exit 0: normal logs; redirect `2>$null`.
+- Stale configs after moving the project or engine: `rwcli lsp . --force`.

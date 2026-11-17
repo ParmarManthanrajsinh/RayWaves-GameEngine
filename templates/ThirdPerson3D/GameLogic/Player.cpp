@@ -1,3 +1,4 @@
+#include "rw.h"
 #include "Player.h"
 #include <cmath>
 
@@ -20,7 +21,7 @@ void Player::Update(const std::vector<BoundingBox>& colliders, Vector3 move_inpu
                     float delta_time)
 {
     // Horizontal movement is resolved per axis so sliding along walls works.
-    float speed = SPEED * (IsKeyDown(KEY_LEFT_SHIFT) ? SPRINT_MULT : 1.0f);
+    float speed = SPEED * (rw::IsKeyDown(KEY_LEFT_SHIFT) ? SPRINT_MULT : 1.0f);
     ResolveHorizontal(colliders, true, move_input.x * speed * delta_time);
     ResolveHorizontal(colliders, false, move_input.z * speed * delta_time);
 

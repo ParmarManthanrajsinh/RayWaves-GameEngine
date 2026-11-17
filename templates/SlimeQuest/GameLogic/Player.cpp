@@ -1,6 +1,7 @@
 #include "Player.h"
 #include "DemoLevel.h"
 #include "Engine/AssetResolver.h"
+#include "rw.h"
 #include <algorithm>
 #include <cmath>
 #include <iostream>
@@ -92,7 +93,7 @@ void Player::LoadState(const StateBag& in)
 void Player::HandleInput(float DeltaTime)
 {
     // Attack input - left mouse button
-    if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && !m_bIsAttacking)
+    if (rw::IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && !m_bIsAttacking)
     {
         m_bIsAttacking = true;
         m_AttackTimer = 0.0f;
@@ -105,12 +106,12 @@ void Player::HandleInput(float DeltaTime)
     float MoveSpeed = m_bIsAttacking ? SPEED * 0.3f : SPEED;
 
     // Movement
-    if (IsKeyDown(KEY_RIGHT) || IsKeyDown(KEY_D))
+    if (rw::IsKeyDown(KEY_RIGHT) || rw::IsKeyDown(KEY_D))
     {
         m_Velocity.x = MoveSpeed;
         m_bFacingRight = true;
     }
-    else if (IsKeyDown(KEY_LEFT) || IsKeyDown(KEY_A))
+    else if (rw::IsKeyDown(KEY_LEFT) || rw::IsKeyDown(KEY_A))
     {
         m_Velocity.x = -MoveSpeed;
         m_bFacingRight = false;
@@ -121,7 +122,7 @@ void Player::HandleInput(float DeltaTime)
     }
 
     // Jump (always allowed)
-    if ((IsKeyPressed(KEY_SPACE) || IsKeyPressed(KEY_UP) || IsKeyPressed(KEY_W)) && m_bIsGrounded)
+    if ((rw::IsKeyPressed(KEY_SPACE) || rw::IsKeyPressed(KEY_UP) || rw::IsKeyPressed(KEY_W)) && m_bIsGrounded)
     {
         m_Velocity.y = JUMP_FORCE;
         m_bIsGrounded = false;

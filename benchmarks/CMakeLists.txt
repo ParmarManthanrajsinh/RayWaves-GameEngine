@@ -3,6 +3,7 @@ add_executable(raywaves_benchmarks
     statebag_bench.cpp
     profiler_bench.cpp
     asset_resolver_bench.cpp
+    rw_bench.cpp
 )
 
 set_target_properties(raywaves_benchmarks PROPERTIES

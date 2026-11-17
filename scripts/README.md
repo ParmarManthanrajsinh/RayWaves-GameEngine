@@ -9,6 +9,7 @@ location, so they can run from any working directory.
 | `test.ps1` | Build and run unit/integration/smoke suites |
 | `bench.ps1` | Build and run `raywaves_benchmarks` |
 | `package.ps1` | Forward to `packaging/package.ps1` |
+| `agent-smoke.ps1` | Build + run a template through `rwcli` (agent loop smoke test) |
 | `check.ps1` | Format check + tests |
 
 Examples:

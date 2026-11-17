@@ -4,6 +4,7 @@
 #include <array>
 #include <cmath>
 #include <iostream>
+#include <string>
 
 constexpr float TileSrcSize = 16.0f;
 constexpr float TileRenderSize = 32.0f;
@@ -68,6 +69,8 @@ void DemoLevel::Initialize()
 
 void DemoLevel::Reset()
 {
+    ClearEditorEntities();
+
     m_Player.Reset({ 100, 300 });
 
     m_Camera.Initialize(m_Player.GetPosition(), 2.5f);
@@ -104,18 +107,19 @@ void DemoLevel::Reset()
     Slime3.Initialize(m_SlimeTexture, m_SlimeDeathSound, { 1200, SlimeGroundY });
     Slime3.SetPatrolBounds(1100, 1400);
     m_Slimes.push_back(Slime3);
+
+    AddEntity("Player", m_Player.GetEditorPosition(), &m_PlayerEditorSize, { .Origin = { -16.0f, 16.0f } });
+
+    for (size_t index = 0; index < m_Slimes.size(); ++index)
+    {
+        AddEntity("Slime " + std::to_string(index + 1), m_Slimes[index].GetEditorPosition(), &m_SlimeEditorSize,
+            { .Origin = { -36.0f, -36.0f }, .Type = "Slime" });
+    }
 }
 
 inline Rectangle DemoLevel::GetTileRect(int32_t Col, int32_t Row)
 {
     return { static_cast<float>(Col) * TileSrcSize, static_cast<float>(Row) * TileSrcSize, TileSrcSize, TileSrcSize };
-}
-
-inline int32_t DemoLevel::PseudoRandom(int32_t posX, int32_t Seed)
-{
-    int32_t Hash = (posX * 374761393) + (Seed * 668265263);
-    Hash = (Hash ^ (Hash >> 13)) * 1274126177;
-    return Hash ^ (Hash >> 16);
 }
 
 void DemoLevel::SaveState(StateBag& out) const
@@ -128,9 +132,20 @@ void DemoLevel::LoadState(const StateBag& stateIn)
     m_Player.LoadState(stateIn);
 }
 
+Camera2D DemoLevel::GetViewCamera() const
+{
+    return m_Camera.GetRaylibCamera();
+}
+
+Camera2D* DemoLevel::GetMutableViewCamera()
+{
+    return m_Camera.GetRaylibCameraPtr();
+}
+
 void DemoLevel::Update(float DeltaTime)
 {
-    m_Camera.UpdateViewport(m_SceneWidth, m_SceneHeight);
+    m_Camera.UpdateViewport(
+        m_SceneWidth > 0.0f ? m_SceneWidth : 1280.0f, m_SceneHeight > 0.0f ? m_SceneHeight : 720.0f);
 
     m_Player.HandleInput(DeltaTime);
     m_Player.Update(DeltaTime);
@@ -299,23 +314,4 @@ void DemoLevel::DrawSlimes()
     {
         SlimeEnemy.Draw();
     }
-}
-
-void DemoLevel::DrawDebugTileset()
-{
-    float Scale = 2.0f;
-    float StartX = 50;
-    float StartY = 80;
-
-    DrawTextureEx(m_TilesetTex, { StartX, StartY }, 0, Scale, WHITE);
-    DrawRectangleLinesEx(
-        Rectangle{ StartX, StartY, m_TilesetTex.width * Scale, m_TilesetTex.height * Scale }, 2.0f, YELLOW);
-
-    float YLedge = 64.0f;
-    float YGround = 128.0f;
-
-    DrawRectangleLinesEx(Rectangle{ StartX, StartY + (YGround * Scale), m_TilesetTex.width * Scale, 16 * Scale }, 2.0f,
-        Color{ 255, 0, 0, 255 });
-    DrawRectangleLinesEx(Rectangle{ StartX, StartY + (YLedge * Scale), m_TilesetTex.width * Scale, 16 * Scale }, 2.0f,
-        Color{ 0, 255, 0, 255 });
 }

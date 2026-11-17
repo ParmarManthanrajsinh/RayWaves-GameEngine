@@ -1,5 +1,6 @@
 set(ENGINE_SRC_CPP
     Engine/AssetResolver.cpp
+    Engine/BuildDiagnostics.cpp
     Engine/GameConfig.cpp
     Engine/GameEngine.cpp
     Engine/GameMap.cpp
@@ -8,6 +9,7 @@ set(ENGINE_SRC_CPP
     Engine/Project.cpp
     Engine/ProjectManager.cpp
     Engine/raygui_impl.cpp
+    Engine/Scene.cpp
     Engine/WindowUtils.cpp
 )
 

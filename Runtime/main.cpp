@@ -1,3 +1,4 @@
+#include "../Engine/AssetResolver.h"
 #include "GameEditor.h"
 #include "GameEngine.h"
 #include "GameMap.h"
@@ -48,6 +49,7 @@ int main(int argc, char** argv)
     // Load logic DLL if a project was opened from command line
     if (ProjectManager::b_HasOpenProject())
     {
+        AssetResolver::SetProjectAssetPath(ProjectManager::GetCurrent().m_AssetPath);
         editor.b_LoadGameLogic(ProjectManager::GetCurrent().m_DllPath);
     }
 

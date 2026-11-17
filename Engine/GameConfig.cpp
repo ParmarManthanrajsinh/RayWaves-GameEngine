@@ -15,7 +15,7 @@ bool GameConfig::m_bLoadFromFile(std::string_view config_path)
     std::ifstream file(path_str);
     if (!file.is_open())
     {
-        std::cout << "Config file not found: " << config_path << ". Using defaults.\n";
+        std::cerr << "Config file not found: " << config_path << ". Using defaults.\n";
         return false;
     }
 
@@ -100,7 +100,7 @@ bool GameConfig::m_bLoadFromFile(std::string_view config_path)
     }
 
     file.close();
-    std::cout << "Loaded configuration from: " << config_path << "\n";
+    std::cerr << "Loaded configuration from: " << config_path << "\n";
     return true;
 }
 
@@ -128,7 +128,7 @@ bool GameConfig::m_bSaveToFile(std::string_view config_path) const
     file << "scene_fps=" << m_WindowConfig.scene_fps << "\n";
 
     file.close();
-    std::cout << "Saved configuration to: " << config_path << "\n";
+    std::cerr << "Saved configuration to: " << config_path << "\n";
     return true;
 }
 

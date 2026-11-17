@@ -27,6 +27,7 @@ public:
     void LoadState(const StateBag& in);
 
     Vector2 GetPosition() const { return m_Position; }
+    Vector2* GetEditorPosition() { return &m_Position; }
     Vector2 GetVelocity() const { return m_Velocity; }
     bool IsGrounded() const { return m_bIsGrounded; }
     bool IsAttacking() const { return m_bIsAttacking; }

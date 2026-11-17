@@ -4,6 +4,7 @@
 #include <array>
 #include <atomic>
 #include <chrono>
+#include <cstdint>
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
@@ -20,6 +21,7 @@
 #include <vector>
 
 #include "../Engine/GameState.h"
+#include "EditorCamera3D.h"
 #include "GameEditorLayout.h"
 #include "GameEditorTheme.h"
 #include "GameEngine.h"
@@ -145,9 +147,125 @@ public:
     bool m_bShowSceneSettings = false;
     bool m_bShowExport = false;
     bool m_bShowEditorPreferences = false;
+    bool m_bShowFileSystem = true;
+    bool m_bShowHierarchy = true;
+    bool m_bShowInspector = true;
     bool m_bNeedsThemeRebake = false;
     bool m_bNeedsLayoutReset = false;
     bool m_bNeedsIniLoad = false;
+
+    // Selected editor object. Panels share this instead of owning selection.
+    enum class EEditorSelectionKind
+    {
+        None,
+        SceneObject,
+        GameplayEntity
+    };
+
+    struct FEditorEntityRef
+    {
+        uint64_t m_Id = 0;
+        std::string m_Name;
+        std::string m_Type;
+        Vector2* m_Position = nullptr;
+        Vector2* m_Size = nullptr;
+        Vector2 m_Origin{ 0.0f, 0.0f };
+        float* m_Rotation = nullptr;
+        bool* m_Visible = nullptr;
+        Vector3* m_Position3D = nullptr;
+        Vector3* m_Size3D = nullptr;
+        Vector3 m_Origin3D{ 0.0f, 0.0f, 0.0f };
+    };
+
+    EEditorSelectionKind m_SelectionKind = EEditorSelectionKind::None;
+    uint32_t m_SelectedSceneObjectId = 0;
+    uint64_t m_SelectedEditorEntityId = 0;
+
+    std::vector<FEditorEntityRef> m_EditorEntities;
+    GameMap* m_LastActiveMap = nullptr;
+
+    Camera2D m_SavedViewCamera{};
+    bool m_bHasSavedViewCamera = false;
+    bool m_bWasPlaying = false;
+
+    // Editor-owned 3D view. Separate from the gameplay camera so orbiting the
+    // scene never changes what the game sees.
+    EditorCamera3D m_EditorCamera3D;
+    std::string m_EditorCameraMapKey;
+    bool m_bEditorCamera3DReady = false;
+
+    Scene& GetScene() { return m_GameEngine.GetScene(); }
+
+    GameMap* GetActiveMap();
+    Camera2D GetActiveViewCamera();
+    Camera2D* GetMutableActiveViewCamera();
+    Camera3D GetActiveViewCamera3D();
+    bool b_ActiveMapUses3DView();
+    Vector2 GetViewportCenterWorld();
+    void UpdatePlayStateCamera();
+    void RefreshEditorEntities();
+
+    EditorCamera3D& GetEditorCamera3D() { return m_EditorCamera3D; }
+    const EditorCamera3D& GetEditorCamera3D() const { return m_EditorCamera3D; }
+
+    // Rebuilds the editor camera when the active map changes, and marks the 3D
+    // override for GameMap::GetRenderCamera3D().
+    void SyncEditorCamera3D();
+    void ApplyEditorViewCamera3D();
+
+    // Drops cached gameplay-entity pointers. Call before/after destroying or
+    // reinitializing a map: GameMap::ClearEditorEntities() frees the storage
+    // those pointers reference, and panels must not touch them afterwards.
+    void InvalidateEditorEntities();
+
+    std::vector<FEditorEntityRef>& GetEditorEntities() { return m_EditorEntities; }
+    const std::vector<FEditorEntityRef>& GetEditorEntities() const { return m_EditorEntities; }
+
+    FEditorEntityRef* GetSelectedEditorEntity()
+    {
+        if (m_SelectionKind != EEditorSelectionKind::GameplayEntity)
+        {
+            return nullptr;
+        }
+        for (FEditorEntityRef& entity : m_EditorEntities)
+        {
+            if (entity.m_Id == m_SelectedEditorEntityId)
+            {
+                return &entity;
+            }
+        }
+        return nullptr;
+    }
+
+    t_SceneObject* GetSelectedSceneObject()
+    {
+        if (m_SelectionKind != EEditorSelectionKind::SceneObject)
+        {
+            return nullptr;
+        }
+        return m_GameEngine.GetScene().FindObject(m_SelectedSceneObjectId);
+    }
+
+    void SelectSceneObject(uint32_t id)
+    {
+        m_SelectionKind = EEditorSelectionKind::SceneObject;
+        m_SelectedSceneObjectId = id;
+        m_SelectedEditorEntityId = 0;
+    }
+
+    void SelectEditorEntity(uint64_t id)
+    {
+        m_SelectionKind = EEditorSelectionKind::GameplayEntity;
+        m_SelectedEditorEntityId = id;
+        m_SelectedSceneObjectId = 0;
+    }
+
+    void ClearSelection()
+    {
+        m_SelectionKind = EEditorSelectionKind::None;
+        m_SelectedSceneObjectId = 0;
+        m_SelectedEditorEntityId = 0;
+    }
 
     bool m_bUseOpaquePass = true;
 

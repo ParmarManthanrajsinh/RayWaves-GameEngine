@@ -13,9 +13,13 @@ state survives code changes via opt-in `SaveState` / `LoadState`.
 
 - Hot-reloading gameplay DLL, typically well under a second.
 - Zero-install toolchain: Zig, Ninja, CMake, and rcedit are fetched on demand.
-- ImGui editor with scene view, asset browser, export panel, and profiler overlay.
+- ImGui editor with scene view, file browser, inspector, export panel, and profiler overlay.
+- Edit live gameplay entity positions from the editor with one registration line per entity.
+- Viewport navigation while stopped: middle-mouse pan, wheel zoom at cursor, `F` frame.
+- Sprite prop layer authored in the editor and saved per map in `Assets/<MapId>.scene`.
 - Simple map system built on `GameMap` and `MapManager`.
 - One-command project templates and distribution packaging.
+- `rwcli` builds, validates, screenshots, and inspects existing projects for agents.
 
 ## Screenshots
 
@@ -62,7 +66,7 @@ scripts/package.ps1 -IncludeCompiler -Zip
 | `Runtime/` | Editor/runtime entry points and DLL loading |
 | `tests/` | Unit, integration, and smoke suites |
 | `benchmarks/` | Standalone performance harness |
-| `templates/` | Starter projects (Empty, Platformer2D, ThirdPerson3D, FirstPerson3D, SlimeQuest) |
+| `templates/` | Starter projects (Simple2D, Platformer2D, ThirdPerson3D, SlimeQuest) |
 | `packaging/` | Distribution scripts and the shared project CMake template |
 | `scripts/` | Day-to-day developer commands |
 | `cmake/` | Build modules |
@@ -75,6 +79,9 @@ scripts/package.ps1 -IncludeCompiler -Zip
 | Configure release | `cmake --preset zig-release` |
 | Build editor | `cmake --build build/zig-release --target main` |
 | Build runtime | `cmake --build build/zig-release --target game` |
+| Build agent CLI | `cmake --build build/zig-release --target rwcli` |
+| Run a project headless | `build/zig-release/rwcli.exe run <project> --frames 60 --screenshot shot.png --json` |
+| Configure editor/LSP | `build/zig-release/rwcli.exe lsp <project> --check --json` |
 | Unit tests | `scripts/test.ps1 -Suite unit` |
 | All tests | `scripts/test.ps1` |
 | Benchmarks | `scripts/bench.ps1` |
@@ -84,6 +91,7 @@ scripts/package.ps1 -IncludeCompiler -Zip
 ## Documentation
 
 - [Documentation index](docs/README.md)
+- [Agent CLI](docs/agent/README.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Developer guide](docs/DEVELOPER_GUIDE.md)
 - [Testing](docs/testing.md)

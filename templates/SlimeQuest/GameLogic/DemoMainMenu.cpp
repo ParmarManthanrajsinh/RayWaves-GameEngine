@@ -2,6 +2,7 @@
 #include "Engine/AssetResolver.h"
 #include "Engine/MapManager.h"
 #include "Engine/raygui.h"
+#include "rw.h"
 #include <cmath>
 #include <iostream>
 
@@ -36,18 +37,18 @@ void DemoMainMenu::Update(float DeltaTime)
     m_PulseScale = 1.0f + (sin(m_Time * 3.0f) * 0.05f);
 
     // Navigation
-    if (IsKeyPressed(KEY_DOWN) || IsKeyPressed(KEY_S))
+    if (rw::IsKeyPressed(KEY_DOWN) || rw::IsKeyPressed(KEY_S))
     {
         m_SelectedOption = (m_SelectedOption + 1) % 2;
     }
 
-    if (IsKeyPressed(KEY_UP) || IsKeyPressed(KEY_W))
+    if (rw::IsKeyPressed(KEY_UP) || rw::IsKeyPressed(KEY_W))
     {
         m_SelectedOption = (m_SelectedOption - 1 + 2) % 2;
     }
 
     // Selection
-    if (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_SPACE))
+    if (rw::IsKeyPressed(KEY_ENTER) || rw::IsKeyPressed(KEY_SPACE))
     {
         PlaySound(m_SelectSound);
         if (m_SelectedOption == OPTION_PLAY)

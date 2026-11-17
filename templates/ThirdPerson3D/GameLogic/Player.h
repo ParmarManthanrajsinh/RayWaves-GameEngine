@@ -20,6 +20,7 @@ public:
 
     Vector3 GetPosition() const { return m_Position; }
     Vector3 GetHeadPosition() const;
+    Vector3* GetEditorPosition3D() { return &m_Position; }
     bool b_IsGrounded() const { return m_bGrounded; }
     void SetPosition(Vector3 position) { m_Position = position; }
 

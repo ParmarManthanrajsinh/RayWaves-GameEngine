@@ -74,6 +74,13 @@ public:
         m_Strings.clear();
     }
 
+    // Read-only views for hosts that serialize state (rwcli). Values stay
+    // owned by the bag; no copy is made.
+    const auto& Floats() const { return m_Floats; }
+    const auto& Ints() const { return m_Ints; }
+    const auto& Bools() const { return m_Bools; }
+    const auto& Strings() const { return m_Strings; }
+
 private:
     std::unordered_map<std::string, float, TransparentHash, TransparentEqual> m_Floats;
     std::unordered_map<std::string, int, TransparentHash, TransparentEqual> m_Ints;

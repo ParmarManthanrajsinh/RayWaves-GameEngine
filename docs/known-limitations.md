@@ -11,6 +11,31 @@ Current, intentional limits. Update this page when one changes.
 
 - **One project per editor window.** Opening another project closes the current one.
 - No tabbed multi-project workspace.
+- **Scene sprites are world-space.** They follow the map camera and pan/zoom with
+  the viewport.
+- **Gameplay entity edits are live-only.** The editor writes into the entity's
+  registered `Vector2`; changes are not saved into `Assets/<MapId>.scene`.
+- **Gameplay registrations must be rebuilt after structural changes.** Clear the
+  registry before destroying or moving entities, then register again. Dynamic
+  entities should use stable storage (`std::deque` or `std::unique_ptr`).
+  `rw::Level` does this automatically for `rw::Entity` objects.
+- **Camera-based maps must expose `GetViewCamera()`.** Without it, the editor uses
+  identity and the entity selection rectangle and drag position will not match a
+  zoomed or scrolling camera. `rw::Level` exposes its camera automatically.
+- **Viewport navigation requires `GetMutableViewCamera()`.** Maps that do not
+  expose a mutable camera can still select and drag entities, but cannot pan or
+  zoom the viewport. `rw::Level` exposes one automatically.
+- **3D viewport navigation requires `BeginView3D()`.** 3D maps that call
+  `BeginMode3D` with their own camera keep working, but the editor cannot fly
+  through them. The editor camera itself is session-only and starts from the
+  gameplay camera each time a project opens; orthographic gameplay cameras are
+  shown as perspective.
+- **Levels need a map registered in `GameLogic`.** The FileSystem panel can
+  create, open, and delete `Assets/<MapId>.scene` files, but it cannot define
+  gameplay maps; those stay in code.
+- **Code opens in the system default editor.** There is no built-in C++ editor.
+- **`Assets/` imports are flat by design.** The FileSystem panel groups files
+  virtually by extension; it does not create per-type subfolders.
 - Compile from the bare launcher with no project open depends on system CMake; the
   normal project path uses the bundled toolchain.
 - **Terminal memory:** the terminal is Windows-only (ConPTY). Shell tabs need

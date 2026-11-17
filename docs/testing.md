@@ -26,7 +26,17 @@ scripts/test.ps1 -Suite smoke
 # Direct CTest
 ctest --preset zig-debug
 ctest --test-dir build/zig-debug -L unit --output-on-failure
+
+# Agent loop smoke test (build + headless run + screenshot)
+scripts/agent-smoke.ps1
 ```
+
+The integration suite includes `Cli_t.cpp` and `CliLsp_t.cpp`, which drive
+`rwcli.exe` for project info, scene add/list/remove, invalid-project handling,
+generated editor/LSP files, and the project-local `rwcli.cmd` wrapper.
+
+`scripts/agent-smoke.ps1` covers doctor → lsp → build → run → input → validate →
+lsp `--check`, using the generated wrapper after the first lsp call.
 
 ## Adding a test
 

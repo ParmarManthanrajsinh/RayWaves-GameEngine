@@ -11,7 +11,7 @@ bool t_Project::m_bLoadFromFile(std::string_view manifest_path)
     std::ifstream file(path_str);
     if (!file.is_open())
     {
-        std::cout << "Project manifest not found: " << manifest_path << "\n";
+        std::cerr << "Project manifest not found: " << manifest_path << "\n";
         return false;
     }
 
@@ -140,7 +140,7 @@ bool t_Project::m_bLoadFromFile(std::string_view manifest_path)
     m_AssetPath = (fs::path(m_RootPath) / m_AssetDir).string();
     m_DllPath = (fs::path(m_RootPath) / m_EntryDll).string();
 
-    std::cout << "Loaded project: " << m_Name << "\n";
+    std::cerr << "Loaded project: " << m_Name << "\n";
     return true;
 }
 
@@ -174,7 +174,7 @@ bool t_Project::m_bSaveToFile() const
     file << "targetFPS=" << m_TargetFPS << "\n";
 
     file.close();
-    std::cout << "Saved project manifest to: " << manifest_path << "\n";
+    std::cerr << "Saved project manifest to: " << manifest_path << "\n";
     return true;
 }
 

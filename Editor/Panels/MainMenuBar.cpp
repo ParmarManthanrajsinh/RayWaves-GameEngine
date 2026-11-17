@@ -12,6 +12,7 @@ static void SaveProjectWithSceneSettings(GameEditor* editor)
 {
     if (!ProjectManager::b_HasOpenProject())
         return;
+    editor->GetGameEngine().b_SaveActiveScene();
     auto& prj = ProjectManager::GetCurrent();
     prj.m_SceneWidth = editor->m_SceneSettings.m_SceneWidth;
     prj.m_SceneHeight = editor->m_SceneSettings.m_SceneHeight;
@@ -29,6 +30,10 @@ void MainMenuBar::Draw(GameEditor* editor)
             if (ImGui::MenuItem(ICON_FA_FLOPPY_DISK " Save Project", "Ctrl+S"))
             {
                 SaveProjectWithSceneSettings(editor);
+            }
+            if (ImGui::MenuItem(ICON_FA_FILE_LINES " Save Scene", "Ctrl+S"))
+            {
+                editor->GetGameEngine().b_SaveActiveScene();
             }
             ImGui::Separator();
             if (ImGui::MenuItem(ICON_FA_FOLDER_OPEN " Switch Project..."))
@@ -61,6 +66,10 @@ void MainMenuBar::Draw(GameEditor* editor)
 
         if (ImGui::BeginMenu("View"))
         {
+            ImGui::MenuItem(ICON_FA_FOLDER_TREE " FileSystem", nullptr, &editor->m_bShowFileSystem);
+            ImGui::MenuItem(ICON_FA_SITEMAP " Scene", nullptr, &editor->m_bShowHierarchy);
+            ImGui::MenuItem(ICON_FA_SLIDERS " Inspector", nullptr, &editor->m_bShowInspector);
+            ImGui::Separator();
             ImGui::MenuItem(ICON_FA_TERMINAL " Terminal", nullptr, &editor->m_bShowTerminal);
             ImGui::MenuItem(ICON_FA_CHART_LINE " Performance Stats", nullptr, &editor->m_bShowPerformanceStats);
             // bShowMessageLog is atomic (written from the build worker);
@@ -69,6 +78,11 @@ void MainMenuBar::Draw(GameEditor* editor)
             if (ImGui::MenuItem(ICON_FA_LIST " Message Log", nullptr, &show_msg_log))
             {
                 editor->bShowMessageLog.store(show_msg_log);
+            }
+            ImGui::Separator();
+            if (ImGui::MenuItem(ICON_FA_ARROW_ROTATE_LEFT " Reset Layout"))
+            {
+                editor->m_bNeedsLayoutReset = true;
             }
             ImGui::EndMenu();
         }

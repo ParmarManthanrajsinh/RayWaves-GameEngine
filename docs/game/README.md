@@ -5,7 +5,7 @@ Start here if you are making a game with RayWaves.
 ## First steps
 
 1. Run `RayWaves.exe`.
-2. Create a project from a template: `Empty`, `Platformer2D`, `ThirdPerson3D`, `FirstPerson3D`, or `SlimeQuest`.
+2. Create a project from a template: `Simple2D` (recommended), `Platformer2D`, `ThirdPerson3D`, or `SlimeQuest`.
 3. Edit gameplay code in your project's `GameLogic/` folder.
 4. Click **Compile** in the editor.
 5. Export when ready.
@@ -23,12 +23,15 @@ Start here if you are making a game with RayWaves.
 ```text
 MyGame/
 ├─ project.raywaves      # Project manifest
-├─ Assets/               # Textures, audio, fonts
+├─ Assets/               # Flat: textures, audio, fonts, <MapId>.scene
 ├─ GameLogic/            # Your C++ gameplay code
 │  ├─ RootManager.cpp    # Registers maps
 │  └─ YourMap.cpp
 └─ .raywaves/            # Generated build cache (do not edit)
 ```
+
+Level files live directly in `Assets/` as `<MapId>.scene`. New imports land
+flat in `Assets/`; the FileSystem panel groups files virtually by extension.
 
 ## Rules
 
@@ -36,3 +39,5 @@ MyGame/
 - Hot-reload preserves state only through `SaveState` / `LoadState`.
 - Raw pointers, texture handles, and static gameplay state do not survive reload.
 - Rebuild after an ABI mismatch; the editor rejects stale DLLs.
+- Scene sprites are an editor prop layer drawn above the map; they do not
+  scroll with a gameplay camera.

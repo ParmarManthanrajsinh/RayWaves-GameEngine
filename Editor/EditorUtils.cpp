@@ -26,6 +26,19 @@ bool OpenInExplorer(const std::filesystem::path& path)
     return false;
 }
 
+bool OpenInDefaultApp(const std::filesystem::path& path)
+{
+    if (!std::filesystem::exists(path))
+    {
+        return false;
+    }
+
+    std::filesystem::path abs_path = std::filesystem::absolute(path);
+    abs_path.make_preferred();
+    HINSTANCE result = ShellExecuteW(nullptr, L"open", abs_path.wstring().c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+    return (intptr_t)result > 32;
+}
+
 bool OpenURL(std::string_view url)
 {
     std::wstring wurl(url.begin(), url.end());

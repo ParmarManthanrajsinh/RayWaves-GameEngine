@@ -4,6 +4,7 @@
 #include "Profiler.h"
 #include "WindowUtils.h"
 #include <iostream>
+#include <utility>
 
 GameEngine::GameEngine()
 {
@@ -49,7 +50,7 @@ void GameEngine::LaunchWindow(int width, int height, std::string_view title)
     m_WindowWidth = width;
     m_WindowHeight = height;
     m_WindowTitle = title;
-    std::cout << "Window initialized: " << title << " (" << width << "x" << height << ")\n";
+    std::cerr << "Window initialized: " << title << " (" << width << "x" << height << ")\n";
 
     InitWindow(width, height, title.data());
     InitAudioDevice();
@@ -68,7 +69,7 @@ void GameEngine::LaunchWindow(const t_WindowConfig& config)
     m_WindowHeight = config.height;
     m_WindowTitle = config.title;
 
-    std::cout << "Window initialized from config: " << config.title << " (" << config.width << "x" << config.height
+    std::cerr << "Window initialized from config: " << config.title << " (" << config.width << "x" << config.height
               << ") " << (config.b_Fullscreen ? "Fullscreen" : "Windowed") << "\n";
 
     // Set window flags before initialization
@@ -77,6 +78,8 @@ void GameEngine::LaunchWindow(const t_WindowConfig& config)
         flags |= FLAG_WINDOW_RESIZABLE;
     if (config.b_Vsync)
         flags |= FLAG_VSYNC_HINT;
+    if (config.b_Hidden)
+        flags |= FLAG_WINDOW_HIDDEN;
 
     if (flags != 0)
     {
@@ -84,7 +87,13 @@ void GameEngine::LaunchWindow(const t_WindowConfig& config)
     }
 
     InitWindow(config.width, config.height, config.title.c_str());
-    InitAudioDevice();
+
+    // Agent runs default to no audio: CI hosts have no device, and the game
+    // logic does not need it to produce a screenshot.
+    if (!config.b_NoAudio)
+    {
+        InitAudioDevice();
+    }
 
     WindowUtils::SetupNativeWindow();
 
@@ -100,11 +109,11 @@ void GameEngine::ToggleFullscreen()
     ::ToggleFullscreen();
     if (IsWindowFullscreen())
     {
-        std::cout << "Switched to fullscreen mode\n";
+        std::cerr << "Switched to fullscreen mode\n";
     }
     else
     {
-        std::cout << "Switched to windowed mode\n";
+        std::cerr << "Switched to windowed mode\n";
     }
 }
 
@@ -114,12 +123,12 @@ void GameEngine::SetWindowMode(bool fullscreen)
     if (fullscreen && !b_IsCurrentlyFullscreen)
     {
         ::ToggleFullscreen();
-        std::cout << "Switched to fullscreen mode\n";
+        std::cerr << "Switched to fullscreen mode\n";
     }
     else if (!fullscreen && b_IsCurrentlyFullscreen)
     {
         ::ToggleFullscreen();
-        std::cout << "Switched to windowed mode\n";
+        std::cerr << "Switched to windowed mode\n";
     }
 }
 
@@ -135,8 +144,112 @@ void GameEngine::SetMap(GameMap* game_map)
         const int b_h = (m_ViewportHeight > 0) ? m_ViewportHeight : m_WindowHeight;
         m_GameMap->SetSceneBounds(static_cast<float>(b_w), static_cast<float>(b_h));
         m_GameMap->SetProjectAssetPath(AssetResolver::GetProjectAssetPath());
+        m_GameMap->ClearEditorEntities();
         m_GameMap->Initialize();
+        SyncSceneWithMap();
     }
+    else
+    {
+        UnloadScene();
+    }
+}
+
+std::string GameEngine::GetActiveSceneKey() const
+{
+    if (m_MapManager != nullptr)
+    {
+        return std::string(m_MapManager->GetCurrentMapId());
+    }
+    if (m_GameMap != nullptr)
+    {
+        return m_GameMap->GetMapName();
+    }
+    return {};
+}
+
+Camera2D GameEngine::GetActiveViewCamera() const
+{
+    if (m_MapManager != nullptr)
+    {
+        if (const GameMap* current_map = m_MapManager->GetCurrentMap())
+        {
+            return current_map->GetViewCamera();
+        }
+    }
+    else if (m_GameMap != nullptr)
+    {
+        return m_GameMap->GetViewCamera();
+    }
+
+    return Camera2D{ { 0.0f, 0.0f }, { 0.0f, 0.0f }, 0.0f, 1.0f };
+}
+
+bool GameEngine::b_LoadActiveScene()
+{
+    const std::string key = Scene::ToFileKey(GetActiveSceneKey());
+    m_Scene.Clear();
+    m_LoadedSceneKey = key;
+
+    if (key.empty() || AssetResolver::GetProjectAssetPath().empty())
+    {
+        return false;
+    }
+
+    return m_Scene.b_LoadFromFile(AssetResolver::Resolve(key + ".scene"));
+}
+
+bool GameEngine::b_SaveActiveScene()
+{
+    if (m_SceneSaveGuard && !m_SceneSaveGuard())
+    {
+        return false;
+    }
+
+    const std::string key = m_LoadedSceneKey.empty() ? Scene::ToFileKey(GetActiveSceneKey()) : m_LoadedSceneKey;
+    if (key.empty() || AssetResolver::GetProjectAssetPath().empty())
+    {
+        return false;
+    }
+
+    return m_Scene.b_SaveToFile(AssetResolver::Resolve(key + ".scene"));
+}
+
+void GameEngine::UnloadScene()
+{
+    if (!m_LoadedSceneKey.empty() && m_Scene.b_IsDirty())
+    {
+        b_SaveActiveScene();
+    }
+    m_Scene.Clear();
+    m_LoadedSceneKey.clear();
+}
+
+void GameEngine::SetSceneSaveGuard(SceneSaveGuard guard)
+{
+    m_SceneSaveGuard = std::move(guard);
+}
+
+void GameEngine::SyncSceneWithMap()
+{
+    const std::string key = Scene::ToFileKey(GetActiveSceneKey());
+    if (key == m_LoadedSceneKey)
+    {
+        return;
+    }
+
+    if (!m_LoadedSceneKey.empty() && m_Scene.b_IsDirty())
+    {
+        b_SaveActiveScene();
+    }
+
+    if (key.empty())
+    {
+        m_Scene.Clear();
+        m_LoadedSceneKey.clear();
+        return;
+    }
+
+    b_LoadActiveScene();
 }
 
 void GameEngine::DrawMap()
@@ -152,6 +265,17 @@ void GameEngine::DrawMap()
     {
         m_GameMap->Draw();
     }
+
+    // Load lazily so map transitions requested from gameplay are picked up
+    // without changing GameMap or MapManager.
+    SyncSceneWithMap();
+
+    // Scene props are world-space, consistent with gameplay entities and
+    // editor viewport pan/zoom.
+    const Camera2D view_camera = GetActiveViewCamera();
+    BeginMode2D(view_camera);
+    m_Scene.Draw();
+    EndMode2D();
 }
 
 void GameEngine::UpdateMap(float dt)
@@ -175,6 +299,7 @@ void GameEngine::ResetMap()
     }
     else if (m_GameMap != nullptr)
     {
+        m_GameMap->ClearEditorEntities();
         m_GameMap->Initialize();
     }
 }
@@ -189,6 +314,11 @@ void GameEngine::SetMapManager(MapManager* map_manager)
         m_MapManager->SetSceneBounds(static_cast<float>(b_w), static_cast<float>(b_h));
         m_MapManager->SetProjectAssetPath(AssetResolver::GetProjectAssetPath());
         m_MapManager->Initialize();
+        SyncSceneWithMap();
+    }
+    else
+    {
+        UnloadScene();
     }
 }
 

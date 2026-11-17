@@ -7,6 +7,41 @@ configure_file(
     "${CMAKE_BINARY_DIR}/packaging/Project.CMakeLists.in"
     COPYONLY
 )
+configure_file(
+    "${CMAKE_SOURCE_DIR}/packaging/Project.AGENTS.md.in"
+    "${CMAKE_BINARY_DIR}/packaging/Project.AGENTS.md.in"
+    COPYONLY
+)
+configure_file(
+    "${CMAKE_SOURCE_DIR}/packaging/Project.SKILL.md.in"
+    "${CMAKE_BINARY_DIR}/packaging/Project.SKILL.md.in"
+    COPYONLY
+)
+configure_file(
+    "${CMAKE_SOURCE_DIR}/packaging/Project.rwcli-reference.md.in"
+    "${CMAKE_BINARY_DIR}/packaging/Project.rwcli-reference.md.in"
+    COPYONLY
+)
+configure_file(
+    "${CMAKE_SOURCE_DIR}/packaging/Project.clangd.in"
+    "${CMAKE_BINARY_DIR}/packaging/Project.clangd.in"
+    COPYONLY
+)
+configure_file(
+    "${CMAKE_SOURCE_DIR}/packaging/Project.vscode.c_cpp_properties.json.in"
+    "${CMAKE_BINARY_DIR}/packaging/Project.vscode.c_cpp_properties.json.in"
+    COPYONLY
+)
+configure_file(
+    "${CMAKE_SOURCE_DIR}/packaging/Project.vscode.settings.json.in"
+    "${CMAKE_BINARY_DIR}/packaging/Project.vscode.settings.json.in"
+    COPYONLY
+)
+configure_file(
+    "${CMAKE_SOURCE_DIR}/packaging/Project.vscode.extensions.json.in"
+    "${CMAKE_BINARY_DIR}/packaging/Project.vscode.extensions.json.in"
+    COPYONLY
+)
 
 add_custom_target(export_package
     COMMAND powershell -ExecutionPolicy Bypass -File "${CMAKE_SOURCE_DIR}/packaging/package.ps1" -OutputDir dist

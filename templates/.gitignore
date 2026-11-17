@@ -7,3 +7,9 @@
 
 # Ignore engine cache/build folders
 .raywaves/
+
+# Generated editor/LSP files (absolute engine paths; regenerate with rwcli lsp)
+compile_commands.json
+.clangd
+.vscode/
+.cache/

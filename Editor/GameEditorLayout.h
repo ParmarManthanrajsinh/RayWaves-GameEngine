@@ -21,16 +21,30 @@ Size=400,400
 Collapsed=0
 
 [Window][)") +
-        ICON_FA_IMAGE + R"( Scene]
-Pos=0,25
-Size=966,478
-Collapsed=1
+        ICON_FA_IMAGE + R"( Viewport]
+Pos=280,25
+Size=660,470
+Collapsed=0
 DockId=0x00000001,0
 
 [Window][)" +
-        ICON_FA_MAP + R"( Map Selection]
-Pos=968,25
-Size=312,695
+        ICON_FA_FOLDER_TREE + R"( FileSystem]
+Pos=0,375
+Size=280,345
+Collapsed=0
+DockId=0x00000005,0
+
+[Window][)" +
+        ICON_FA_SITEMAP + R"( Scene]
+Pos=0,25
+Size=280,350
+Collapsed=0
+DockId=0x00000009,0
+
+[Window][)" +
+        ICON_FA_SLIDERS + R"( Inspector]
+Pos=980,25
+Size=300,695
 Collapsed=0
 DockId=0x00000003,0
 
@@ -58,8 +72,8 @@ Collapsed=0
 
 [Window][)" +
         ICON_FA_TERMINAL + R"( Terminal]
-Pos=0,505
-Size=966,215
+Pos=280,495
+Size=660,225
 Collapsed=0
 DockId=0x00000004,0
 
@@ -69,10 +83,14 @@ Collapsed=0
 
 [Docking][Data]
 DockSpace     ID=0x08BD597D Window=0x1BBC0F80 Pos=0,25 Size=1280,695 Split=X
-  DockNode    ID=0x00000002 Parent=0x08BD597D SizeRef=966,695 Split=Y Selected=0xE53DD001
-    DockNode  ID=0x00000001 Parent=0x00000002 SizeRef=951,478 CentralNode=1 Selected=0xE53DD001
-    DockNode  ID=0x00000004 Parent=0x00000002 SizeRef=951,215 Selected=0x8509AE9E
-  DockNode    ID=0x00000003 Parent=0x08BD597D SizeRef=312,695 Selected=0x38B9FCCC
+  DockNode    ID=0x00000008 Parent=0x08BD597D SizeRef=280,695 Split=Y
+    DockNode  ID=0x00000009 Parent=0x00000008 SizeRef=280,350
+    DockNode  ID=0x00000005 Parent=0x00000008 SizeRef=280,345
+  DockNode    ID=0x0000000B Parent=0x08BD597D SizeRef=1000,695 Split=X
+    DockNode  ID=0x00000002 Parent=0x0000000B SizeRef=660,695 Split=Y
+      DockNode  ID=0x00000001 Parent=0x00000002 SizeRef=660,470 CentralNode=1
+      DockNode  ID=0x00000004 Parent=0x00000002 SizeRef=660,225
+    DockNode  ID=0x00000003 Parent=0x0000000B SizeRef=300,695
 )";
 
     ImGui::LoadIniSettingsFromMemory(ini.c_str(), ini.size());

@@ -1,4 +1,5 @@
 set(EDITOR_SRC_CPP
+    Editor/EditorAssets.cpp
     Editor/EditorPreferences.cpp
     Editor/EditorUtils.cpp
     Editor/FileAssociation.cpp
@@ -6,15 +7,16 @@ set(EDITOR_SRC_CPP
     Editor/GameLogicLoader.cpp
     Editor/ThemeService.cpp
     Editor/ExportService.cpp
-    Editor/ProcessRunner.cpp
     Editor/terminal/terminal.cpp
     Editor/terminal/terminal_view.cpp
     Editor/Panels/EditorPreferencesPanel.cpp
     Editor/Panels/ExportPanel.cpp
+    Editor/Panels/FileSystemPanel.cpp
+    Editor/Panels/InspectorPanel.cpp
     Editor/Panels/MainMenuBar.cpp
-    Editor/Panels/MapSelectionPanel.cpp
     Editor/Panels/MessageLogPanel.cpp
     Editor/Panels/PerformanceOverlay.cpp
+    Editor/Panels/SceneHierarchyPanel.cpp
     Editor/Panels/SceneSettingsPanel.cpp
     Editor/Panels/SceneWindow.cpp
     Editor/Panels/TerminalPanel.cpp
@@ -61,8 +63,6 @@ target_include_directories(raywaves_terminal_core PRIVATE
 
 add_executable(main WIN32
     Runtime/main.cpp
-    Runtime/DllLoader.cpp
-    Runtime/PeCrtCheck.cpp
     ${EDITOR_SRC_CPP}
     ${RLIMGUI_SRC}
     ${IMGUI_SRC}
@@ -86,7 +86,7 @@ target_include_directories(main PRIVATE
     ${CMAKE_SOURCE_DIR}/Runtime
 )
 
-target_link_libraries(main PRIVATE Engine raywaves_terminal_core)
+target_link_libraries(main PRIVATE Engine RuntimeSupport raywaves_terminal_core)
 add_dependencies(main stage_raylib)
 
 add_custom_command(TARGET main POST_BUILD

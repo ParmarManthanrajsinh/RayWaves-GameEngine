@@ -1,0 +1,19 @@
+{
+    "configurations": [
+        {
+            "name": "RayWaves",
+            "includePath": [
+@INCLUDE_PATHS@
+            ],
+            "defines": [
+                "PLATFORM_DESKTOP",
+                "GRAPHICS_API_OPENGL_33"
+            ],
+            "compilerPath": "",
+            "cStandard": "c17",
+            "cppStandard": "c++23",
+            "intelliSenseMode": "windows-clang-x64"
+        }
+    ],
+    "version": 4
+}

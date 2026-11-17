@@ -30,6 +30,7 @@ the repository root, so it can be run from any working directory.
 ```text
 dist/
 ├─ RayWaves.exe
+├─ rwcli.exe                 # agent CLI; must stay next to the editor
 ├─ libraylib.dll
 ├─ config.ini
 ├─ VERSION
@@ -39,6 +40,12 @@ dist/
 │  ├─ Engine/                 # headers and sources
 │  ├─ raylib/{include,lib,bin}
 │  ├─ Project.CMakeLists.in
+│  ├─ Project.AGENTS.md.in    # generated AGENTS.md
+│  ├─ Project.SKILL.md.in     # generated agent skill
+│  ├─ Project.rwcli-reference.md.in
+│  ├─ Project.clangd.in
+│  ├─ Project.vscode.*.json.in
+│  ├─ .clang-format
 │  └─ Tools/                  # zig wrappers, ninja, cmake, rcedit
 ├─ templates/
 └─ docs/

@@ -9,6 +9,8 @@ struct t_WindowConfig
     bool b_Fullscreen = false;
     bool b_Resizable = true;
     bool b_Vsync = true;
+    bool b_Hidden = false; // rwcli agent runs render offscreen without a window
+    bool b_NoAudio = false; // CI/agent runs skip the audio device
     int target_fps = 60;
     std::string title = "My Game";
 

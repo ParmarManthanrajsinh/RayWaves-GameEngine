@@ -1,7 +1,5 @@
 add_executable(game WIN32
     Runtime/game.cpp
-    Runtime/DllLoader.cpp
-    Runtime/PeCrtCheck.cpp
     EngineContent/app.rc
 )
 add_executable(raywaves::runtime ALIAS game)
@@ -16,7 +14,7 @@ target_include_directories(game PRIVATE
     ${CMAKE_SOURCE_DIR}/Runtime
 )
 
-target_link_libraries(game PRIVATE Engine)
+target_link_libraries(game PRIVATE Engine RuntimeSupport)
 add_dependencies(game stage_raylib)
 
 add_custom_command(TARGET game POST_BUILD

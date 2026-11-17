@@ -1,4 +1,4 @@
-#include <iostream> // load-bearing: RegisterMap<T>() below logs via std::cout
+#include <iostream> // load-bearing: RegisterMap<T>() below logs via std::cerr
 #pragma once
 #include "GameMap.h"
 #include <functional>
@@ -86,6 +86,9 @@ public:
 
     void SetStandaloneMode(bool b_Standalone) override;
 
+    bool b_Uses3DView() const override;
+    Camera3D GetViewCamera3D() const override;
+
     template <typename T>
     void RegisterMap(std::string_view map_id, std::string_view description = "");
     // Returns true when the swap happened, or when it was queued because a
@@ -98,6 +101,8 @@ public:
     void SetInitialMap(std::string_view map_id) { m_InitialMapId = std::string(map_id); }
 
     std::string_view GetCurrentMapId() const { return m_CurrentMapId; }
+    GameMap* GetCurrentMap() { return m_CurrentMap.get(); }
+    const GameMap* GetCurrentMap() const { return m_CurrentMap.get(); }
     const std::vector<std::string>& GetAvailableMaps() const;
 
     void UnloadCurrentMap();
@@ -136,7 +141,7 @@ void MapManager::RegisterMap(std::string_view map_id, std::string_view descripti
     m_MapInfo[std::string(map_id)] = { description.empty() ? "No description" : std::string(description), false };
 
     m_bMapsCacheDirty = true;
-    std::cout << "[MapManager] Registered map: " << map_id << "::" << description << std::endl;
+    std::cerr << "[MapManager] Registered map: " << map_id << "::" << description << std::endl;
 }
 /*
 +----------------------------------------------------------------+
@@ -147,9 +152,9 @@ void MapManager::RegisterMap(std::string_view map_id, std::string_view descripti
 /*
 Disadvantages of macros:
 
-No type safety (compiler won’t catch mismatches).
+No type safety (compiler won't catch mismatches).
 
-Harder to debug (the debugger doesn’t “see” macros).
+Harder to debug (the debugger doesn't "see" macros).
 
 Error messages can be confusing.
 

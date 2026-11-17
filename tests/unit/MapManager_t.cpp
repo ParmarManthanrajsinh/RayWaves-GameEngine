@@ -1,4 +1,4 @@
-﻿#include "Engine/MapManager.h"
+#include "Engine/MapManager.h"
 #include "doctest/doctest.h"
 
 class MockGameMap : public GameMap
@@ -13,6 +13,46 @@ public:
     void LoadState(const StateBag& in) override {}
 
     bool m_Initialized = false;
+};
+
+class Mock3DMap : public GameMap
+{
+public:
+    using GameMap::GameMap;
+
+    void Initialize() override {}
+    void Update(float /*delta_time*/) override {}
+    void Draw() override {}
+    bool b_Uses3DView() const override { return true; }
+    Camera3D GetViewCamera3D() const override
+    {
+        return Camera3D{ { 1.0f, 2.0f, 3.0f }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 1.0f, 0.0f }, 60.0f,
+            CAMERA_PERSPECTIVE };
+    }
+};
+
+// Registers one editor entity every Initialize(). The manager must clear the
+// registry first so repeated Initialize() does not accumulate duplicates.
+class EditorRegistryMap : public GameMap
+{
+public:
+    using GameMap::GameMap;
+
+    void Initialize() override { RegisterEditorEntity("Player", &m_Position); }
+
+    Vector2 m_Position{ 10.0f, 20.0f };
+};
+
+// Second registry map used to prove a transition replaces the old registry
+// instead of carrying stale entities across maps.
+class EditorRegistryOtherMap : public GameMap
+{
+public:
+    using GameMap::GameMap;
+
+    void Initialize() override { RegisterEditorEntity("Enemy", &m_Position); }
+
+    Vector2 m_Position{ 30.0f, 40.0f };
 };
 
 // Records the runtime mode visible to the map when it is initialized, so the
@@ -151,6 +191,19 @@ TEST_CASE("MapManager: standalone mode reaches new maps")
     CHECK_FALSE(StandaloneProbeMap::s_StandaloneAtInit);
 }
 
+TEST_CASE("MapManager: 3D camera forwards to the current map")
+{
+    MapManager mgr;
+    mgr.RegisterMap<Mock3DMap>("3d");
+    CHECK(mgr.b_GotoMap("3d", false));
+
+    CHECK(mgr.b_Uses3DView());
+    const Camera3D camera = mgr.GetViewCamera3D();
+    CHECK(camera.position.x == doctest::Approx(1.0f));
+    CHECK(camera.position.y == doctest::Approx(2.0f));
+    CHECK(camera.position.z == doctest::Approx(3.0f));
+}
+
 TEST_CASE("MapManager: unload current map clears pointer")
 {
     MapManager mgr;
@@ -217,4 +270,66 @@ TEST_CASE("MapManager: unloading drops a queued transition")
     mgr.Update(0.016f);
 
     CHECK_FALSE(mgr.b_IsCurrentMap("b"));
+}
+
+TEST_CASE("MapManager: GetCurrentMap and editor registry lifetime")
+{
+    MapManager manager;
+    CHECK(manager.GetCurrentMap() == nullptr);
+
+    manager.RegisterMap<EditorRegistryMap>("level");
+    REQUIRE(manager.b_GotoMap("level", false));
+    REQUIRE(manager.GetCurrentMap() != nullptr);
+    CHECK(manager.GetCurrentMap()->GetEditorEntities().size() == 1);
+
+    manager.Initialize();
+    CHECK(manager.GetCurrentMap()->GetEditorEntities().size() == 1);
+}
+
+TEST_CASE("MapManager: unloading clears the current map pointer and id")
+{
+    MapManager manager;
+    manager.RegisterMap<EditorRegistryMap>("level");
+    REQUIRE(manager.b_GotoMap("level", false));
+    REQUIRE(manager.GetCurrentMap() != nullptr);
+    CHECK(manager.GetCurrentMapId() == "level");
+
+    manager.UnloadCurrentMap();
+
+    CHECK(manager.GetCurrentMap() == nullptr);
+    CHECK(manager.GetCurrentMapId().empty());
+    CHECK_FALSE(manager.b_IsCurrentMap("level"));
+}
+
+TEST_CASE("MapManager: failed transition keeps the current map alive")
+{
+    MapManager manager;
+    manager.RegisterMap<EditorRegistryMap>("level");
+    REQUIRE(manager.b_GotoMap("level", false));
+    GameMap* current = manager.GetCurrentMap();
+    REQUIRE(current != nullptr);
+
+    CHECK_FALSE(manager.b_GotoMap("missing", false));
+
+    CHECK(manager.GetCurrentMap() == current);
+    CHECK(manager.GetCurrentMapId() == "level");
+    CHECK(manager.GetCurrentMap()->GetEditorEntities().size() == 1);
+}
+
+TEST_CASE("MapManager: switching maps replaces the editor registry")
+{
+    MapManager manager;
+    manager.RegisterMap<EditorRegistryMap>("first");
+    manager.RegisterMap<EditorRegistryOtherMap>("second");
+
+    REQUIRE(manager.b_GotoMap("first", false));
+    REQUIRE(manager.GetCurrentMap() != nullptr);
+    REQUIRE(manager.GetCurrentMap()->GetEditorEntities().size() == 1);
+    CHECK(manager.GetCurrentMap()->GetEditorEntities().front().m_Name == "Player");
+
+    REQUIRE(manager.b_GotoMap("second", false));
+    REQUIRE(manager.GetCurrentMap() != nullptr);
+    REQUIRE(manager.GetCurrentMap()->GetEditorEntities().size() == 1);
+    CHECK(manager.GetCurrentMap()->GetEditorEntities().front().m_Name == "Enemy");
+    CHECK(manager.GetCurrentMap()->GetEditorEntities().front().m_Position->x == doctest::Approx(30.0f));
 }

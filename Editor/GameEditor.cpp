@@ -1,8 +1,10 @@
 #include "GameEditor.h"
 #include "../Engine/AssetResolver.h"
+#include "../Engine/BuildDiagnostics.h"
 #include "../Engine/MapManager.h"
 #include "../Engine/Profiler.h"
 #include "../Engine/ProjectManager.h"
+#include "AgentLock.h"
 #include "EditorUtils.h"
 #include "ProcessRunner.h"
 #include "ThemeService.h"
@@ -11,16 +13,19 @@
 #include <imgui/imgui_stdlib.h>
 #include <imgui_internal.h>
 #include <iostream>
+#include <iterator>
 using Clock = std::chrono::steady_clock;
 
 #include "EditorPreferences.h"
 #include "PanelRegistry.h"
 #include "Panels/EditorPreferencesPanel.h"
 #include "Panels/ExportPanel.h"
+#include "Panels/FileSystemPanel.h"
+#include "Panels/InspectorPanel.h"
 #include "Panels/MainMenuBar.h"
-#include "Panels/MapSelectionPanel.h"
 #include "Panels/MessageLogPanel.h"
 #include "Panels/PerformanceOverlay.h"
+#include "Panels/SceneHierarchyPanel.h"
 #include "Panels/SceneSettingsPanel.h"
 #include "Panels/SceneWindow.h"
 #include "Panels/TerminalPanel.h"
@@ -33,13 +38,38 @@ bool g_bNeedsTextureRecreate = false;
 
 namespace
 {
+// One-line summaries for the New Project wizard. Keep in sync with the
+// template READMEs; unknown folders simply show no description.
+const char* s_TemplateDescription(std::string_view name)
+{
+    if (name == "Simple2D")
+    {
+        return "Recommended start: rw::Level, one sprite, follow camera.";
+    }
+    if (name == "Platformer2D")
+    {
+        return "2D platformer: movement, jumping, collisions, follow camera.";
+    }
+    if (name == "ThirdPerson3D")
+    {
+        return "3D starter: orbit camera, capsule character, box collision.";
+    }
+    if (name == "SlimeQuest")
+    {
+        return "Full demo: multi-map, enemies, audio, parallax, hot reload.";
+    }
+    return "";
+}
+
 // Core panels in draw/dock order. Built fresh per call so repeated
 // GameEditor construction (and tests) never double-register.
 std::vector<FPanelFactory> s_CorePanelFactories()
 {
     return {
         &s_fMakePanel<MainMenuBar>,
-        &s_fMakePanel<MapSelectionPanel>,
+        &s_fMakePanel<FileSystemPanel>,
+        &s_fMakePanel<SceneHierarchyPanel>,
+        &s_fMakePanel<InspectorPanel>,
         &s_fMakePanel<ExportPanel>,
         &s_fMakePanel<SceneSettingsPanel>,
         &s_fMakePanel<SceneWindow>,
@@ -68,6 +98,19 @@ GameEditor::GameEditor()
 {
     m_Terminal.InitCapture();
 
+    // A scene write from rwcli must win over a stale in-memory editor copy.
+    // Skip the save instead of overwriting the agent's file.
+    m_GameEngine.SetSceneSaveGuard(
+        []()
+        {
+            if (!ProjectManager::b_HasOpenProject())
+            {
+                return true;
+            }
+            AgentLock::FInfo lock_info;
+            return !AgentLock::b_Query(ProjectManager::GetCurrent().m_RootPath, lock_info);
+        });
+
     if (ProjectManager::b_HasOpenProject())
     {
         m_Terminal.SetWorkingDirectory(ProjectManager::GetCurrent().m_RootPath);
@@ -86,7 +129,7 @@ GameEditor::GameEditor()
             }
         });
 
-    m_Panels.reserve(9);
+    m_Panels.reserve(11);
     for (FPanelFactory factory : s_CorePanelFactories())
     {
         m_Panels.push_back(factory());
@@ -389,6 +432,15 @@ void GameEditor::RunBrowser()
         if (ImGui::Button(ICON_FA_PLUS "  New Project", ImVec2(-1, 44.0f)))
         {
             templates = ProjectManager::GetAvailableTemplates();
+            selectedTemplateIdx = 0;
+            for (int index = 0; index < static_cast<int>(templates.size()); ++index)
+            {
+                if (templates[index] == "Simple2D")
+                {
+                    selectedTemplateIdx = index;
+                    break;
+                }
+            }
             ImGui::OpenPopup("New Project Wizard");
         }
         ImGui::PopStyleColor(3);
@@ -446,6 +498,11 @@ void GameEditor::RunBrowser()
 
             if (!templates.empty())
             {
+                if (selectedTemplateIdx < 0 || selectedTemplateIdx >= static_cast<int>(templates.size()))
+                {
+                    selectedTemplateIdx = 0;
+                }
+
                 if (ImGui::BeginCombo("Template", templates[selectedTemplateIdx].c_str()))
                 {
                     for (int i = 0; i < templates.size(); ++i)
@@ -458,6 +515,10 @@ void GameEditor::RunBrowser()
                     }
                     ImGui::EndCombo();
                 }
+
+                ImGui::PushTextWrapPos(0.0f);
+                ImGui::TextDisabled("%s", s_TemplateDescription(templates[selectedTemplateIdx]));
+                ImGui::PopTextWrapPos();
             }
             else
             {
@@ -506,7 +567,13 @@ void GameEditor::RunBrowser()
 void GameEditor::OpenProject(std::string_view folderPath)
 {
     // 1. Unload old DLL and reset map state (single teardown path in the loader)
+    m_GameEngine.UnloadScene();
     m_LogicLoader.Unload();
+    ClearSelection();
+    m_EditorEntities.clear();
+    m_LastActiveMap = nullptr;
+    m_bHasSavedViewCamera = false;
+    m_bWasPlaying = b_IsPlaying;
 
     // 2. StateBag is scoped to hot-reloads (local in the loader). Game state lives
     //    inside the DLL's MapManager, which was destroyed and unloaded in step 1.
@@ -549,6 +616,16 @@ void GameEditor::OpenProject(std::string_view folderPath)
     if (std::filesystem::exists(s_LayoutPath))
     {
         ImGui::LoadIniSettingsFromDisk(s_LayoutPath.c_str());
+
+        // Layouts saved before the Scene/Viewport split leave the Inspector
+        // floating or hidden. Reset once so upgrades land in the default dock.
+        std::ifstream layout_file(s_LayoutPath);
+        const std::string layout((std::istreambuf_iterator<char>(layout_file)), std::istreambuf_iterator<char>());
+        if (layout.find("Viewport") == std::string::npos)
+        {
+            LoadEditorDefaultIni();
+            ImGui::GetIO().IniFilename = s_LayoutPath.c_str();
+        }
     }
     else
     {
@@ -559,8 +636,193 @@ void GameEditor::OpenProject(std::string_view folderPath)
 
 void GameEditor::CleanupProject()
 {
+    m_GameEngine.UnloadScene();
     m_LogicLoader.Unload();
     m_LogicLoader.SetGameLogicPath("");
+    ClearSelection();
+    m_EditorEntities.clear();
+    m_LastActiveMap = nullptr;
+    m_bHasSavedViewCamera = false;
+    m_bWasPlaying = false;
+    m_EditorCamera3D.Invalidate();
+    m_bEditorCamera3DReady = false;
+    m_EditorCameraMapKey.clear();
+}
+
+GameMap* GameEditor::GetActiveMap()
+{
+    if (MapManager* manager = GetMapManager())
+    {
+        return manager->GetCurrentMap();
+    }
+    return m_GameEngine.GetMap();
+}
+
+Camera2D GameEditor::GetActiveViewCamera()
+{
+    if (GameMap* active_map = GetActiveMap())
+    {
+        return active_map->GetViewCamera();
+    }
+    return Camera2D{ { 0.0f, 0.0f }, { 0.0f, 0.0f }, 0.0f, 1.0f };
+}
+
+Camera2D* GameEditor::GetMutableActiveViewCamera()
+{
+    if (GameMap* active_map = GetActiveMap())
+    {
+        return active_map->GetMutableViewCamera();
+    }
+    return nullptr;
+}
+
+Camera3D GameEditor::GetActiveViewCamera3D()
+{
+    if (!b_IsPlaying && m_bEditorCamera3DReady && b_ActiveMapUses3DView())
+    {
+        return m_EditorCamera3D.GetCamera();
+    }
+
+    if (GameMap* active_map = GetActiveMap())
+    {
+        return active_map->GetViewCamera3D();
+    }
+    return Camera3D{ { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 1.0f }, { 0.0f, 1.0f, 0.0f }, 60.0f, CAMERA_PERSPECTIVE };
+}
+
+void GameEditor::SyncEditorCamera3D()
+{
+    GameMap* active_map = GetActiveMap();
+    if ((active_map == nullptr) || !active_map->b_Uses3DView())
+    {
+        m_EditorCamera3D.Invalidate();
+        m_bEditorCamera3DReady = false;
+        m_EditorCameraMapKey.clear();
+        return;
+    }
+
+    const std::string key = m_GameEngine.GetActiveSceneKey();
+    if (!m_bEditorCamera3DReady || (key != m_EditorCameraMapKey))
+    {
+        m_EditorCamera3D.FromCamera(active_map->GetViewCamera3D());
+        m_EditorCameraMapKey = key;
+        m_bEditorCamera3DReady = true;
+    }
+}
+
+void GameEditor::ApplyEditorViewCamera3D()
+{
+    GameMap* active_map = GetActiveMap();
+    if (active_map == nullptr)
+    {
+        return;
+    }
+
+    if (!b_IsPlaying && active_map->b_Uses3DView() && m_bEditorCamera3DReady)
+    {
+        active_map->SetEditorViewCamera3D(m_EditorCamera3D.GetCamera());
+    }
+    else
+    {
+        active_map->ClearEditorViewCamera3D();
+    }
+}
+
+bool GameEditor::b_ActiveMapUses3DView()
+{
+    GameMap* active_map = GetActiveMap();
+    return (active_map != nullptr) && active_map->b_Uses3DView();
+}
+
+Vector2 GameEditor::GetViewportCenterWorld()
+{
+    const Camera2D camera = GetActiveViewCamera();
+    return GetScreenToWorld2D({ static_cast<float>(m_SceneSettings.m_SceneWidth) * 0.5f,
+                                  static_cast<float>(m_SceneSettings.m_SceneHeight) * 0.5f },
+        camera);
+}
+
+void GameEditor::UpdatePlayStateCamera()
+{
+    if (b_IsPlaying == m_bWasPlaying)
+    {
+        return;
+    }
+
+    Camera2D* camera = GetMutableActiveViewCamera();
+    if (b_IsPlaying)
+    {
+        if (camera != nullptr)
+        {
+            m_SavedViewCamera = *camera;
+            m_bHasSavedViewCamera = true;
+        }
+    }
+    else if (camera != nullptr && m_bHasSavedViewCamera)
+    {
+        *camera = m_SavedViewCamera;
+        m_bHasSavedViewCamera = false;
+    }
+
+    m_bWasPlaying = b_IsPlaying;
+}
+
+void GameEditor::RefreshEditorEntities()
+{
+    GameMap* active_map = GetActiveMap();
+    if (active_map != m_LastActiveMap)
+    {
+        m_LastActiveMap = active_map;
+        m_bHasSavedViewCamera = false;
+        m_bWasPlaying = b_IsPlaying;
+        ClearSelection();
+    }
+
+    m_EditorEntities.clear();
+    if (active_map == nullptr)
+    {
+        return;
+    }
+
+    const std::span<const t_EditorEntity> registry = active_map->GetEditorEntities();
+    m_EditorEntities.reserve(registry.size());
+    for (const t_EditorEntity& entity : registry)
+    {
+        if ((entity.m_Position == nullptr) && (entity.m_Position3D == nullptr))
+        {
+            continue;
+        }
+
+        FEditorEntityRef ref;
+        ref.m_Id = entity.m_Id;
+        ref.m_Name = entity.m_Name;
+        ref.m_Type = entity.m_Type;
+        ref.m_Position = entity.m_Position;
+        ref.m_Size = entity.m_Size;
+        ref.m_Origin = entity.m_Origin;
+        ref.m_Rotation = entity.m_Rotation;
+        ref.m_Visible = entity.m_Visible;
+        ref.m_Position3D = entity.m_Position3D;
+        ref.m_Size3D = entity.m_Size3D;
+        ref.m_Origin3D = entity.m_Origin3D;
+        m_EditorEntities.push_back(std::move(ref));
+    }
+
+    if (m_SelectionKind == EEditorSelectionKind::SceneObject && GetSelectedSceneObject() == nullptr)
+    {
+        ClearSelection();
+    }
+    else if (m_SelectionKind == EEditorSelectionKind::GameplayEntity && GetSelectedEditorEntity() == nullptr)
+    {
+        ClearSelection();
+    }
+}
+
+void GameEditor::InvalidateEditorEntities()
+{
+    m_EditorEntities.clear();
+    m_LastActiveMap = nullptr;
+    ClearSelection();
 }
 
 void GameEditor::CloseProject()
@@ -619,6 +881,9 @@ void GameEditor::Run()
 
         float delta_time = GetFrameTime();
         m_GameEngine.SetViewportSize(m_SceneSettings.m_SceneWidth, m_SceneSettings.m_SceneHeight);
+        UpdatePlayStateCamera();
+        SyncEditorCamera3D();
+        ApplyEditorViewCamera3D();
         if (b_IsPlaying)
         {
             m_GameEngine.UpdateMap(delta_time);
@@ -692,6 +957,8 @@ void GameEditor::Run()
         }
 
         Profiler::Get().NextFrame();
+
+        RefreshEditorEntities();
 
         rlImGuiBegin();
 
@@ -788,6 +1055,10 @@ bool GameEditor::b_LoadGameLogic(std::string_view dll_path)
 
 bool GameEditor::b_ReloadGameLogic()
 {
+    // The reload destroys the map and its editor-entity storage. Drop cached
+    // pointers before the swap; panels may still draw later this frame.
+    InvalidateEditorEntities();
+
     bool b_WasPlaying = b_IsPlaying;
     b_IsPlaying = false;
 
@@ -810,59 +1081,21 @@ void GameEditor::UpdatePerformanceMetrics()
 
 void GameEditor::ParseBuildLine(std::string_view line)
 {
-    auto err_pos = line.find("error:");
-    if (err_pos == std::string_view::npos)
+    BuildDiagnostics::t_Diagnostic diagnostic;
+    if (!BuildDiagnostics::b_ParseLine(line, diagnostic))
     {
-        err_pos = line.find("error C");
-    }
-    if (err_pos == std::string_view::npos)
-    {
-        err_pos = line.find("FAILED:");
+        return;
     }
 
-    auto warn_pos = line.find("warning:");
-    if (warn_pos == std::string_view::npos)
-    {
-        warn_pos = line.find("warning C");
-    }
+    FBuildMessage msg;
+    msg.Severity = (diagnostic.m_Severity == BuildDiagnostics::ESeverity::Error) ? FBuildMessage::ESeverity::Error
+                                                                                 : FBuildMessage::ESeverity::Warning;
+    msg.File = diagnostic.m_File;
+    msg.Line = diagnostic.m_Line;
+    msg.Text = diagnostic.m_Raw;
 
-    if (err_pos != std::string_view::npos || warn_pos != std::string_view::npos)
-    {
-        FBuildMessage msg;
-        msg.Severity =
-            (err_pos != std::string_view::npos) ? FBuildMessage::ESeverity::Error : FBuildMessage::ESeverity::Warning;
-        msg.Text = std::string(line);
-
-        size_t keyword_pos = (err_pos != std::string_view::npos) ? err_pos : warn_pos;
-        std::string_view prefix = line.substr(0, keyword_pos);
-
-        size_t last_colon = prefix.find_last_of(':');
-        size_t last_paren = prefix.find_last_of(')');
-
-        if (last_paren != std::string_view::npos && last_paren > 0)
-        {
-            size_t open_paren = prefix.find_last_of('(', last_paren);
-            if (open_paren != std::string_view::npos)
-            {
-                std::string_view line_str = prefix.substr(open_paren + 1, last_paren - open_paren - 1);
-                msg.Line = std::atoi(std::string(line_str).c_str());
-                msg.File = std::string(prefix.substr(0, open_paren));
-            }
-        }
-        else if (last_colon != std::string_view::npos)
-        {
-            size_t second_last_colon = prefix.find_last_of(':', last_colon > 0 ? last_colon - 1 : 0);
-            if (second_last_colon != std::string_view::npos)
-            {
-                std::string_view line_str = prefix.substr(second_last_colon + 1, last_colon - second_last_colon - 1);
-                msg.Line = std::atoi(std::string(line_str).c_str());
-                msg.File = std::string(prefix.substr(0, second_last_colon));
-            }
-        }
-
-        std::scoped_lock lock(BuildMessagesMutex);
-        BuildMessages.push_back(msg);
-    }
+    std::scoped_lock lock(BuildMessagesMutex);
+    BuildMessages.push_back(std::move(msg));
 }
 
 void GameEditor::CancelBuild()
@@ -883,6 +1116,23 @@ void GameEditor::CompileGameLogic()
         m_BuildThread.join();
     }
     m_BuildCancel = std::make_shared<std::atomic<bool>>(false);
+
+    // rwcli holds this lock while it builds. Linking the same GameLogic.dll
+    // from two processes at once corrupts the output, so refuse instead.
+    if (ProjectManager::b_HasOpenProject())
+    {
+        AgentLock::FInfo lock_info;
+        if (AgentLock::b_Query(ProjectManager::GetCurrent().m_RootPath, lock_info))
+        {
+            m_bShowTerminal = true;
+            m_Terminal.SelectConsole();
+            m_Terminal.add_text("Build skipped: project is locked by rwcli (pid " + std::to_string(lock_info.m_Pid) +
+                    "). Wait for the agent build to finish.",
+                term::Severity::Error);
+            bShowMessageLog = true;
+            return;
+        }
+    }
 
     b_IsCompiling = true;
     b_IsPlaying = false;

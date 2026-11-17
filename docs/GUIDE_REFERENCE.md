@@ -6,7 +6,11 @@
 
 ## 1. Camera System
 
-The `GameCamera` class (included in the Platformer2D and SlimeQuest templates) provides smooth scrolling with bounds clamping.
+If you use `rw::Level`, the camera is built in: `Cam().SetZoom(...)`,
+`Cam().SetBounds(...)`, `Cam().Follow(target, dt)`, `Cam().Snap(target)`. See
+[GAME_DEVELOPER_GUIDE.md](GAME_DEVELOPER_GUIDE.md#the-simple-api-rw).
+
+The `GameCamera` class (included in the SlimeQuest template) provides smooth scrolling with bounds clamping for raw `GameMap` projects.
 
 ```cpp
 GameCamera m_Camera;
@@ -51,9 +55,8 @@ When the viewport changes (window resize), call `m_Camera.UpdateViewport(width, 
 
 ### 3D Cameras
 
-The `ThirdPerson3D` and `FirstPerson3D` templates ship gameplay-side 3D
-cameras. They are template classes, not engine classes; copy the one you need
-into your project.
+The `ThirdPerson3D` template ships a gameplay-side 3D camera. It is a template
+class, not an engine class; copy it into your project.
 
 **Third-person orbit** (`ThirdPersonCamera`):
 
@@ -66,28 +69,31 @@ m_Camera.Begin();
 m_Camera.End();
 ```
 
-**First-person look** (`FirstPersonCamera`):
-
-```cpp
-m_Camera.Initialize(position);
-m_Camera.UpdateInput();                      // hold right mouse to look
-Vector3 forward = m_Camera.GetFlatForward(); // ground-plane movement
-m_Camera.Begin();
-// draw 3D world here
-m_Camera.End();
-```
-
-The editor keeps a visible cursor: both cameras look only while right-dragging.
+The editor keeps a visible cursor: the camera looks only while right-dragging.
 The standalone runtime calls `DisableCursor()` and looks continuously, using
 `GameMap::b_IsStandalone()` to tell the two apart. `MapManager` forwards that
 mode to every new map, so transitions and hot starts behave the same. The
 cursor is restored when a standalone map is destroyed.
 
-3D drawing works inside `GameMap::Draw()`: call `BeginMode3D` (or a camera
-helper's `Begin()`), draw, then `EndMode3D()`. The editor renders the result
-into the scene texture, depth buffer included.
+Note: while the project is stopped, right mouse looks and `WASD` flies the
+**editor** camera, not the gameplay camera. Gameplay look/orbit is unchanged
+during play.
 
-Both 3D templates include `SceneTarget`, a 2x supersampling target (SSAA).
+3D drawing works inside `GameMap::Draw()`: call `BeginView3D()`, draw, then
+`EndView3D()`. `BeginView3D()` uses the editor's orbit camera while the project
+is stopped and the gameplay camera while playing or in the standalone runtime.
+The editor renders the result into the scene texture, depth buffer included.
+
+3D maps override `GameMap::b_Uses3DView()` and `GameMap::GetViewCamera3D()`,
+then register their player as an editor entity with `AddEntity`. Selecting that
+entry in the Scene panel draws a world-space translate gizmo in the viewport.
+Hold right mouse to look and fly with `WASD`/`Q`/`E` (`Shift` faster), middle-drag
+to pan, wheel to dolly, and `F` to frame the selection. Clicking the viewport
+ray-picks the nearest entity.
+2D gameplay entities use a screen-space move gizmo; scene props additionally
+get scale handles.
+
+The 3D template includes `SceneTarget`, a 2x supersampling target (SSAA).
 Raylib render textures cannot request MSAA, so the scene renders at twice the
 viewport size and downsamples with bilinear filtering. HUD is drawn after the
 resolve, so text stays sharp.

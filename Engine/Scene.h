@@ -1,0 +1,68 @@
+#pragma once
+#include <cstdint>
+#include <raylib.h>
+#include <string>
+#include <string_view>
+#include <vector>
+
+// A single editor-authored sprite. The scene is deliberately a flat list of
+// plain values: no ECS, no reflection, no gameplay coupling. GameEngine draws
+// the list after the map draws, so existing game code never has to know it
+// exists.
+struct t_SceneObject
+{
+    uint32_t m_Id = 0;
+    std::string m_Name;
+    std::string m_TexturePath;
+    Texture2D m_Texture{};
+    Vector2 m_Position{ 0.0f, 0.0f };
+    float m_Rotation = 0.0f;
+    Vector2 m_Scale{ 1.0f, 1.0f };
+    Rectangle m_Source{ 0.0f, 0.0f, 0.0f, 0.0f };
+    Color m_Tint = WHITE;
+    int m_Layer = 0;
+    bool m_bVisible = true;
+
+    // Set after a failed load so a missing texture does not retry every frame.
+    // Runtime-only; never serialized.
+    bool m_bTextureMissing = false;
+};
+
+class Scene
+{
+public:
+    t_SceneObject& AddObject(std::string_view name);
+    t_SceneObject* DuplicateObject(uint32_t id);
+    bool b_RemoveObject(uint32_t id);
+
+    t_SceneObject* FindObject(uint32_t id);
+    const t_SceneObject* FindObject(uint32_t id) const;
+
+    std::vector<t_SceneObject>& GetObjects() { return m_Objects; }
+    const std::vector<t_SceneObject>& GetObjects() const { return m_Objects; }
+
+    void Draw();
+    void Clear();
+
+    // Reload a single texture after the inspector changes its path.
+    void ReloadTexture(uint32_t id);
+
+    bool b_SaveToFile(std::string_view path);
+    bool b_LoadFromFile(std::string_view path);
+
+    bool b_IsDirty() const { return m_bDirty; }
+    void MarkDirty() { m_bDirty = true; }
+    void ClearDirty() { m_bDirty = false; }
+
+    // Map ids become file names under Assets/. Keep them path-safe so a map
+    // id with slashes or spaces can never escape the asset root.
+    static std::string ToFileKey(std::string_view key);
+
+private:
+    static bool b_EnsureTexture(t_SceneObject& object);
+    static void UnloadTexture(t_SceneObject& object);
+
+    std::vector<t_SceneObject> m_Objects;
+    uint32_t m_NextId = 1;
+    bool m_bDirty = false;
+};

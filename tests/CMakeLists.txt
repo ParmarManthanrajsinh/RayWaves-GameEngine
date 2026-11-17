@@ -3,21 +3,31 @@ set(TEST_SUPPORT_SRC
 )
 
 set(UNIT_TEST_SRC
+    ${CMAKE_CURRENT_SOURCE_DIR}/unit/AgentLock_t.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/AssetResolver_t.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/unit/BuildDiagnostics_t.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/unit/EditorAssets_t.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/unit/EditorCamera3D_t.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/GameConfig_t.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/GameEditor_t.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/unit/GameEngine_t.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/GameMap_t.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/unit/InputReplay_t.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/MapManager_t.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/PanelRegistry_t.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/Profiler_t.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/ProjectManager_t.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/Project_t.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/ReloadRoundtrip_t.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/unit/rw_t.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/unit/Scene_t.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/StateBag_t.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/Terminal_t.cpp
 )
 
 set(INTEGRATION_TEST_SRC
+    ${CMAKE_CURRENT_SOURCE_DIR}/integration/Cli_t.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/integration/CliLsp_t.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/integration/ConPty_t.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/integration/DllLoader_t.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/integration/ExportService_t.cpp
@@ -35,7 +45,7 @@ function(raywaves_configure_test_target target)
         ${CMAKE_SOURCE_DIR}/Editor
         ${CMAKE_SOURCE_DIR}/Runtime
     )
-    target_link_libraries(${target} PRIVATE Engine doctest raywaves_terminal_core)
+    target_link_libraries(${target} PRIVATE Engine RuntimeSupport doctest raywaves_terminal_core)
     add_dependencies(${target} stage_raylib)
     add_custom_command(TARGET ${target} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
@@ -44,25 +54,22 @@ function(raywaves_configure_test_target target)
     )
 endfunction()
 
-add_executable(raywaves_tests_unit ${TEST_SUPPORT_SRC} ${UNIT_TEST_SRC})
+add_executable(raywaves_tests_unit ${TEST_SUPPORT_SRC} ${UNIT_TEST_SRC}
+    ${CMAKE_SOURCE_DIR}/Editor/EditorAssets.cpp)
 raywaves_configure_test_target(raywaves_tests_unit)
 
 add_executable(raywaves_tests_integration
     ${TEST_SUPPORT_SRC}
     ${INTEGRATION_TEST_SRC}
-    ${CMAKE_SOURCE_DIR}/Runtime/DllLoader.cpp
-    ${CMAKE_SOURCE_DIR}/Runtime/PeCrtCheck.cpp
     ${CMAKE_SOURCE_DIR}/Editor/ExportService.cpp
     ${CMAKE_SOURCE_DIR}/Editor/EditorUtils.cpp
     ${CMAKE_SOURCE_DIR}/Editor/GameLogicLoader.cpp
-    ${CMAKE_SOURCE_DIR}/Editor/ProcessRunner.cpp
 )
 raywaves_configure_test_target(raywaves_tests_integration)
+add_dependencies(raywaves_tests_integration rwcli)
 
 add_executable(raywaves_smoke
     ${CMAKE_CURRENT_SOURCE_DIR}/smoke/HotReloadSmoke.cpp
-    ${CMAKE_SOURCE_DIR}/Runtime/DllLoader.cpp
-    ${CMAKE_SOURCE_DIR}/Runtime/PeCrtCheck.cpp
 )
 raywaves_configure_test_target(raywaves_smoke)
 

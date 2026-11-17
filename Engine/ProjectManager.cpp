@@ -1,4 +1,5 @@
 #include "ProjectManager.h"
+#include "EngineVersion.h"
 #include <algorithm>
 #include <filesystem>
 #include <fstream>
@@ -8,6 +9,11 @@
 #include <windows.h>
 
 namespace fs = std::filesystem;
+
+namespace
+{
+bool b_WriteProjectFiles(const fs::path& project_root, const t_Project& project, bool b_force);
+}
 
 fs::path ProjectManager::GetEngineRootDirectory()
 {
@@ -108,7 +114,7 @@ void ProjectManager::InitializeRecentPath()
     }
 }
 
-bool ProjectManager::b_OpenProject(std::string_view folder_path)
+bool ProjectManager::b_OpenProject(std::string_view folder_path, bool b_add_recent)
 {
     std::scoped_lock lock(s_Mutex);
     std::string manifest_path = (fs::path(folder_path) / "project.raywaves").string();
@@ -123,12 +129,24 @@ bool ProjectManager::b_OpenProject(std::string_view folder_path)
     {
         s_Current = new_project;
         s_bOpen = true;
-        AddRecent(folder_path);
+        if (b_add_recent)
+        {
+            AddRecent(folder_path);
+        }
+
+        // Keep the agent guide self-contained inside the project. Never
+        // overwrite a guide the project owner edited.
+        b_WriteProjectFiles(fs::path(folder_path), s_Current, false);
 
         // Ensure project local cache directory exists
         fs::path raywaves_dir = fs::path(folder_path) / ".raywaves";
         fs::create_directories(raywaves_dir / "shadows");
         fs::create_directories(raywaves_dir / "build");
+
+        // Assets and code folders are part of the project contract. Older
+        // projects may be missing one; create it instead of rejecting them.
+        fs::create_directories(s_Current.m_AssetPath);
+        fs::create_directories(s_Current.m_SourcePath);
 
         return GenerateCMakeLists();
     }
@@ -177,6 +195,10 @@ bool ProjectManager::b_CreateProject(std::string_view target_folder, std::string
         {
             proj.m_Name = target_path.filename().string();
             proj.m_bSaveToFile();
+
+            fs::create_directories(target_path / proj.m_AssetDir);
+            fs::create_directories(target_path / proj.m_SourceDir);
+            b_WriteProjectFiles(target_path, proj, false);
         }
         return true;
     }
@@ -336,6 +358,10 @@ std::vector<std::string> ProjectManager::GetAvailableTemplates()
             }
         }
     }
+
+    // Directory order is filesystem-dependent; the New Project wizard and the
+    // tests both expect a stable, alphabetical list.
+    std::sort(templates.begin(), templates.end());
     return templates;
 }
 
@@ -377,6 +403,395 @@ fs::path FindProjectTemplate(const fs::path& exe_dir, const fs::path& engine_roo
             return candidate;
     }
     return {};
+}
+
+fs::path FindShippedFile(const fs::path& exe_dir, const fs::path& engine_root, std::string_view filename)
+{
+    const fs::path candidates[] = {
+        exe_dir / "packaging" / filename,
+        exe_dir / "Core" / filename,
+        engine_root / "packaging" / filename,
+        engine_root / "Core" / filename,
+    };
+
+    for (const auto& candidate : candidates)
+    {
+        if (fs::exists(candidate))
+            return candidate;
+    }
+    return {};
+}
+
+std::string ReadTemplate(const fs::path& path)
+{
+    std::ifstream file(path);
+    if (!file.is_open())
+    {
+        return {};
+    }
+    return std::string((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+}
+
+bool b_WriteText(const fs::path& path, std::string_view content, bool b_force)
+{
+    if (!b_force && fs::exists(path))
+    {
+        return true;
+    }
+    std::error_code error;
+    fs::create_directories(path.parent_path(), error);
+    std::ofstream file(path, std::ios::trunc);
+    if (!file.is_open())
+    {
+        return false;
+    }
+    file << content;
+    return file.good();
+}
+
+// Keep generated files out of git without touching a project that has no
+// .gitignore. Entries are appended once, after a marker comment.
+void EnsureGitignoreEntries(const fs::path& project_root)
+{
+    const fs::path path = project_root / ".gitignore";
+    std::error_code error;
+    if (!fs::exists(path, error))
+    {
+        return;
+    }
+
+    std::string content = ReadTemplate(path);
+    const char* entries[] = { "compile_commands.json", ".clangd", ".vscode/", ".cache/" };
+    bool b_changed = false;
+    for (const char* entry : entries)
+    {
+        if (content.find(entry) == std::string::npos)
+        {
+            if (!b_changed)
+            {
+                content += "\n# RayWaves generated editor files\n";
+            }
+            content += std::string(entry) + "\n";
+            b_changed = true;
+        }
+    }
+
+    if (b_changed)
+    {
+        std::ofstream file(path, std::ios::trunc);
+        if (file.is_open())
+        {
+            file << content;
+        }
+    }
+}
+
+std::string JsonPath(const fs::path& path)
+{
+    std::string text = ToForwardSlashes(path);
+    std::string quoted = "\"";
+    for (const char character : text)
+    {
+        if (character == '"' || character == '\\')
+        {
+            quoted += '\\';
+        }
+        quoted += character;
+    }
+    quoted += '"';
+    return quoted;
+}
+
+// Absolute paths for clangd/IntelliSense. Missing pieces are skipped so an
+// engine checkout without a staged raylib still produces a usable file.
+std::string BuildClangdContent(const fs::path& engine_dir, const fs::path& raylib_include, const fs::path& zig_root,
+    const std::string& template_text)
+{
+    const fs::path zig_libcxx = zig_root / "lib" / "libcxx" / "include";
+    const fs::path zig_libcxxabi = zig_root / "lib" / "libcxxabi" / "include";
+    const fs::path zig_libc = zig_root / "lib" / "libc" / "include" / "any-windows-any";
+
+    std::string target_flags;
+    if (fs::exists(zig_libcxx))
+    {
+        target_flags += "    - -target\n";
+        target_flags += "    - x86_64-windows-gnu\n";
+        target_flags += "    - -nostdinc++\n";
+        target_flags += "    - -D_LIBCPP_HARDENING_MODE=_LIBCPP_HARDENING_MODE_NONE\n";
+        target_flags += "    - -D_LIBCPP_HAS_WIDE_CHARACTERS=1\n";
+        target_flags += "    - -D_LIBCPP_ABI_VERSION=1\n";
+        target_flags += "    - -D_LIBCPP_ABI_NAMESPACE=__1\n";
+        target_flags += "    - -D_LIBCPP_DISABLE_VISIBILITY_ANNOTATIONS=1\n";
+        target_flags += "    - -D_LIBCPP_HAS_NO_STD_MODULES=1\n";
+        target_flags += "    - -D_LIBCPP_HAS_LOCALIZATION=1\n";
+        target_flags += "    - -D_LIBCPP_HAS_FILESYSTEM=1\n";
+        target_flags += "    - -D_LIBCPP_HAS_THREADS=1\n";
+        target_flags += "    - -D_LIBCPP_HAS_RANDOM_DEVICE=1\n";
+        target_flags += "    - -D_LIBCPP_HAS_TERMINAL=1\n";
+        target_flags += "    - -D_LIBCPP_HAS_MONOTONIC_CLOCK=1\n";
+        target_flags += "    - -D_LIBCPP_HAS_UNICODE=1\n";
+        target_flags += "    - -D_LIBCPP_HAS_MUSL_LIBC=0\n";
+        target_flags += "    - -D_LIBCPP_PSTL_BACKEND_SERIAL=1\n";
+        target_flags += "    - -D_LIBCPP_HAS_VENDOR_AVAILABILITY_ANNOTATIONS=0\n";
+        target_flags += "    - -D__MINGW32__=1\n";
+        target_flags += "    - -D_WIN32_WINNT=0x0a00\n";
+    }
+
+    std::string zig_lines;
+    const fs::path zig_candidates[] = { zig_libcxx, zig_libcxxabi, zig_libc };
+    for (const fs::path& candidate : zig_candidates)
+    {
+        if (fs::exists(candidate))
+        {
+            zig_lines += "    - \"-isystem" + ToForwardSlashes(candidate) + "\"\n";
+        }
+    }
+
+    std::string includes;
+    includes += "    - \"-I" + ToForwardSlashes(engine_dir) + "\"\n";
+    includes += "    - \"-I" + ToForwardSlashes(engine_dir / "Engine") + "\"\n";
+    if (fs::exists(raylib_include))
+    {
+        includes += "    - \"-I" + ToForwardSlashes(raylib_include) + "\"\n";
+    }
+
+    std::string content = template_text;
+    content = ReplaceToken(content, "@ZIG_TARGET_FLAGS@", target_flags);
+    content = ReplaceToken(content, "@ZIG_ISYSTEMS@", zig_lines);
+    content = ReplaceToken(content, "@PROJECT_INCLUDES@", includes);
+    return content;
+}
+
+std::string BuildCppPropertiesContent(const fs::path& engine_dir, const fs::path& raylib_include,
+    const fs::path& zig_root, const std::string& template_text)
+{
+    std::vector<fs::path> includes = { engine_dir, engine_dir / "Engine" };
+    if (fs::exists(raylib_include))
+    {
+        includes.push_back(raylib_include);
+    }
+
+    const fs::path zig_candidates[] = {
+        zig_root / "lib" / "libcxx" / "include",
+        zig_root / "lib" / "libcxxabi" / "include",
+        zig_root / "lib" / "libc" / "include" / "any-windows-any",
+    };
+    for (const fs::path& candidate : zig_candidates)
+    {
+        if (fs::exists(candidate))
+        {
+            includes.push_back(candidate);
+        }
+    }
+
+    std::string paths;
+    for (size_t index = 0; index < includes.size(); ++index)
+    {
+        if (index > 0)
+        {
+            paths += ",\n";
+        }
+        paths += "                " + JsonPath(includes[index]);
+    }
+
+    std::string content = template_text;
+    content = ReplaceToken(content, "@INCLUDE_PATHS@", paths);
+    return content;
+}
+
+// Locate the packaged agent CLI. Dev builds keep RayWaves.exe and rwcli.exe in
+// the same directory; distributions do the same at the package root.
+fs::path FindRwcliExecutable(const fs::path& exe_dir, const fs::path& engine_root)
+{
+    const fs::path candidates[] = {
+        exe_dir / "rwcli.exe",
+        exe_dir / "Core" / "rwcli.exe",
+        engine_root / "rwcli.exe",
+        engine_root / "build" / "zig-release" / "rwcli.exe",
+        engine_root / "build" / "zig-debug" / "rwcli.exe",
+    };
+    for (const fs::path& candidate : candidates)
+    {
+        if (fs::exists(candidate))
+        {
+            std::error_code error;
+            const fs::path canonical = fs::weakly_canonical(candidate, error);
+            return error ? candidate : canonical;
+        }
+    }
+    return {};
+}
+
+// Batch files expand %, so a literal percent must be doubled.
+std::string BatchPath(const fs::path& path)
+{
+    std::string text = path.string();
+    std::string escaped;
+    escaped.reserve(text.size() + 8);
+    for (const char character : text)
+    {
+        if (character == '%')
+        {
+            escaped += "%%";
+        }
+        else
+        {
+            escaped += character;
+        }
+    }
+    return escaped;
+}
+
+bool WriteToolingFiles(
+    const fs::path& project_root, const t_Project& project, const fs::path& exe_dir, const fs::path& engine_root)
+{
+    const fs::path rwcli = FindRwcliExecutable(exe_dir, engine_root);
+    const fs::path package_root = rwcli.empty() ? exe_dir : rwcli.parent_path();
+    const fs::path tooling_dir = project_root / ".raywaves";
+    const fs::path bin_dir = tooling_dir / "bin";
+
+    std::string ini;
+    ini += "[rwcli]\n";
+    ini += "available=";
+    ini += rwcli.empty() ? "0" : "1";
+    ini += "\npath=" + rwcli.string() + "\n";
+    ini += "packageRoot=" + package_root.string() + "\n";
+    ini += "engineRoot=" + engine_root.string() + "\n";
+    ini += "version=";
+    ini += RAYWAVES_VERSION;
+    ini += "\n";
+    ini += "\n[project]\n";
+    ini += "root=" + project_root.string() + "\n";
+    ini += "sourceDir=" + project.m_SourceDir + "\n";
+    ini += "assetDir=" + project.m_AssetDir + "\n";
+    ini += "entryDll=" + project.m_EntryDll + "\n";
+    const bool b_ini_written = b_WriteText(tooling_dir / "tooling.ini", ini, true);
+
+    std::string wrapper;
+    wrapper += "@echo off\n";
+    wrapper += "setlocal\n";
+    wrapper += "set \"RWCLI=" + BatchPath(rwcli) + "\"\n";
+    wrapper += "if not defined RWCLI goto locate\n";
+    wrapper += "if exist \"%RWCLI%\" goto run\n";
+    wrapper += ":locate\n";
+    wrapper += "where rwcli.exe >nul 2>nul\n";
+    wrapper += "if errorlevel 1 (\n";
+    wrapper += "  echo rwcli not found. Reopen the project in RayWaves or run rwcli lsp. 1>&2\n";
+    wrapper += "  exit /b 3\n";
+    wrapper += ")\n";
+    wrapper += "set \"RWCLI=rwcli.exe\"\n";
+    wrapper += ":run\n";
+    wrapper += "\"%RWCLI%\" %*\n";
+    wrapper += "exit /b %ERRORLEVEL%\n";
+    const bool b_wrapper_written = b_WriteText(bin_dir / "rwcli.cmd", wrapper, true);
+    return b_ini_written && b_wrapper_written;
+}
+
+// Writes AGENTS.md, the project skill, and editor configs only when missing so
+// a project owner can edit and keep them. rwcli lsp --force refreshes.
+bool b_WriteProjectFiles(const fs::path& project_root, const t_Project& project, bool b_force)
+{
+    char exe_path[MAX_PATH];
+    GetModuleFileNameA(nullptr, exe_path, MAX_PATH);
+    const fs::path exe_dir = fs::path(exe_path).parent_path();
+    const fs::path engine_root = ProjectManager::GetEngineRootDirectory();
+
+    fs::path engine_dir = engine_root;
+    if (fs::exists(engine_root / "Core" / "Engine"))
+    {
+        engine_dir = engine_root / "Core";
+    }
+
+    fs::path raylib_include = exe_dir / "raylib" / "include";
+    if (!fs::exists(raylib_include / "raylib.h"))
+    {
+        raylib_include = exe_dir / "Core" / "raylib" / "include";
+    }
+    if (!fs::exists(raylib_include / "raylib.h"))
+    {
+        raylib_include = exe_dir / "_deps" / "raylib-build" / "raylib" / "include";
+    }
+    if (!fs::exists(raylib_include / "raylib.h"))
+    {
+        raylib_include.clear();
+    }
+
+    const fs::path zig_root = ProjectManager::GetToolsDirectory() / "zig";
+    const auto tokens = [&project, &engine_root](std::string content)
+    {
+        content = ReplaceToken(content, "@PROJECT_NAME@", project.m_Name);
+        content = ReplaceToken(content, "@SOURCE_DIR@", project.m_SourceDir);
+        content = ReplaceToken(content, "@ASSET_DIR@", project.m_AssetDir);
+        content = ReplaceToken(content, "@ENGINE_VERSION@", RAYWAVES_VERSION);
+        content = ReplaceToken(content, "@ENGINE_ROOT@", ToForwardSlashes(engine_root));
+        return content;
+    };
+
+    bool b_ok = true;
+    const fs::path agent_template = FindShippedFile(exe_dir, engine_root, "Project.AGENTS.md.in");
+    if (!agent_template.empty())
+    {
+        b_ok &= b_WriteText(project_root / "AGENTS.md", tokens(ReadTemplate(agent_template)), false);
+    }
+
+    const fs::path skill_template = FindShippedFile(exe_dir, engine_root, "Project.SKILL.md.in");
+    if (!skill_template.empty())
+    {
+        b_ok &= b_WriteText(project_root / ".agents" / "skills" / "raywaves-game" / "SKILL.md",
+            tokens(ReadTemplate(skill_template)), false);
+    }
+
+    const fs::path reference_template = FindShippedFile(exe_dir, engine_root, "Project.rwcli-reference.md.in");
+    if (!reference_template.empty())
+    {
+        b_ok &= b_WriteText(project_root / ".agents" / "skills" / "raywaves-game" / "reference.md",
+            tokens(ReadTemplate(reference_template)), false);
+    }
+
+    const fs::path clangd_template = FindShippedFile(exe_dir, engine_root, "Project.clangd.in");
+    if (!clangd_template.empty())
+    {
+        const std::string content =
+            BuildClangdContent(engine_dir, raylib_include, zig_root, ReadTemplate(clangd_template));
+        b_ok &= b_WriteText(project_root / ".clangd", content, b_force);
+    }
+
+    const fs::path properties_template =
+        FindShippedFile(exe_dir, engine_root, "Project.vscode.c_cpp_properties.json.in");
+    if (!properties_template.empty())
+    {
+        const std::string content =
+            BuildCppPropertiesContent(engine_dir, raylib_include, zig_root, ReadTemplate(properties_template));
+        b_ok &= b_WriteText(project_root / ".vscode" / "c_cpp_properties.json", content, b_force);
+    }
+
+    const fs::path settings_template = FindShippedFile(exe_dir, engine_root, "Project.vscode.settings.json.in");
+    if (!settings_template.empty())
+    {
+        std::string settings = ReadTemplate(settings_template);
+        settings = ReplaceToken(settings, "@PACKAGE_ROOT@", ToForwardSlashes(exe_dir));
+        b_ok &= b_WriteText(project_root / ".vscode" / "settings.json", settings, b_force);
+    }
+
+    const fs::path extensions_template = FindShippedFile(exe_dir, engine_root, "Project.vscode.extensions.json.in");
+    if (!extensions_template.empty())
+    {
+        b_ok &= b_WriteText(project_root / ".vscode" / "extensions.json", ReadTemplate(extensions_template), b_force);
+    }
+
+    fs::path format_source = engine_root / ".clang-format";
+    if (!fs::exists(format_source) && fs::exists(engine_root / "Core" / ".clang-format"))
+    {
+        format_source = engine_root / "Core" / ".clang-format";
+    }
+    if (fs::exists(format_source))
+    {
+        b_ok &= b_WriteText(project_root / ".clang-format", ReadTemplate(format_source), b_force);
+    }
+
+    b_ok &= WriteToolingFiles(project_root, project, exe_dir, engine_root);
+    EnsureGitignoreEntries(project_root);
+    return b_ok;
 }
 } // namespace
 
@@ -446,4 +861,14 @@ bool ProjectManager::GenerateCMakeLists()
         return false;
     file << content;
     return file.good();
+}
+
+bool ProjectManager::b_WriteIdeConfigs(bool b_force)
+{
+    std::scoped_lock lock(s_Mutex);
+    if (!s_bOpen)
+    {
+        return false;
+    }
+    return b_WriteProjectFiles(fs::path(s_Current.m_RootPath), s_Current, b_force);
 }

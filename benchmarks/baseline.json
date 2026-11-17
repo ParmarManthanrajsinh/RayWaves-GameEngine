@@ -4,6 +4,8 @@
     "Profiler::Record single name": {"ns_per_op": 22.1308, "ops_per_sec": 4.5186e+07},
     "Profiler::Record 100-name ring": {"ns_per_op": 44.5962, "ops_per_sec": 2.24234e+07},
     "StateBag GetFloat + GetInt": {"ns_per_op": 22.6445, "ops_per_sec": 4.41608e+07},
-    "StateBag GetVector2": {"ns_per_op": 55.1051, "ops_per_sec": 1.81471e+07}
+    "StateBag GetVector2": {"ns_per_op": 55.1051, "ops_per_sec": 1.81471e+07},
+    "rw::Level Spawn + editor registration": {"ns_per_op": 334.234, "ops_per_sec": 2.99192e+06},
+    "rw::Entity transform write": {"ns_per_op": 1.1, "ops_per_sec": 9.09e+08}
   }
 }

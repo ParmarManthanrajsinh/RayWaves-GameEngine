@@ -8,7 +8,8 @@
 
 RayWaves compiles your `GameLogic/` code into a **DLL** (`GameLogic.dll`). The editor loads it at runtime, calls into it, and hot-reloads it when you recompile.
 
-Every project **must** provide three exported C functions in `RootManager.cpp`:
+Every project **must** export three symbols. Raw `GameMap` projects write them by
+hand in `RootManager.cpp`; `rw` projects generate them with `RW_GAME`.
 
 ```cpp
 #include "Engine/GameMap.h"
@@ -70,6 +71,10 @@ SaveState(out)           (before hot-reload unload)
     |
 LoadState(in)            (after new instance constructed + Initialize())
 ```
+
+`rw::Level` maps this to hooks: `OnStart` = `Initialize`, `OnUpdate` = `Update`,
+`OnDraw`/`OnDrawUI` = `Draw`, `OnSave`/`OnLoad` = `SaveState`/`LoadState`.
+Entity transforms are saved and restored automatically.
 
 ### Critical: What Happens on Hot-Reload
 
@@ -143,172 +148,153 @@ StateBag allocates memory internally (for `std::string` and `std::unordered_map`
 
 ---
 
-## 4. Tutorial: Your First Map
+## 4. Tutorial: Your First Level
 
-This walks you through creating a simple playable level from scratch.
+This walks you through a playable level using the simple `rw` API.
 
 ### Step 1: Create a New Project
 
 1. Launch `RayWaves.exe`.
 2. Click **New Project**.
-3. Name it "MyGame", choose "Empty" template.
-4. Click **Create and Open**.
+3. Name it `MyGame`, choose the **Simple2D** template (the default).
+4. Click **Create**.
 
-You now have `MyGame/GameLogic/RootManager.cpp` with a minimal inline map.
+You get:
 
-### Step 2: Create Your Map Files
+```text
+MyGame/
+├── GameLogic/
+│   ├── Game.cpp            # RW_GAME export
+│   └── Simple2DLevel.h     # the whole game
+└── Assets/
+    └── player.png
+```
 
-Create `MyGame/GameLogic/MyLevel.h`:
+### Step 2: Edit the Level
+
+Replace `GameLogic/Simple2DLevel.h` with your own level. `rw::Level` handles the
+`GameMap` lifecycle, the camera, and the editor registration:
 
 ```cpp
 #pragma once
-#include "Engine/GameMap.h"
+#include "rw.h"
 
-class MyLevel : public GameMap
+class MyLevel : public rw::Level
 {
 public:
-    MyLevel();
+    MyLevel() : rw::Level("MyLevel") {}
 
-    void Initialize() override;
-    void Update(float delta_time) override;
-    void Draw() override;
-
-private:
-    Vector2 m_PlayerPos{ 100.0f, 100.0f };
-    float m_Speed = 200.0f;
-};
-```
-
-Create `MyGame/GameLogic/MyLevel.cpp`:
-
-```cpp
-#include "MyLevel.h"
-#include <iostream>
-
-MyLevel::MyLevel() : GameMap("MyLevel") {}
-
-void MyLevel::Initialize()
-{
-    std::cout << "MyLevel initialized!\n";
-}
-
-void MyLevel::Update(float delta_time)
-{
-    if (IsKeyDown(KEY_RIGHT)) m_PlayerPos.x += m_Speed * delta_time;
-    if (IsKeyDown(KEY_LEFT))  m_PlayerPos.x -= m_Speed * delta_time;
-    if (IsKeyDown(KEY_UP))    m_PlayerPos.y -= m_Speed * delta_time;
-    if (IsKeyDown(KEY_DOWN))  m_PlayerPos.y += m_Speed * delta_time;
-}
-
-void MyLevel::Draw()
-{
-    ClearBackground(RAYWHITE);
-    DrawRectangleV(m_PlayerPos, {32, 32}, RED);
-    DrawText("My First Level", 10, 10, 20, DARKGRAY);
-}
-```
-
-### Step 3: Register in RootManager.cpp
-
-Replace the content of `RootManager.cpp`:
-
-```cpp
-#include "Engine/MapManager.h"
-#include "MyLevel.h"
-
-static MapManager* s_GameMapManager = nullptr;
-
-extern "C" __declspec(dllexport) GameMap* CreateGameMap()
-{
-    if (s_GameMapManager == nullptr)
+protected:
+    void OnStart() override
     {
-        s_GameMapManager = new MapManager();
-        s_GameMapManager->RegisterMap<MyLevel>("MyLevel");
+        m_Player = Spawn("Player", { 100, 100 }, { 32, 32 }, rw::Origin::TopLeft, "Player");
     }
 
-    s_GameMapManager->b_GotoMap("MyLevel");
-    return s_GameMapManager;
-}
+    void OnUpdate(float delta_time) override
+    {
+        constexpr float Speed = 200.0f;
+        if (IsKeyDown(KEY_RIGHT)) m_Player->position.x += Speed * delta_time;
+        if (IsKeyDown(KEY_LEFT)) m_Player->position.x -= Speed * delta_time;
+        if (IsKeyDown(KEY_UP)) m_Player->position.y -= Speed * delta_time;
+        if (IsKeyDown(KEY_DOWN)) m_Player->position.y += Speed * delta_time;
+    }
 
-extern "C" __declspec(dllexport) void DestroyGameMap(GameMap* map_manager)
-{
-    delete map_manager;
-    if (map_manager == s_GameMapManager)
-        s_GameMapManager = nullptr;
-}
-```
-
-### Step 4: Compile and Play
-
-1. Click **Compile** in the editor toolbar.
-2. After build completes (~2-5 seconds), the map loads automatically.
-3. Use arrow keys to move the red square.
-
-### Step 5: Add a Second Map
-
-Create `MyGame/GameLogic/MyMenu.h`:
-
-```cpp
-#pragma once
-#include "Engine/GameMap.h"
-
-class MyMenu : public GameMap
-{
-public:
-    MyMenu();
-    void Initialize() override;
-    void Update(float delta_time) override;
-    void Draw() override;
+    void OnDraw() override
+    {
+        DrawRectangleV(m_Player->position, m_Player->size, RED);
+        DrawText("My First Level", 10, 10, 20, DARKGRAY);
+    }
 
 private:
-    float m_Time = 0;
+    rw::Entity* m_Player = nullptr;
 };
 ```
 
-Create `MyGame/GameLogic/MyMenu.cpp`:
+Point `GameLogic/Game.cpp` at the new class:
 
 ```cpp
+#include "MyLevel.h"
+RW_GAME(MyLevel)
+```
+
+`RW_GAME` expands to the three DLL exports. You never write them by hand.
+
+### Step 3: Compile and Play
+
+1. Click **Compile** in the editor toolbar.
+2. The level loads automatically after the build (~2-5 seconds).
+3. Use the arrow keys to move the red square.
+4. Select `Player` in the Scene panel to move it with the gizmo or edit it in
+   the Inspector.
+
+### Step 4: Add a Second Level
+
+Create `GameLogic/MyMenu.h`. Menus draw in screen space, so use `OnDrawUI`:
+
+```cpp
+#pragma once
+#include "rw.h"
+
+class MyMenu : public rw::Level
+{
+public:
+    MyMenu() : rw::Level("Menu") {}
+
+protected:
+    void OnUpdate(float) override
+    {
+        if (IsKeyPressed(KEY_SPACE))
+        {
+            RequestGotoMap("MyLevel");
+        }
+    }
+
+    void OnDrawUI() override
+    {
+        ClearBackground(DARKBLUE);
+        DrawText("Press SPACE to play", 100, 200, 30, WHITE);
+    }
+};
+```
+
+Create a small game class that registers both levels. `rw::Game` is a
+`MapManager`, so level IDs are what transitions use:
+
+```cpp
+#pragma once
+#include "MyLevel.h"
 #include "MyMenu.h"
 
-MyMenu::MyMenu() : GameMap("Menu") {}
-
-void MyMenu::Initialize() {}
-
-void MyMenu::Update(float dt)
+class MyGame : public rw::Game
 {
-    m_Time += dt;
-    if (IsKeyPressed(KEY_SPACE))
-        RequestGotoMap("MyLevel");   // <-- triggers transition
-}
-
-void MyMenu::Draw()
-{
-    ClearBackground(DARKBLUE);
-    DrawText("Press SPACE to play", 100, 200, 30, WHITE);
-}
+public:
+    MyGame()
+    {
+        AddLevel<MyMenu>("Menu");
+        AddLevel<MyLevel>("MyLevel");
+        Start("Menu");
+    }
+};
 ```
 
-Register it alongside `MyLevel` in `RootManager.cpp`:
+And in `Game.cpp`:
 
 ```cpp
-s_GameMapManager->RegisterMap<MyMenu>("Menu");
-s_GameMapManager->RegisterMap<MyLevel>("MyLevel");
+#include "MyGame.h"
+RW_GAME(MyGame)
 ```
 
-And change the initial map:
-
-```cpp
-s_GameMapManager->b_GotoMap("Menu");   // start at menu
-```
-
-Compile again. Press SPACE to transition from menu to level.
+Compile again. Press SPACE to move from the menu to the level.
 
 ### RequestGotoMap
 
-`RequestGotoMap(map_id, force_reload)` is the safe way to change maps. Use it anywhere in your map code:
-- Call it during `Update()` on user input (key press, collision).
+`RequestGotoMap(map_id, force_reload)` is the safe way to change maps. Use it anywhere in your level code:
+- Call it during `OnUpdate()` on user input (key press, collision).
 - Set `force_reload = true` to reload the same map (reset state).
 - The actual transition happens after `Update()` returns — not immediately.
+
+When you need the low-level API instead (custom cameras, non-entity state),
+`SlimeQuest` shows the raw `GameMap` + `RootManager.cpp` path.
 
 ---
 
@@ -343,15 +329,15 @@ The shell is auto-detected in this order: PowerShell 7 (`pwsh.exe`), Windows Pow
 
 | Symptom | Probable cause |
 |---------|---------------|
-| Access violation on hot-reload | Stored a pointer/texture in StateBag, or didn't reload resources in `Initialize()` |
-| Texture black/purple on reload | Texture loaded in constructor (before `Initialize`) — GPU resource lost on DLL unload. **Load all resources in `Initialize()`, unload in destructor.** |
+| Access violation on hot-reload | Stored a pointer/texture in StateBag, or didn't reload resources in `Initialize()` / `OnStart()` |
+| Texture black/purple on reload | Texture loaded in constructor (before `Initialize`) — GPU resource lost on DLL unload. **Load all resources in `Initialize()` / `OnStart()`, unload in destructor.** |
 | "Unresolved external symbol" | Typo in function signature mismatch. Check that your override matches `GameMap` exactly. |
 | Linker duplicate symbol | Defined a function in a header without `inline`. |
 | StateBag values wrong | Forgot to set default value in `GetFloat(key, default)`. |
 
 ### Debug Checklist
 
-1. Did you load textures/sounds **in `Initialize()`**, not the constructor?
+1. Did you load textures/sounds **in `Initialize()` / `OnStart()`**, not the constructor?
 2. Did you **unload textures/sounds in the destructor**?
 3. Are you storing only **primitives** in StateBag (no pointers, no textures)?
 4. Did you call `AssetResolver::Resolve()` for asset paths?
