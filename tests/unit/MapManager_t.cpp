@@ -26,8 +26,7 @@ public:
     bool b_Uses3DView() const override { return true; }
     Camera3D GetViewCamera3D() const override
     {
-        return Camera3D{ { 1.0f, 2.0f, 3.0f }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 1.0f, 0.0f }, 60.0f,
-            CAMERA_PERSPECTIVE };
+        return Camera3D{ { 1.0f, 2.0f, 3.0f }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 1.0f, 0.0f }, 60.0f, CAMERA_PERSPECTIVE };
     }
 };
 

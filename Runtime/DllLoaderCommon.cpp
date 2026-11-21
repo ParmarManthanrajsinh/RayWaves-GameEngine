@@ -216,7 +216,7 @@ void CleanupStaleShadowCopies()
                 std::vector<std::filesystem::path> directories;
                 for (std::filesystem::recursive_directory_iterator it(
                          temp_dir, std::filesystem::directory_options::skip_permission_denied, ec);
-                     !ec && it != std::filesystem::recursive_directory_iterator(); it.increment(ec))
+                    !ec && it != std::filesystem::recursive_directory_iterator(); it.increment(ec))
                 {
                     if (it->is_directory(ec))
                     {

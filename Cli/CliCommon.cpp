@@ -69,8 +69,8 @@ void PrintError(bool b_json, std::string_view code, std::string_view message)
 
 std::string ErrorJson(std::string_view code, std::string_view message)
 {
-    return "{\"ok\":false,\"error\":{\"code\":" + CliJson::Quoted(code) +
-        ",\"message\":" + CliJson::Quoted(message) + "}}";
+    return "{\"ok\":false,\"error\":{\"code\":" + CliJson::Quoted(code) + ",\"message\":" + CliJson::Quoted(message) +
+        "}}";
 }
 
 fs::path GetSelfPath()

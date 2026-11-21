@@ -24,7 +24,7 @@ try {
         if ($LASTEXITCODE -ne 0) { throw "Configure failed" }
     }
 
-    $targets = @("raywaves_tests_unit", "raywaves_tests_integration", "raywaves_smoke")
+    $targets = @("raywaves_tests_unit", "raywaves_tests_integration", "raywaves_smoke", "game", "main")
     cmake --build $BuildPath --target @targets
     if ($LASTEXITCODE -ne 0) { throw "Test build failed" }
 

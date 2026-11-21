@@ -108,6 +108,8 @@ bool b_CreateFileExclusive(const std::filesystem::path& path, std::string_view c
 
 #else
 
+// Linux host services. The build system rejects macOS/BSD; this branch relies
+// on /proc/self/exe and Linux/XDG paths.
 #include <cerrno>
 #include <chrono>
 #include <csignal>

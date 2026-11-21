@@ -10,7 +10,6 @@
 #include <fstream>
 #include <imgui.h>
 #include <mutex>
-#include <print>
 #include <raylib.h>
 #include <rlImGui.h>
 #include <sstream>
@@ -121,7 +120,7 @@ public:
         std::vector<std::string> m_ExportLogs;
         std::mutex m_ExportLogMutex;
         std::thread m_ExportThread;
-        bool m_bExportSuccess = false;
+        std::atomic<bool> m_bExportSuccess{ false };
     } m_ExportState;
 
     bool m_bShowPerformanceStats = false;

@@ -1,4 +1,5 @@
 #include "ProcessRunner.h"
+#include "PlatformInfo.h"
 
 #include <algorithm>
 #include <array>
@@ -7,6 +8,7 @@
 #include <csignal>
 #include <cstring>
 #include <fcntl.h>
+#include <filesystem>
 #include <poll.h>
 #include <string>
 #include <sys/wait.h>
@@ -136,10 +138,33 @@ void RunProcessInternal(std::vector<std::string> argv, std::string working_dir,
     }
 
     int pipe_fds[2] = { -1, -1 };
-    if (::pipe(pipe_fds) != 0)
+#if defined(__linux__)
+    const int pipe_result = ::pipe2(pipe_fds, O_CLOEXEC);
+#else
+    const int pipe_result = ::pipe(pipe_fds);
+    if (pipe_result == 0)
+    {
+        // Keep unrelated children from inheriting the build pipe.
+        fcntl(pipe_fds[0], F_SETFD, FD_CLOEXEC);
+        fcntl(pipe_fds[1], F_SETFD, FD_CLOEXEC);
+    }
+#endif
+    if (pipe_result != 0)
     {
         report_failure(std::string("Failed to create pipe: ") + std::strerror(errno));
         return;
+    }
+
+    // Resolve PATH before fork. execvp() may allocate and is not
+    // async-signal-safe; execv() on a pre-resolved path is.
+    std::string exec_path = argv[0];
+    if (exec_path.find('/') == std::string::npos)
+    {
+        const std::filesystem::path resolved = PlatformInfo::FindExecutable(exec_path);
+        if (!resolved.empty())
+        {
+            exec_path = resolved.string();
+        }
     }
 
     std::vector<char*> exec_argv;
@@ -176,11 +201,13 @@ void RunProcessInternal(std::vector<std::string> argv, std::string working_dir,
         }
         ::close(pipe_fds[0]);
         ::close(pipe_fds[1]);
-        ::execvp(exec_argv[0], exec_argv.data());
+        ::execv(exec_path.c_str(), exec_argv.data());
         _exit(127);
     }
 
-    // Parent.
+    // Parent. Set the group here too so cancellation cannot race the child's
+    // own setpgid() before it runs. EACCES means the child already exec'd.
+    ::setpgid(pid, pid);
     CloseFd(pipe_fds[1]);
     int read_fd = pipe_fds[0];
     SetNonBlocking(read_fd);

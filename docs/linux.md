@@ -7,9 +7,14 @@ targets as Windows.
 
 - GCC 13+ / G++ 13+. Linux uses the system libstdc++ so GameLogic modules can
   be safely unloaded on hot reload.
+- glibc 2.39+ for release packages (Ubuntu 24.04 or newer). Release artifacts
+  are built against that baseline; `package.sh` reports the actual ABI floor and
+  release CI sets `RAYWAVES_ENFORCE_GLIBC=1`.
 - CMake 3.25 or newer.
 - Ninja (the repo can also fetch it into `Tools/ninja`).
 - X11, OpenGL, and ALSA development headers.
+- `curl` and either `unzip`, `bsdtar`, or CMake when the setup script downloads
+  Ninja.
 - Optional: `clangd` for editor diagnostics, `clang-format` for the format
   check, `zenity` or `kdialog` for native file dialogs.
 
@@ -149,7 +154,13 @@ runs, but those dialogs fail.
 ```
 
 The archive preserves executable bits and `$ORIGIN` RPATHs. Extract it and run
-`./RayWaves` or `./rwcli` from any location.
+`./RayWaves` or `./rwcli` from any location. Third-party notices and license
+texts ship in `THIRD_PARTY_NOTICES.md` and `docs/licenses/`.
+
+Release artifacts are built on the documented glibc baseline. Packaging prints
+the maximum `GLIBC_`/`GLIBCXX_` version required by each executable; set
+`RAYWAVES_ENFORCE_GLIBC=1` to fail instead of warn when a local build is newer
+than the baseline.
 
 ## Hot reload
 

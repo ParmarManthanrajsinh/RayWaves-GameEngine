@@ -1010,7 +1010,11 @@ void GameEditor::Close()
     config.scene_width = m_SceneSettings.m_SceneWidth;
     config.scene_height = m_SceneSettings.m_SceneHeight;
     config.scene_fps = m_SceneSettings.m_TargetFPS;
-    GameConfig::GetInstance().m_bSaveToFile("config.ini");
+    // Save beside the executable: the editor may be launched from a desktop
+    // shortcut whose working directory is not the install directory.
+    const fs::path exe_config = PlatformInfo::GetExecutablePath().parent_path() / "config.ini";
+    const std::string config_path = exe_config.empty() ? std::string("config.ini") : exe_config.string();
+    GameConfig::GetInstance().m_bSaveToFile(config_path);
 
     if (ProjectManager::b_HasOpenProject())
     {
@@ -1139,21 +1143,32 @@ void GameEditor::CompileGameLogic()
     }
     m_BuildCancel = std::make_shared<std::atomic<bool>>(false);
 
-    // rwcli holds this lock while it builds. Linking the same GameLogic.dll
-    // from two processes at once corrupts the output, so refuse instead.
+    // Both the editor and rwcli link the same GameLogic module. Acquire the
+    // cross-process lock instead of only observing it, otherwise a build
+    // started here can overlap an agent build that starts a moment later.
+    fs::path locked_project_root;
+    std::shared_ptr<void> build_lock;
     if (ProjectManager::b_HasOpenProject())
     {
-        AgentLock::FInfo lock_info;
-        if (AgentLock::b_Query(ProjectManager::GetCurrent().m_RootPath, lock_info))
+        locked_project_root = ProjectManager::GetCurrent().m_RootPath;
+        std::string lock_error;
+        if (!AgentLock::b_Acquire(locked_project_root, "editor build", lock_error))
         {
             m_bShowTerminal = true;
             m_Terminal.SelectConsole();
-            m_Terminal.add_text("Build skipped: project is locked by rwcli (pid " + std::to_string(lock_info.m_Pid) +
-                    "). Wait for the agent build to finish.",
-                term::Severity::Error);
+            m_Terminal.add_text(
+                "Build skipped: " + lock_error + ". Wait for the other build to finish.", term::Severity::Error);
             bShowMessageLog = true;
             return;
         }
+
+        struct FLockGuard
+        {
+            fs::path m_Root;
+            ~FLockGuard() { AgentLock::Release(m_Root); }
+        };
+        build_lock = std::shared_ptr<void>(
+            new FLockGuard{ locked_project_root }, [](void* pointer) { delete static_cast<FLockGuard*>(pointer); });
     }
 
     b_IsCompiling = true;
@@ -1197,8 +1212,11 @@ void GameEditor::CompileGameLogic()
 
     auto cancel = m_BuildCancel;
     m_BuildThread = std::thread(
-        [this, cancel, app_dir, cmake_exe, setup_tool, project_root, source_dir, build_dir, b_has_project]()
+        [this, cancel, build_lock, app_dir, cmake_exe, setup_tool, project_root, source_dir, build_dir, b_has_project]()
         {
+            // Keep the cross-process lock alive for the whole build; the
+            // shared_ptr releases it on every exit path, including cancel.
+            (void)build_lock;
             auto run = [this, cancel](const std::vector<std::string>& argv, const fs::path& working_dir)
             {
                 if (cancel->load())

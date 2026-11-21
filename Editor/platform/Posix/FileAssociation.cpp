@@ -33,6 +33,13 @@ std::string DesktopExecQuote(const std::string& value)
     std::string quoted = "\"";
     for (const char character : value)
     {
+        // Desktop Entry Exec treats % as a field-code introducer; a literal
+        // percent must be doubled.
+        if (character == '%')
+        {
+            quoted += "%%";
+            continue;
+        }
         if (character == '\\' || character == '"' || character == '`' || character == '$')
         {
             quoted += '\\';
@@ -147,7 +154,7 @@ bool IsRayWavesFileAssociationRegistered()
     {
         if (line.rfind("Exec=", 0) == 0)
         {
-            b_has_exec = line.find(current) != std::string::npos;
+            b_has_exec = line.find(DesktopExecQuote(current)) != std::string::npos;
         }
         else if (line.rfind("MimeType=", 0) == 0)
         {

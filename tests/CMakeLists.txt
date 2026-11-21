@@ -9,7 +9,6 @@ set(UNIT_TEST_SRC
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/EditorAssets_t.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/EditorCamera3D_t.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/GameConfig_t.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/unit/GameEditor_t.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/GameEngine_t.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/GameMap_t.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/InputReplay_t.cpp
@@ -76,7 +75,7 @@ add_executable(raywaves_tests_integration
     ${CMAKE_SOURCE_DIR}/Editor/GameLogicLoader.cpp
 )
 raywaves_configure_test_target(raywaves_tests_integration)
-add_dependencies(raywaves_tests_integration rwcli)
+add_dependencies(raywaves_tests_integration rwcli game)
 
 add_executable(raywaves_smoke
     ${CMAKE_CURRENT_SOURCE_DIR}/smoke/HotReloadSmoke.cpp

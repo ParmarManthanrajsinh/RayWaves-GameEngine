@@ -1,4 +1,5 @@
-﻿#include "Engine/PlatformInfo.h"
+﻿#include "AgentLock.h"
+#include "Engine/PlatformInfo.h"
 #include "Engine/PlatformNames.h"
 #include "Engine/ProjectManager.h"
 #include "ExportService.h"
@@ -131,6 +132,62 @@ TEST_CASE("ExportService: b_ValidateExportFolder detects missing and complete ex
     // Missing the runtime library fails again
     fs::remove(tmp / rw::platform::c_RaylibRuntimeName);
     CHECK_FALSE(ExportService::b_ValidateExportFolder(tmp.string(), sink));
+}
+
+TEST_CASE("ExportService: versioned raylib is not mistaken for the game executable")
+{
+    TempDir temp_dir("raywaves_export_raylib_name");
+    const fs::path out = temp_dir.Path() / "out";
+    fs::create_directories(out);
+
+    // A versioned SONAME is executable, but it must not satisfy the game
+    // executable check when the actual game binary is missing.
+    {
+        std::ofstream(out / "libraylib.so.600") << "x";
+    }
+    {
+        std::ofstream(out / "GameLogic.so") << "x";
+    }
+    fs::permissions(out / "libraylib.so.600", fs::perms::owner_exec, fs::perm_options::add);
+
+    std::vector<std::string> logs;
+    CHECK_FALSE(ExportService::b_ValidateExportFolder(
+        out.string(), [&logs](std::string_view line) { logs.emplace_back(line); }));
+}
+
+TEST_CASE("ExportService: refuses to run while the project build lock is held")
+{
+    const fs::path repo = PlatformInfo::GetExecutablePath().parent_path().parent_path().parent_path();
+    const fs::path template_dir = repo / "templates" / "Simple2D";
+    REQUIRE(fs::exists(template_dir / "project.raywaves"));
+
+    TempDir temp_dir("raywaves_export_locked");
+    const fs::path project = temp_dir.Path() / "LockedExport";
+    fs::copy(template_dir, project, fs::copy_options::recursive);
+
+    REQUIRE(ProjectManager::b_OpenProject(project.string(), false));
+
+    std::string lock_error;
+    REQUIRE(AgentLock::b_Acquire(project, "test export lock", lock_error));
+
+    FExportSettings settings;
+    settings.m_ExportPath = (temp_dir.Path() / "out").string();
+    settings.m_GameName = "LockedExport";
+
+    std::vector<std::string> logs;
+    const FExportResult result =
+        ExportService::RunExport(settings, nullptr, [&logs](std::string_view line) { logs.emplace_back(line); });
+
+    AgentLock::Release(project);
+    ProjectManager::CloseProject();
+
+    CHECK_FALSE(result.m_bSuccess);
+    bool b_reported_lock = false;
+    for (const std::string& line : logs)
+    {
+        b_reported_lock = b_reported_lock || line.find("locked") != std::string::npos;
+    }
+    CHECK(b_reported_lock);
 }
 
 TEST_CASE("ExportService: end-to-end export produces a runnable folder")

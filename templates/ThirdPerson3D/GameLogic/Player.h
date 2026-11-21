@@ -11,8 +11,7 @@ public:
     Player();
 
     void Reset(Vector3 spawn);
-    void Update(const std::vector<BoundingBox>& colliders, Vector3 move_input, bool b_JumpPressed,
-                float delta_time);
+    void Update(const std::vector<BoundingBox>& colliders, Vector3 move_input, bool b_JumpPressed, float delta_time);
     void Draw() const;
 
     void SaveState(StateBag& out) const;

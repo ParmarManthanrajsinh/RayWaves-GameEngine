@@ -1,5 +1,5 @@
-#include "rw.h"
 #include "Player.h"
+#include "rw.h"
 #include <cmath>
 
 namespace
@@ -17,8 +17,7 @@ void Player::Reset(Vector3 spawn)
     m_bGrounded = true;
 }
 
-void Player::Update(const std::vector<BoundingBox>& colliders, Vector3 move_input, bool b_JumpPressed,
-                    float delta_time)
+void Player::Update(const std::vector<BoundingBox>& colliders, Vector3 move_input, bool b_JumpPressed, float delta_time)
 {
     // Horizontal movement is resolved per axis so sliding along walls works.
     float speed = SPEED * (rw::IsKeyDown(KEY_LEFT_SHIFT) ? SPRINT_MULT : 1.0f);
@@ -153,7 +152,6 @@ bool Player::b_Overlaps(const BoundingBox& a, const BoundingBox& b)
 {
     // Touching faces are not an overlap. Without this, standing on a box would
     // block horizontal movement every frame.
-    return (a.min.x < b.max.x - EPSILON) && (a.max.x > b.min.x + EPSILON) &&
-           (a.min.y < b.max.y - EPSILON) && (a.max.y > b.min.y + EPSILON) &&
-           (a.min.z < b.max.z - EPSILON) && (a.max.z > b.min.z + EPSILON);
+    return (a.min.x < b.max.x - EPSILON) && (a.max.x > b.min.x + EPSILON) && (a.min.y < b.max.y - EPSILON) &&
+        (a.max.y > b.min.y + EPSILON) && (a.min.z < b.max.z - EPSILON) && (a.max.z > b.min.z + EPSILON);
 }

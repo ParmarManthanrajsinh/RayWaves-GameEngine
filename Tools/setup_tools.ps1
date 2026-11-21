@@ -34,11 +34,21 @@ $ZigVersion = $Versions["zig_version"]
 $CMakeVersion = $Versions["cmake_version"]
 $NinjaVersion = $Versions["ninja_version"]
 $RcEditVersion = $Versions["rcedit_version"]
+$CMakeSha256 = $Versions["cmake_sha256_windows_x86_64"]
+$NinjaSha256 = $Versions["ninja_sha256_windows_x86_64"]
 
 function Download-File([string]$Url, [string]$Destination) {
     Write-Host "Downloading $(Split-Path -Leaf $Destination)..." -ForegroundColor Cyan
     & curl.exe -fL --retry 3 --retry-delay 1 -o $Destination $Url
     if ($LASTEXITCODE -ne 0) { throw "Failed to download $Url" }
+}
+
+function Verify-FileHash([string]$Path, [string]$Expected) {
+    if (-not $Expected) { return }
+    $actual = (Get-FileHash $Path -Algorithm SHA256).Hash.ToLower()
+    if ($actual -ne $Expected.ToLower()) {
+        throw "Checksum mismatch for $(Split-Path -Leaf $Path): expected $Expected, got $actual"
+    }
 }
 
 function Rename-Directory([string]$From, [string]$To) {
@@ -100,6 +110,7 @@ if (-not $SkipNinja) {
         $NinjaZip = Join-Path $ToolsDir "ninja.zip"
         $NinjaUrl = "https://github.com/ninja-build/ninja/releases/download/v$NinjaVersion/ninja-win.zip"
         Download-File $NinjaUrl $NinjaZip
+        Verify-FileHash $NinjaZip $NinjaSha256
 
         New-Item -ItemType Directory -Force -Path (Join-Path $ToolsDir "ninja") | Out-Null
         Write-Host "Extracting Ninja..." -ForegroundColor Cyan
@@ -118,6 +129,7 @@ if (-not $SkipCMake) {
         $CMakeZip = Join-Path $ToolsDir "cmake.zip"
         $CMakeUrl = "https://github.com/Kitware/CMake/releases/download/v$CMakeVersion/cmake-$CMakeVersion-windows-x86_64.zip"
         Download-File $CMakeUrl $CMakeZip
+        Verify-FileHash $CMakeZip $CMakeSha256
 
         Write-Host "Extracting CMake..." -ForegroundColor Cyan
         & tar.exe -xf $CMakeZip -C $ToolsDir

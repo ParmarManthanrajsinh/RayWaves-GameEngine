@@ -13,7 +13,7 @@ int GetCurrentProcessId();
 std::filesystem::path FindExecutable(std::string_view name);
 
 // Base directory for per-user RayWaves state (APPDATA on Windows,
-// XDG_CONFIG_HOME/~/.config on POSIX). Callers append "RayWaves".
+// XDG_CONFIG_HOME/~/.config on Linux). Callers append "RayWaves".
 std::filesystem::path GetAppConfigDirectory();
 
 bool b_IsProcessAlive(int pid);

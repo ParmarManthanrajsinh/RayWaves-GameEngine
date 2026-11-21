@@ -1,5 +1,6 @@
 #include "ExportPanel.h"
 #include "../../Engine/GameConfig.h"
+#include "../../Engine/PlatformNames.h"
 #include "../../Engine/ProjectManager.h"
 #include "../EditorUtils.h"
 #include "../ExportService.h"
@@ -62,7 +63,8 @@ void ExportPanel::Draw(GameEditor* editor)
 
         ImGui::SameLine();
         ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyle().Colors[ImGuiCol_TextDisabled]);
-        ImGui::Text("%s.exe", editor->m_ExportState.m_GameName.c_str());
+        const std::string executable_name = rw::platform::ExecutableName(editor->m_ExportState.m_GameName);
+        ImGui::TextUnformatted(executable_name.c_str());
         ImGui::PopStyleColor();
 
         ImGui::TableNextRow();

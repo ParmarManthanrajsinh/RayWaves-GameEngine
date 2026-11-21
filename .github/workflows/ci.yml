@@ -68,6 +68,9 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v')
     needs: build
     runs-on: ${{ matrix.os }}
+    env:
+      # Release artifacts must not silently raise the documented glibc floor.
+      RAYWAVES_ENFORCE_GLIBC: "1"
     strategy:
       matrix:
         include:
@@ -78,7 +81,9 @@ jobs:
           - name: Linux
             os: ubuntu-24.04
             command: ./scripts/package.sh --archive
-            artifact: dist/*.tar.gz
+            artifact: |
+              dist/*.tar.gz
+              dist/*.sha256
 
     steps:
       - uses: actions/checkout@v4
@@ -94,6 +99,15 @@ jobs:
 
       - name: Build package
         run: ${{ matrix.command }}
+
+      - name: Verify packaged Linux archive
+        if: runner.os == 'Linux'
+        run: |
+          rm -rf /tmp/raywaves-package-check
+          mkdir -p /tmp/raywaves-package-check
+          tar -xzf dist/*.tar.gz -C /tmp/raywaves-package-check
+          /tmp/raywaves-package-check/rwcli --version
+          ! ldd /tmp/raywaves-package-check/RayWaves | grep 'not found'
 
       - name: Upload package
         uses: actions/upload-artifact@v4

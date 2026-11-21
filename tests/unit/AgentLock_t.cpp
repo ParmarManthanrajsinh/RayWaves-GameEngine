@@ -1,7 +1,7 @@
 #include "AgentLock.h"
 #include "PlatformInfo.h"
-#include "support/TempDir.h"
 #include "doctest/doctest.h"
+#include "support/TempDir.h"
 #include <fstream>
 
 namespace fs = std::filesystem;

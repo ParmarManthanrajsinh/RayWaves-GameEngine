@@ -57,6 +57,13 @@ FToolInfo DetectTools()
         }
     }
     tools.m_bNinja = fs::exists(tools_dir / "ninja" / rw::platform::ExecutableName("ninja"));
+    if (!tools.m_bNinja)
+    {
+        // Generated projects fall back to a system ninja; doctor must not
+        // report a false failure when Tools/ninja is absent.
+        const fs::path system_ninja = PlatformInfo::FindExecutable("ninja");
+        tools.m_bNinja = !system_ninja.empty();
+    }
     if (rw::platform::b_IsWindows)
     {
         tools.m_bZig = fs::exists(tools_dir / "zig-cxx.bat") && fs::exists(tools_dir / "zig-cc.bat");
@@ -361,7 +368,8 @@ int DoctorCommand(const FProjectContext& project, bool b_json, bool b_fix)
     checks.push_back(MakeCheck("tool_cmake", tools.m_bCMake,
         tools.m_bCMake ? tools.m_CMakePath.string() : setup_hint + " or open the editor once"));
     checks.push_back(MakeCheck("tool_ninja", tools.m_bNinja, tools.m_bNinja ? "found" : setup_hint));
-    checks.push_back(MakeCheck("tool_zig", tools.m_bZig, tools.m_bZig ? "found" : setup_hint));
+    checks.push_back(MakeCheck(
+        "tool_zig", tools.m_bZig, tools.m_bZig ? (rw::platform::b_IsWindows ? "found" : "GCC/G++ found") : setup_hint));
     checks.push_back(MakeCheck("tool_raylib", tools.m_bRaylib,
         tools.m_bRaylib ? tools.m_RaylibDir.string() : "Build RayWaves once so raylib is staged"));
 
@@ -616,27 +624,28 @@ int BuildCommand(const FProjectContext& project, const FArgs& args, bool b_json)
             });
     }
 
-    const std::string configure = ProcessRunner::QuoteArg(tools.m_CMakePath.string()) + " -G Ninja " +
-        ProcessRunner::QuoteArg(source_dir.string()) + " -B " + ProcessRunner::QuoteArg(build_dir.string());
-    bool b_configured = ProcessRunner::RunAndWaitCommandLine(configure, project.m_Dir.string(), capture, cancel);
+    std::vector<std::string> configure = { tools.m_CMakePath.string(), "-G", "Ninja", source_dir.string(), "-B",
+        build_dir.string() };
+    bool b_configured = ProcessRunner::RunAndWaitCommand(configure, project.m_Dir.string(), capture, cancel);
 
     if (!b_configured && !b_timed_out.load())
     {
-        const std::string fresh = ProcessRunner::QuoteArg(tools.m_CMakePath.string()) + " --fresh -G Ninja " +
-            ProcessRunner::QuoteArg(source_dir.string()) + " -B " + ProcessRunner::QuoteArg(build_dir.string());
-        b_configured = ProcessRunner::RunAndWaitCommandLine(fresh, project.m_Dir.string(), capture, cancel);
+        std::vector<std::string> fresh = { tools.m_CMakePath.string(), "--fresh", "-G", "Ninja", source_dir.string(),
+            "-B", build_dir.string() };
+        b_configured = ProcessRunner::RunAndWaitCommand(fresh, project.m_Dir.string(), capture, cancel);
     }
 
     bool b_built = false;
     if (b_configured)
     {
-        std::string build_cmd = ProcessRunner::QuoteArg(tools.m_CMakePath.string()) + " --build " +
-            ProcessRunner::QuoteArg(build_dir.string()) + " --config Release";
+        std::vector<std::string> build_command = { tools.m_CMakePath.string(), "--build", build_dir.string(),
+            "--config", "Release" };
         if (jobs > 0)
         {
-            build_cmd += " --parallel " + std::to_string(jobs);
+            build_command.push_back("--parallel");
+            build_command.push_back(std::to_string(jobs));
         }
-        b_built = ProcessRunner::RunAndWaitCommandLine(build_cmd, project.m_Dir.string(), capture, cancel);
+        b_built = ProcessRunner::RunAndWaitCommand(build_command, project.m_Dir.string(), capture, cancel);
     }
 
     if (watchdog.joinable())
@@ -990,12 +999,10 @@ int LspCommand(const FProjectContext& project, const FArgs& args, bool b_json)
 
     const fs::path source_dir = project.m_Dir / ".raywaves";
     const fs::path build_dir = source_dir / "build-ide";
-    const std::string configure = ProcessRunner::QuoteArg(tools.m_CMakePath.string()) + " -G Ninja " +
-        ProcessRunner::QuoteArg(source_dir.string()) + " -B " + ProcessRunner::QuoteArg(build_dir.string()) +
-        " -DCMAKE_EXPORT_COMPILE_COMMANDS=ON";
-    const std::string fresh = ProcessRunner::QuoteArg(tools.m_CMakePath.string()) + " --fresh -G Ninja " +
-        ProcessRunner::QuoteArg(source_dir.string()) + " -B " + ProcessRunner::QuoteArg(build_dir.string()) +
-        " -DCMAKE_EXPORT_COMPILE_COMMANDS=ON";
+    const std::vector<std::string> configure = { tools.m_CMakePath.string(), "-G", "Ninja", source_dir.string(), "-B",
+        build_dir.string(), "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON" };
+    const std::vector<std::string> fresh = { tools.m_CMakePath.string(), "--fresh", "-G", "Ninja", source_dir.string(),
+        "-B", build_dir.string(), "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON" };
 
     std::vector<std::string> configure_tail;
     auto capture = [&configure_tail](std::string_view line, bool)
@@ -1007,10 +1014,10 @@ int LspCommand(const FProjectContext& project, const FArgs& args, bool b_json)
         }
     };
 
-    bool b_configured = ProcessRunner::RunAndWaitCommandLine(configure, project.m_Dir.string(), capture);
+    bool b_configured = ProcessRunner::RunAndWaitCommand(configure, project.m_Dir.string(), capture);
     if (!b_configured)
     {
-        b_configured = ProcessRunner::RunAndWaitCommandLine(fresh, project.m_Dir.string(), capture);
+        b_configured = ProcessRunner::RunAndWaitCommand(fresh, project.m_Dir.string(), capture);
     }
     if (!b_configured)
     {
@@ -1061,10 +1068,9 @@ int LspCommand(const FProjectContext& project, const FArgs& args, bool b_json)
     {
         for (const fs::path& source : sources)
         {
-            const std::string command = ProcessRunner::QuoteArg(clangd) +
-                " --check=" + ProcessRunner::QuoteArg(source.string()) +
-                " --compile-commands-dir=" + ProcessRunner::QuoteArg(project.m_Dir.string());
-            ProcessRunner::RunAndWaitCommandLine(command, project.m_Dir.string(),
+            const std::vector<std::string> command = { clangd, "--check=" + source.string(),
+                "--compile-commands-dir=" + project.m_Dir.string() };
+            ProcessRunner::RunAndWaitCommand(command, project.m_Dir.string(),
                 [&diagnostics, &source](std::string_view line, bool)
                 {
                     if (line.rfind("E[", 0) != 0)

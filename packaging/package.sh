@@ -30,6 +30,23 @@ case "$CONFIG" in
     *) echo "Invalid config: $CONFIG" >&2; exit 2 ;;
 esac
 
+# Never let a typo turn rm -rf "$DIST" into a repository/home wipe.
+case "$OUTPUT_DIR" in
+    ""|"/"|"."|"..")
+        echo "error: refusing unsafe output directory: '$OUTPUT_DIR'" >&2
+        exit 2
+        ;;
+    *".."*)
+        echo "error: output directory must not contain '..': '$OUTPUT_DIR'" >&2
+        exit 2
+        ;;
+esac
+
+case "$(uname -m)" in
+    x86_64|amd64) ARCH_LABEL="x86_64" ;;
+    *) echo "error: Linux packages are x86_64 only (found $(uname -m))." >&2; exit 1 ;;
+esac
+
 if [ -z "$VERSION" ]; then
     VERSION=$(sed -n 's/.*project(RayWaves VERSION \([0-9][0-9.]*\).*/\1/p' "$ROOT/CMakeLists.txt" | head -n 1)
     VERSION=${VERSION:-0.1.0}
@@ -41,6 +58,26 @@ if [[ "$OUTPUT_DIR" = /* ]]; then
     DIST="$OUTPUT_DIR"
 else
     DIST="$ROOT/$OUTPUT_DIR"
+fi
+
+case "$DIST" in
+    "/"|"$ROOT"|"$ROOT/"|"${HOME:-/nonexistent}"|"${HOME:-/nonexistent}/")
+        echo "error: refusing to package into '$DIST'" >&2
+        exit 2
+        ;;
+esac
+
+# The output directory is deleted with rm -rf. Absolute paths must stay in a
+# user-owned scratch area, the repo, or $HOME; a typo like /usr/local must not
+# become a filesystem-wide delete.
+if [[ "$DIST" = /* ]]; then
+    case "$DIST" in
+        "$ROOT"/*|"${HOME:-/nonexistent}"/*|/tmp/*) ;;
+        *)
+            echo "error: absolute output directory must be under \$HOME, /tmp, or the repo: '$DIST'" >&2
+            exit 2
+            ;;
+    esac
 fi
 
 echo "Packaging RayWaves $VERSION ($CONFIG)"
@@ -100,15 +137,23 @@ copy_dir() {
 copy_file "$GAME_EXE" "$DIST/Core/runtime"
 copy_file "$EDITOR_EXE" "$DIST/RayWaves"
 copy_file "$CLI_EXE" "$DIST/rwcli"
+
+# raylib's SONAME is libraylib.so.600. Keep the linker name and the SONAME
+# file; the extra versioned copy is identical and only bloats the archive.
 copy_file "$RAYLIB_STAGED/lib/libraylib.so" "$DIST/libraylib.so"
-cp -f "$RAYLIB_STAGED"/lib/libraylib.so.* "$DIST/" 2>/dev/null || true
+if [ -f "$RAYLIB_STAGED/lib/libraylib.so.600" ]; then
+    copy_file "$RAYLIB_STAGED/lib/libraylib.so.600" "$DIST/libraylib.so.600"
+fi
 
 # The runtime lives in Core/, so it needs its own copy of raylib.
-cp -f "$RAYLIB_STAGED"/lib/libraylib.so* "$DIST/Core/" 2>/dev/null || true
+if [ -f "$RAYLIB_STAGED/lib/libraylib.so.600" ]; then
+    copy_file "$RAYLIB_STAGED/lib/libraylib.so.600" "$DIST/Core/libraylib.so.600"
+fi
+copy_file "$RAYLIB_STAGED/lib/libraylib.so" "$DIST/Core/libraylib.so"
 cp -f "$RAYLIB_STAGED"/include/*.h "$DIST/Core/raylib/include/"
-cp -f "$RAYLIB_STAGED"/lib/libraylib.so* "$DIST/Core/raylib/lib/"
-if [ -d "$RAYLIB_STAGED/bin" ]; then
-    cp -f "$RAYLIB_STAGED"/bin/* "$DIST/Core/raylib/bin/" 2>/dev/null || true
+copy_file "$RAYLIB_STAGED/lib/libraylib.so" "$DIST/Core/raylib/lib/libraylib.so"
+if [ -f "$RAYLIB_STAGED/lib/libraylib.so.600" ]; then
+    copy_file "$RAYLIB_STAGED/lib/libraylib.so.600" "$DIST/Core/raylib/lib/libraylib.so.600"
 fi
 
 # Engine sources and headers used by generated project builds.
@@ -126,6 +171,7 @@ copy_dir "$ROOT/EngineContent" "$DIST/Core/EngineContent"
 copy_dir "$ROOT/docs" "$DIST/docs"
 copy_file "$ROOT/packaging/config.ini" "$DIST/config.ini"
 copy_file "$ROOT/LICENSE" "$DIST/LICENSE"
+copy_file "$ROOT/THIRD_PARTY_NOTICES.md" "$DIST/THIRD_PARTY_NOTICES.md"
 printf '%s\n' "$VERSION" > "$DIST/VERSION"
 
 # Toolchain wrappers and the fetch scripts. The bundled compiler is optional.
@@ -134,8 +180,25 @@ cp -f "$ROOT"/Tools/setup_tools.sh "$ROOT"/Tools/toolchain.ini "$DIST/Core/Tools
 if [ -d "$ROOT/Tools/ninja" ]; then
     copy_dir "$ROOT/Tools/ninja" "$DIST/Core/Tools/ninja"
 fi
+# Bundle only the CMake pieces needed to configure and build a project.
+# Copying the full tree adds ~200 MB of documentation and GUI tools.
 if [ -d "$ROOT/Tools/cmake" ]; then
-    copy_dir "$ROOT/Tools/cmake" "$DIST/Core/Tools/cmake"
+    mkdir -p "$DIST/Core/Tools/cmake/bin" "$DIST/Core/Tools/cmake/share"
+    # Project builds need cmake, not ctest/cpack or the GUI tools.
+    for tool in cmake; do
+        if [ -x "$ROOT/Tools/cmake/bin/$tool" ]; then
+            copy_file "$ROOT/Tools/cmake/bin/$tool" "$DIST/Core/Tools/cmake/bin/$tool"
+        fi
+    done
+    for cmake_share in "$ROOT"/Tools/cmake/share/cmake-*; do
+        [ -d "$cmake_share" ] || continue
+        share_name=$(basename "$cmake_share")
+        for subdir in Modules Templates Licenses; do
+            if [ -d "$cmake_share/$subdir" ]; then
+                copy_dir "$cmake_share/$subdir" "$DIST/Core/Tools/cmake/share/$share_name/$subdir"
+            fi
+        done
+    done
 fi
 if [ "$INCLUDE_COMPILER" -eq 1 ]; then
     echo "warning: Linux packages use the system GCC/G++; --include-compiler has no effect." >&2
@@ -150,13 +213,54 @@ if [ -f "$DIST/Core/Tools/ninja/ninja" ]; then chmod +x "$DIST/Core/Tools/ninja/
 if [ -d "$DIST/Core/Tools/cmake/bin" ]; then chmod +x "$DIST/Core/Tools/cmake/bin/"*; fi
 find "$DIST/Core/Tools" -name '*.sh' -type f -exec chmod +x {} +
 
+# Release packages do not need debug symbols. Keep Debug packages untouched.
+if [ "$CONFIG" = "Release" ] && command -v strip >/dev/null 2>&1; then
+    strip --strip-unneeded "$DIST/RayWaves" "$DIST/rwcli" "$DIST/Core/runtime" 2>/dev/null || true
+fi
+
+# Report the actual runtime ABI floor. Release artifacts are built on an
+# older LTS in CI; a local bleeding-edge distro will legitimately need a
+# newer glibc, so enforce only when the caller asks for it.
+GLIBC_BASELINE=${RAYWAVES_GLIBC_BASELINE:-2.39}
+GLIBCXX_BASELINE=${RAYWAVES_GLIBCXX_BASELINE:-3.4.32}
+version_gt() {
+    [ "$1" != "$2" ] && [ "$(printf '%s\n%s\n' "$1" "$2" | sort -V | tail -n 1)" = "$1" ]
+}
+check_binary_abi() {
+    local binary=$1
+    [ -f "$binary" ] || return 0
+    command -v objdump >/dev/null 2>&1 || return 0
+
+    local max_glibc max_glibcxx
+    max_glibc=$(objdump -T "$binary" 2>/dev/null | grep -o 'GLIBC_[0-9.]*' | sed 's/^GLIBC_//' | sort -Vu | tail -n 1 || true)
+    max_glibcxx=$(objdump -T "$binary" 2>/dev/null | grep -o 'GLIBCXX_[0-9.]*' | sed 's/^GLIBCXX_//' | sort -Vu | tail -n 1 || true)
+    [ -n "$max_glibc" ] && echo "  $(basename "$binary"): glibc >= $max_glibc, libstdc++ >= ${max_glibcxx:-n/a}"
+    if version_gt "$max_glibc" "$GLIBC_BASELINE" || version_gt "$max_glibcxx" "$GLIBCXX_BASELINE"; then
+        if [ "${RAYWAVES_ENFORCE_GLIBC:-0}" = "1" ]; then
+            echo "error: $(basename "$binary") requires a newer ABI than the ${GLIBC_BASELINE}/${GLIBCXX_BASELINE} baseline." >&2
+            echo "       Build release artifacts in the pinned older container." >&2
+            exit 1
+        fi
+        echo "warning: $(basename "$binary") exceeds the documented ${GLIBC_BASELINE}/${GLIBCXX_BASELINE} baseline." >&2
+    fi
+}
+echo "Runtime ABI requirements:"
+check_binary_abi "$DIST/RayWaves"
+check_binary_abi "$DIST/rwcli"
+check_binary_abi "$DIST/Core/runtime"
+check_binary_abi "$DIST/libraylib.so.600"
+
 # Validation.
 required=(
     "RayWaves"
     "rwcli"
     "libraylib.so"
+    "libraylib.so.600"
     "config.ini"
     "VERSION"
+    "LICENSE"
+    "THIRD_PARTY_NOTICES.md"
+    "docs/licenses/raylib.txt"
     "Core/runtime"
     "Core/Project.CMakeLists.in"
     "Core/Project.AGENTS.md.in"
@@ -172,7 +276,11 @@ for relative in "${required[@]}"; do
 done
 
 if [ "$ARCHIVE" -eq 1 ]; then
-    ARCHIVE_PATH="$ROOT/dist/RayWaves-$VERSION-linux-x86_64.tar.gz"
+    ARCHIVE_NAME="RayWaves-$VERSION-linux-$ARCH_LABEL"
+    if [ "$CONFIG" != "Release" ]; then
+        ARCHIVE_NAME="$ARCHIVE_NAME-$(echo "$CONFIG" | tr '[:upper:]' '[:lower:]')"
+    fi
+    ARCHIVE_PATH="$ROOT/dist/$ARCHIVE_NAME.tar.gz"
     mkdir -p "$(dirname "$ARCHIVE_PATH")"
     rm -f "$ARCHIVE_PATH"
     # Build the archive outside DIST: writing it inside the tree while tar

@@ -22,3 +22,8 @@ CMakePresets.json text eol=lf
 *.exe  binary
 *.lib  binary
 *.pdb  binary
+*.so   binary
+*.so.* binary
+*.dylib binary
+*.a    binary
+*.o    binary

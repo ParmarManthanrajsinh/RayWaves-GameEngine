@@ -86,7 +86,7 @@ dist/
 │  ├─ Project.clangd.in
 │  ├─ Project.vscode.*.json.in
 │  ├─ .clang-format
-│  └─ Tools/                  # zig wrappers, ninja, cmake
+│  └─ Tools/                  # setup script, ninja, cmake (no compiler)
 ├─ templates/
 └─ docs/
 ```
@@ -101,6 +101,15 @@ raylib import/runtime library and remove build artifacts from templates.
 Windows archives are ZIPs; Linux archives are tar.gz files that preserve
 executable bits and `$ORIGIN` RPATHs. Linux targets must have GCC/G++ and
 libstdc++ installed; the package does not bundle a compiler.
+
+Linux release artifacts target glibc 2.39 / glibcxx 3.4.32 (Ubuntu 24.04). Build
+them on that baseline (or an older LTS with an equivalent GCC), not on the
+developer's newest distro. `packaging/package.sh` prints the ABI version each
+binary requires; set `RAYWAVES_ENFORCE_GLIBC=1` in release CI to make a newer
+requirement fail the build.
+
+The package includes `THIRD_PARTY_NOTICES.md` and `docs/licenses/` for raylib,
+Dear ImGui, tinyfiledialogs, libvterm, Ninja, and CMake.
 
 ## Versioning
 

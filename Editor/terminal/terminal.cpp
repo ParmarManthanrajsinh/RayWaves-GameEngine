@@ -377,15 +377,23 @@ void Terminal::EnsureInitialized()
 
     if (!t_PtySession::b_IsSupported())
     {
+#if defined(_WIN32)
         add_text("ConPTY is not available. Terminal shells are disabled; Windows 10 1809 or newer is required.",
             Severity::Warn);
+#else
+        add_text("PTY is not available. Terminal shells are disabled on this system.", Severity::Warn);
+#endif
         return;
     }
 
     m_Shells = DetectShells();
     if (m_Shells.empty())
     {
+#if defined(_WIN32)
         add_text("No shell was found. Install PowerShell or use Command Prompt.", Severity::Error);
+#else
+        add_text("No shell was found. Install bash, zsh, fish, or sh.", Severity::Error);
+#endif
         return;
     }
 

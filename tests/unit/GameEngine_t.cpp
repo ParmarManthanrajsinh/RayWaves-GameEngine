@@ -1,8 +1,8 @@
 #include "Engine/AssetResolver.h"
 #include "Engine/GameEngine.h"
 #include "Engine/GameMap.h"
-#include "support/TempDir.h"
 #include "doctest/doctest.h"
+#include "support/TempDir.h"
 #include <filesystem>
 #include <fstream>
 

@@ -24,8 +24,8 @@ TEST_CASE("EditorCamera3D: FromCamera rebuilds the same view")
 TEST_CASE("EditorCamera3D: look clamps pitch and keeps position")
 {
     EditorCamera3D camera;
-    camera.FromCamera(Camera3D{ { 0.0f, 0.0f, 10.0f }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 1.0f, 0.0f }, 60.0f,
-        CAMERA_PERSPECTIVE });
+    camera.FromCamera(
+        Camera3D{ { 0.0f, 0.0f, 10.0f }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 1.0f, 0.0f }, 60.0f, CAMERA_PERSPECTIVE });
 
     const Vector3 start = camera.GetPosition();
 
@@ -75,8 +75,8 @@ TEST_CASE("EditorCamera3D: move flies along the view")
 TEST_CASE("EditorCamera3D: dolly clamps distance")
 {
     EditorCamera3D camera;
-    camera.FromCamera(Camera3D{ { 0.0f, 0.0f, 10.0f }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 1.0f, 0.0f }, 60.0f,
-        CAMERA_PERSPECTIVE });
+    camera.FromCamera(
+        Camera3D{ { 0.0f, 0.0f, 10.0f }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 1.0f, 0.0f }, 60.0f, CAMERA_PERSPECTIVE });
 
     for (int index = 0; index < 100; ++index)
     {
@@ -94,8 +94,8 @@ TEST_CASE("EditorCamera3D: dolly clamps distance")
 TEST_CASE("EditorCamera3D: focus frames a point and radius")
 {
     EditorCamera3D camera;
-    camera.FromCamera(Camera3D{ { 0.0f, 0.0f, 10.0f }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 1.0f, 0.0f }, 60.0f,
-        CAMERA_PERSPECTIVE });
+    camera.FromCamera(
+        Camera3D{ { 0.0f, 0.0f, 10.0f }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 1.0f, 0.0f }, 60.0f, CAMERA_PERSPECTIVE });
 
     camera.Focus({ 5.0f, 2.0f, 1.0f }, 3.0f);
 
@@ -114,8 +114,8 @@ TEST_CASE("EditorCamera3D: focus frames a point and radius")
 TEST_CASE("EditorCamera3D: pan moves the pivot sideways")
 {
     EditorCamera3D camera;
-    camera.FromCamera(Camera3D{ { 0.0f, 0.0f, 10.0f }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 1.0f, 0.0f }, 60.0f,
-        CAMERA_PERSPECTIVE });
+    camera.FromCamera(
+        Camera3D{ { 0.0f, 0.0f, 10.0f }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 1.0f, 0.0f }, 60.0f, CAMERA_PERSPECTIVE });
 
     camera.Pan(20.0f, 0.0f, 600.0f);
     CHECK(camera.GetPivot().x < 0.0f);

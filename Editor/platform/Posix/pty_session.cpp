@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <atomic>
 #include <cerrno>
+#include <chrono>
 #include <csignal>
 #include <cstdlib>
 #include <cstring>
@@ -25,6 +26,39 @@ void CloseFd(int& fd)
         ::close(fd);
         fd = -1;
     }
+}
+
+std::string ResolveExecutable(const std::string& name)
+{
+    if (name.empty() || name.find('/') != std::string::npos)
+    {
+        return name;
+    }
+
+    const char* path_env = std::getenv("PATH");
+    if (path_env == nullptr)
+    {
+        return name;
+    }
+
+    const std::string paths(path_env);
+    size_t start = 0;
+    while (start <= paths.size())
+    {
+        const size_t end = paths.find(':', start);
+        const std::string directory = paths.substr(start, (end == std::string::npos ? paths.size() : end) - start);
+        const std::string candidate = (directory.empty() ? "." : directory) + "/" + name;
+        if (::access(candidate.c_str(), X_OK) == 0)
+        {
+            return candidate;
+        }
+        if (end == std::string::npos)
+        {
+            break;
+        }
+        start = end + 1;
+    }
+    return name;
 }
 
 std::vector<std::string> SplitArguments(const std::string& text)
@@ -148,8 +182,12 @@ bool term::t_PtySession::b_Start(const t_ShellSpec& shell, const std::string& wo
     {
         arguments = SplitArguments(shell.arguments);
     }
+
+    // Resolve PATH before fork; execvp() is not async-signal-safe.
+    const std::string executable = ResolveExecutable(shell.executable);
+
     std::vector<char*> argv;
-    argv.push_back(const_cast<char*>(shell.executable.c_str()));
+    argv.push_back(const_cast<char*>(executable.c_str()));
     for (std::string& argument : arguments)
     {
         argv.push_back(argument.data());
@@ -192,7 +230,7 @@ bool term::t_PtySession::b_Start(const t_ShellSpec& shell, const std::string& wo
             _exit(126);
         }
 
-        ::execvp(argv[0], argv.data());
+        ::execv(executable.c_str(), argv.data());
         _exit(127);
     }
 
@@ -309,12 +347,20 @@ void term::t_PtySession::Stop()
     m_Impl->stopping.store(true);
     if (m_Impl->pid > 0)
     {
-        ::kill(-m_Impl->pid, SIGTERM);
-        ::kill(m_Impl->pid, SIGTERM);
-        // Stop() is an explicit teardown; do not wait forever on a shell that
-        // ignores SIGTERM.
-        ::kill(-m_Impl->pid, SIGKILL);
-        ::kill(m_Impl->pid, SIGKILL);
+        // Ask the shell to exit, give it a short grace period to flush, then
+        // force it. Closing a tab should not hang on a shell stuck in a
+        // prompt hook or a foreground child.
+        ::kill(-m_Impl->pid, SIGHUP);
+        ::kill(m_Impl->pid, SIGHUP);
+        for (int attempt = 0; attempt < 15 && m_Impl->running.load(); ++attempt)
+        {
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        }
+        if (m_Impl->running.load())
+        {
+            ::kill(-m_Impl->pid, SIGKILL);
+            ::kill(m_Impl->pid, SIGKILL);
+        }
     }
 
     // The reader polls with a short timeout, so it notices `stopping` without

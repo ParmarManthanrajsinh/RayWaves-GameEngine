@@ -14,6 +14,10 @@ if ($All -or -not $Preset) {
     exit 0
 }
 
+if ($Preset -match '[\\/]' -or $Preset -eq '.' -or $Preset -eq '..') {
+    throw "Invalid preset name: '$Preset'"
+}
+
 $path = Join-Path $Root "build/$Preset"
 if (Test-Path $path) { Remove-Item -Recurse -Force $path }
 Write-Host "Removed build/$Preset"

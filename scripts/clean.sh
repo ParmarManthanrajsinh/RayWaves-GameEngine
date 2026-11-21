@@ -18,6 +18,12 @@ while [ $# -gt 0 ]; do
 done
 
 if [ -n "$PRESET" ]; then
+    case "$PRESET" in
+        */*|*\\*|"."|"..")
+            echo "error: invalid preset name: '$PRESET'" >&2
+            exit 2
+            ;;
+    esac
     rm -rf "$ROOT/build/$PRESET"
     echo "Removed build/$PRESET"
 else

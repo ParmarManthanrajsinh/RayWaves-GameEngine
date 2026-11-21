@@ -9,7 +9,8 @@ Current, intentional limits. Update this page when one changes.
   pass. Install the X11/GL/ALSA development packages listed in
   [linux.md](linux.md).
 - Linux requires GCC/G++ and the system libstdc++; the distribution does not
-  bundle a Linux compiler.
+  bundle a Linux compiler. Release artifacts target glibc 2.39+ (Ubuntu 24.04).
+- Linux release packages are x86_64 only.
 - Linux file dialogs use `zenity` or `kdialog` through `tinyfiledialogs`.
 - Cross-compilation is not supported; release builds run natively on each OS
   in CI.

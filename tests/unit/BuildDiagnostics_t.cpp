@@ -46,7 +46,8 @@ TEST_CASE("msvc error with line and column")
 TEST_CASE("msvc warning with line only")
 {
     t_Diagnostic diagnostic;
-    REQUIRE(BuildDiagnostics::b_ParseLine("C:\\Projects\\Game\\Player.cpp(10): warning C4101: 'x': unreferenced", diagnostic));
+    REQUIRE(BuildDiagnostics::b_ParseLine(
+        "C:\\Projects\\Game\\Player.cpp(10): warning C4101: 'x': unreferenced", diagnostic));
     CHECK(diagnostic.m_Severity == ESeverity::Warning);
     CHECK(diagnostic.m_File == "C:\\Projects\\Game\\Player.cpp");
     CHECK(diagnostic.m_Line == 10);

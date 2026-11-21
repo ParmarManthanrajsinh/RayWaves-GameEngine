@@ -33,7 +33,7 @@ if [ ! -d "$BUILD_DIR" ]; then
     cmake --preset "$PRESET"
 fi
 
-cmake --build "$BUILD_DIR" --target raywaves_tests_unit raywaves_tests_integration raywaves_smoke
+cmake --build "$BUILD_DIR" --target raywaves_tests_unit raywaves_tests_integration raywaves_smoke game main
 
 LABEL="$SUITE"
 if [ "$SUITE" = "all" ]; then

@@ -12,9 +12,15 @@ endif()
 if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Windows")
     set(RAYWAVES_HOST_WINDOWS TRUE)
     set(RAYWAVES_HOST_POSIX FALSE)
-else()
+elseif(CMAKE_HOST_SYSTEM_NAME STREQUAL "Linux")
     set(RAYWAVES_HOST_WINDOWS FALSE)
     set(RAYWAVES_HOST_POSIX TRUE)
+else()
+    # The "Posix" backend is Linux-specific (/proc/self/exe, .desktop, X11).
+    # Fail fast instead of producing a binary that configures and then
+    # misbehaves on macOS/BSD.
+    message(FATAL_ERROR
+        "RayWaves supports Windows and Linux only (host was ${CMAKE_HOST_SYSTEM_NAME}).")
 endif()
 
 if(RAYWAVES_TOOLCHAIN STREQUAL "auto")

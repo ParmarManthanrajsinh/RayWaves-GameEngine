@@ -79,8 +79,10 @@ The menu item shows a checkmark when the association is already registered and m
 RayWaves.exe --project "C:\path\to\project"
 RayWaves.exe "C:\path\to\project\project.raywaves"
 ```
+
+Linux:
+
 ```sh
-# Linux
 ./RayWaves --project /path/to/project
 ./RayWaves /path/to/project/project.raywaves
 ```

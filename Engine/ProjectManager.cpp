@@ -74,8 +74,8 @@ fs::path ProjectManager::GetToolsDirectory()
 {
     fs::path engine_root = GetEngineRootDirectory();
     fs::path tools_dir = engine_root / "Core" / "Tools";
-    const bool b_has_tools = fs::exists(tools_dir / "zig-cc.bat") || fs::exists(tools_dir / "zig-cc.sh") ||
-        fs::exists(tools_dir / "setup_tools.sh") || fs::exists(tools_dir / "setup_tools.ps1");
+    const bool b_has_tools = fs::exists(tools_dir / "zig-cc.bat") || fs::exists(tools_dir / "setup_tools.sh") ||
+        fs::exists(tools_dir / "setup_tools.ps1");
     if (!b_has_tools)
     {
         tools_dir = engine_root / "Tools";
@@ -972,6 +972,7 @@ bool ProjectManager::GenerateCMakeLists()
     std::string content((std::istreambuf_iterator<char>(template_file)), std::istreambuf_iterator<char>());
 
     content = ReplaceToken(content, "@PROJECT_NAME@", SanitizeCMakeProjectName(s_Current.m_Name));
+    content = ReplaceToken(content, "@SOURCE_DIR@", ToForwardSlashes(s_Current.m_SourceDir));
     content = ReplaceToken(content, "@TOOLS_DIR@", ToForwardSlashes(GetToolsDirectory()));
     content = ReplaceToken(content, "@ENGINE_ROOT@", ToForwardSlashes(engine_root));
     content = ReplaceToken(content, "@ENGINE_DIR@", ToForwardSlashes(engine_dir));

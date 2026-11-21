@@ -32,6 +32,9 @@ if(UNIX)
     # Keep build-tree RPATHs relative so copied/packaged binaries do not embed
     # the build machine's absolute _deps paths.
     set(CMAKE_BUILD_RPATH_USE_ORIGIN ON)
+    # Use the target's INSTALL_RPATH in the build tree too. This drops CMake's
+    # automatic _deps entries and leaves only $ORIGIN in packaged binaries.
+    set(CMAKE_BUILD_WITH_INSTALL_RPATH ON)
     # glibc marks DSOs containing STB_GNU_UNIQUE symbols as NODELETE, which
     # prevents dlclose() from unmapping GameLogic. Normal weak symbols are
     # enough for this engine; disable GNU unique in shared-library builds.
@@ -40,17 +43,27 @@ endif()
 
 # Common compiler flags. Keep these to compilers CMake reports as Clang/GNU;
 # MSVC is not used by the presets but should not see unsupported flags.
+#
+# These three settings are Linux-hostile leftovers from the Windows/Zig
+# toolchain: forcing SSE4.2 raises the CPU baseline, disabling sanitizers
+# removes the most useful debug tool, and IMGUI_DISABLE_SSE strips ImGui's
+# SIMD path on a platform where SSE2 is guaranteed. Keep them on Windows and
+# leave Linux builds portable.
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
-    if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|i.86)$")
-        add_compile_options(-msse4.2)
+    if(WIN32)
+        if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|i.86)$")
+            add_compile_options(-msse4.2)
+        endif()
+        add_compile_options(-fno-sanitize=all)
     endif()
-    add_compile_options(-fno-sanitize=all)
     if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
         add_compile_options(-Qunused-arguments)
     endif()
 endif()
 
-add_compile_definitions(IMGUI_DISABLE_SSE)
+if(WIN32)
+    add_compile_definitions(IMGUI_DISABLE_SSE)
+endif()
 
 if(WIN32)
     add_compile_definitions(RAYWAVES_PLATFORM_WINDOWS=1)

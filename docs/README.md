@@ -16,6 +16,7 @@
 | [Testing](testing.md) | Contributors | Test suites, labels, how to add a test |
 | [Benchmarks](benchmarks.md) | Contributors | Running, measuring, and checking regressions |
 | [Distribution](distribution.md) | Maintainers | Building and validating a release package |
+| [Third-party notices](../THIRD_PARTY_NOTICES.md) | Maintainers | Bundled licenses and attributions |
 | [Known limitations](known-limitations.md) | Everyone | Current intentional limits |
 | [Decisions (ADR)](adr/README.md) | Contributors | Why the architecture looks like this |
 | [Troubleshooting](TROUBLESHOOTING.md) | Everyone | Common failures and fixes |

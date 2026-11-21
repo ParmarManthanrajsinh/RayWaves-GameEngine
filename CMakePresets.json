@@ -14,8 +14,8 @@
     },
     {
       "name": "zig-debug",
-      "displayName": "Zig Debug",
-      "description": "Debug build using the pinned Zig toolchain (Windows and Linux)",
+      "displayName": "Debug",
+      "description": "Debug build (Zig on Windows, system GCC/G++ on Linux)",
       "inherits": "base",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug"
@@ -23,8 +23,8 @@
     },
     {
       "name": "zig-release",
-      "displayName": "Zig Release",
-      "description": "Release build using the pinned Zig toolchain (Windows and Linux)",
+      "displayName": "Release",
+      "description": "Release build (Zig on Windows, system GCC/G++ on Linux)",
       "inherits": "base",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release"
@@ -44,7 +44,7 @@
   "testPresets": [
     {
       "name": "zig-debug",
-      "displayName": "Zig Debug Tests",
+      "displayName": "Debug Tests",
       "configurePreset": "zig-debug",
       "output": {
         "outputOnFailure": true
@@ -55,7 +55,7 @@
     },
     {
       "name": "zig-release",
-      "displayName": "Zig Release Tests",
+      "displayName": "Release Tests",
       "configurePreset": "zig-release",
       "output": {
         "outputOnFailure": true

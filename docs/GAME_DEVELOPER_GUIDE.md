@@ -14,14 +14,18 @@
 4. Click **Compile** (toolbar button). Build runs automatically.
 5. Changes hot-reload in ~0.5 seconds. No restarting.
 
-> **Tip:** Double-click a `project.raywaves` file in Explorer (after registering file association under *Tools -> Register .raywaves file association*) to skip the browser.
+On Linux, launch the editor with `./RayWaves` (or `./RayWaves --project /path/to/MyGame`)
+and build with `./rwcli build /path/to/MyGame --json`. The gameplay module is
+`GameLogic.so`; on Windows it is `GameLogic.dll`.
+
+> **Tip:** Double-click a `project.raywaves` file in your file manager (after registering file association under *Tools -> Register .raywaves file association*) to skip the browser. On Linux, the same menu writes a `.desktop` file and MIME type.
 
 ---
 
 ## Workflow
 
 ```
-Code (GameLogic/*.cpp) -> Click Compile -> DLL hot-reloads -> Play instantly
+Code (GameLogic/*.cpp) -> Click Compile -> module hot-reloads -> Play instantly
 ```
 
 You never close the game window to change code.
@@ -44,18 +48,18 @@ the map, and restores state. Concretely:
 
 **Does not survive (no):**
 - Raw pointers, texture/sound handles, or object references held in member
-  variables — the old DLL is unloaded, so its code and statics are gone.
+  variables — the old module is unloaded, so its code and statics are gone.
   Re-acquire them in `Initialize()` / `LoadState()`.
 - `static` locals or globals holding gameplay state — they die with the old
-  DLL. Put durable state in `StateBag` instead.
+  module. Put durable state in `StateBag` instead.
 - Changes to what `SaveState` writes without a matching `LoadState` reader
   (or vice versa) — missing keys silently fall back to defaults.
 
 **Rejected loads:**
 - If the editor reports a *GameLogic ABI mismatch* (or a missing
-  `GetGameLogicAbiVersion` export), your DLL was built with a different engine
-  version. Just hit **Compile** again to rebuild it — old DLLs are refused
-  rather than risk heap corruption across the DLL boundary.
+  `GetGameLogicAbiVersion` export), your module was built with a different engine
+  version. Just hit **Compile** again to rebuild it — old modules are refused
+  rather than risk heap corruption across the module boundary.
 
 **Weird state?** Press the **Restart** button to reset the map.
 
@@ -68,7 +72,7 @@ MyGame/
 ├── project.raywaves      # Manifest (name, version, scene settings)
 ├── Assets/                # Textures, sounds, fonts, <MapId>.scene
 ├── GameLogic/             # YOUR C++ GAMEPLAY CODE
-│   ├── RootManager.cpp    # DLL entry point, map registration
+│   ├── RootManager.cpp    # module entry point, map registration
 │   └── YourMap.cpp        # Any number of maps, entities, systems
 └── .raywaves/             # Auto-managed build cache (do not touch)
 ```
@@ -127,7 +131,7 @@ What `rw` handles for you:
 
 | You write | Framework does |
 |-----------|----------------|
-| `RW_GAME(MyLevel)` | The three DLL exports (`GetGameLogicAbiVersion`, `CreateGameMap`, `DestroyGameMap`). |
+| `RW_GAME(MyLevel)` | The three module exports (`GetGameLogicAbiVersion`, `CreateGameMap`, `DestroyGameMap`). |
 | `rw::IsKeyDown` / `rw::IsKeyPressed` | Replayable input for `rwcli run --input`; falls back to raylib at runtime. |
 | `Spawn(...)` | Stable entity storage, editor registration, selection outline, inspector fields. |
 | `Destroy(entity)` / `ClearEntities()` | Unregisters the entity and drops the pointer safely. |
@@ -270,7 +274,7 @@ gameplay fields are read-only; stop to edit them.
 | **ThirdPerson3D** | 1 map (raw `GameMap`, 3D) | Low | Third-person 3D starter |
 | **SlimeQuest** | Multi-map (raw `GameMap`) | Full | Reference for a production 2D game |
 
-See [GUIDE_FUNDAMENTALS.md](GUIDE_FUNDAMENTALS.md) for understanding the DLL contract, map lifecycle, StateBag, and your first map tutorial.
+See [GUIDE_FUNDAMENTALS.md](GUIDE_FUNDAMENTALS.md) for understanding the module contract, map lifecycle, StateBag, and your first map tutorial.
 
 See [GUIDE_REFERENCE.md](GUIDE_REFERENCE.md) for camera, input, audio, assets, export, and common patterns.
 

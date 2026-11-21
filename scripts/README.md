@@ -16,7 +16,8 @@ targets.
 | Docs check | `check-docs.ps1` | `check-docs.sh` | Stale tokens, fences, relative links |
 | Clean | `clean.ps1` | `clean.sh` | Remove a build directory (host switch) |
 
-The CMake presets are identical on both platforms:
+The CMake presets are identical on both platforms. Their historical names are
+kept for compatibility; on Linux they select system GCC/G++, not Zig:
 
 ```text
 zig-debug

@@ -20,6 +20,11 @@ skills-lock.json
 *.obj
 *.aps
 *.dsym
+*.so
+*.so.*
+*.dylib
+*.a
+*.o
 
 # Downloadable toolchain binaries (scripts are tracked)
 /Tools/zig/

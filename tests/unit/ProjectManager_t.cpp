@@ -4,6 +4,8 @@
 #include <algorithm>
 #include <filesystem>
 #include <fstream>
+#include <iterator>
+#include <string>
 
 namespace
 {
@@ -109,6 +111,35 @@ TEST_CASE("ProjectManager: b_CreateProject creates asset and source folders")
     CHECK(std::filesystem::exists(target / "project.raywaves"));
     CHECK(std::filesystem::is_directory(target / "Assets"));
     CHECK(std::filesystem::is_directory(target / "GameLogic"));
+}
+
+TEST_CASE("ProjectManager: generated CMake honors sourceDir and defaults to Release")
+{
+    TempDir dir;
+    RecentPathOverride recent_override(dir.Path() / "recent.ini");
+
+    const std::filesystem::path project_root = dir.Path() / "CustomSourceProject";
+    std::filesystem::create_directories(project_root);
+    {
+        std::ofstream manifest(project_root / "project.raywaves");
+        manifest << "[project]\n";
+        manifest << "name=CustomSourceProject\n";
+        manifest << "assetDir=Assets\n";
+        manifest << "sourceDir=Source\n";
+    }
+
+    REQUIRE(ProjectManager::b_OpenProject(project_root.string()));
+
+    std::ifstream generated(project_root / ".raywaves" / "CMakeLists.txt");
+    REQUIRE(generated.is_open());
+    const std::string content((std::istreambuf_iterator<char>(generated)), std::istreambuf_iterator<char>());
+
+    // The recipe must follow the manifest, not hardcode GameLogic.
+    CHECK(content.find("${CMAKE_CURRENT_LIST_DIR}/../Source") != std::string::npos);
+    // Ninja is single-config, so Release must be the template default.
+    CHECK(content.find("set(CMAKE_BUILD_TYPE Release CACHE STRING") != std::string::npos);
+
+    ProjectManager::CloseProject();
 }
 
 TEST_CASE("ProjectManager: opening a project creates missing contract folders")

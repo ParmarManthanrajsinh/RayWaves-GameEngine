@@ -23,16 +23,17 @@ cd "$ROOT"
 
 if command -v clang-format >/dev/null 2>&1; then
     echo "Checking formatting..."
-    # Keep the same gate as scripts/check.ps1 / Tools/run_analysis.bat:
-    # top-level Engine/Editor/Runtime sources, editor panels/terminal, and the
-    # bundled template GameLogic. Vendored code and raygui are excluded.
+    # Walk the whole tree, not just the first level: platform backends and
+    # tests live in subdirectories. Vendored UI code and raygui are excluded.
     mapfile -t files < <(
         {
-            find Engine Editor Runtime -maxdepth 1 \( -name '*.cpp' -o -name '*.h' \) -type f ! -name 'raygui.h'
-            find Editor/Panels Editor/terminal -maxdepth 1 \( -name '*.cpp' -o -name '*.h' \) -type f
-            find tests -maxdepth 1 \( -name '*.cpp' -o -name '*.h' \) -type f
+            find Engine Editor Runtime Cli \
+                \( -path '*/imgui/*' -o -path '*/rlImGui/*' -o -path '*/tinyfiledialogs/*' \
+                   -o -name 'raygui.h' \) -prune -o \
+                \( -name '*.cpp' -o -name '*.h' \) -type f -print
+            find tests \( -name '*.cpp' -o -name '*.h' \) -type f -print
             find templates/SlimeQuest/GameLogic templates/Platformer2D/GameLogic \
-                -maxdepth 1 \( -name '*.cpp' -o -name '*.h' \) -type f
+                templates/ThirdPerson3D/GameLogic \( -name '*.cpp' -o -name '*.h' \) -type f -print
         } | sort
     )
     clang-format --dry-run --Werror --style=file "${files[@]}"

@@ -2,6 +2,7 @@
 #include "../Engine/PlatformInfo.h"
 #include "../Engine/PlatformNames.h"
 #include "../Engine/ProjectManager.h"
+#include "../Runtime/AgentLock.h"
 #include "../Runtime/DllLoader.h"
 #include "EditorUtils.h"
 #include "ProcessRunner.h"
@@ -13,6 +14,21 @@
 #include <vector>
 
 namespace fs = std::filesystem;
+
+namespace
+{
+bool b_IsRaylibRuntimeName(const std::string& filename)
+{
+    return filename == "libraylib.dll" || filename == "raylib.dll" || filename.rfind("libraylib.so", 0) == 0 ||
+        filename.rfind("raylib.so", 0) == 0;
+}
+
+struct FLockGuard
+{
+    fs::path m_Root;
+    ~FLockGuard() { AgentLock::Release(m_Root); }
+};
+} // namespace
 
 namespace ExportService
 {
@@ -154,8 +170,7 @@ bool b_ValidateExportFolder(std::string_view out_dir, LogSink log)
                 b_is_executable = !ec && (status.permissions() & fs::perms::owner_exec) != fs::perms::none;
             }
 
-            if (b_is_executable && filename != rw::platform::c_GameLogicModuleName &&
-                filename != rw::platform::c_RaylibRuntimeName)
+            if (b_is_executable && filename != rw::platform::c_GameLogicModuleName && !b_IsRaylibRuntimeName(filename))
             {
                 b_FoundGameExe = true;
                 log(std::string("Found game executable: ") + filename);
@@ -182,8 +197,7 @@ bool b_ValidateExportFolder(std::string_view out_dir, LogSink log)
                 continue;
             }
             const std::string filename = entry.path().filename().string();
-            if (filename == "libraylib.dll" || filename == "raylib.dll" || filename.rfind("libraylib.so", 0) == 0 ||
-                filename.rfind("raylib.so", 0) == 0)
+            if (b_IsRaylibRuntimeName(filename))
             {
                 b_FoundRaylib = true;
                 log(std::string("Found raylib runtime: ") + filename);
@@ -242,6 +256,17 @@ FExportResult RunExport(const FExportSettings& settings, const std::shared_ptr<s
         // runs, and the reference from GetCurrent() escapes that lock.
         t_Project proj = ProjectManager::GetCurrentCopy();
 
+        // Export builds the project and writes GameLogic next to the source,
+        // exactly like an editor compile. Take the same lock so the two
+        // processes cannot link the module at the same time.
+        std::string lock_error;
+        if (!AgentLock::b_Acquire(proj.m_RootPath, "export", lock_error))
+        {
+            log("ERROR: " + lock_error);
+            return result;
+        }
+        FLockGuard lock_guard{ fs::path(proj.m_RootPath) };
+
         // Resolve next to the running host first. Export must work from
         // zig-debug, zig-release, and packaged layouts without guessing a
         // hardcoded build directory.
@@ -268,8 +293,7 @@ FExportResult RunExport(const FExportSettings& settings, const std::shared_ptr<s
                     continue;
                 }
                 const std::string filename = entry.path().filename().string();
-                if (filename == "libraylib.dll" || filename == "raylib.dll" || filename.rfind("libraylib.so", 0) == 0 ||
-                    filename.rfind("raylib.so", 0) == 0)
+                if (b_IsRaylibRuntimeName(filename))
                 {
                     files.push_back(entry.path());
                 }

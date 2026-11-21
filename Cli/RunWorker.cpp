@@ -166,19 +166,20 @@ std::string ScreenshotJson(const fs::path& path, bool b_requested)
         CliJson::Bool(b_valid) + "}";
 }
 
-void AppendOption(std::string& command, const FArgs& args, const char* name)
+void AppendOption(std::vector<std::string>& command, const FArgs& args, const char* name)
 {
     if (args.b_Has(name))
     {
-        command += std::string(" --") + name + " " + ProcessRunner::QuoteArg(args.Get(name));
+        command.push_back(std::string("--") + name);
+        command.push_back(args.Get(name));
     }
 }
 
-void AppendFlag(std::string& command, const FArgs& args, const char* name)
+void AppendFlag(std::vector<std::string>& command, const FArgs& args, const char* name)
 {
     if (args.b_Has(name))
     {
-        command += std::string(" --") + name;
+        command.push_back(std::string("--") + name);
     }
 }
 } // namespace
@@ -202,8 +203,8 @@ int RunCommand(const FProjectContext& project, const FArgs& args, bool b_json)
 
     CleanupStaleShadowCopies(project.m_Dir);
 
-    std::string command = ProcessRunner::QuoteArg(GetSelfPath().string()) + " __run-worker --project " +
-        ProcessRunner::QuoteArg(project.m_Dir.string()) + " --result " + ProcessRunner::QuoteArg(result_path.string());
+    std::vector<std::string> command = { GetSelfPath().string(), "__run-worker", "--project", project.m_Dir.string(),
+        "--result", result_path.string() };
 
     AppendOption(command, args, "frames");
     AppendOption(command, args, "dt");
@@ -242,7 +243,7 @@ int RunCommand(const FProjectContext& project, const FArgs& args, bool b_json)
 
     std::vector<std::string> tail;
     int exit_code = 0;
-    const bool b_success = ProcessRunner::RunAndWaitCommandLine(
+    const bool b_success = ProcessRunner::RunAndWaitCommand(
         command, project.m_Dir.string(),
         [&tail](std::string_view line, bool b_error)
         {
