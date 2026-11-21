@@ -1,30 +1,34 @@
 # @PROJECT_NAME@ — agent guide
 
 RayWaves project. Gameplay is C++ in `@SOURCE_DIR@/`, compiled to
-`GameLogic.dll`. Scenes are INI files in `@ASSET_DIR@/<MapId>.scene`.
+`@GAMELOGIC_MODULE@`. Scenes are INI files in `@ASSET_DIR@/<MapId>.scene`.
 
 ## Tooling
 
 `rwcli` lives in the RayWaves package, not in this folder. Run the generated
 wrapper from the project root:
 
-```powershell
-.\.raywaves\bin\rwcli.cmd doctor . --json
-.\.raywaves\bin\rwcli.cmd info . --json
-.\.raywaves\bin\rwcli.cmd maps . --json
-.\.raywaves\bin\rwcli.cmd build . --json
-.\.raywaves\bin\rwcli.cmd run . --frames 120 --screenshot shot.png --state state.json --json
-.\.raywaves\bin\rwcli.cmd scene list . --json
-.\.raywaves\bin\rwcli.cmd lsp . --check --json
-.\.raywaves\bin\rwcli.cmd validate . --json
+```text
+@RWCLI_WRAPPER@ doctor . --json
+@RWCLI_WRAPPER@ info . --json
+@RWCLI_WRAPPER@ maps . --json
+@RWCLI_WRAPPER@ build . --json
+@RWCLI_WRAPPER@ run . --frames 120 --screenshot shot.png --state state.json --json
+@RWCLI_WRAPPER@ scene list . --json
+@RWCLI_WRAPPER@ lsp . --check --json
+@RWCLI_WRAPPER@ validate . --json
 ```
 
-If the wrapper is missing or stale, read `.raywaves\tooling.ini` and use
+The wrapper is `.raywaves\bin\rwcli.cmd` on Windows and `.raywaves/bin/rwcli` on Linux.
+If the wrapper is missing or stale, read `.raywaves/tooling.ini` and use
 `[rwcli] path`. If `available=0`, the package CLI was not found; build the
 `rwcli` target or ask the user. Do not guess the package location.
 
-PowerShell: quote paths with spaces, and add `2>$null` when capturing JSON to
-suppress informational stderr lines.
+Shell notes: quote paths with spaces. When capturing JSON, suppress
+informational stderr with `2>$null` on PowerShell or `2>/dev/null` on bash.
+
+On a headless Linux host, run the game under `xvfb-run -a` and, when there is
+no GPU driver, set `LIBGL_ALWAYS_SOFTWARE=1`.
 
 Full command reference: `.agents/skills/raywaves-game/reference.md`.
 

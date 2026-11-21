@@ -1,8 +1,6 @@
 set(EDITOR_SRC_CPP
     Editor/EditorAssets.cpp
     Editor/EditorPreferences.cpp
-    Editor/EditorUtils.cpp
-    Editor/FileAssociation.cpp
     Editor/GameEditor.cpp
     Editor/GameLogicLoader.cpp
     Editor/ThemeService.cpp
@@ -47,7 +45,7 @@ set(LIBVTERM_SRC
 # Terminal core: no ImGui/editor dependencies so unit and integration tests
 # can link it directly.
 add_library(raywaves_terminal_core STATIC
-    Editor/terminal/pty_session.cpp
+    ${RAYWAVES_EDITOR_PLATFORM_DIR}/pty_session.cpp
     Editor/terminal/shell_detect.cpp
     Editor/terminal/terminal_session.cpp
     Editor/terminal/vterm_screen.cpp
@@ -60,18 +58,34 @@ target_include_directories(raywaves_terminal_core PUBLIC
 target_include_directories(raywaves_terminal_core PRIVATE
     ${CMAKE_SOURCE_DIR}/third_party/libvterm/src
 )
+target_link_libraries(raywaves_terminal_core PUBLIC Threads::Threads)
+
+set(RAYWAVES_EDITOR_PLATFORM_SRC
+    ${RAYWAVES_EDITOR_PLATFORM_DIR}/EditorUtils.cpp
+    ${RAYWAVES_EDITOR_PLATFORM_DIR}/FileAssociation.cpp
+)
+
+set(RAYWAVES_EDITOR_RC "")
+if(WIN32)
+    set(RAYWAVES_EDITOR_RC EngineContent/app.rc)
+endif()
 
 add_executable(main WIN32
     Runtime/main.cpp
     ${EDITOR_SRC_CPP}
+    ${RAYWAVES_EDITOR_PLATFORM_SRC}
     ${RLIMGUI_SRC}
     ${IMGUI_SRC}
     ${TINYFILEDIALOGS}
-    EngineContent/app.rc
+    ${RAYWAVES_EDITOR_RC}
 )
 add_executable(raywaves::editor ALIAS main)
 set_target_properties(main PROPERTIES OUTPUT_NAME "RayWaves")
-target_link_options(main PRIVATE -Wl,--subsystem,windows)
+raywaves_set_origin_rpath(main)
+
+if(WIN32)
+    target_link_options(main PRIVATE -Wl,--subsystem,windows)
+endif()
 
 if(RAYWAVES_DISTRIBUTION_BUILD)
     target_compile_definitions(main PRIVATE RAYWAVES_PROFILER_DISABLED)
@@ -84,14 +98,27 @@ target_include_directories(main PRIVATE
     ${CMAKE_SOURCE_DIR}/Engine
     ${CMAKE_SOURCE_DIR}/Editor
     ${CMAKE_SOURCE_DIR}/Runtime
+    ${CMAKE_SOURCE_DIR}
 )
 
-target_link_libraries(main PRIVATE Engine RuntimeSupport raywaves_terminal_core)
+target_link_libraries(main PRIVATE Engine RuntimeSupport raywaves_terminal_core Threads::Threads)
 add_dependencies(main stage_raylib)
 
+if(WIN32 AND EXISTS "${CMAKE_SOURCE_DIR}/Tools/rcedit.exe")
+    add_custom_command(TARGET main POST_BUILD
+        COMMAND ${CMAKE_SOURCE_DIR}/Tools/rcedit.exe $<TARGET_FILE:main> --set-icon ${CMAKE_SOURCE_DIR}/EngineContent/icon.ico
+    )
+endif()
 add_custom_command(TARGET main POST_BUILD
-    COMMAND ${CMAKE_SOURCE_DIR}/Tools/rcedit.exe $<TARGET_FILE:main> --set-icon ${CMAKE_SOURCE_DIR}/EngineContent/icon.ico
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
             $<TARGET_FILE:raylib>
             $<TARGET_FILE_DIR:main>
 )
+if(UNIX)
+    add_custom_command(TARGET main POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "$<TARGET_SONAME_FILE:raylib>" "$<TARGET_FILE_DIR:main>"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "$<TARGET_LINKER_FILE:raylib>" "$<TARGET_FILE_DIR:main>/libraylib.so"
+    )
+endif()

@@ -1,6 +1,7 @@
+#include "PlatformInfo.h"
+#include "doctest/doctest.h"
 #include "rw.h"
 #include "support/TempDir.h"
-#include "doctest/doctest.h"
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -19,7 +20,7 @@ TEST_CASE("agent input script replays key down and up")
         file << "0,mouse,640,360\n";
     }
 
-    _putenv_s("RAYWAVES_AGENT_INPUT", script.string().c_str());
+    PlatformInfo::b_SetEnvironmentVariable("RAYWAVES_AGENT_INPUT", script.string());
 
     rw::input_detail::State() = rw::input_detail::FState{};
     rw::input_detail::BeginFrame(); // frame 0
@@ -38,5 +39,5 @@ TEST_CASE("agent input script replays key down and up")
     CHECK(rw::IsKeyReleased(KEY_RIGHT));
 
     rw::input_detail::State() = rw::input_detail::FState{};
-    _putenv_s("RAYWAVES_AGENT_INPUT", "");
+    PlatformInfo::b_SetEnvironmentVariable("RAYWAVES_AGENT_INPUT", "");
 }

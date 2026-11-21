@@ -1,6 +1,7 @@
+#include "Engine/PlatformNames.h"
 #include "ProcessRunner.h"
-#include "support/TempDir.h"
 #include "doctest/doctest.h"
+#include "support/TempDir.h"
 #include <fstream>
 #include <string>
 
@@ -10,12 +11,11 @@ namespace
 {
 std::string RunCli(const std::string& arguments)
 {
-    const fs::path exe = fs::current_path() / "rwcli.exe";
+    const fs::path exe = fs::current_path() / rw::platform::ExecutableName("rwcli");
     const std::string command = ProcessRunner::QuoteArg(exe.string()) + " " + arguments;
 
     std::string output;
-    ProcessRunner::RunAndWaitCommandLine(
-        command, fs::current_path().string(),
+    ProcessRunner::RunAndWaitCommandLine(command, fs::current_path().string(),
         [&output](std::string_view line, bool)
         {
             output += line;

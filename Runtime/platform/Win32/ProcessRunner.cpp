@@ -5,6 +5,8 @@
 #include <memory>
 #include <string>
 #include <thread>
+#include <utility>
+#include <vector>
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -302,6 +304,30 @@ std::thread RunCommandLine(std::string_view command_line, std::string_view worki
         });
 }
 
+std::thread RunCommand(std::vector<std::string> argv, std::string_view working_dir,
+    const std::function<void(std::string_view, bool)>& on_output, const std::function<void(bool)>& on_complete,
+    const std::shared_ptr<std::atomic<bool>>& cancel)
+{
+    std::string command_line;
+    for (size_t index = 0; index < argv.size(); ++index)
+    {
+        if (index > 0)
+        {
+            command_line += ' ';
+        }
+        command_line += QuoteArg(argv[index]);
+    }
+
+    return std::thread(
+        [command_line = std::move(command_line), working_dir = std::string(working_dir), on_output, on_complete,
+            cancel]()
+        {
+            RunProcessInternal(
+                command_line, working_dir, on_output, [on_complete](bool b_success, int) { on_complete(b_success); },
+                cancel);
+        });
+}
+
 bool RunAndWait(std::string_view cmd, const std::function<void(std::string_view, bool)>& on_output,
     const std::shared_ptr<std::atomic<bool>>& cancel)
 {
@@ -318,6 +344,35 @@ bool RunAndWaitCommandLine(std::string_view command_line, std::string_view worki
     bool b_Success = false;
     RunProcessInternal(
         std::string(command_line), working_dir, on_output,
+        [&b_Success, out_exit_code](bool b_success, int exit_code)
+        {
+            b_Success = b_success;
+            if (out_exit_code != nullptr)
+            {
+                *out_exit_code = exit_code;
+            }
+        },
+        cancel);
+    return b_Success;
+}
+
+bool RunAndWaitCommand(std::vector<std::string> argv, std::string_view working_dir,
+    const std::function<void(std::string_view, bool)>& on_output, const std::shared_ptr<std::atomic<bool>>& cancel,
+    int* out_exit_code)
+{
+    std::string command_line;
+    for (size_t index = 0; index < argv.size(); ++index)
+    {
+        if (index > 0)
+        {
+            command_line += ' ';
+        }
+        command_line += QuoteArg(argv[index]);
+    }
+
+    bool b_Success = false;
+    RunProcessInternal(
+        std::move(command_line), working_dir, on_output,
         [&b_Success, out_exit_code](bool b_success, int exit_code)
         {
             b_Success = b_success;

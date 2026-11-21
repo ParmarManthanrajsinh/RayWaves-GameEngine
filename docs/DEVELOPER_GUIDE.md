@@ -6,38 +6,38 @@ This guide covers engine internals, hot-reload mechanics, and the development wo
 
 ## Architecture Overview
 
-`RayWaves.exe` (The Host) | `GameLogic.dll` (The Brains)
+`RayWaves` / `RayWaves.exe` (The Host) | `GameLogic.dll` / `GameLogic.so` (The Brains)
 ---|---
 Handles window creation & input | Contains all gameplay code
 Manages the editor UI (ImGui) | Defines levels (`GameMaps`)
-Loads/unloads the DLL | Executes `Update()` and `Draw()`
+Loads/unloads the module | Executes `Update()` and `Draw()`
 **Requires restart to change** | **Hot-reloads instantly**
 
 ---
 
 ## First-Time Compile
 
-Zig, Ninja, and CMake are automatically downloaded the first time you click Compile (or Export) if they aren't already in `Tools/`.
+On Windows, Zig, Ninja, and CMake are downloaded on first compile if missing. Linux uses system GCC/G++ and downloads Ninja/CMake.
 
-- **What happens:** `Tools/setup_zig.ps1` runs behind the scenes, fetches each tool, and extracts them into `Tools/{zig,ninja,cmake}/`.
-- **Internet required:** First compile will block while downloading (~200 MB total across all three toolchains). A log line `"Downloading CMake (first-time setup)..."` appears in the Console so you know it isn't frozen.
+- **What happens:** `Tools/setup_tools.ps1` (Windows) or `Tools/setup_tools.sh` (Linux) fetches missing tools into `Tools/`. Windows includes Zig; Linux uses the system compiler.
+- **Internet required:** Windows may download ~200 MB on first compile. A log line `"Downloading CMake (first-time setup)..."` appears in the Console so you know it isn't frozen.
 - **Subsequent compiles:** No download — tools are cached. Compile time is back to normal.
-- **If download fails:** Check firewall / antivirus isn't blocking `curl.exe` calls to GitHub and ziglang.org. Run `Tools/setup_zig.ps1` manually to see error details, then retry.
+- **If download fails:** Check firewall / antivirus isn't blocking `curl` calls to GitHub and ziglang.org. Run `Tools/setup_tools.ps1` / `Tools/setup_tools.sh` manually to see error details, then retry.
 
 ---
 
 ## The Hot-Reload Workflow
 
-1.  Run the editor (`RayWaves.exe`).
+1.  Run the editor (`RayWaves.exe` on Windows, `RayWaves` on Linux).
 2.  Open or create a project via the Project Browser.
 3.  Modify any C++ file in **your project's** `GameLogic/` folder (e.g. change jump height in a map).
 4.  Click **Compile** in the editor toolbar (or press the shortcut). The editor runs a CMake+Ninja build in the background.
 5.  On success, the DLL is hot-swapped in ~0.5 seconds. Your changes are live without restarting.
 
 ### How it works under the hood
-- Windows locks running DLLs, so we can't just overwrite them.
-- **Solution:** We copy `GameLogic.dll` to a shadow file and load that. The original stays unlocked for the compiler to overwrite.
-- A file watcher detects the new timestamp and triggers the reload sequence.
+- Windows locks running DLLs, so we can't just overwrite them; Linux keeps old mappings after an overwrite, so reusing the same path is unsafe there too.
+- **Solution:** We copy the GameLogic module (`GameLogic.dll` / `GameLogic.so`) to a unique shadow file and load that. The original stays writable for the compiler.
+- A file watcher detects the new timestamp and triggers the reload sequence. Windows uses `LoadLibrary`/`FreeLibrary`; Linux uses `dlopen`/`dlclose`.
 
 > **Tip:** Press the **Restart** button in the toolbar if you want to force a clean map state.
 
@@ -68,15 +68,21 @@ On launch (or after closing a project), the **Project Browser** shows:
 
 ### Double-Click File Association
 If you register the `.raywaves` file association (menu: *Tools → Register .raywaves file association*), you can:
-- Double-click any `project.raywaves` file in Explorer to launch the editor directly into that project.
+- Double-click any `project.raywaves` file in Explorer (Windows) or your desktop file manager (Linux) to launch the editor directly into that project.
 - If the editor is already running elsewhere, a **second instance** opens (not a tab in the existing window — see limitations below).
 
-The menu item shows a checkmark when the association is already registered and matches the current exe path. Re-register after moving `RayWaves.exe` to a new location.
+The menu item shows a checkmark when the association is already registered and matches the current exe path. Re-register after moving the editor executable to a new location.
 
 ### Command Line
 ```powershell
+# Windows
 RayWaves.exe --project "C:\path\to\project"
 RayWaves.exe "C:\path\to\project\project.raywaves"
+```
+```sh
+# Linux
+./RayWaves --project /path/to/project
+./RayWaves /path/to/project/project.raywaves
 ```
 
 Both forms work. The second is what happens when you double-click a registered `.raywaves` file.
@@ -127,7 +133,7 @@ Hardcoded `"Assets/player.png"` will break if the project root changes.
 When you export your game via the Export panel:
 
 1.  **Build:** GameLogic is compiled in Release mode.
-2.  **Bundle:** `GameLogic.dll`, `raylib.dll`, `game.exe`, and `Assets/` are copied to the output folder.
+2.  **Bundle:** the GameLogic module, the raylib runtime, the game executable, and `Assets/` are copied to the output folder.
 3.  **Configure:** A production-ready `config.ini` is generated.
 4.  **Result:** A standalone folder with no editor overhead.
 
@@ -141,8 +147,15 @@ Unit tests use the doctest framework.
 
 ### Running Tests
 ```powershell
+# Windows
 scripts/test.ps1                 # unit + integration + smoke
 scripts/test.ps1 -Suite unit     # fast engine tests
+ctest --preset zig-debug         # CTest directly
+```
+```sh
+# Linux
+./scripts/test.sh                # unit + integration + smoke
+./scripts/test.sh --suite unit   # fast engine tests
 ctest --preset zig-debug         # CTest directly
 ```
 
@@ -178,7 +191,7 @@ TEST_CASE("MyModule: does thing")
 | Benchmarks | `benchmarks/` | 5 | Done |
 | Smoke (DLL stress) | `tests/smoke/HotReloadSmoke.cpp` | configurable load/unload cycles | Done |
 
-Tests live in `tests/unit` and `tests/integration`; benchmarks are a separate executable. Run everything with `scripts/test.ps1`.
+Tests live in `tests/unit` and `tests/integration`; benchmarks are a separate executable. Run everything with `scripts/test.ps1` on Windows or `./scripts/test.sh` on Linux.
 
 ---
 
@@ -204,7 +217,7 @@ Profiler::Get().SaveToFile("profile.csv");
 
 - **Single project per window:** RayWaves opens one project at a time. Switching projects closes the current one. Tabbed multi-project editing is not supported.
 - **No-project fallback compile:** Triggering Compile from the bare launcher (no project open) without a system-installed CMake will fail. The primary project-compile path handles this correctly — this edge case is a known gap.
-- **Windows only:** RayWaves depends on Win32 APIs for DLL hot-reloading and file association. Cross-platform support is not planned.
+- **Platform:** Windows and Linux are supported. Platform-specific code lives in `Engine/PlatformInfo.cpp`, `Runtime/platform/`, and `Editor/platform/`.
 
 ---
 
@@ -218,11 +231,13 @@ Profiler::Get().SaveToFile("profile.csv");
    `Editor/GameLogicLoader.cpp` (DLL hot-reload lifecycle),
    `Editor/ThemeService.cpp` (theme rebake), `Editor/Panels/*` (editor UI).
 2. Panels implement `IEditorPanel` — add a new panel file pair plus one `b_RegisterPanel<T>()` line rather than growing `GameEditor.cpp`.
-3. Rebuild `RayWaves.exe` (must close the editor first).
+3. Rebuild the editor (close it first).
 
 ### Debugging
-- Attach any C++ debugger (VS Code, LLDB, Visual Studio) to `RayWaves.exe`.
-- Breakpoints usually survive DLL hot-reload because Zig generates PDB files.
+- Attach any C++ debugger (VS Code, LLDB, Visual Studio) to the editor executable.
+- Breakpoints usually survive module hot-reload. Windows Zig builds emit PDB
+  files; Linux GCC builds emit DWARF, so debug with gdb/LLDB against the build
+  tree.
 
 ---
 

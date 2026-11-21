@@ -86,7 +86,7 @@ private:
     std::vector<std::unique_ptr<t_Tab>> m_Tabs;
 
     std::vector<t_ShellSpec> m_Shells;
-    std::wstring m_WorkingDirectory;
+    std::string m_WorkingDirectory;
 
     Theme m_Theme;
     int m_ActiveTab = 0;

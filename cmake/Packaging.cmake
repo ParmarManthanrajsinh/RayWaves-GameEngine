@@ -43,8 +43,16 @@ configure_file(
     COPYONLY
 )
 
-add_custom_target(export_package
-    COMMAND powershell -ExecutionPolicy Bypass -File "${CMAKE_SOURCE_DIR}/packaging/package.ps1" -OutputDir dist
-    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-    COMMENT "Packaging distribution via packaging/package.ps1"
-)
+if(WIN32)
+    add_custom_target(export_package
+        COMMAND powershell -ExecutionPolicy Bypass -File "${CMAKE_SOURCE_DIR}/packaging/package.ps1" -OutputDir dist
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+        COMMENT "Packaging distribution via packaging/package.ps1"
+    )
+else()
+    add_custom_target(export_package
+        COMMAND bash "${CMAKE_SOURCE_DIR}/packaging/package.sh" --output-dir dist
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+        COMMENT "Packaging distribution via packaging/package.sh"
+    )
+endif()

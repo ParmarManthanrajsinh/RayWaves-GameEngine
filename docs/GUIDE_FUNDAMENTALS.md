@@ -6,7 +6,7 @@
 
 ## 1. The DLL Contract
 
-RayWaves compiles your `GameLogic/` code into a **DLL** (`GameLogic.dll`). The editor loads it at runtime, calls into it, and hot-reloads it when you recompile.
+RayWaves compiles your `GameLogic/` code into a **module** (`GameLogic.dll` on Windows, `GameLogic.so` on Linux). The editor loads it at runtime, calls into it, and hot-reloads it when you recompile.
 
 Every project **must** export three symbols. Raw `GameMap` projects write them by
 hand in `RootManager.cpp`; `rw` projects generate them with `RW_GAME`.
@@ -81,8 +81,8 @@ Entity transforms are saved and restored automatically.
 When you click **Compile**:
 
 1. `SaveState()` is called on the current map — you save values you want to preserve (player position, score, etc.) into the `StateBag`.
-2. The old `GameLogic.dll` is unloaded — all its memory is freed.
-3. The new `GameLogic.dll` is loaded — `CreateGameMap()` is called.
+2. The old GameLogic module is unloaded — all its memory is freed.
+3. The new GameLogic module is loaded — `CreateGameMap()` is called.
 4. `s_GameMapManager` is **null** in the new DLL (it's a fresh global), so `new MapManager()` runs and maps are re-registered.
 5. The editor requests the previous map. `Initialize()` runs on the new map instance.
 6. `LoadState()` is called with the same `StateBag` — you restore preserved values.
@@ -136,7 +136,7 @@ void MyMap::LoadState(const StateBag& in)
 
 ### CRT Heap Warning
 
-StateBag allocates memory internally (for `std::string` and `std::unordered_map`). Both `RayWaves.exe` and `GameLogic.dll` **must** use the same C Runtime (CRT) to avoid heap corruption across the DLL boundary. The Zig toolchain (default) always uses dynamic CRT — safe by default. If building with MSVC, ensure both targets use `/MD` (dynamic), not `/MT` (static).
+StateBag allocates memory internally (for `std::string` and `std::unordered_map`). Both the host and the GameLogic module **must** use the same C Runtime (CRT) to avoid heap corruption across the DLL boundary. Windows uses the Zig toolchain with a dynamic CRT. Linux uses the system GCC/libstdc++ shared runtime. If building with MSVC, ensure both targets use `/MD` (dynamic), not `/MT` (static).
 
 ### Static vs Member Variables on Reload
 
@@ -154,7 +154,7 @@ This walks you through a playable level using the simple `rw` API.
 
 ### Step 1: Create a New Project
 
-1. Launch `RayWaves.exe`.
+1. Launch the editor (`RayWaves.exe` on Windows, `RayWaves` on Linux).
 2. Click **New Project**.
 3. Name it `MyGame`, choose the **Simple2D** template (the default).
 4. Click **Create**.
@@ -323,7 +323,7 @@ Shell shortcuts:
 | `Ctrl+Home` / `Ctrl+End` | Scroll to top / bottom |
 | `Shift+PageUp` / `Shift+PageDown` | Scroll history |
 
-The shell is auto-detected in this order: PowerShell 7 (`pwsh.exe`), Windows PowerShell, then `cmd.exe`. ConPTY requires Windows 10 version 1809 or newer; on older systems the Console tab still works.
+Windows shell detection prefers PowerShell 7 (`pwsh.exe`), then Windows PowerShell, then `cmd.exe`. ConPTY requires Windows 10 version 1809 or newer. Linux uses `$SHELL`, then `/bin/bash`, `/bin/zsh`, `/bin/fish`, or `/bin/sh`.
 
 ### Common Crash Causes
 

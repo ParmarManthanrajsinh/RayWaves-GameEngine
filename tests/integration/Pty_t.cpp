@@ -10,11 +10,11 @@
 #include <string>
 #include <thread>
 
-TEST_CASE("ConPTY: starts a shell and streams output")
+TEST_CASE("PTY: starts a shell and streams output")
 {
     if (!term::t_PtySession::b_IsSupported())
     {
-        MESSAGE("ConPTY is not available on this system; skipping.");
+        MESSAGE("PTY is not available on this system; skipping.");
         return;
     }
 
@@ -26,7 +26,7 @@ TEST_CASE("ConPTY: starts a shell and streams output")
     std::atomic<bool> found{ false };
 
     term::t_PtySession session;
-    const bool b_started = session.b_Start(shell, std::filesystem::current_path().wstring(), 80, 24,
+    const bool b_started = session.b_Start(shell, std::filesystem::current_path().string(), 80, 24,
         [&](std::string_view bytes)
         {
             std::scoped_lock lock(output_mutex);
@@ -40,7 +40,11 @@ TEST_CASE("ConPTY: starts a shell and streams output")
     REQUIRE_MESSAGE(b_started, session.LastError());
 
     std::this_thread::sleep_for(std::chrono::milliseconds(250));
+#if defined(_WIN32)
     session.Write("echo RAYWAVES_CONPTY_OK\r");
+#else
+    session.Write("echo RAYWAVES_CONPTY_OK\n");
+#endif
 
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
     while (!found.load() && std::chrono::steady_clock::now() < deadline)
@@ -56,5 +60,5 @@ TEST_CASE("ConPTY: starts a shell and streams output")
         captured = output;
     }
 
-    CHECK_MESSAGE(found.load(), "ConPTY output was: ", captured, "\nLast error: ", session.LastError());
+    CHECK_MESSAGE(found.load(), "PTY output was: ", captured, "\nLast error: ", session.LastError());
 }

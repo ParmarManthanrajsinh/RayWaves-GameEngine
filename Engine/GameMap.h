@@ -3,17 +3,16 @@
 #include "GameState.h"
 #include <cstdint>
 #include <functional>
+#include <list>
 #include <raylib.h>
-#include <span>
 #include <string>
 #include <string_view>
-#include <vector>
 
 // GameLogic DLL ABI version. GameLogic DLLs must export
 // GetGameLogicAbiVersion() returning this value. The editor/runtime reject
 // DLLs with a different (or missing) version instead of risking heap
 // corruption across the DLL boundary.
-inline constexpr uint32_t RAYWAVES_GAMELOGIC_ABI_VERSION = 7;
+inline constexpr uint32_t RAYWAVES_GAMELOGIC_ABI_VERSION = 8;
 
 class GameMap
 {
@@ -27,7 +26,8 @@ protected:
 
     // Live gameplay objects exposed to the editor. Cleared before every
     // Initialize/Reset; maps register after their entities exist.
-    std::vector<t_EditorEntity> m_EditorEntities;
+    using t_EditorEntityList = std::list<t_EditorEntity>;
+    t_EditorEntityList m_EditorEntities;
     uint64_t m_NextEditorEntityId = 1;
 
     // Host-owned editor camera. Only valid while the host is editing a 3D map.
@@ -107,8 +107,8 @@ public:
         std::string_view name, Vector3* position, Vector3* size = nullptr, const t_EntityOptions& options = {});
     bool UnregisterEditorEntity(uint64_t id);
     void ClearEditorEntities();
-    std::span<const t_EditorEntity> GetEditorEntities() const;
-    std::span<t_EditorEntity> GetEditorEntities();
+    const t_EditorEntityList& GetEditorEntities() const;
+    t_EditorEntityList& GetEditorEntities();
 
     // True when the map runs inside the standalone runtime (game.exe), false
     // inside the editor. Templates use this to capture the cursor only in a

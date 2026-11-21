@@ -9,7 +9,9 @@ struct t_Project
     std::string m_EngineVersion;
     std::string m_SourceDir = "GameLogic";
     std::string m_AssetDir = "Assets";
-    std::string m_EntryDll = "GameLogic.dll";
+    // Logical module stem. The platform suffix (.dll/.so) is resolved at load
+    // time so a project folder stays portable between Windows and Linux.
+    std::string m_EntryDll = "GameLogic";
     std::string m_IconPath = "";
 
     std::string m_SourcePath;

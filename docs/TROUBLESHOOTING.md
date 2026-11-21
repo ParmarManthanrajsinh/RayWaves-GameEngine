@@ -10,32 +10,50 @@ Something broken? Don't panic. Here are the most common issues and how to fix th
 
 ### "First compile is slow / downloading something"
 
-This is normal the first time. RayWaves automatically downloads three build tools:
+This is normal the first time.
+
+Windows downloads:
 - Zig compiler (~170 MB)
 - Ninja (~285 KB)
 - CMake (~50 MB)
 
-**Total: ~220 MB.**
+Linux uses system GCC/G++ and downloads Ninja/CMake when they are missing.
 
 You'll see log lines like `"Downloading CMake (first-time setup)..."` in the Console so you know it isn't frozen.
 
 **If download fails:**
-- Check firewall / antivirus isn't blocking `curl.exe` calls to GitHub and ziglang.org.
-- Run `Tools\setup_zig.ps1` manually from a terminal to see the exact error.
-- Once downloaded, tools are cached in `Tools/{zig,ninja,cmake}/` — subsequent compiles are fast.
+- Check firewall / antivirus isn't blocking `curl` calls to GitHub and ziglang.org.
+- Run `Tools\setup_tools.ps1` (Windows) or `Tools/setup_tools.sh` (Linux)
+  manually from a terminal to see the exact error.
+- Once downloaded, tools are cached in `Tools/{zig,ninja,cmake}/` (Windows) or `Tools/{ninja,cmake}/` (Linux) — subsequent compiles are fast.
 
-### "Permission denied" when building RayWaves.exe
-*   **The Problem:** You are trying to rebuild the *engine core* (`RayWaves.exe`) while it is running.
+### "Permission denied" when building the editor
+*   **The Problem:** You are trying to rebuild the editor (`RayWaves.exe` / `RayWaves`) while it is running.
 *   **The Fix:** Close the game window, *then* rebuild.
-*   **Note:** You *can* rebuild `GameLogic.dll` while the game is running. That's the whole point!
+*   **Note:** You *can* rebuild the GameLogic module while the game is running. That's the whole point!
 
 ### "CMake configuration failed"
-*   **The Problem:** You might be using the wrong CMake preset or missing the Zig compiler.
-*   **The Fix:** Ensure you are using `cmake --preset zig-debug`. The engine uses the Zig compiler which is fetched automatically on your first build, so you **do not** need Visual Studio installed!
+*   **The Problem:** You might be using the wrong CMake preset or missing the platform compiler.
+*   **The Fix:** Use `cmake --preset zig-debug`. Windows fetches Zig automatically; Linux requires `build-essential` (GCC/G++).
+
+### Linux: missing GCC/G++
+*   **The Problem:** CMake reports that GCC/G++ was not found.
+*   **The Fix:** `sudo apt install build-essential`. Linux hot reload requires the
+    shared system libstdc++ runtime.
+
+### Linux: missing X11 / GL / ALSA headers
+*   **The Problem:** raylib cannot find `X11/Xlib.h`, `GL/gl.h`, or `alsa/asoundlib.h`.
+*   **The Fix:** Install the development packages listed in
+    [linux.md](linux.md), then delete the build directory and configure again.
+
+### Linux: `cannot open shared object file: libraylib.so.600`
+*   **The Problem:** the runtime cannot find the raylib shared library.
+*   **The Fix:** run from the build/dist directory that contains `libraylib.so*`,
+    or reinstall the package. The binaries use an `$ORIGIN` RPATH.
 
 ### "lld-link: error: duplicate symbol" or `std::bad_function_call` errors
-*   **The Problem:** The DLL and the engine were built with different toolchains, or a stale object cache survived a toolchain update. `libc++` symbols are version-dependent.
-*   **The Fix:** Delete the project's `.raywaves/build/` folder and click **Compile** again. The generated project CMake compiles `Engine/*.cpp` sources alongside your `GameLogic/*.cpp`, so both sides use the same compiler and runtime.
+*   **The Problem:** The module and the engine were built with different toolchains, or a stale object cache survived a toolchain update. C++ runtime symbols are version-dependent. On Windows this can surface as `lld-link` errors; on Linux it can surface as `std::bad_function_call` or undefined C++ runtime symbols.
+*   **The Fix:** Delete the project's `.raywaves/build/` folder and click **Compile** again. The generated project CMake compiles `Engine/*.cpp` sources alongside your `GameLogic/*.cpp`, so both sides use the same compiler and runtime. Do not mix Zig-built and GCC-built objects.
 *   **Do not link a precompiled `libEngine.a`.** Dev builds and distributions both use `packaging/Project.CMakeLists.in`; there is no second project build recipe.
 
 ---
@@ -62,7 +80,7 @@ You'll see log lines like `"Downloading CMake (first-time setup)..."` in the Con
 ### Purple/Black Textures (Missing Assets)
 *   **The Problem:** Raylib can't find the file.
 *   **The Fix:**
-    *   Check the path. Is it relative to `RayWaves.exe`?
+    *   Check the path. Is it relative to the editor executable (`RayWaves.exe` on Windows, `RayWaves` on Linux)?
     *   Did you use forward slashes? `"Assets/player.png"` ✅ vs `"Assets\player.png"` ❌
     *   Is the file actually in your project's `Assets/` folder?
 
@@ -75,6 +93,21 @@ You'll see log lines like `"Downloading CMake (first-time setup)..."` in the Con
 ---
 
 ## 📦 Export Issues
+
+### Hyprland: the editor opens floating and looks small
+*   **The Problem:** Hyprland can float XWayland windows, and a 1280x720 request
+    becomes 1024x576 logical at a 1.25 monitor scale.
+*   **The Fix:** the editor creates its window resizable, advertises a normal
+    X11 window type, sets explicit size bounds, and sizes it to roughly 90% of
+    the monitor. If it still floats, add a Hyprland rule:
+    ```lua
+    hl.window_rule({ match = { class = "^(RayWaves)$" }, float = false })
+    ```
+    See [linux.md](linux.md#hyprland).
+
+### Linux: file dialogs do nothing
+*   **The Problem:** `tinyfiledialogs` needs a native dialog backend.
+*   **The Fix:** install `zenity` (GNOME) or `kdialog` (KDE).
 
 ### "The exported game crashes immediately"
 *   **The Problem:** Usually missing assets or config files.

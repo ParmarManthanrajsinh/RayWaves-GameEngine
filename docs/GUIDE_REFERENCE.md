@@ -284,9 +284,9 @@ MyGame/Assets/
 The exported folder contains:
 ```
 MyGame_Export/
-├── game.exe            # Standalone runtime (no editor UI)
-├── GameLogic.dll       # Your compiled game
-├── raylib.dll          # Raylib shared library
+├── game / game.exe     # Standalone runtime (no editor UI)
+├── GameLogic.dll/.so   # Your compiled game
+├── raylib runtime      # libraylib.dll / libraylib.so*
 ├── Assets/             # All your game assets (copied from project)
 ├── config.ini          # Window config for standalone mode
 └── EngineContent/      # Engine fonts (rarely needed)
@@ -299,14 +299,14 @@ MyGame_Export/
 
 ### Verifying an Export
 
-Run `game.exe` from the exported folder. If it crashes:
+Run `game.exe` (Windows) or `./game` (Linux) from the exported folder. If it crashes:
 - Check that `Assets/` contains all required files.
 - Check that `config.ini` exists (generated during export).
 - Run from a terminal to see error output.
 
 ### Setting a Custom Icon
 
-Replace `EngineContent/icon.ico` with your own 256x256 `.ico` file before exporting. The icon is embedded into `game.exe` during the build.
+Windows export embeds `EngineContent/icon.ico` into `game.exe` with rcedit. Linux uses the raylib window icon instead.
 
 ---
 
@@ -399,7 +399,7 @@ g_GameState.score += 100;
 RequestGotoMap("NextLevel");
 ```
 
-> **Caution:** Global variables survive hot-reloads because the DLL's data segment persists. This is convenient but resets when the editor restarts. Use StateBag for persistence across restarts.
+> **Caution:** Global variables survive hot-reloads because the loaded module's data segment persists while the host keeps it mapped. This is convenient but resets when the editor restarts. Use StateBag for persistence across restarts.
 
 **Option 2: StateBag in the manager map** (survives reload and restart)
 

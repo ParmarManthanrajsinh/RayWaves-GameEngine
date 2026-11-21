@@ -2,10 +2,20 @@
 
 ## Local loop
 
+Windows:
+
 ```powershell
 cmake --preset zig-debug
 cmake --build build/zig-debug
 scripts/test.ps1 -Preset zig-debug
+```
+
+Linux (system GCC/G++):
+
+```sh
+cmake --preset zig-debug
+cmake --build build/zig-debug
+./scripts/test.sh --preset zig-debug
 ```
 
 Before opening a PR:
@@ -14,8 +24,13 @@ Before opening a PR:
 scripts/check.ps1
 ```
 
-`check.ps1` runs the format check when `clang-format` is available, then all test
-suites. `Tools/run_analysis.bat tidy` runs clang-tidy.
+```sh
+./scripts/check.sh
+```
+
+`check.ps1` / `check.sh` run the format check when `clang-format` is available,
+then docs checks and all test suites. `Tools/run_analysis.bat tidy` runs
+clang-tidy on Windows.
 
 ## Naming convention
 
@@ -44,7 +59,10 @@ functions and types.
 - **Engine systems:** `Engine/`, an explicit entry in `cmake/Engine.cmake`
   (no `file(GLOB)`), and a test under `tests/unit/` or `tests/integration/`.
 - **Build logic:** `cmake/*.cmake`; keep `CMakeLists.txt` thin.
-- **Developer commands:** `scripts/`; do not scatter runners in source folders.
+- **Developer commands:** `scripts/`; add both the `.ps1` and `.sh` form, do not
+  scatter runners in source folders.
+- **Platform-specific code:** `Engine/PlatformInfo.cpp`,
+  `Runtime/platform/{Win32,Posix}/`, or `Editor/platform/{Win32,Posix}/`.
 
 ## Tests
 
@@ -78,5 +96,5 @@ When making code changes:
 
 - One concern per PR.
 - Include tests for behavior changes.
-- Run `scripts/check.ps1`.
+- Run `scripts/check.ps1` (Windows) or `./scripts/check.sh` (Linux).
 - Update docs when paths or commands change.

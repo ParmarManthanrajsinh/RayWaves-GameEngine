@@ -1,5 +1,7 @@
 #include "WindowUtils.h"
 
+#if defined(_WIN32)
+
 #include <raylib.h>
 
 #define Rectangle WinAPIRectangle
@@ -65,3 +67,29 @@ bool SetupNativeWindow()
     return true;
 }
 } // namespace WindowUtils
+
+#else
+
+#include <raylib.h>
+
+namespace WindowUtils
+{
+// Linux/BSD window managers own the title bar and icon. The editor sets the
+// raylib window icon explicitly; there are no native tweaks to apply.
+void ApplyDarkTitleBar(void* window_handle)
+{
+    (void)window_handle;
+}
+
+void SetIconFromExecutable(void* window_handle)
+{
+    (void)window_handle;
+}
+
+bool SetupNativeWindow()
+{
+    return GetWindowHandle() != nullptr;
+}
+} // namespace WindowUtils
+
+#endif

@@ -109,8 +109,8 @@ TEST_CASE("GameMap: AddEntity defaults and options")
 
     float rotation = 0.0f;
     bool visible = true;
-    t_EditorEntity* typed = map.AddEntity("Slime", &position, nullptr,
-        { .Type = "Enemy", .Rotation = &rotation, .Visible = &visible, .Id = 42 });
+    t_EditorEntity* typed = map.AddEntity(
+        "Slime", &position, nullptr, { .Type = "Enemy", .Rotation = &rotation, .Visible = &visible, .Id = 42 });
     REQUIRE(typed != nullptr);
     CHECK(typed->m_Type == "Enemy");
     CHECK(typed->m_Rotation == &rotation);
@@ -172,11 +172,11 @@ TEST_CASE("GameMap: editor entity registration")
     CHECK(entity->m_Position == &position);
     CHECK(entity->m_Size == &size);
 
-    const std::span<const t_EditorEntity> entities = map.GetEditorEntities();
+    const auto& entities = map.GetEditorEntities();
     REQUIRE(entities.size() == 1);
-    CHECK(entities[0].m_Id == entity->m_Id);
+    CHECK(entities.front().m_Id == entity->m_Id);
 
-    entities[0].m_Position->x = 99.0f;
+    entities.front().m_Position->x = 99.0f;
     CHECK(position.x == doctest::Approx(99.0f));
 
     CHECK(map.UnregisterEditorEntity(entity->m_Id));
@@ -260,23 +260,62 @@ TEST_CASE("GameMap: unregister keeps remaining entities stable")
     Vector2 last{};
 
     t_EditorEntity* a = map.RegisterEditorEntity("A", &first);
-    t_EditorEntity* b = map.RegisterEditorEntity("B", &middle);
-    t_EditorEntity* c = map.RegisterEditorEntity("C", &last);
     REQUIRE(a != nullptr);
-    REQUIRE(b != nullptr);
-    REQUIRE(c != nullptr);
-
     const uint64_t a_id = a->m_Id;
+
+    t_EditorEntity* b = map.RegisterEditorEntity("B", &middle);
+    REQUIRE(b != nullptr);
+    const uint64_t b_id = b->m_Id;
+
+    t_EditorEntity* c = map.RegisterEditorEntity("C", &last);
+    REQUIRE(c != nullptr);
     const uint64_t c_id = c->m_Id;
-    CHECK(map.UnregisterEditorEntity(b->m_Id));
+
+    CHECK(map.UnregisterEditorEntity(b_id));
     CHECK(!map.UnregisterEditorEntity(0));
 
-    const std::span<const t_EditorEntity> entities = map.GetEditorEntities();
+    const auto& entities = map.GetEditorEntities();
     REQUIRE(entities.size() == 2);
-    CHECK(entities[0].m_Id == a_id);
-    CHECK(entities[0].m_Name == "A");
-    CHECK(entities[1].m_Id == c_id);
-    CHECK(entities[1].m_Name == "C");
+    auto it = entities.begin();
+    CHECK(it->m_Id == a_id);
+    CHECK(it->m_Name == "A");
+    ++it;
+    CHECK(it->m_Id == c_id);
+    CHECK(it->m_Name == "C");
+}
+
+TEST_CASE("GameMap: editor entity pointers survive later registrations and erasure")
+{
+    TestGameMap map;
+    Vector2 position_a{};
+    Vector2 position_b{};
+    Vector2 position_middle{};
+
+    t_EditorEntity* a = map.RegisterEditorEntity("A", &position_a);
+    t_EditorEntity* b = map.RegisterEditorEntity("B", &position_b);
+    REQUIRE(a != nullptr);
+    REQUIRE(b != nullptr);
+    const uint64_t a_id = a->m_Id;
+    const uint64_t b_id = b->m_Id;
+
+    for (int index = 0; index < 1000; ++index)
+    {
+        REQUIRE(map.RegisterEditorEntity("Filler " + std::to_string(index), &position_middle) != nullptr);
+    }
+
+    CHECK(a->m_Id == a_id);
+    CHECK(a->m_Name == "A");
+    CHECK(b->m_Id == b_id);
+    CHECK(b->m_Name == "B");
+
+    t_EditorEntity* middle = map.RegisterEditorEntity("Middle", &position_middle);
+    REQUIRE(middle != nullptr);
+    CHECK(map.UnregisterEditorEntity(middle->m_Id));
+
+    CHECK(a->m_Id == a_id);
+    CHECK(a->m_Name == "A");
+    CHECK(b->m_Id == b_id);
+    CHECK(b->m_Name == "B");
 }
 
 TEST_CASE("GameMap: mutable editor entity span edits live data")
@@ -285,12 +324,12 @@ TEST_CASE("GameMap: mutable editor entity span edits live data")
     Vector2 position{ 1.0f, 2.0f };
     REQUIRE(map.RegisterEditorEntity("Sprite", &position) != nullptr);
 
-    std::span<t_EditorEntity> entities = map.GetEditorEntities();
+    auto& entities = map.GetEditorEntities();
     REQUIRE(entities.size() == 1);
-    entities[0].m_Name = "Renamed";
-    entities[0].m_Position->y = 12.0f;
+    entities.front().m_Name = "Renamed";
+    entities.front().m_Position->y = 12.0f;
 
-    CHECK(map.GetEditorEntities()[0].m_Name == "Renamed");
+    CHECK(map.GetEditorEntities().front().m_Name == "Renamed");
     CHECK(position.y == doctest::Approx(12.0f));
 }
 

@@ -10,7 +10,14 @@ doctest + CTest suites.
 Run:
 
 ```powershell
+# Windows
 scripts/test.ps1
+ctest --preset zig-debug
+```
+
+```sh
+# Linux
+./scripts/test.sh
 ctest --preset zig-debug
 ```
 

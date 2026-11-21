@@ -5,6 +5,7 @@
 | Document | Audience | Contents |
 |---|---|---|
 | [Getting started](../README.md) | Everyone | Clone, build, run the editor |
+| [Linux](linux.md) | Linux users | Packages, X11/XWayland, headless CI, packaging |
 | [Agent CLI](agent/README.md) | Agents + automation | `rwcli` build/run/scene/lsp commands and JSON contract |
 | [rwcli reference](agent/rwcli-reference.md) | Agents + automation | Every command, flag, exit code, wrapper/tooling |
 | [Engine docs](engine/README.md) | Engine contributors | Index for engine, build, tests, packaging |
@@ -21,7 +22,7 @@
 | [API reference](API_REFERENCE.md) | Game creators | Engine class reference |
 | [Fundamentals](GUIDE_FUNDAMENTALS.md) | Game creators | Core concepts |
 | [Reference](GUIDE_REFERENCE.md) | Game creators | Detailed engine reference |
-| [Terminal](TERMINAL.md) | Contributors | ConPTY, libvterm, console tabs, shortcuts |
+| [Terminal](TERMINAL.md) | Contributors | ConPTY/PTY, libvterm, console tabs, shortcuts |
 
 ## Repository map
 
@@ -30,10 +31,10 @@
 | `Engine/` | Core engine library | `rw.h`, `GameMap.h`, `MapManager.h`, `Scene.h` |
 | `Editor/` | ImGui editor | `GameEditor.cpp`, `Panels/` |
 | `Runtime/` | Editor/runtime entry points + DLL loading | `main.cpp`, `DllLoader.h` |
-| `Cli/` | Agent CLI (`rwcli.exe`) | `Commands.cpp`, `RunWorker.cpp` |
+| `Cli/` | Agent CLI (`rwcli`) | `Commands.cpp`, `RunWorker.cpp` |
 | `tests/` | Unit, integration, smoke tests | `tests/CMakeLists.txt` |
 | `benchmarks/` | Standalone performance harness | `benchmarks/main.cpp` |
 | `templates/` | New-project templates | `templates/SlimeQuest/` |
 | `packaging/` | Distribution scripts and template | `packaging/README.md` |
-| `scripts/` | Day-to-day developer commands | `scripts/test.ps1` |
+| `scripts/` | Day-to-day developer commands | `scripts/test.ps1`, `scripts/test.sh` |
 | `cmake/` | Build modules | `cmake/Dependencies.cmake` |

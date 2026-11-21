@@ -20,7 +20,7 @@ bool GameLogicHost::b_Load(std::string_view dll_path, std::string& out_error)
     m_Dll = LoadDll(std::string(dll_path).c_str());
     if (m_Dll.handle == nullptr)
     {
-        out_error = "Failed to load GameLogic DLL: " + std::string(dll_path);
+        out_error = "Failed to load GameLogic module: " + std::string(dll_path);
         return false;
     }
 
@@ -29,7 +29,7 @@ bool GameLogicHost::b_Load(std::string_view dll_path, std::string& out_error)
 
     if (m_CreateGameMap == nullptr || m_DestroyGameMap == nullptr)
     {
-        out_error = "GameLogic DLL is missing CreateGameMap/DestroyGameMap";
+        out_error = "GameLogic module is missing CreateGameMap/DestroyGameMap";
         Unload();
         return false;
     }

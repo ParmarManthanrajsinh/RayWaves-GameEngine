@@ -11,13 +11,16 @@ namespace term
 
 struct t_ShellSpec
 {
-    std::wstring executable;
-    std::wstring arguments;
+    // UTF-8 executable path/name and arguments. The Windows ConPTY backend
+    // converts these to UTF-16 internally.
+    std::string executable;
+    std::string arguments;
     std::string display_name;
 };
 
-// Windows ConPTY-backed shell process. Output is delivered from a reader
-// thread; input and resize must be called from the UI thread.
+// PTY-backed shell process. Windows uses ConPTY; POSIX uses a pseudo-terminal
+// from posix_openpt. Output is delivered from a reader thread; input and
+// resize must be called from the UI thread.
 class t_PtySession
 {
 public:
@@ -29,7 +32,7 @@ public:
 
     static bool b_IsSupported();
 
-    bool b_Start(const t_ShellSpec& shell, const std::wstring& working_directory, int cols, int rows,
+    bool b_Start(const t_ShellSpec& shell, const std::string& working_directory, int cols, int rows,
         std::function<void(std::string_view)> on_output);
 
     void Write(std::string_view bytes);

@@ -43,8 +43,8 @@ public:
     int GetViewportWidth() const;
     int GetViewportHeight() const;
 
-    void LaunchWindow(int width, int height, std::string_view title);
-    void LaunchWindow(const t_WindowConfig& config);
+    bool LaunchWindow(int width, int height, std::string_view title, bool b_EditorWindow = false);
+    bool LaunchWindow(const t_WindowConfig& config);
     static void ToggleFullscreen();
     static void SetWindowMode(bool fullscreen);
     void SetMap(GameMap* game_map);

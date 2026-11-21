@@ -13,13 +13,14 @@ set(GAMELOGIC_SRC_CPP
 
 add_library(GameLogic SHARED ${GAMELOGIC_SRC_CPP})
 set_target_properties(GameLogic PROPERTIES PREFIX "")
+raywaves_set_origin_rpath(GameLogic)
 
 target_include_directories(GameLogic PRIVATE
     ${CMAKE_SOURCE_DIR}
     ${CMAKE_SOURCE_DIR}/Engine
     ${CMAKE_SOURCE_DIR}/templates/SlimeQuest/GameLogic
 )
-target_link_libraries(GameLogic PRIVATE Engine)
+target_link_libraries(GameLogic PRIVATE Engine Threads::Threads)
 
 add_dependencies(GameLogic stage_raylib)
 
@@ -47,7 +48,7 @@ target_include_directories(ThirdPerson3DTemplateCheck PRIVATE
 target_link_libraries(ThirdPerson3DTemplateCheck PRIVATE Engine)
 add_dependencies(ThirdPerson3DTemplateCheck stage_raylib)
 
-# Keep the built DLL next to the editor/runtime executables.
+# Keep the built library next to the editor/runtime executables.
 add_custom_command(TARGET GameLogic POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
             $<TARGET_FILE:GameLogic>

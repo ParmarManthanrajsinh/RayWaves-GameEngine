@@ -1,14 +1,16 @@
-#include "Commands.h"
-#include "CliCommon.h"
-#include "Json.h"
 #include "AssetResolver.h"
+#include "CliCommon.h"
+#include "Commands.h"
+#include "DllLoader.h"
 #include "GameConfig.h"
 #include "GameEngine.h"
 #include "GameLogicHost.h"
 #include "GameMap.h"
 #include "GameState.h"
+#include "Json.h"
 #include "MapManager.h"
 #include "PlatformInfo.h"
+#include "PlatformNames.h"
 #include "ProcessRunner.h"
 #include <algorithm>
 #include <atomic>
@@ -185,16 +187,20 @@ namespace Cli
 {
 int RunCommand(const FProjectContext& project, const FArgs& args, bool b_json)
 {
-    const fs::path result_path = project.m_Dir / ".raywaves" / "agent" / ("run-" + std::to_string(PlatformInfo::GetCurrentProcessId()) + ".json");
+    const fs::path result_path = project.m_Dir / ".raywaves" / "agent" /
+        ("run-" + std::to_string(PlatformInfo::GetCurrentProcessId()) + ".json");
     std::error_code error;
     fs::create_directories(result_path.parent_path(), error);
     fs::remove(result_path, error);
 
     if (!fs::exists(project.m_Project.m_DllPath))
     {
-        PrintError(b_json, "dll_missing", "GameLogic.dll not found. Run: rwcli build <project>");
+        PrintError(b_json, "dll_missing",
+            std::string(rw::platform::c_GameLogicModuleName) + " not found. Run: rwcli build <project>");
         return 3;
     }
+
+    CleanupStaleShadowCopies(project.m_Dir);
 
     std::string command = ProcessRunner::QuoteArg(GetSelfPath().string()) + " __run-worker --project " +
         ProcessRunner::QuoteArg(project.m_Dir.string()) + " --result " + ProcessRunner::QuoteArg(result_path.string());
@@ -279,7 +285,8 @@ int RunCommand(const FProjectContext& project, const FArgs& args, bool b_json)
     {
         if (b_json)
         {
-            std::cout << ErrorJson("run_timeout", "Run timed out after " + std::to_string(timeout_seconds) + "s") << "\n";
+            std::cout << ErrorJson("run_timeout", "Run timed out after " + std::to_string(timeout_seconds) + "s")
+                      << "\n";
         }
         return 6;
     }
@@ -317,7 +324,8 @@ int RunWorker(const FArgs& args)
     fs::current_path(project.m_Dir, chdir_error);
     if (chdir_error)
     {
-        return FailWorker(result_path, "invalid_project", "Could not enter project directory: " + chdir_error.message());
+        return FailWorker(
+            result_path, "invalid_project", "Could not enter project directory: " + chdir_error.message());
     }
 
     fs::path input_path;
@@ -332,7 +340,7 @@ int RunWorker(const FArgs& args)
         {
             return FailWorker(result_path, "input_missing", "Input script not found: " + input_path.string());
         }
-        if (_putenv_s("RAYWAVES_AGENT_INPUT", input_path.string().c_str()) != 0)
+        if (!PlatformInfo::b_SetEnvironmentVariable("RAYWAVES_AGENT_INPUT", input_path.string()))
         {
             return FailWorker(result_path, "input_missing", "Could not set RAYWAVES_AGENT_INPUT");
         }
@@ -391,8 +399,7 @@ int RunWorker(const FArgs& args)
     AssetResolver::SetProjectAssetPath(project.m_Project.m_AssetPath);
 
     GameEngine engine;
-    engine.LaunchWindow(config);
-    if (!IsWindowReady())
+    if (!engine.LaunchWindow(config))
     {
         return FailWorker(result_path, "run_window", "Could not create the render window");
     }
@@ -438,9 +445,9 @@ int RunWorker(const FArgs& args)
 
         if (timeout_seconds > 0)
         {
-            const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
-                std::chrono::steady_clock::now() - start_time)
-                                     .count();
+            const auto elapsed =
+                std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start_time)
+                    .count();
             if (elapsed > (static_cast<int64_t>(timeout_seconds) * 1000))
             {
                 b_timed_out = true;
@@ -449,9 +456,8 @@ int RunWorker(const FArgs& args)
         }
     }
 
-    const auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
-        std::chrono::steady_clock::now() - start_time)
-                              .count();
+    const auto duration =
+        std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start_time).count();
 
     if (b_want_screenshot && !b_screenshot_taken)
     {
@@ -483,8 +489,7 @@ int RunWorker(const FArgs& args)
         CliJson::Number(static_cast<double>(duration)) + "," + CliJson::Key("seed") + CliJson::Number(seed) + "," +
         CliJson::Key("input") + (input_path.empty() ? "null" : CliJson::Quoted(input_path.string())) + "," +
         CliJson::Key("screenshot") + ScreenshotJson(screenshot_path, b_want_screenshot) + "," +
-        CliJson::Key("entities") + CliJson::Array(entity_items) + "," + CliJson::Key("state") + StateJson(state) +
-        "}";
+        CliJson::Key("entities") + CliJson::Array(entity_items) + "," + CliJson::Key("state") + StateJson(state) + "}";
 
     host.Unload();
     if (!config.b_NoAudio)

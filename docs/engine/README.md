@@ -17,12 +17,12 @@ Start here if you are changing the engine, editor, runtime, build, or tests.
 flowchart LR
     A[Edit GameLogic .cpp] --> B[Editor Compile]
     B --> C[CMake + Ninja + Zig]
-    C --> D[GameLogic.dll]
-    D --> E[Copy to shadow DLL]
-    E --> F[LoadLibrary shadow]
+    C --> D[GameLogic.dll / GameLogic.so]
+    D --> E[Copy to shadow module]
+    E --> F[LoadLibrary / dlopen shadow]
     F --> G[CreateGameMap]
     G --> H[LoadState from StateBag]
-    H --> I[Unload old DLL]
+    H --> I[Release old module]
 ```
 
 ## Project CMake generation
@@ -34,15 +34,15 @@ flowchart TD
     C --> D[Replace @TOOLS_DIR@, @ENGINE_DIR@, @RAYLIB_DIR@]
     D --> E[.raywaves/CMakeLists.txt]
     E --> F[CMake + Ninja + Zig]
-    F --> G[GameLogic.dll]
+    F --> G[GameLogic.dll / GameLogic.so]
 ```
 
 ## Where to change what
 
 - Core systems: `Engine/` + `cmake/Engine.cmake` + a test.
 - Editor UI: a panel under `Editor/Panels/`.
-- Host entry points / DLL loading: `Runtime/`.
+- Host entry points / module loading: `Runtime/`.
 - Build behavior: `cmake/*.cmake`.
 - Test suites: `tests/`.
 - Performance cases: `benchmarks/`.
-- Packaging: `packaging/` + `scripts/package.ps1`.
+- Packaging: `packaging/` + `scripts/package.ps1` / `scripts/package.sh`.

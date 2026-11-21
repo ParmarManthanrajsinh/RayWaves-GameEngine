@@ -12,20 +12,34 @@ This page covers the engine distribution. Game export is handled by
 ## Build a package
 
 ```powershell
-# Folder only
+# Windows: folder only
 scripts/package.ps1
 
-# Standalone ZIP + SHA256 with bundled compiler
+# Windows: standalone ZIP + SHA256 with bundled compiler
 scripts/package.ps1 -IncludeCompiler -Zip
 
-# Debug package
+# Windows: debug package
 scripts/package.ps1 -Config Debug -OutputDir out/debug
 ```
 
-The underlying script is `packaging/package.ps1`. It resolves every path from
-the repository root, so it can be run from any working directory.
+```sh
+# Linux: folder only
+./scripts/package.sh
+
+# Linux: standalone tar.gz + SHA256 (uses system GCC/G++)
+./scripts/package.sh --archive
+
+# Linux: debug package
+./scripts/package.sh --config Debug --output-dir out/debug
+```
+
+The underlying scripts are `packaging/package.ps1` and
+`packaging/package.sh`. Both resolve every path from the repository root, so
+they can be run from any working directory.
 
 ## Package layout
+
+Windows:
 
 ```text
 dist/
@@ -51,13 +65,42 @@ dist/
 └─ docs/
 ```
 
+Linux:
+
+```text
+dist/
+├─ RayWaves
+├─ rwcli
+├─ libraylib.so, libraylib.so.600
+├─ config.ini
+├─ VERSION
+├─ LICENSE
+├─ Core/
+│  ├─ runtime
+│  ├─ Engine/
+│  ├─ raylib/{include,lib,bin}
+│  ├─ Project.CMakeLists.in
+│  ├─ Project.AGENTS.md.in
+│  ├─ Project.SKILL.md.in
+│  ├─ Project.rwcli-reference.md.in
+│  ├─ Project.clangd.in
+│  ├─ Project.vscode.*.json.in
+│  ├─ .clang-format
+│  └─ Tools/                  # zig wrappers, ninja, cmake
+├─ templates/
+└─ docs/
+```
+
 `Core/Project.CMakeLists.in` is the same template the editor uses to generate
 `.raywaves/CMakeLists.txt`. Do not add a second project build recipe.
 
 ## Validation
 
-The script fails if any required file is missing. It also checks for the raylib
-import library and removes build artifacts from templates.
+The scripts fail if any required file is missing. They also check for the
+raylib import/runtime library and remove build artifacts from templates.
+Windows archives are ZIPs; Linux archives are tar.gz files that preserve
+executable bits and `$ORIGIN` RPATHs. Linux targets must have GCC/G++ and
+libstdc++ installed; the package does not bundle a compiler.
 
 ## Versioning
 
@@ -67,4 +110,8 @@ writes it to `dist/VERSION`. Override it with:
 
 ```powershell
 scripts/package.ps1 -Version 0.2.0
+```
+
+```sh
+./scripts/package.sh --version 0.2.0
 ```

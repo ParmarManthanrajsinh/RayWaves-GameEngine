@@ -69,6 +69,22 @@ std::string s_FormatLastError(unsigned long code)
     return std::string(buffer, size);
 }
 
+std::wstring s_Utf8ToWide(std::string_view text)
+{
+    if (text.empty())
+    {
+        return {};
+    }
+    const int length = MultiByteToWideChar(CP_UTF8, 0, text.data(), static_cast<int>(text.size()), nullptr, 0);
+    if (length <= 0)
+    {
+        return {};
+    }
+    std::wstring result(static_cast<size_t>(length), L'\0');
+    MultiByteToWideChar(CP_UTF8, 0, text.data(), static_cast<int>(text.size()), result.data(), length);
+    return result;
+}
+
 std::vector<wchar_t> s_BuildEnvironment()
 {
     std::vector<wchar_t> result;
@@ -180,7 +196,7 @@ bool t_PtySession::b_IsSupported()
     return s_ConPtyApi().b_Available;
 }
 
-bool t_PtySession::b_Start(const t_ShellSpec& shell, const std::wstring& working_directory, int cols, int rows,
+bool t_PtySession::b_Start(const t_ShellSpec& shell, const std::string& working_directory, int cols, int rows,
     std::function<void(std::string_view)> on_output)
 {
     Stop();
@@ -271,18 +287,19 @@ bool t_PtySession::b_Start(const t_ShellSpec& shell, const std::wstring& working
         return false;
     }
 
-    std::wstring command_line = L"\"" + shell.executable + L"\"";
+    std::wstring command_line = L"\"" + s_Utf8ToWide(shell.executable) + L"\"";
     if (!shell.arguments.empty())
     {
-        command_line += L" " + shell.arguments;
+        command_line += L" " + s_Utf8ToWide(shell.arguments);
     }
 
     std::vector<wchar_t> environment = s_BuildEnvironment();
+    const std::wstring wide_working_directory = s_Utf8ToWide(working_directory);
 
     PROCESS_INFORMATION process{};
     const BOOL b_created = CreateProcessW(nullptr, command_line.data(), nullptr, nullptr, FALSE,
         EXTENDED_STARTUPINFO_PRESENT | CREATE_UNICODE_ENVIRONMENT, environment.data(),
-        working_directory.empty() ? nullptr : working_directory.c_str(), &startup.StartupInfo, &process);
+        wide_working_directory.empty() ? nullptr : wide_working_directory.c_str(), &startup.StartupInfo, &process);
 
     DeleteProcThreadAttributeList(startup.lpAttributeList);
 
@@ -417,7 +434,7 @@ bool t_PtySession::b_IsSupported()
     return false;
 }
 
-bool t_PtySession::b_Start(const t_ShellSpec&, const std::wstring&, int, int, std::function<void(std::string_view)>)
+bool t_PtySession::b_Start(const t_ShellSpec&, const std::string&, int, int, std::function<void(std::string_view)>)
 {
     return false;
 }

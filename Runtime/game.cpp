@@ -1,4 +1,5 @@
 #include "../Engine/AssetResolver.h"
+#include "../Engine/PlatformNames.h"
 #include "DllLoader.h"
 #include "GameConfig.h"
 #include "GameEngine.h"
@@ -19,7 +20,10 @@ int main()
     AssetResolver::SetProjectAssetPath("Assets");
 
     GameEngine engine;
-    engine.LaunchWindow(config.GetWindowConfig());
+    if (!engine.LaunchWindow(config.GetWindowConfig()))
+    {
+        return 1;
+    }
 
     // Set FPS based on vsync setting
     if (config.GetWindowConfig().b_Vsync)
@@ -35,7 +39,7 @@ int main()
     bool b_ExitRequested = false;
 
     std::string load_error;
-    if (host.b_Load("GameLogic.dll", load_error))
+    if (host.b_Load(rw::platform::c_GameLogicModuleName, load_error))
     {
         // Standalone: GameLogic may capture the cursor. The editor never sets
         // this, so editing keeps a usable mouse.

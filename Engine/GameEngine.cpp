@@ -45,25 +45,57 @@ int GameEngine::GetViewportHeight() const
     return m_ViewportHeight;
 }
 
-void GameEngine::LaunchWindow(int width, int height, std::string_view title)
+bool GameEngine::LaunchWindow(int width, int height, std::string_view title, bool b_EditorWindow)
 {
     m_WindowWidth = width;
     m_WindowHeight = height;
     m_WindowTitle = title;
     std::cerr << "Window initialized: " << title << " (" << width << "x" << height << ")\n";
 
-    InitWindow(width, height, title.data());
-    InitAudioDevice();
-
-    if (!WindowUtils::SetupNativeWindow())
+    // The editor creates a hidden, resizable window first so it can advertise
+    // a normal X11 window type and sane size bounds before mapping; tiling
+    // compositors such as Hyprland otherwise float untyped XWayland windows.
+    // Game windows keep their usual behavior.
+    unsigned int flags = FLAG_WINDOW_RESIZABLE;
+    if (b_EditorWindow)
     {
-        return;
+        flags |= FLAG_WINDOW_HIDDEN;
+    }
+    SetConfigFlags(flags);
+
+    InitWindow(width, height, title.data());
+    if (!IsWindowReady())
+    {
+        std::cerr << "Failed to create the RayWaves window. Check DISPLAY/X11 and the OpenGL driver.\n";
+        return false;
     }
 
+    if (b_EditorWindow)
+    {
+        // A fixed 1280x720 editor is small on high-DPI or large monitors. Size
+        // it while hidden, then let the window manager tile it.
+        const int monitor = GetCurrentMonitor();
+        const int monitor_width = GetMonitorWidth(monitor);
+        const int monitor_height = GetMonitorHeight(monitor);
+        if (monitor_width > 0 && monitor_height > 0)
+        {
+            SetWindowSize(monitor_width * 9 / 10, monitor_height * 9 / 10);
+        }
+
+        WindowUtils::SetNormalWindowType();
+        ClearWindowState(FLAG_WINDOW_HIDDEN);
+    }
+
+    InitAudioDevice();
+
+    // Title-bar/icon tweaks are best effort. A platform without native window
+    // decoration support must still be considered running.
+    WindowUtils::SetupNativeWindow();
     m_bIsRunning = true;
+    return true;
 }
 
-void GameEngine::LaunchWindow(const t_WindowConfig& config)
+bool GameEngine::LaunchWindow(const t_WindowConfig& config)
 {
     m_WindowWidth = config.width;
     m_WindowHeight = config.height;
@@ -87,6 +119,11 @@ void GameEngine::LaunchWindow(const t_WindowConfig& config)
     }
 
     InitWindow(config.width, config.height, config.title.c_str());
+    if (!IsWindowReady())
+    {
+        std::cerr << "Failed to create the game window. Check DISPLAY/X11 and the OpenGL driver.\n";
+        return false;
+    }
 
     // Agent runs default to no audio: CI hosts have no device, and the game
     // logic does not need it to produce a screenshot.
@@ -96,12 +133,14 @@ void GameEngine::LaunchWindow(const t_WindowConfig& config)
     }
 
     WindowUtils::SetupNativeWindow();
+    m_bIsRunning = true;
 
     // Set fullscreen after window creation if needed
     if (config.b_Fullscreen)
     {
         ToggleFullscreen();
     }
+    return true;
 }
 
 void GameEngine::ToggleFullscreen()

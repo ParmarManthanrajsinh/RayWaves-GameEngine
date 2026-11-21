@@ -6,6 +6,8 @@ iterations, and reports nanoseconds per operation and operations per second.
 ## Running
 
 ```powershell
+# Windows
+
 # Default: release build, all cases
 scripts/bench.ps1
 
@@ -19,18 +21,44 @@ scripts/bench.ps1 --filter Profiler
 scripts/bench.ps1 --json benchmarks/results/latest.json
 ```
 
-The executable is `build/<preset>/raywaves_benchmarks.exe`; it is not part of
-CTest and never runs as part of `scripts/test.ps1`.
+```sh
+# Linux
+
+# Default: release build, all cases
+./scripts/bench.sh
+
+# Custom iterations
+./scripts/bench.sh --iterations 5000 --warmup 500
+
+# Filter by case name
+./scripts/bench.sh --filter Profiler
+
+# Write a JSON report
+./scripts/bench.sh --json benchmarks/results/latest.json
+```
+
+The executable is `build/<preset>/raywaves_benchmarks` (`raywaves_benchmarks.exe` on Windows); it is not part of
+CTest and never runs as part of `scripts/test.ps1` / `scripts/test.sh`.
 
 ## Comparing against a baseline
 
+Baselines are host-specific; use the file for your platform:
+
 ```powershell
-scripts/bench.ps1 --check benchmarks/baseline.json --max-regression 10
+# Windows
+scripts/bench.ps1 --check benchmarks/baseline.json --max-regression 15
+```
+
+```sh
+# Linux
+./scripts/bench.sh --check benchmarks/baseline-linux.json --max-regression 15
 ```
 
 The check is deliberately simple: it reads the flat JSON written by the
 harness and fails when a case is more than `--max-regression` percent slower.
-Run it on a quiet machine; timing noise is expected on laptops.
+Run it on a quiet machine; timing noise is expected on laptops. Regenerate a
+baseline on the same host with `--json <path>` after an intentional behavior
+change.
 
 ## Adding a case
 

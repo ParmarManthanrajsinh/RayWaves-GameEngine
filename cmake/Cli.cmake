@@ -15,11 +15,20 @@ target_include_directories(rwcli PRIVATE
     ${CMAKE_SOURCE_DIR}/Cli
 )
 
-target_link_libraries(rwcli PRIVATE Engine RuntimeSupport)
+target_link_libraries(rwcli PRIVATE Engine RuntimeSupport Threads::Threads)
 add_dependencies(rwcli stage_raylib)
+raywaves_set_origin_rpath(rwcli)
 
 add_custom_command(TARGET rwcli POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
             $<TARGET_FILE:raylib>
             $<TARGET_FILE_DIR:rwcli>
 )
+if(UNIX)
+    add_custom_command(TARGET rwcli POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "$<TARGET_SONAME_FILE:raylib>" "$<TARGET_FILE_DIR:rwcli>"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "$<TARGET_LINKER_FILE:raylib>" "$<TARGET_FILE_DIR:rwcli>/libraylib.so"
+    )
+endif()

@@ -1,6 +1,6 @@
 #include "PeCrtCheck.h"
-#include <Windows.h>
 #include <set>
+#include <windows.h>
 
 namespace
 {

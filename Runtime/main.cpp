@@ -1,10 +1,14 @@
 #include "../Engine/AssetResolver.h"
+#include "DllLoader.h"
 #include "GameEditor.h"
 #include "GameEngine.h"
 #include "GameMap.h"
-#include <crtdbg.h>
 #include <filesystem>
 #include <iostream>
+
+#if defined(_WIN32) && defined(_DEBUG)
+#include <crtdbg.h>
+#endif
 
 #include "../Engine/ProjectManager.h"
 
@@ -13,7 +17,10 @@ int main(int argc, char** argv)
 {
     if (argc >= 3 && std::string(argv[1]) == "--project")
     {
-        ProjectManager::b_OpenProject(argv[2]);
+        if (ProjectManager::b_OpenProject(argv[2]))
+        {
+            CleanupStaleShadowCopies(argv[2]);
+        }
     }
     else if (argc >= 2 && std::string(argv[1]) != "--project")
     {
@@ -29,11 +36,14 @@ int main(int argc, char** argv)
         }
         if (std::filesystem::exists(folder / "project.raywaves"))
         {
-            ProjectManager::b_OpenProject(folder.string());
+            if (ProjectManager::b_OpenProject(folder.string()))
+            {
+                CleanupStaleShadowCopies(folder);
+            }
         }
     }
 
-#ifdef _DEBUG
+#if defined(_WIN32) && defined(_DEBUG)
     _CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
     _CrtSetReportMode(_CRT_ASSERT, _CRTDBG_MODE_FILE | _CRTDBG_MODE_DEBUG);
     _CrtSetReportFile(_CRT_ASSERT, _CRTDBG_FILE_STDERR);
@@ -44,7 +54,10 @@ int main(int argc, char** argv)
     CleanupStaleShadowCopies();
     std::cout << "Game Engine Starting..." << "\n";
     GameEditor editor;
-    editor.Init(1280, 720, "RayWaves");
+    if (!editor.Init(1280, 720, "RayWaves"))
+    {
+        return 1;
+    }
 
     // Load logic DLL if a project was opened from command line
     if (ProjectManager::b_HasOpenProject())

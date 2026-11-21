@@ -1,12 +1,13 @@
 #include "ProjectManager.h"
 #include "EngineVersion.h"
+#include "PlatformInfo.h"
+#include "PlatformNames.h"
 #include <algorithm>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <iterator>
-#include <shlobj.h>
-#include <windows.h>
+#include <vector>
 
 namespace fs = std::filesystem;
 
@@ -17,11 +18,25 @@ bool b_WriteProjectFiles(const fs::path& project_root, const t_Project& project,
 
 fs::path ProjectManager::GetEngineRootDirectory()
 {
-    char exe_path[MAX_PATH];
-    GetModuleFileNameA(nullptr, exe_path, MAX_PATH);
-    fs::path base_dir = fs::path(exe_path).parent_path();
+    const fs::path base_dir = PlatformInfo::GetExecutablePath().parent_path();
 
-    if (fs::exists(base_dir / "Tools" / "setup_zig.ps1"))
+    const auto b_has_engine_marker = [](const fs::path& dir)
+    {
+        return fs::exists(dir / "Engine") &&
+            (fs::exists(dir / "Tools" / "toolchain.ini") || fs::exists(dir / "Tools" / "setup_tools.ps1") ||
+                fs::exists(dir / "Tools" / "setup_tools.sh") || fs::exists(dir / "CMakeLists.txt"));
+    };
+
+    // Distribution layout: the editor sits next to Core/, which contains the
+    // engine headers/sources. Check this before walking up so a dist folder
+    // inside the dev tree does not resolve to the dev root.
+    if (fs::exists(base_dir / "Core" / "Engine") &&
+        (fs::exists(base_dir / "Core" / "Project.CMakeLists.in") || fs::exists(base_dir / "Core" / "raylib")))
+    {
+        return base_dir;
+    }
+
+    if (b_has_engine_marker(base_dir))
     {
         return base_dir;
     }
@@ -29,15 +44,15 @@ fs::path ProjectManager::GetEngineRootDirectory()
     fs::path current = base_dir;
     while (current.has_parent_path() && current != current.parent_path())
     {
-        if (fs::exists(current / "Tools" / "setup_zig.ps1"))
+        if (b_has_engine_marker(current))
         {
             return current;
         }
         current = current.parent_path();
     }
 
-    // Fallback: check for dist layout (Core/ + Templates/)
-    if (fs::exists(base_dir / "Core") && fs::exists(base_dir / "Templates"))
+    // Fallback: check for dist layout (Core/ + templates/)
+    if (fs::exists(base_dir / "Core") && fs::exists(base_dir / "templates"))
     {
         return base_dir;
     }
@@ -45,7 +60,7 @@ fs::path ProjectManager::GetEngineRootDirectory()
     current = base_dir;
     while (current.has_parent_path() && current != current.parent_path())
     {
-        if (fs::exists(current / "Distribution" / "Templates"))
+        if (fs::exists(current / "Distribution" / "templates"))
         {
             return current;
         }
@@ -59,7 +74,9 @@ fs::path ProjectManager::GetToolsDirectory()
 {
     fs::path engine_root = GetEngineRootDirectory();
     fs::path tools_dir = engine_root / "Core" / "Tools";
-    if (!fs::exists(tools_dir / "zig-cc.bat"))
+    const bool b_has_tools = fs::exists(tools_dir / "zig-cc.bat") || fs::exists(tools_dir / "zig-cc.sh") ||
+        fs::exists(tools_dir / "setup_tools.sh") || fs::exists(tools_dir / "setup_tools.ps1");
+    if (!b_has_tools)
     {
         tools_dir = engine_root / "Tools";
     }
@@ -104,14 +121,10 @@ void ProjectManager::InitializeRecentPath()
     if (!s_RecentPath.empty())
         return;
 
-    char path[MAX_PATH];
-    if (SUCCEEDED(SHGetFolderPathA(nullptr, CSIDL_APPDATA, nullptr, 0, path)))
-    {
-        fs::path dir = fs::path(path) / "RayWaves";
-        if (!fs::exists(dir))
-            fs::create_directories(dir);
-        s_RecentPath = (dir / "recent.ini").string();
-    }
+    fs::path dir = PlatformInfo::GetAppConfigDirectory() / "RayWaves";
+    std::error_code error;
+    fs::create_directories(dir, error);
+    s_RecentPath = (dir / "recent.ini").string();
 }
 
 bool ProjectManager::b_OpenProject(std::string_view folder_path, bool b_add_recent)
@@ -171,11 +184,11 @@ bool ProjectManager::b_CreateProject(std::string_view target_folder, std::string
 
     // Resolve template path using robust root discovery
     fs::path root_dir = GetEngineRootDirectory();
-    fs::path template_dir = root_dir / "Templates" / template_name;
+    fs::path template_dir = root_dir / "templates" / template_name;
 
     if (!fs::exists(template_dir))
     {
-        template_dir = root_dir / "Distribution" / "Templates" / template_name;
+        template_dir = root_dir / "Distribution" / "templates" / template_name;
     }
 
     if (!fs::exists(template_dir))
@@ -341,11 +354,11 @@ std::vector<std::string> ProjectManager::GetAvailableTemplates()
 {
     std::vector<std::string> templates;
     fs::path root_dir = GetEngineRootDirectory();
-    fs::path template_dir = root_dir / "Templates";
+    fs::path template_dir = root_dir / "templates";
 
     if (!fs::exists(template_dir))
     {
-        template_dir = root_dir / "Distribution" / "Templates";
+        template_dir = root_dir / "Distribution" / "templates";
     }
 
     if (fs::exists(template_dir) && fs::is_directory(template_dir))
@@ -504,15 +517,62 @@ std::string JsonPath(const fs::path& path)
 
 // Absolute paths for clangd/IntelliSense. Missing pieces are skipped so an
 // engine checkout without a staged raylib still produces a usable file.
+std::vector<fs::path> ZigLibcIncludeDirs(const fs::path& zig_root)
+{
+    std::vector<fs::path> dirs;
+    const fs::path include_root = zig_root / "lib" / "libc" / "include";
+    std::error_code error;
+    if (!fs::is_directory(include_root, error))
+    {
+        return dirs;
+    }
+
+    // Include only the host target's headers. Adding every architecture's
+    // directory makes clangd parse conflicting definitions (notably glibc's
+    // __int32_t typedefs).
+    std::vector<std::string> names;
+    if (rw::platform::b_IsWindows)
+    {
+        names = { "any-windows-any" };
+    }
+    else
+    {
+#if defined(__aarch64__)
+        const std::string arch = "aarch64";
+#elif defined(__x86_64__)
+        const std::string arch = "x86_64";
+#elif defined(__i386__)
+        const std::string arch = "x86";
+#else
+        const std::string arch;
+#endif
+        names = { "any-linux-any", "generic-glibc" };
+        if (!arch.empty())
+        {
+            names.push_back(arch + "-linux-any");
+            names.push_back(arch + "-linux-gnu");
+        }
+    }
+
+    for (const std::string& name : names)
+    {
+        const fs::path candidate = include_root / name;
+        if (fs::is_directory(candidate, error))
+        {
+            dirs.push_back(candidate);
+        }
+    }
+    return dirs;
+}
+
 std::string BuildClangdContent(const fs::path& engine_dir, const fs::path& raylib_include, const fs::path& zig_root,
     const std::string& template_text)
 {
     const fs::path zig_libcxx = zig_root / "lib" / "libcxx" / "include";
     const fs::path zig_libcxxabi = zig_root / "lib" / "libcxxabi" / "include";
-    const fs::path zig_libc = zig_root / "lib" / "libc" / "include" / "any-windows-any";
 
     std::string target_flags;
-    if (fs::exists(zig_libcxx))
+    if (rw::platform::b_IsWindows && fs::exists(zig_libcxx))
     {
         target_flags += "    - -target\n";
         target_flags += "    - x86_64-windows-gnu\n";
@@ -533,17 +593,25 @@ std::string BuildClangdContent(const fs::path& engine_dir, const fs::path& rayli
         target_flags += "    - -D_LIBCPP_HAS_MUSL_LIBC=0\n";
         target_flags += "    - -D_LIBCPP_PSTL_BACKEND_SERIAL=1\n";
         target_flags += "    - -D_LIBCPP_HAS_VENDOR_AVAILABILITY_ANNOTATIONS=0\n";
-        target_flags += "    - -D__MINGW32__=1\n";
-        target_flags += "    - -D_WIN32_WINNT=0x0a00\n";
+        if (rw::platform::b_IsWindows)
+        {
+            target_flags += "    - -D__MINGW32__=1\n";
+            target_flags += "    - -D_WIN32_WINNT=0x0a00\n";
+        }
     }
 
     std::string zig_lines;
-    const fs::path zig_candidates[] = { zig_libcxx, zig_libcxxabi, zig_libc };
-    for (const fs::path& candidate : zig_candidates)
+    if (rw::platform::b_IsWindows)
     {
-        if (fs::exists(candidate))
+        std::vector<fs::path> zig_candidates = { zig_libcxx, zig_libcxxabi };
+        const std::vector<fs::path> libc_dirs = ZigLibcIncludeDirs(zig_root);
+        zig_candidates.insert(zig_candidates.end(), libc_dirs.begin(), libc_dirs.end());
+        for (const fs::path& candidate : zig_candidates)
         {
-            zig_lines += "    - \"-isystem" + ToForwardSlashes(candidate) + "\"\n";
+            if (fs::exists(candidate))
+            {
+                zig_lines += "    - \"-isystem" + ToForwardSlashes(candidate) + "\"\n";
+            }
         }
     }
 
@@ -571,18 +639,23 @@ std::string BuildCppPropertiesContent(const fs::path& engine_dir, const fs::path
         includes.push_back(raylib_include);
     }
 
-    const fs::path zig_candidates[] = {
-        zig_root / "lib" / "libcxx" / "include",
-        zig_root / "lib" / "libcxxabi" / "include",
-        zig_root / "lib" / "libc" / "include" / "any-windows-any",
-    };
-    for (const fs::path& candidate : zig_candidates)
+    if (rw::platform::b_IsWindows)
+    {
+        includes.push_back(zig_root / "lib" / "libcxx" / "include");
+        includes.push_back(zig_root / "lib" / "libcxxabi" / "include");
+        std::vector<fs::path> zig_candidates = ZigLibcIncludeDirs(zig_root);
+        includes.insert(includes.end(), zig_candidates.begin(), zig_candidates.end());
+    }
+
+    std::vector<fs::path> existing;
+    for (const fs::path& candidate : includes)
     {
         if (fs::exists(candidate))
         {
-            includes.push_back(candidate);
+            existing.push_back(candidate);
         }
     }
+    includes = std::move(existing);
 
     std::string paths;
     for (size_t index = 0; index < includes.size(); ++index)
@@ -603,12 +676,13 @@ std::string BuildCppPropertiesContent(const fs::path& engine_dir, const fs::path
 // the same directory; distributions do the same at the package root.
 fs::path FindRwcliExecutable(const fs::path& exe_dir, const fs::path& engine_root)
 {
+    const std::string rwcli_name = rw::platform::ExecutableName("rwcli");
     const fs::path candidates[] = {
-        exe_dir / "rwcli.exe",
-        exe_dir / "Core" / "rwcli.exe",
-        engine_root / "rwcli.exe",
-        engine_root / "build" / "zig-release" / "rwcli.exe",
-        engine_root / "build" / "zig-debug" / "rwcli.exe",
+        exe_dir / rwcli_name,
+        exe_dir / "Core" / rwcli_name,
+        engine_root / rwcli_name,
+        engine_root / "build" / "zig-release" / rwcli_name,
+        engine_root / "build" / "zig-debug" / rwcli_name,
     };
     for (const fs::path& candidate : candidates)
     {
@@ -642,6 +716,31 @@ std::string BatchPath(const fs::path& path)
     return escaped;
 }
 
+std::string ShellQuote(std::string_view value)
+{
+    std::string quoted = "'";
+    for (const char character : value)
+    {
+        if (character == '\'')
+        {
+            quoted += "'\\''";
+        }
+        else
+        {
+            quoted += character;
+        }
+    }
+    quoted += '\'';
+    return quoted;
+}
+
+void MakeExecutable(const fs::path& path)
+{
+    std::error_code error;
+    fs::permissions(
+        path, fs::perms::owner_exec | fs::perms::group_exec | fs::perms::others_exec, fs::perm_options::add, error);
+}
+
 bool WriteToolingFiles(
     const fs::path& project_root, const t_Project& project, const fs::path& exe_dir, const fs::path& engine_root)
 {
@@ -667,33 +766,49 @@ bool WriteToolingFiles(
     ini += "entryDll=" + project.m_EntryDll + "\n";
     const bool b_ini_written = b_WriteText(tooling_dir / "tooling.ini", ini, true);
 
-    std::string wrapper;
-    wrapper += "@echo off\n";
-    wrapper += "setlocal\n";
-    wrapper += "set \"RWCLI=" + BatchPath(rwcli) + "\"\n";
-    wrapper += "if not defined RWCLI goto locate\n";
-    wrapper += "if exist \"%RWCLI%\" goto run\n";
-    wrapper += ":locate\n";
-    wrapper += "where rwcli.exe >nul 2>nul\n";
-    wrapper += "if errorlevel 1 (\n";
-    wrapper += "  echo rwcli not found. Reopen the project in RayWaves or run rwcli lsp. 1>&2\n";
-    wrapper += "  exit /b 3\n";
-    wrapper += ")\n";
-    wrapper += "set \"RWCLI=rwcli.exe\"\n";
-    wrapper += ":run\n";
-    wrapper += "\"%RWCLI%\" %*\n";
-    wrapper += "exit /b %ERRORLEVEL%\n";
-    const bool b_wrapper_written = b_WriteText(bin_dir / "rwcli.cmd", wrapper, true);
-    return b_ini_written && b_wrapper_written;
+    // Windows wrapper.
+    std::string cmd_wrapper;
+    cmd_wrapper += "@echo off\n";
+    cmd_wrapper += "setlocal\n";
+    cmd_wrapper += "set \"RWCLI=" + BatchPath(rwcli) + "\"\n";
+    cmd_wrapper += "if not defined RWCLI goto locate\n";
+    cmd_wrapper += "if exist \"%RWCLI%\" goto run\n";
+    cmd_wrapper += ":locate\n";
+    cmd_wrapper += "where rwcli.exe >nul 2>nul\n";
+    cmd_wrapper += "if errorlevel 1 (\n";
+    cmd_wrapper += "  echo rwcli not found. Reopen the project in RayWaves or run rwcli lsp. 1>&2\n";
+    cmd_wrapper += "  exit /b 3\n";
+    cmd_wrapper += ")\n";
+    cmd_wrapper += "set \"RWCLI=rwcli.exe\"\n";
+    cmd_wrapper += ":run\n";
+    cmd_wrapper += "\"%RWCLI%\" %*\n";
+    cmd_wrapper += "exit /b %ERRORLEVEL%\n";
+    const bool b_cmd_written = b_WriteText(bin_dir / "rwcli.cmd", cmd_wrapper, true);
+
+    // POSIX wrapper. Written on every host so a project moved between Windows
+    // and Linux has a usable wrapper before the editor reopens it.
+    std::string sh_wrapper;
+    sh_wrapper += "#!/bin/sh\n";
+    sh_wrapper += "RWCLI=" + ShellQuote(rwcli.string()) + "\n";
+    sh_wrapper += "if [ -n \"$RWCLI\" ] && [ -x \"$RWCLI\" ]; then exec \"$RWCLI\" \"$@\"; fi\n";
+    sh_wrapper += "if command -v rwcli >/dev/null 2>&1; then exec rwcli \"$@\"; fi\n";
+    sh_wrapper += "echo \"rwcli not found. Reopen the project in RayWaves or run rwcli lsp.\" >&2\n";
+    sh_wrapper += "exit 3\n";
+    const fs::path sh_path = bin_dir / "rwcli";
+    const bool b_sh_written = b_WriteText(sh_path, sh_wrapper, true);
+    if (b_sh_written)
+    {
+        MakeExecutable(sh_path);
+    }
+
+    return b_ini_written && b_cmd_written && b_sh_written;
 }
 
 // Writes AGENTS.md, the project skill, and editor configs only when missing so
 // a project owner can edit and keep them. rwcli lsp --force refreshes.
 bool b_WriteProjectFiles(const fs::path& project_root, const t_Project& project, bool b_force)
 {
-    char exe_path[MAX_PATH];
-    GetModuleFileNameA(nullptr, exe_path, MAX_PATH);
-    const fs::path exe_dir = fs::path(exe_path).parent_path();
+    const fs::path exe_dir = PlatformInfo::GetExecutablePath().parent_path();
     const fs::path engine_root = ProjectManager::GetEngineRootDirectory();
 
     fs::path engine_dir = engine_root;
@@ -724,6 +839,9 @@ bool b_WriteProjectFiles(const fs::path& project_root, const t_Project& project,
         content = ReplaceToken(content, "@ASSET_DIR@", project.m_AssetDir);
         content = ReplaceToken(content, "@ENGINE_VERSION@", RAYWAVES_VERSION);
         content = ReplaceToken(content, "@ENGINE_ROOT@", ToForwardSlashes(engine_root));
+        content = ReplaceToken(content, "@RWCLI_WRAPPER@",
+            rw::platform::b_IsWindows ? ".raywaves\\bin\\rwcli.cmd" : ".raywaves/bin/rwcli");
+        content = ReplaceToken(content, "@GAMELOGIC_MODULE@", rw::platform::c_GameLogicModuleName);
         return content;
     };
 
@@ -760,8 +878,10 @@ bool b_WriteProjectFiles(const fs::path& project_root, const t_Project& project,
         FindShippedFile(exe_dir, engine_root, "Project.vscode.c_cpp_properties.json.in");
     if (!properties_template.empty())
     {
-        const std::string content =
+        std::string content =
             BuildCppPropertiesContent(engine_dir, raylib_include, zig_root, ReadTemplate(properties_template));
+        content = ReplaceToken(
+            content, "@INTELLISENSE_MODE@", rw::platform::b_IsWindows ? "windows-clang-x64" : "linux-clang-x64");
         b_ok &= b_WriteText(project_root / ".vscode" / "c_cpp_properties.json", content, b_force);
     }
 
@@ -770,6 +890,8 @@ bool b_WriteProjectFiles(const fs::path& project_root, const t_Project& project,
     {
         std::string settings = ReadTemplate(settings_template);
         settings = ReplaceToken(settings, "@PACKAGE_ROOT@", ToForwardSlashes(exe_dir));
+        settings = ReplaceToken(settings, "@TERMINAL_ENV_PLATFORM@", rw::platform::b_IsWindows ? "windows" : "linux");
+        settings = ReplaceToken(settings, "@PATH_SEPARATOR@", std::string(1, rw::platform::c_PathListSeparator));
         b_ok &= b_WriteText(project_root / ".vscode" / "settings.json", settings, b_force);
     }
 
@@ -811,9 +933,7 @@ bool ProjectManager::GenerateCMakeLists()
     }
 
     // Resolve raylib path relative to exe (staged by main build or dist layout)
-    char exe_path[MAX_PATH];
-    GetModuleFileNameA(nullptr, exe_path, MAX_PATH);
-    fs::path exe_dir = fs::path(exe_path).parent_path();
+    const fs::path exe_dir = PlatformInfo::GetExecutablePath().parent_path();
     fs::path raylib_dir = exe_dir / "raylib";
     if (fs::exists(exe_dir / "Core" / "raylib" / "include" / "raylib.h"))
     {
@@ -826,8 +946,9 @@ bool ProjectManager::GenerateCMakeLists()
     auto has_raylib_import = [](const fs::path& dir)
     {
         return fs::exists(dir / "lib" / "libraylib.a") || fs::exists(dir / "lib" / "libraylib.dll.a") ||
-            fs::exists(dir / "lib" / "raylib.lib") || fs::exists(dir / "libraylib.dll.a") ||
-            fs::exists(dir / "libraylib.a") || fs::exists(dir / "raylib.lib");
+            fs::exists(dir / "lib" / "libraylib.so") || fs::exists(dir / "lib" / "raylib.lib") ||
+            fs::exists(dir / "libraylib.dll.a") || fs::exists(dir / "libraylib.a") ||
+            fs::exists(dir / "libraylib.so") || fs::exists(dir / "raylib.lib");
     };
     if (!has_raylib_import(raylib_dir))
     {
@@ -855,6 +976,19 @@ bool ProjectManager::GenerateCMakeLists()
     content = ReplaceToken(content, "@ENGINE_ROOT@", ToForwardSlashes(engine_root));
     content = ReplaceToken(content, "@ENGINE_DIR@", ToForwardSlashes(engine_dir));
     content = ReplaceToken(content, "@RAYLIB_DIR@", ToForwardSlashes(raylib_dir));
+
+    if (!rw::platform::b_IsWindows)
+    {
+        const fs::path c_compiler = PlatformInfo::FindExecutable("gcc");
+        const fs::path cxx_compiler = PlatformInfo::FindExecutable("g++");
+        if (c_compiler.empty() || cxx_compiler.empty())
+        {
+            std::cerr << "GCC/G++ not found. Install build-essential before opening this project.\n";
+            return false;
+        }
+        content = ReplaceToken(content, "@C_COMPILER@", ToForwardSlashes(c_compiler));
+        content = ReplaceToken(content, "@CXX_COMPILER@", ToForwardSlashes(cxx_compiler));
+    }
 
     std::ofstream file(cmake_path);
     if (!file.is_open())

@@ -7,16 +7,17 @@ Projects get a wrapper that points at the installed copy.
 
 From the project root (the folder with `project.raywaves`):
 
-```powershell
-.\.raywaves\bin\rwcli.cmd doctor . --json
-.\.raywaves\bin\rwcli.cmd build . --json
-.\.raywaves\bin\rwcli.cmd run . --frames 60 --json
+```text
+@RWCLI_WRAPPER@ doctor . --json
+@RWCLI_WRAPPER@ build . --json
+@RWCLI_WRAPPER@ run . --frames 60 --json
 ```
 
 If the wrapper is missing or stale:
 
-```powershell
-Get-Content .\.raywaves\tooling.ini
+```text
+cat .raywaves/tooling.ini                  # Linux
+# Get-Content .raywaves\tooling.ini       # Windows
 # then call the path in [rwcli] path
 ```
 
@@ -25,15 +26,21 @@ the package. Do not guess the package location.
 
 `tooling.ini` has `[rwcli] available=1|0`, `path`, `packageRoot`, `engineRoot`,
 and `version`. `available=0` means the package CLI was not found when the
-project was opened; build `rwcli` or install it on `PATH`.
+project was opened; build `rwcli` or install it on `PATH`. The wrapper falls
+back to `where` on Windows and `command -v` on Linux.
 
-PowerShell notes:
+Shell notes:
 
-- `rwcli` alone is not on `PATH`; use `.\rwcli.cmd` or the absolute path.
-- Engine logs go to stderr. `2>$null` suppresses the red text:
+- Windows: `@RWCLI_WRAPPER@` is `.raywaves\bin\rwcli.cmd`; Linux:
+  `.raywaves/bin/rwcli`.
+- `rwcli` alone is not on `PATH`; use the generated wrapper or the absolute path.
+- Engine logs go to stderr. Suppress them when capturing JSON:
   ```powershell
   $project = (Get-Location).Path
-  $json = & .\.raywaves\bin\rwcli.cmd info $project --json 2>$null | ConvertFrom-Json
+  $json = & @RWCLI_WRAPPER@ info $project --json 2>$null | ConvertFrom-Json
+  ```
+  ```sh
+  json=$(@RWCLI_WRAPPER@ info . --json 2>/dev/null)
   ```
 - Quote paths containing spaces.
 - `--json` may appear anywhere after the command.
@@ -56,7 +63,7 @@ PowerShell notes:
 
 ### doctor
 
-```powershell
+```text
 rwcli doctor . --json
 rwcli doctor . --fix --json
 ```
@@ -65,7 +72,7 @@ rwcli doctor . --fix --json
 
 ### info
 
-```powershell
+```text
 rwcli info . --json
 ```
 
@@ -74,7 +81,7 @@ Returns `project.{name,root,sourceDir,assetDir,entryDll,dllExists,sceneWidth,sce
 
 ### build
 
-```powershell
+```text
 rwcli build . --json
 rwcli build . --clean --jobs 8 --json
 ```
@@ -86,7 +93,7 @@ rwcli build . --clean --jobs 8 --json
 
 ### run
 
-```powershell
+```text
 rwcli run . --frames 120 --json
 rwcli run . --frames 120 --screenshot shot.png --state state.json --json
 rwcli run . --frames 120 --input input.txt --json
@@ -126,16 +133,21 @@ Input script:
 0,mouse,640,360
 ```
 
+`run` needs an OpenGL context even with the hidden window. Headless Linux hosts
+need an X server: `xvfb-run -a` and, when there is no GPU driver,
+`LIBGL_ALWAYS_SOFTWARE=1`.
+
 ### lsp
 
-```powershell
+```text
 rwcli lsp . --json
 rwcli lsp . --check --json
 rwcli lsp . --force --json
 ```
 
 - Writes `.clangd`, `.vscode/`, `AGENTS.md`, `.agents/skills/raywaves-game/`.
-- Refreshes `.raywaves/tooling.ini` and `.raywaves/bin/rwcli.cmd`.
+- Refreshes `.raywaves/tooling.ini` and both wrappers
+  (`.raywaves/bin/rwcli.cmd` and `.raywaves/bin/rwcli`).
 - Configures `.raywaves/build-ide` and copies `compile_commands.json` to the
   project root.
 - `--check` runs `clangd --check` on `GameLogic/**/*.cpp` and returns
@@ -144,7 +156,7 @@ rwcli lsp . --force --json
 
 ### scene
 
-```powershell
+```text
 rwcli scene list . --json
 rwcli scene list . --map Platformer2D --json
 rwcli scene add . --map Platformer2D --name Crate --texture crate.png --position 620,300
@@ -160,10 +172,10 @@ rwcli scene remove . --map Platformer2D --id 1
 
 ### assets
 
-```powershell
+```text
 rwcli assets list . --json
-rwcli assets import . "C:\art\player.png"
-rwcli assets import . "C:\art\player.png" --force
+rwcli assets import . /home/me/art/player.png
+rwcli assets import . /home/me/art/player.png --force
 ```
 
 Imported files land in `Assets/` with unsafe characters replaced by `_`.
@@ -192,10 +204,12 @@ JSON failure shape:
 
 ## Common failures
 
-- `The term 'rwcli' is not recognized`: use `.\rwcli.exe` or the project wrapper.
+- `rwcli` not recognized: use the generated project wrapper or the absolute path.
 - `invalid_project`: pass the folder containing `project.raywaves`.
 - `dll_missing`: run `build` first.
 - `build_locked`: wait, or `doctor --fix` after the owner died.
 - `clangd_missing`: install LLVM, then rerun `lsp --check`.
-- Red stderr text with exit 0: normal logs; redirect `2>$null`.
+- Red stderr text with exit 0: normal logs; redirect `2>$null` (PowerShell) or
+  `2>/dev/null` (bash).
+- `run_window` on a headless host: run on a desktop session or under `xvfb-run -a`.
 - Stale configs after moving the project or engine: `rwcli lsp . --force`.

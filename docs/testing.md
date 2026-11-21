@@ -7,7 +7,7 @@ RayWaves uses [doctest](https://github.com/doctest/doctest) and CTest.
 | Suite | Target | Purpose | Typical time |
 |---|---|---|---|
 | Unit | `raywaves_tests_unit` | Pure engine logic, no DLL builds | < 1 s |
-| Integration | `raywaves_tests_integration` | DLL build/load, project files, export helpers | a few seconds |
+| Integration | `raywaves_tests_integration` | GameLogic module build/load, project files, export helpers | a few seconds |
 | Smoke | `raywaves_smoke` | Build GameLogic once, then N load/unload cycles | < 1 s |
 
 Benchmarks are a separate executable; they are not registered with CTest.
@@ -31,17 +31,35 @@ ctest --test-dir build/zig-debug -L unit --output-on-failure
 scripts/agent-smoke.ps1
 ```
 
-The integration suite includes `Cli_t.cpp` and `CliLsp_t.cpp`, which drive
-`rwcli.exe` for project info, scene add/list/remove, invalid-project handling,
-generated editor/LSP files, and the project-local `rwcli.cmd` wrapper.
+```sh
+# Everything
+./scripts/test.sh
 
-`scripts/agent-smoke.ps1` covers doctor → lsp → build → run → input → validate →
-lsp `--check`, using the generated wrapper after the first lsp call.
+# One suite
+./scripts/test.sh --suite unit
+./scripts/test.sh --suite integration
+./scripts/test.sh --suite smoke
+
+# Direct CTest
+ctest --preset zig-debug
+
+# Agent loop smoke test under a virtual X server
+xvfb-run -a ./scripts/agent-smoke.sh
+```
+
+The integration suite includes `Cli_t.cpp` and `CliLsp_t.cpp`, which drive
+`rwcli` for project info, scene add/list/remove, invalid-project handling,
+generated editor/LSP files, and the project-local wrapper
+(`rwcli.cmd` on Windows, `rwcli` on Linux).
+
+`scripts/agent-smoke.ps1` / `scripts/agent-smoke.sh` cover doctor → lsp →
+build → run → input → validate → lsp `--check`, using the generated wrapper
+after the first lsp call.
 
 ## Adding a test
 
 - Pure engine logic goes in `tests/unit/<Module>_t.cpp`.
-- Anything that builds a DLL, touches the filesystem, or runs a process goes in
+- Anything that builds a shared module, touches the filesystem, or runs a process goes in
   `tests/integration/`.
 - Put shared helpers in `tests/support/`.
 - Add the new file to the matching source list in `tests/CMakeLists.txt`.

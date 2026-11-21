@@ -2,9 +2,12 @@
 #include "../Engine/AssetResolver.h"
 #include "../Engine/BuildDiagnostics.h"
 #include "../Engine/MapManager.h"
+#include "../Engine/PlatformInfo.h"
+#include "../Engine/PlatformNames.h"
 #include "../Engine/Profiler.h"
 #include "../Engine/ProjectManager.h"
 #include "AgentLock.h"
+#include "DllLoader.h"
 #include "EditorUtils.h"
 #include "ProcessRunner.h"
 #include "ThemeService.h"
@@ -31,6 +34,8 @@ using Clock = std::chrono::steady_clock;
 #include "Panels/TerminalPanel.h"
 #include <cstdlib>
 #include <memory>
+#include <thread>
+#include <vector>
 
 static std::string s_LayoutPath;
 
@@ -149,10 +154,12 @@ GameEditor::~GameEditor()
     }
 }
 
-void GameEditor::Init(int width, int height, std::string_view title)
+bool GameEditor::Init(int width, int height, std::string_view title)
 {
-    m_GameEngine.LaunchWindow(width, height, title.data());
-    SetWindowState(FLAG_WINDOW_RESIZABLE);
+    if (!m_GameEngine.LaunchWindow(width, height, title.data(), true))
+    {
+        return false;
+    }
 
     // Set window icon
     Image icon = LoadImage(ThemeService::GetEngineContentPath("icon.png").c_str());
@@ -194,7 +201,13 @@ void GameEditor::Init(int width, int height, std::string_view title)
         ImGui::GetIO().IniFilename = s_LayoutPath.c_str();
     }
 
-    if (GameConfig::GetInstance().m_bLoadFromFile("config.ini"))
+    // Prefer the config shipped next to the editor. Launching from a desktop
+    // shortcut or another working directory must not silently fall back to
+    // defaults just because CWD has no config.ini.
+    const fs::path exe_config = PlatformInfo::GetExecutablePath().parent_path() / "config.ini";
+    const bool b_config_loaded = GameConfig::GetInstance().m_bLoadFromFile(exe_config.string()) ||
+        GameConfig::GetInstance().m_bLoadFromFile("config.ini");
+    if (b_config_loaded)
     {
         const auto& CONFIG = GameConfig::GetInstance().GetWindowConfig();
         m_SceneSettings.m_SceneWidth = CONFIG.scene_width;
@@ -221,6 +234,13 @@ void GameEditor::Init(int width, int height, std::string_view title)
     SetTextureFilter(m_DisplayTexture.texture, TEXTURE_FILTER_BILINEAR);
 
     m_OpaqueShader = LoadOpaqueShader();
+
+    if (!rw::platform::b_IsWindows && PlatformInfo::FindExecutable("zenity").empty() &&
+        PlatformInfo::FindExecutable("kdialog").empty())
+    {
+        m_Terminal.add_text("WARNING: install zenity or kdialog to enable native file dialogs.", term::Severity::Warn);
+    }
+    return true;
 }
 
 void GameEditor::RunBrowser()
@@ -582,6 +602,8 @@ void GameEditor::OpenProject(std::string_view folderPath)
     if (!ProjectManager::b_OpenProject(folderPath))
         return;
 
+    CleanupStaleShadowCopies(folderPath);
+
     // Set Window Title
     std::string windowTitle = "RayWaves — " + ProjectManager::GetCurrent().m_Name;
     SetWindowTitle(windowTitle.c_str());
@@ -784,7 +806,7 @@ void GameEditor::RefreshEditorEntities()
         return;
     }
 
-    const std::span<const t_EditorEntity> registry = active_map->GetEditorEntities();
+    const auto& registry = active_map->GetEditorEntities();
     m_EditorEntities.reserve(registry.size());
     for (const t_EditorEntity& entity : registry)
     {
@@ -1147,78 +1169,103 @@ void GameEditor::CompileGameLogic()
         BuildMessages.clear();
     }
 
-    std::string build_cmd;
-    std::string app_dir = GetApplicationDirectory();
-
-    if (ProjectManager::b_HasOpenProject())
+    const fs::path app_dir = GetApplicationDirectory();
+    const fs::path tools_dir = ProjectManager::GetToolsDirectory();
+    fs::path cmake_exe = tools_dir / "cmake" / "bin" / rw::platform::ExecutableName("cmake");
+    if (!fs::exists(cmake_exe))
     {
-        const auto& proj = ProjectManager::GetCurrent();
-        std::filesystem::path raywaves_dir = std::filesystem::path(proj.m_RootPath) / ".raywaves";
-        std::string path_str = raywaves_dir.string();
-        if (!EditorUtils::IsShellSafe(path_str))
+        const fs::path system_cmake = PlatformInfo::FindExecutable("cmake");
+        if (!system_cmake.empty())
         {
-            build_cmd = "echo ERROR: Project path contains unsafe characters.";
+            cmake_exe = system_cmake;
         }
-        else
+    }
+    const fs::path setup_tool = tools_dir / (rw::platform::b_IsWindows ? "setup_tools.ps1" : "setup_tools.sh");
+    const bool b_has_project = ProjectManager::b_HasOpenProject();
+
+    fs::path project_root = app_dir;
+    fs::path source_dir = app_dir;
+    fs::path build_dir = app_dir;
+    if (b_has_project)
+    {
+        project_root = ProjectManager::GetCurrent().m_RootPath;
+        source_dir = project_root / ".raywaves";
+        build_dir = source_dir / "build";
+    }
+
+    m_Terminal.add_text("Executing: cmake build", term::Severity::Debug);
+
+    auto cancel = m_BuildCancel;
+    m_BuildThread = std::thread(
+        [this, cancel, app_dir, cmake_exe, setup_tool, project_root, source_dir, build_dir, b_has_project]()
         {
-            // Ensure bundled cmake exists. The fetch runs on the build
-            // worker (prepended to build_cmd), never on the UI thread:
-            // a first-time CMake download would otherwise freeze the
-            // editor for its whole duration.
-            fs::path cmake_exe = ProjectManager::GetToolsDirectory() / "cmake" / "bin" / "cmake.exe";
-            std::string setup_prefix;
+            auto run = [this, cancel](const std::vector<std::string>& argv, const fs::path& working_dir)
+            {
+                if (cancel->load())
+                {
+                    return false;
+                }
+                return ProcessRunner::RunAndWaitCommand(
+                    argv, working_dir.string(),
+                    [this, cancel](std::string_view line, bool is_error)
+                    {
+                        if (cancel->load())
+                        {
+                            return;
+                        }
+                        ParseBuildLine(line);
+                        m_Terminal.add_text(line, is_error ? term::Severity::Error : term::Severity::Debug);
+                    },
+                    cancel);
+            };
+
+            bool b_ok = true;
             if (!fs::exists(cmake_exe))
             {
                 m_Terminal.add_text("Downloading CMake (first-time setup, in background)...", term::Severity::Debug);
-                setup_prefix = "powershell -ExecutionPolicy Bypass -File \"" +
-                    (ProjectManager::GetToolsDirectory() / "setup_zig.ps1").string() +
-                    "\" -SkipZig -SkipRcEdit -SkipNinja && ";
+                std::vector<std::string> setup_argv;
+                if (rw::platform::b_IsWindows)
+                {
+                    setup_argv = { "powershell", "-ExecutionPolicy", "Bypass", "-File", setup_tool.string(), "-SkipZig",
+                        "-SkipRcEdit", "-SkipNinja" };
+                }
+                else
+                {
+                    setup_argv = { "bash", setup_tool.string(), "--skip-zig", "--skip-rcedit", "--skip-ninja" };
+                }
+                b_ok = run(setup_argv, project_root);
             }
 
-            std::string cmake_path = "\"" + cmake_exe.string() + "\"";
+            if (b_ok && b_has_project)
+            {
+                // Project folders are portable, but CMake caches contain
+                // absolute paths. Try a normal configure, then --fresh.
+                b_ok = run(
+                    { cmake_exe.string(), "-G", "Ninja", source_dir.string(), "-B", build_dir.string() }, project_root);
+                if (!b_ok)
+                {
+                    b_ok = run(
+                        { cmake_exe.string(), "--fresh", "-G", "Ninja", source_dir.string(), "-B", build_dir.string() },
+                        project_root);
+                }
+                if (b_ok)
+                {
+                    b_ok =
+                        run({ cmake_exe.string(), "--build", build_dir.string(), "--config", "Release" }, project_root);
+                }
+            }
+            else if (b_ok)
+            {
+                // Dev environment fallback: build the bundled GameLogic target.
+                b_ok = run({ cmake_exe.string(), "--build", app_dir.string(), "--target", "GameLogic" }, app_dir);
+            }
 
-            // Project folders are portable, but CMake caches contain absolute paths.
-            // Try normal configure first, if it fails (e.g. moved project), fallback to --fresh.
-            build_cmd = setup_prefix + "cd /d \"" + path_str + "\" && (" + cmake_path + " -G Ninja . -B build || " +
-                cmake_path + " --fresh -G Ninja . -B build) && " + cmake_path + " --build build --config Release";
-        }
-    }
-    else
-    {
-        // Dev environment fallback: build the bundled GameLogic target.
-        // Same rule as above: any setup runs on the worker, not the UI.
-        fs::path cmakeExe = ProjectManager::GetToolsDirectory() / "cmake" / "bin" / "cmake.exe";
-        std::string setupPrefix;
-        if (!fs::exists(cmakeExe))
-        {
-            m_Terminal.add_text("Downloading CMake (first-time setup, in background)...", term::Severity::Debug);
-            setupPrefix = "powershell -ExecutionPolicy Bypass -File \"" +
-                (ProjectManager::GetToolsDirectory() / "setup_zig.ps1").string() +
-                "\" -SkipZig -SkipRcEdit -SkipNinja && ";
-        }
-        build_cmd = setupPrefix + "\"\"" + cmakeExe.string() + "\" --build \"" + app_dir + "\" --target GameLogic\"";
-    }
-
-    m_Terminal.add_text("Executing: " + build_cmd, term::Severity::Debug);
-
-    auto cancel = m_BuildCancel;
-    m_BuildThread = ProcessRunner::RunBuildCommand(
-        build_cmd,
-        [this, cancel](std::string_view line, bool isError)
-        {
-            if (cancel->load())
-                return;
-            ParseBuildLine(line);
-            m_Terminal.add_text(line, isError ? term::Severity::Error : term::Severity::Debug);
-        },
-        [this, cancel](bool success)
-        {
             if (cancel->load())
             {
                 b_IsCompiling = false;
                 return;
             }
-            if (success)
+            if (b_ok)
             {
                 m_Terminal.add_text("Build Successful.", term::Severity::Debug);
                 BuildStatus = EBuildStatus::Success;
@@ -1233,6 +1280,5 @@ void GameEditor::CompileGameLogic()
                 NotificationTimer = 10.0f;
             }
             b_IsCompiling = false;
-        },
-        cancel);
+        });
 }

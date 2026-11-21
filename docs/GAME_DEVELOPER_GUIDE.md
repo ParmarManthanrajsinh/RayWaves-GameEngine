@@ -8,7 +8,7 @@
 
 ## Quick Start
 
-1. Launch `RayWaves.exe`. The Project Browser appears.
+1. Launch the editor (`RayWaves.exe` on Windows, `RayWaves` on Linux). The Project Browser appears.
 2. Click **New Project**, pick a name and location, choose a template.
 3. Once open, the editor loads. Edit `.cpp` files in your project's `GameLogic/` folder.
 4. Click **Compile** (toolbar button). Build runs automatically.
@@ -30,7 +30,7 @@ You never close the game window to change code.
 
 ## What Survives a Hot-Reload
 
-When you click **Compile**, the editor builds a new `GameLogic.dll`, loads it
+When you click **Compile**, the editor builds a new GameLogic module, loads it
 beside the old one (shadow copy, so the file never locks), saves state, swaps
 the map, and restores state. Concretely:
 

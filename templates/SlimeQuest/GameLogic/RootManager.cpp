@@ -1,5 +1,6 @@
 #include "DemoLevel.h"
 #include "DemoMainMenu.h"
+#include "Engine/GameLogicExports.h"
 #include "Engine/GameMap.h"
 #include "Engine/MapManager.h"
 #include <cstdint>
@@ -16,12 +17,12 @@
 // Global static instance to ensure consistency across editor and runtime
 static MapManager* s_GameMapManager = nullptr;
 
-extern "C" __declspec(dllexport) uint32_t GetGameLogicAbiVersion()
+RW_GAMELOGIC_EXPORT uint32_t GetGameLogicAbiVersion()
 {
     return RAYWAVES_GAMELOGIC_ABI_VERSION;
 }
 
-extern "C" __declspec(dllexport) GameMap* CreateGameMap()
+RW_GAMELOGIC_EXPORT GameMap* CreateGameMap()
 {
     // If we already have a manager, reuse it to maintain map registrations
     if (s_GameMapManager == nullptr)
@@ -39,7 +40,7 @@ extern "C" __declspec(dllexport) GameMap* CreateGameMap()
     return s_GameMapManager;
 }
 
-extern "C" __declspec(dllexport) void DestroyGameMap(GameMap* map_manager)
+RW_GAMELOGIC_EXPORT void DestroyGameMap(GameMap* map_manager)
 {
     // The pointer passed in is our s_GameMapManager (as GameMap*)
     // Deleting it will call the virtual destructor and clean up all maps & textures

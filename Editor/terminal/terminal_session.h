@@ -20,7 +20,7 @@ public:
     t_TerminalSession(const t_TerminalSession&) = delete;
     t_TerminalSession& operator=(const t_TerminalSession&) = delete;
 
-    bool b_Start(const t_ShellSpec& shell, const std::wstring& working_directory);
+    bool b_Start(const t_ShellSpec& shell, const std::string& working_directory);
     void Stop();
 
     // Called once per frame on the UI thread before rendering.

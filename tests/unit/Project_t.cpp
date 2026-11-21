@@ -1,8 +1,10 @@
-﻿#include "Engine/Project.h"
+﻿#include "Engine/PlatformNames.h"
+#include "Engine/Project.h"
 #include "doctest/doctest.h"
 #include "support/TempDir.h"
 #include <filesystem>
 #include <fstream>
+#include <string>
 
 TEST_CASE("t_Project: default values")
 {
@@ -11,7 +13,7 @@ TEST_CASE("t_Project: default values")
     CHECK(p.m_Version.empty());
     CHECK(p.m_SourceDir == "GameLogic");
     CHECK(p.m_AssetDir == "Assets");
-    CHECK(p.m_EntryDll == "GameLogic.dll");
+    CHECK(p.m_EntryDll == "GameLogic");
     CHECK(p.m_SceneWidth == 1280);
     CHECK(p.m_SceneHeight == 720);
     CHECK(p.m_TargetFPS == 60);
@@ -44,13 +46,30 @@ TEST_CASE("t_Project: save and load roundtrip")
     CHECK(q.m_Version == "2.0.0");
     CHECK(q.m_SourceDir == "Src");
     CHECK(q.m_AssetDir == "Art");
-    CHECK(q.m_EntryDll == "Game.dll");
+    CHECK(q.m_EntryDll == "Game");
     CHECK(q.m_SceneWidth == 640);
     CHECK(q.m_SceneHeight == 480);
     CHECK(q.m_TargetFPS == 144);
     CHECK(q.m_CameraX == doctest::Approx(100.0f));
     CHECK(q.m_CameraY == doctest::Approx(200.0f));
     CHECK(q.m_LastMapId == "level_1");
+}
+
+TEST_CASE("t_Project: resolves the host module suffix")
+{
+    TempDir tmp_dir("raywaves_project_module");
+    std::string manifest = (tmp_dir.Path() / "project.raywaves").string();
+    {
+        std::ofstream file(manifest);
+        file << "[project]\n"
+                "name=SuffixGame\n"
+                "entryDll=GameLogic.dll\n";
+    }
+
+    t_Project project;
+    REQUIRE(project.m_bLoadFromFile(manifest));
+    CHECK(project.m_EntryDll == "GameLogic");
+    CHECK(project.m_DllPath.ends_with(rw::platform::c_SharedLibrarySuffix));
 }
 
 TEST_CASE("t_Project: missing [editor] section uses defaults")

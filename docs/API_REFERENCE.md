@@ -320,7 +320,7 @@ AddEntity("Player", &m_Position, &m_Size, { .Origin = { -32.0f, -32.0f }, .Type 
 | `RegisterEditorEntity(t_EditorEntity)` | Full descriptor, including `m_Position3D`. |
 | `UnregisterEditorEntity(id)` | Removes one entity. |
 | `ClearEditorEntities()` | Clears the registry; the engine does this before every `Initialize()`. |
-| `GetEditorEntities()` | Returns the current registry. |
+| `GetEditorEntities()` | Returns the current registry (`std::list<t_EditorEntity>`); entity pointers remain stable. |
 
 The editor caches IDs and rebuilds pointers every frame. Live edits are not
 saved into the scene file. Use stable storage for dynamic entities and

@@ -26,6 +26,14 @@ Write-Host "Packaging RayWaves $Version ($Config)" -ForegroundColor Cyan
 Write-Host "  build:  $BuildPath"
 Write-Host "  output: $DistPath"
 
+# The distribution must include the project toolchain (CMake + Ninja) so a
+# user does not need them globally.
+if (-not (Test-Path (Join-Path $Root "Tools/cmake/bin/cmake.exe")) -or
+    -not (Test-Path (Join-Path $Root "Tools/ninja/ninja.exe"))) {
+    & powershell -ExecutionPolicy Bypass -File (Join-Path $Root "Tools/setup_tools.ps1") -SkipZig
+    if ($LASTEXITCODE -ne 0) { throw "Toolchain setup failed" }
+}
+
 function Require-Path([string]$Path, [string]$Label) {
     if (-not (Test-Path $Path)) {
         throw "Missing $Label at $Path"
@@ -131,7 +139,9 @@ Set-Content -Path (Join-Path $DistPath "VERSION") -Value $Version -Encoding asci
 Write-Host "Copying toolchain..." -ForegroundColor Yellow
 New-Item -ItemType Directory -Force -Path (Join-Path $CorePath "Tools") | Out-Null
 Copy-Item (Join-Path $Root "Tools/zig-c*.bat") (Join-Path $CorePath "Tools") -Force
+Copy-Item (Join-Path $Root "Tools/setup_tools.ps1") (Join-Path $CorePath "Tools") -Force
 Copy-Item (Join-Path $Root "Tools/setup_zig.ps1") (Join-Path $CorePath "Tools") -Force
+Copy-Item (Join-Path $Root "Tools/toolchain.ini") (Join-Path $CorePath "Tools") -Force
 if (Test-Path (Join-Path $Root "Tools/rcedit.exe")) {
     Copy-Item (Join-Path $Root "Tools/rcedit.exe") (Join-Path $CorePath "Tools") -Force
 }

@@ -1,6 +1,6 @@
 # Editor
 
-ImGui-based editor built as the `main` target and output as `RayWaves.exe`.
+ImGui-based editor built as the `main` target and output as `RayWaves` (`RayWaves.exe` on Windows).
 
 Key files:
 
@@ -12,7 +12,8 @@ Key files:
   - `SceneWindow` — viewport, entity picking/dragging, MMB pan, wheel zoom, `F` frame.
 - `EditorAssets` — flat asset listing, import, and relative-path helpers.
 - `ExportService` — game export pipeline (UI-free, testable).
-- `GameLogicLoader` — DLL shadow loading, ABI checks, hot reload.
+- `GameLogicLoader` — module shadow loading, ABI checks, hot reload.
+- `platform/Win32/`, `platform/Posix/` — shell open, file association, PTY backend.
 - `ProcessRunner` moved to `Runtime/`; link `RuntimeSupport` instead.
 - `imgui/`, `rlImGui/`, `tinyfiledialogs/` — vendored dependencies.
 

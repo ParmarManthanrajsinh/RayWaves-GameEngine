@@ -1,13 +1,14 @@
 #include "Commands.h"
-#include "CliCommon.h"
-#include "Json.h"
 #include "AgentLock.h"
 #include "AssetResolver.h"
 #include "BuildDiagnostics.h"
+#include "CliCommon.h"
 #include "DllLoader.h"
 #include "EngineVersion.h"
+#include "Json.h"
 #include "MapManager.h"
 #include "PlatformInfo.h"
+#include "PlatformNames.h"
 #include "ProcessRunner.h"
 #include "ProjectManager.h"
 #include "Scene.h"
@@ -42,17 +43,38 @@ FToolInfo DetectTools()
 {
     FToolInfo tools;
     const fs::path tools_dir = ProjectManager::GetToolsDirectory();
-    tools.m_CMakePath = tools_dir / "cmake" / "bin" / "cmake.exe";
+    tools.m_CMakePath = tools_dir / "cmake" / "bin" / rw::platform::ExecutableName("cmake");
     tools.m_bCMake = fs::exists(tools.m_CMakePath);
-    tools.m_bNinja = fs::exists(tools_dir / "ninja" / "ninja.exe");
-    tools.m_bZig = fs::exists(tools_dir / "zig-cxx.bat") && fs::exists(tools_dir / "zig-cc.bat");
+    if (!tools.m_bCMake)
+    {
+        // Dev checkouts may use a system CMake while the generated project
+        // still fetches the bundled copy on first use.
+        const fs::path system_cmake = PlatformInfo::FindExecutable("cmake");
+        if (!system_cmake.empty())
+        {
+            tools.m_CMakePath = system_cmake;
+            tools.m_bCMake = true;
+        }
+    }
+    tools.m_bNinja = fs::exists(tools_dir / "ninja" / rw::platform::ExecutableName("ninja"));
+    if (rw::platform::b_IsWindows)
+    {
+        tools.m_bZig = fs::exists(tools_dir / "zig-cxx.bat") && fs::exists(tools_dir / "zig-cc.bat");
+    }
+    else
+    {
+        // Linux uses the system GCC/G++ toolchain rather than Zig.
+        tools.m_bZig = !PlatformInfo::FindExecutable("gcc").empty() && !PlatformInfo::FindExecutable("g++").empty();
+    }
 
     const fs::path exe_dir = GetSelfPath().parent_path();
     const fs::path candidates[] = { exe_dir / "raylib", exe_dir / "Core" / "raylib" };
     for (const fs::path& candidate : candidates)
     {
-        if (fs::exists(candidate / "include" / "raylib.h") && (fs::exists(candidate / "lib" / "libraylib.a") ||
-                                                                  fs::exists(candidate / "lib" / "libraylib.dll.a")))
+        const bool b_has_lib = fs::exists(candidate / "lib" / "libraylib.a") ||
+            fs::exists(candidate / "lib" / "libraylib.dll.a") || fs::exists(candidate / "lib" / "libraylib.so") ||
+            fs::exists(candidate / "libraylib.so");
+        if (fs::exists(candidate / "include" / "raylib.h") && b_has_lib)
         {
             tools.m_bRaylib = true;
             tools.m_RaylibDir = candidate;
@@ -168,13 +190,12 @@ void AddProjectChecks(const FProjectContext& project, std::vector<FCheck>& check
     checks.push_back(MakeCheck("manifest", true, (project.m_Dir / c_MANIFEST).string()));
     checks.push_back(MakeCheck("source_dir", fs::is_directory(data.m_SourcePath), data.m_SourcePath));
     checks.push_back(MakeCheck("asset_dir", fs::is_directory(data.m_AssetPath), data.m_AssetPath));
-    checks.push_back(
-        MakeCheck("entry_dll", fs::exists(data.m_DllPath), data.m_DllPath, /*warning=*/true));
+    checks.push_back(MakeCheck("entry_dll", fs::exists(data.m_DllPath), data.m_DllPath, /*warning=*/true));
 
     if (!data.m_EngineVersion.empty() && data.m_EngineVersion != RAYWAVES_VERSION)
     {
-        checks.push_back(MakeCheck(
-            "engine_version", false, "Project targets " + data.m_EngineVersion + ", engine is " + RAYWAVES_VERSION, true));
+        checks.push_back(MakeCheck("engine_version", false,
+            "Project targets " + data.m_EngineVersion + ", engine is " + RAYWAVES_VERSION, true));
     }
     else
     {
@@ -185,7 +206,8 @@ void AddProjectChecks(const FProjectContext& project, std::vector<FCheck>& check
     if (AgentLock::b_Query(project.m_Dir, lock_info))
     {
         checks.push_back(MakeCheck("lock", true,
-            "Held by pid " + std::to_string(lock_info.m_Pid) + (lock_info.m_Command.empty() ? "" : " (" + lock_info.m_Command + ")")));
+            "Held by pid " + std::to_string(lock_info.m_Pid) +
+                (lock_info.m_Command.empty() ? "" : " (" + lock_info.m_Command + ")")));
     }
     else
     {
@@ -297,22 +319,21 @@ int InfoCommand(const FProjectContext& project, bool b_json)
                 CliJson::Number(static_cast<int>(b_loaded ? loaded.GetObjects().size() : 0)) + "}");
         }
 
-        std::cout << "{" << CliJson::Key("ok") << "true," << CliJson::Key("project") << "{"
-                  << CliJson::Key("name") << CliJson::Quoted(data.m_Name) << "," << CliJson::Key("version")
-                  << CliJson::Quoted(data.m_Version) << "," << CliJson::Key("engineVersion")
-                  << CliJson::Quoted(data.m_EngineVersion) << "," << CliJson::Key("root")
-                  << CliJson::Quoted(project.m_Dir.string()) << "," << CliJson::Key("sourceDir")
+        std::cout << "{" << CliJson::Key("ok") << "true," << CliJson::Key("project") << "{" << CliJson::Key("name")
+                  << CliJson::Quoted(data.m_Name) << "," << CliJson::Key("version") << CliJson::Quoted(data.m_Version)
+                  << "," << CliJson::Key("engineVersion") << CliJson::Quoted(data.m_EngineVersion) << ","
+                  << CliJson::Key("root") << CliJson::Quoted(project.m_Dir.string()) << "," << CliJson::Key("sourceDir")
                   << CliJson::Quoted(data.m_SourcePath) << "," << CliJson::Key("assetDir")
                   << CliJson::Quoted(data.m_AssetPath) << "," << CliJson::Key("entryDll")
                   << CliJson::Quoted(data.m_DllPath) << "," << CliJson::Key("dllExists")
                   << CliJson::Bool(fs::exists(data.m_DllPath)) << "," << CliJson::Key("sceneWidth")
                   << CliJson::Number(data.m_SceneWidth) << "," << CliJson::Key("sceneHeight")
                   << CliJson::Number(data.m_SceneHeight) << "," << CliJson::Key("targetFPS")
-                  << CliJson::Number(data.m_TargetFPS) << "}," << CliJson::Key("scenes")
-                  << CliJson::Array(scene_items) << "," << CliJson::Key("tools") << "{" << CliJson::Key("cmake")
-                  << CliJson::Bool(tools.m_bCMake) << "," << CliJson::Key("ninja") << CliJson::Bool(tools.m_bNinja)
-                  << "," << CliJson::Key("zig") << CliJson::Bool(tools.m_bZig) << "," << CliJson::Key("raylib")
-                  << CliJson::Bool(tools.m_bRaylib) << "}}" << "\n";
+                  << CliJson::Number(data.m_TargetFPS) << "}," << CliJson::Key("scenes") << CliJson::Array(scene_items)
+                  << "," << CliJson::Key("tools") << "{" << CliJson::Key("cmake") << CliJson::Bool(tools.m_bCMake)
+                  << "," << CliJson::Key("ninja") << CliJson::Bool(tools.m_bNinja) << "," << CliJson::Key("zig")
+                  << CliJson::Bool(tools.m_bZig) << "," << CliJson::Key("raylib") << CliJson::Bool(tools.m_bRaylib)
+                  << "}}" << "\n";
     }
     else
     {
@@ -335,10 +356,12 @@ int DoctorCommand(const FProjectContext& project, bool b_json, bool b_fix)
     AddProjectChecks(project, checks);
 
     const FToolInfo tools = DetectTools();
+    const std::string setup_hint =
+        rw::platform::b_IsWindows ? "Run Tools/setup_tools.ps1" : "Run Tools/setup_tools.sh or install build-essential";
     checks.push_back(MakeCheck("tool_cmake", tools.m_bCMake,
-        tools.m_bCMake ? tools.m_CMakePath.string() : "Run Tools/setup_zig.ps1 or open the editor once"));
-    checks.push_back(MakeCheck("tool_ninja", tools.m_bNinja, tools.m_bNinja ? "found" : "Run Tools/setup_zig.ps1"));
-    checks.push_back(MakeCheck("tool_zig", tools.m_bZig, tools.m_bZig ? "found" : "Run Tools/setup_zig.ps1"));
+        tools.m_bCMake ? tools.m_CMakePath.string() : setup_hint + " or open the editor once"));
+    checks.push_back(MakeCheck("tool_ninja", tools.m_bNinja, tools.m_bNinja ? "found" : setup_hint));
+    checks.push_back(MakeCheck("tool_zig", tools.m_bZig, tools.m_bZig ? "found" : setup_hint));
     checks.push_back(MakeCheck("tool_raylib", tools.m_bRaylib,
         tools.m_bRaylib ? tools.m_RaylibDir.string() : "Build RayWaves once so raylib is staged"));
 
@@ -365,11 +388,11 @@ int DoctorCommand(const FProjectContext& project, bool b_json, bool b_fix)
     const bool b_has_clangd_config = fs::exists(project.m_Dir / ".clangd");
     const bool b_has_cpp_props = fs::exists(project.m_Dir / ".vscode" / "c_cpp_properties.json");
     checks.push_back(MakeCheck("ide_configs", b_has_clangd_config && b_has_cpp_props,
-        (b_has_clangd_config && b_has_cpp_props) ? "clangd + VS Code configs present"
-                                                : "Run: rwcli lsp <project>",
+        (b_has_clangd_config && b_has_cpp_props) ? "clangd + VS Code configs present" : "Run: rwcli lsp <project>",
         true));
     const bool b_has_tooling = fs::exists(project.m_Dir / ".raywaves" / "tooling.ini");
-    const bool b_has_wrapper = fs::exists(project.m_Dir / ".raywaves" / "bin" / "rwcli.cmd");
+    const bool b_has_wrapper = fs::exists(project.m_Dir / ".raywaves" / "bin" / "rwcli.cmd") ||
+        fs::exists(project.m_Dir / ".raywaves" / "bin" / "rwcli");
     bool b_tooling_available = false;
     if (b_has_tooling)
     {
@@ -385,13 +408,14 @@ int DoctorCommand(const FProjectContext& project, bool b_json, bool b_fix)
     {
         tooling_message = "tooling.ini reports no rwcli; build the rwcli target or add it to PATH";
     }
-    checks.push_back(MakeCheck("tooling", b_has_tooling && b_has_wrapper && b_tooling_available, tooling_message, true));
+    checks.push_back(
+        MakeCheck("tooling", b_has_tooling && b_has_wrapper && b_tooling_available, tooling_message, true));
     const bool b_has_database = fs::exists(project.m_Dir / "compile_commands.json");
     checks.push_back(MakeCheck("compile_database", b_has_database,
         b_has_database ? "compile_commands.json present" : "Run: rwcli lsp <project>", true));
     const std::string clangd = FindClangd();
-    checks.push_back(MakeCheck(
-        "clangd", !clangd.empty(), clangd.empty() ? "clangd.exe not found; install LLVM" : clangd, true));
+    checks.push_back(
+        MakeCheck("clangd", !clangd.empty(), clangd.empty() ? "clangd not found; install LLVM" : clangd, true));
 
     if (b_fix)
     {
@@ -524,12 +548,15 @@ int BuildCommand(const FProjectContext& project, const FArgs& args, bool b_json)
         PrintError(b_json, "invalid_project", "ProjectManager could not open the project");
         return 3;
     }
+    CleanupStaleShadowCopies(project.m_Dir);
 
     const FToolInfo tools = DetectTools();
     if (!tools.m_bCMake)
     {
         PrintError(b_json, "missing_toolchain",
-            "cmake not found at " + tools.m_CMakePath.string() + ". Run Tools/setup_zig.ps1 first.");
+            "cmake not found at " + tools.m_CMakePath.string() +
+                (rw::platform::b_IsWindows ? ". Run Tools/setup_tools.ps1 first."
+                                           : ". Run Tools/setup_tools.sh first."));
         return 3;
     }
 
@@ -618,9 +645,8 @@ int BuildCommand(const FProjectContext& project, const FArgs& args, bool b_json)
         watchdog.join();
     }
 
-    const auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
-        std::chrono::steady_clock::now() - start_time)
-                              .count();
+    const auto duration =
+        std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start_time).count();
 
     std::vector<std::string> diagnostic_items;
     for (const BuildDiagnostics::t_Diagnostic& diagnostic : diagnostics)
@@ -636,8 +662,8 @@ int BuildCommand(const FProjectContext& project, const FArgs& args, bool b_json)
     {
         if (b_json)
         {
-            std::cout << "{" << CliJson::Key("ok") << "false," << CliJson::Key("error") << "{"
-                      << CliJson::Key("code") << CliJson::Quoted("build_timeout") << "," << CliJson::Key("message")
+            std::cout << "{" << CliJson::Key("ok") << "false," << CliJson::Key("error") << "{" << CliJson::Key("code")
+                      << CliJson::Quoted("build_timeout") << "," << CliJson::Key("message")
                       << CliJson::Quoted("Build timed out after " + std::to_string(timeout_seconds) + "s") << "},"
                       << CliJson::Key("diagnostics") << CliJson::Array(diagnostic_items) << ","
                       << CliJson::Key("rawTail") << CliJson::Quoted(JoinTail(tail, 40)) << "}\n";
@@ -708,8 +734,8 @@ int SceneCommand(const FProjectContext& project, const FArgs& args, bool b_json,
 
         if (b_json)
         {
-            std::cout << "{" << CliJson::Key("ok") << "true," << CliJson::Key("scenes")
-                      << CliJson::Array(scenes_json) << "}\n";
+            std::cout << "{" << CliJson::Key("ok") << "true," << CliJson::Key("scenes") << CliJson::Array(scenes_json)
+                      << "}\n";
         }
         else
         {
@@ -912,16 +938,29 @@ std::vector<fs::path> ListCppFiles(const fs::path& source_root)
 
 std::string FindClangd()
 {
-    std::filesystem::path found = PlatformInfo::FindExecutable("clangd.exe");
+    std::filesystem::path found = PlatformInfo::FindExecutable(rw::platform::b_IsWindows ? "clangd.exe" : "clangd");
     if (!found.empty())
     {
         return found.string();
     }
 
-    const fs::path common = "C:/Program Files/LLVM/bin/clangd.exe";
-    if (fs::exists(common))
+    if (rw::platform::b_IsWindows)
     {
-        return common.string();
+        const fs::path common = "C:/Program Files/LLVM/bin/clangd.exe";
+        if (fs::exists(common))
+        {
+            return common.string();
+        }
+    }
+    else
+    {
+        for (const char* candidate : { "/usr/bin/clangd", "/usr/local/bin/clangd" })
+        {
+            if (fs::exists(candidate))
+            {
+                return candidate;
+            }
+        }
     }
     return {};
 }
@@ -936,13 +975,16 @@ int LspCommand(const FProjectContext& project, const FArgs& args, bool b_json)
         PrintError(b_json, "invalid_project", "ProjectManager could not open the project");
         return 3;
     }
+    CleanupStaleShadowCopies(project.m_Dir);
     ProjectManager::b_WriteIdeConfigs(b_force);
 
     const FToolInfo tools = DetectTools();
     if (!tools.m_bCMake)
     {
         PrintError(b_json, "missing_toolchain",
-            "cmake not found at " + tools.m_CMakePath.string() + ". Run Tools/setup_zig.ps1 first.");
+            "cmake not found at " + tools.m_CMakePath.string() +
+                (rw::platform::b_IsWindows ? ". Run Tools/setup_tools.ps1 first."
+                                           : ". Run Tools/setup_tools.sh first."));
         return 3;
     }
 
@@ -1009,7 +1051,9 @@ int LspCommand(const FProjectContext& project, const FArgs& args, bool b_json)
 
     if (b_check && clangd.empty())
     {
-        PrintError(b_json, "clangd_missing", "clangd.exe not found in PATH or C:/Program Files/LLVM/bin");
+        PrintError(b_json, "clangd_missing",
+            rw::platform::b_IsWindows ? "clangd.exe not found in PATH or C:/Program Files/LLVM/bin"
+                                      : "clangd not found in PATH or /usr/bin");
         return 3;
     }
 
@@ -1017,11 +1061,10 @@ int LspCommand(const FProjectContext& project, const FArgs& args, bool b_json)
     {
         for (const fs::path& source : sources)
         {
-            const std::string command = ProcessRunner::QuoteArg(clangd) + " --check=" +
-                ProcessRunner::QuoteArg(source.string()) + " --compile-commands-dir=" +
-                ProcessRunner::QuoteArg(project.m_Dir.string());
-            ProcessRunner::RunAndWaitCommandLine(
-                command, project.m_Dir.string(),
+            const std::string command = ProcessRunner::QuoteArg(clangd) +
+                " --check=" + ProcessRunner::QuoteArg(source.string()) +
+                " --compile-commands-dir=" + ProcessRunner::QuoteArg(project.m_Dir.string());
+            ProcessRunner::RunAndWaitCommandLine(command, project.m_Dir.string(),
                 [&diagnostics, &source](std::string_view line, bool)
                 {
                     if (line.rfind("E[", 0) != 0)
@@ -1106,9 +1149,10 @@ void PrintCommandHelp(std::string_view command)
     }
     else if (command == "build")
     {
-        std::cout << "rwcli build <project> [--clean] [--jobs N] [--timeout S] [--json]\n"
-                     "Builds in .raywaves/build-agent under .raywaves/agent.lock.\n"
-                     "Result: {\"ok\":bool,\"diagnostics\":[{file,line,column,severity,message}],\"rawTail\":\"...\"}\n";
+        std::cout
+            << "rwcli build <project> [--clean] [--jobs N] [--timeout S] [--json]\n"
+               "Builds in .raywaves/build-agent under .raywaves/agent.lock.\n"
+               "Result: {\"ok\":bool,\"diagnostics\":[{file,line,column,severity,message}],\"rawTail\":\"...\"}\n";
     }
     else if (command == "run")
     {
@@ -1189,7 +1233,8 @@ std::string AssetKind(const fs::path& path)
 }
 
 int AssetsCommand(const FProjectContext& project, const FArgs& args, bool b_json, const std::string& subcommand)
-{    const fs::path asset_root(project.m_Project.m_AssetPath);
+{
+    const fs::path asset_root(project.m_Project.m_AssetPath);
 
     if (subcommand == "list")
     {
@@ -1213,8 +1258,8 @@ int AssetsCommand(const FProjectContext& project, const FArgs& args, bool b_json
 
         if (b_json)
         {
-            std::cout << "{" << CliJson::Key("ok") << "true," << CliJson::Key("assets")
-                      << CliJson::Array(items) << "}\n";
+            std::cout << "{" << CliJson::Key("ok") << "true," << CliJson::Key("assets") << CliJson::Array(items)
+                      << "}\n";
         }
         else
         {
@@ -1307,8 +1352,8 @@ int Run(const FArgs& args)
     }
 
     const std::string command = args.m_Positional[0];
-    if (command == "doctor" || command == "info" || command == "maps" || command == "validate" ||
-        command == "build" || command == "run" || command == "lsp")
+    if (command == "doctor" || command == "info" || command == "maps" || command == "validate" || command == "build" ||
+        command == "run" || command == "lsp")
     {
         const std::string project_path = args.m_Positional.size() > 1 ? args.m_Positional[1] : "";
         FProjectContext project;

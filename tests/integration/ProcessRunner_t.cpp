@@ -10,9 +10,14 @@
 TEST_CASE("ProcessRunner: RunAndWait streams lines and reports success")
 {
     std::vector<std::string> lines;
+#if defined(_WIN32)
     // No space before '&': cmd keeps trailing spaces in echo output.
-    const bool ok = ProcessRunner::RunAndWait(
-        "echo hello&echo world", [&lines](std::string_view line, bool) { lines.emplace_back(line); });
+    const char* command = "echo hello&echo world";
+#else
+    const char* command = "printf 'hello\\nworld\\n'";
+#endif
+    const bool ok =
+        ProcessRunner::RunAndWait(command, [&lines](std::string_view line, bool) { lines.emplace_back(line); });
 
     CHECK(ok);
     REQUIRE(lines.size() == 2);
@@ -22,7 +27,11 @@ TEST_CASE("ProcessRunner: RunAndWait streams lines and reports success")
 
 TEST_CASE("ProcessRunner: RunAndWait reports a non-zero exit as failure")
 {
+#if defined(_WIN32)
     CHECK_FALSE(ProcessRunner::RunAndWait("exit /b 3"));
+#else
+    CHECK_FALSE(ProcessRunner::RunAndWait("exit 3"));
+#endif
 }
 
 TEST_CASE("ProcessRunner: output written just before exit is not truncated")
@@ -30,8 +39,14 @@ TEST_CASE("ProcessRunner: output written just before exit is not truncated")
     // Roughly 9 KB across 300 lines. The earlier reader stopped after one
     // 128-byte read once the child exited, which dropped most of this.
     std::vector<std::string> lines;
-    const bool ok = ProcessRunner::RunAndWait("for /L %i in (1,1,300) do @echo line_%i_xxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-        [&lines](std::string_view line, bool) { lines.emplace_back(line); });
+#if defined(_WIN32)
+    const char* command = "for /L %i in (1,1,300) do @echo line_%i_xxxxxxxxxxxxxxxxxxxxxxxxxxxx";
+#else
+    const char* command = "i=1; while [ $i -le 300 ]; do echo \"line_${i}_xxxxxxxxxxxxxxxxxxxxxxxxxxxx\"; "
+                          "i=$((i+1)); done";
+#endif
+    const bool ok =
+        ProcessRunner::RunAndWait(command, [&lines](std::string_view line, bool) { lines.emplace_back(line); });
 
     CHECK(ok);
     REQUIRE(lines.size() == 300);
@@ -45,8 +60,13 @@ TEST_CASE("ProcessRunner: cancel stops a long-running command promptly")
     bool completed = false;
     bool success = true;
 
+#if defined(_WIN32)
+    const char* long_command = "ping -n 60 127.0.0.1 > nul";
+#else
+    const char* long_command = "sleep 60";
+#endif
     std::thread worker = ProcessRunner::RunBuildCommand(
-        "ping -n 60 127.0.0.1 > nul", nullptr,
+        long_command, nullptr,
         [&](bool ok)
         {
             completed = true;

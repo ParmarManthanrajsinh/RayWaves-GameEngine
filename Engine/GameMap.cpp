@@ -188,12 +188,12 @@ void GameMap::ClearEditorEntities()
     m_NextEditorEntityId = 1;
 }
 
-std::span<const t_EditorEntity> GameMap::GetEditorEntities() const
+const GameMap::t_EditorEntityList& GameMap::GetEditorEntities() const
 {
     return m_EditorEntities;
 }
 
-std::span<t_EditorEntity> GameMap::GetEditorEntities()
+GameMap::t_EditorEntityList& GameMap::GetEditorEntities()
 {
     return m_EditorEntities;
 }

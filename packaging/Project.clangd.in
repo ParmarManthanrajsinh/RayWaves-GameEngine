@@ -13,3 +13,4 @@ CompileFlags:
   Remove:
     - -Qunused-arguments
     - -msse4.2
+    - -fno-gnu-unique

@@ -1,0 +1,11 @@
+{
+  "results": {
+    "StateBag GetFloat + GetInt": {"ns_per_op": 29.5964, "ops_per_sec": 3.37879e+07},
+    "StateBag GetVector2": {"ns_per_op": 43.7406, "ops_per_sec": 2.28621e+07},
+    "Profiler::Record single name": {"ns_per_op": 13.2242, "ops_per_sec": 7.5619e+07},
+    "Profiler::Record 100-name ring": {"ns_per_op": 53.6288, "ops_per_sec": 1.86467e+07},
+    "AssetResolver::Resolve": {"ns_per_op": 5426.44, "ops_per_sec": 184283},
+    "rw::Level Spawn + editor registration": {"ns_per_op": 912.781, "ops_per_sec": 1.09555e+06},
+    "rw::Entity transform write": {"ns_per_op": 0.78647, "ops_per_sec": 1.2715e+09}
+  }
+}

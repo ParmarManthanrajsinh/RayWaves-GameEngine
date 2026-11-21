@@ -4,8 +4,15 @@ Current, intentional limits. Update this page when one changes.
 
 ## Platform
 
-- **Windows only.** Hot reload, DLL shadow loading, and file association use Win32 APIs.
-- No macOS/Linux runtime path is maintained.
+- Windows and Linux are supported. macOS is not maintained.
+- Linux builds target X11/XWayland; native Wayland is not part of the first
+  pass. Install the X11/GL/ALSA development packages listed in
+  [linux.md](linux.md).
+- Linux requires GCC/G++ and the system libstdc++; the distribution does not
+  bundle a Linux compiler.
+- Linux file dialogs use `zenity` or `kdialog` through `tinyfiledialogs`.
+- Cross-compilation is not supported; release builds run natively on each OS
+  in CI.
 
 ## Editor
 
@@ -38,8 +45,8 @@ Current, intentional limits. Update this page when one changes.
   virtually by extension; it does not create per-type subfolders.
 - Compile from the bare launcher with no project open depends on system CMake; the
   normal project path uses the bundled toolchain.
-- **Terminal memory:** the terminal is Windows-only (ConPTY). Shell tabs need
-  Windows 10 1809 or newer. Scrollback is capped at 5000 lines per tab and is not
+- **Terminal memory:** Windows uses ConPTY (Windows 10 1809 or newer); Linux
+  uses `posix_openpt`. Scrollback is capped at 5000 lines per tab and is not
   reflowed when the window width changes. Private-use Nerd Font prompt glyphs need
   a fallback font added to the ImGui atlas; raw application mouse reporting is not
   forwarded.
@@ -57,8 +64,9 @@ Current, intentional limits. Update this page when one changes.
 
 - Project CMake is regenerated on project open, not watched continuously.
 - Distribution packages are unsigned. Add code signing separately if needed.
-- `-IncludeCompiler` increases package size because it bundles Zig.
-- No CI workflow is configured; `scripts/check.ps1` is the local gate.
+- `-IncludeCompiler` bundles Zig on Windows and increases package size. Linux packages use system GCC/G++.
+- `scripts/check.ps1` / `scripts/check.sh` are the local gates; GitHub Actions
+  runs the same tasks on Windows and Linux. Linux uses GCC/G++, Windows uses Zig.
 
 ## Benchmarks and docs
 

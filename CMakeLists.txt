@@ -1,33 +1,27 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.25)
 
-# Check and auto-fetch Zig if necessary before compiler detection runs
-if(CMAKE_C_COMPILER MATCHES "zig-cc" OR CMAKE_CXX_COMPILER MATCHES "zig-cxx")
-  if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/Tools/zig/zig.exe")
-    message(STATUS "Zig toolchain not found. Auto-fetching...")
-    execute_process(
-            COMMAND powershell -ExecutionPolicy Bypass -File "${CMAKE_CURRENT_SOURCE_DIR}/Tools/setup_zig.ps1" -SkipRcEdit
-            WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-            RESULT_VARIABLE ZIG_FETCH_RESULT
-        )
-    if(NOT ZIG_FETCH_RESULT EQUAL 0)
-      message(FATAL_ERROR "Failed to download Zig.")
-    endif()
-  endif()
-endif()
+# Toolchain selection must happen before project() so CMake detects the Zig
+# wrappers rather than the host compiler.
+include(cmake/Toolchain.cmake)
 
 project(RayWaves VERSION 0.1.0 LANGUAGES C CXX)
 
-# Auto-fetch rcedit if missing
-if(NOT EXISTS "${CMAKE_SOURCE_DIR}/Tools/rcedit.exe")
-  message(STATUS "rcedit not found. Auto-fetching...")
-  execute_process(
-        COMMAND powershell -ExecutionPolicy Bypass -File "${CMAKE_SOURCE_DIR}/Tools/setup_zig.ps1" -SkipZig
+find_package(Threads REQUIRED)
+
+include(cmake/Platform.cmake)
+
+# rcedit is only used to embed the Windows executable icon. Fetch it on demand
+# so a fresh Windows checkout still produces branded binaries.
+if(WIN32 AND NOT EXISTS "${CMAKE_SOURCE_DIR}/Tools/rcedit.exe")
+    message(STATUS "rcedit not found. Auto-fetching...")
+    execute_process(
+        COMMAND powershell -ExecutionPolicy Bypass -File "${CMAKE_SOURCE_DIR}/Tools/setup_tools.ps1" -SkipZig -SkipNinja -SkipCMake
         WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
         RESULT_VARIABLE RCEDIT_FETCH_RESULT
     )
-  if(NOT RCEDIT_FETCH_RESULT EQUAL 0)
-    message(FATAL_ERROR "Failed to download rcedit.")
-  endif()
+    if(NOT RCEDIT_FETCH_RESULT EQUAL 0)
+        message(WARNING "Failed to download rcedit; icon embedding will be skipped.")
+    endif()
 endif()
 
 # Option: strip Profiler + SCOPED_TIMER from release builds
@@ -39,13 +33,12 @@ endif()
 
 option(RAYWAVES_BUILD_TESTS "Build unit, integration and smoke test suites" ON)
 option(RAYWAVES_BUILD_BENCHMARKS "Build the standalone benchmark suite" ON)
-option(RAYWAVES_BUILD_GAMELOGIC "Build the bundled SlimeQuest GameLogic DLL" ON)
+option(RAYWAVES_BUILD_GAMELOGIC "Build the bundled SlimeQuest GameLogic library" ON)
 
 option(ENABLE_CLANG_TIDY "Run clang-tidy static analysis during build" OFF)
 if(ENABLE_CLANG_TIDY)
     find_program(CLANG_TIDY clang-tidy
-        HINTS "C:/Program Files/LLVM/bin"
-        NO_CMAKE_PATH NO_CMAKE_ENVIRONMENT_PATH
+        HINTS "C:/Program Files/LLVM/bin" "/usr/bin" "/usr/local/bin"
     )
     if(CLANG_TIDY)
         set(CMAKE_CXX_CLANG_TIDY "${CLANG_TIDY}")
@@ -59,17 +52,6 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-
-# Zig/Clang flags only. MSVC does not understand these; the presets use Zig.
-if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-    add_compile_options(-msse4.2)
-    add_compile_options(-fno-sanitize=all)
-    add_compile_options(-Qunused-arguments)
-elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-    add_compile_options(-msse4.2)
-endif()
-
-add_compile_definitions(IMGUI_DISABLE_SSE)
 
 include(cmake/Dependencies.cmake)
 include(cmake/Engine.cmake)

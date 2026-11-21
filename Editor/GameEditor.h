@@ -59,7 +59,7 @@ public:
 
     bool b_IsPlaying;
     std::atomic<bool> b_IsCompiling;
-    void Init(int width, int height, std::string_view title);
+    bool Init(int width, int height, std::string_view title);
     void LoadMap(GameMap* game_map);
 
     // Load the game logic DLL and create/set a new GameMap from it.

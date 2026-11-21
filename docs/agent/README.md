@@ -4,36 +4,45 @@
 project without opening the editor.
 
 `rwcli` lives in the RayWaves package, not in the project. Projects get a
-generated wrapper and a `tooling.ini` descriptor. Prefer:
+generated wrapper and a `tooling.ini` descriptor. Prefer the host wrapper:
 
 ```powershell
+# Windows
 .\.raywaves\bin\rwcli.cmd doctor . --json
 ```
 
-If the wrapper is missing, read `.raywaves\tooling.ini` and use `[rwcli] path`.
+```sh
+# Linux
+.raywaves/bin/rwcli doctor . --json
+```
+
+If the wrapper is missing, read `.raywaves/tooling.ini` and use `[rwcli] path`.
 Full command reference: [rwcli-reference.md](rwcli-reference.md).
 
 ## Commands
 
-From the project root:
+From the project root, prefix each command with the host wrapper:
 
-```powershell
-.\.raywaves\bin\rwcli.cmd doctor . --json
-.\.raywaves\bin\rwcli.cmd info . --json
-.\.raywaves\bin\rwcli.cmd maps . --json
-.\.raywaves\bin\rwcli.cmd validate . --json
-.\.raywaves\bin\rwcli.cmd build . --json
-.\.raywaves\bin\rwcli.cmd run . --frames 120 --screenshot shot.png --state state.json --json
-.\.raywaves\bin\rwcli.cmd run . --frames 120 --input input.txt --json
-.\.raywaves\bin\rwcli.cmd scene list . --json
-.\.raywaves\bin\rwcli.cmd scene add . --map Platformer2D --name Crate --texture crate.png --position 620,300
-.\.raywaves\bin\rwcli.cmd scene set . --map Platformer2D --id 1 --position 700,300
-.\.raywaves\bin\rwcli.cmd scene remove . --map Platformer2D --id 1
-.\.raywaves\bin\rwcli.cmd assets list . --json
-.\.raywaves\bin\rwcli.cmd assets import . <file>
-.\.raywaves\bin\rwcli.cmd lsp . --json
-.\.raywaves\bin\rwcli.cmd lsp . --check --json
-.\.raywaves\bin\rwcli.cmd lsp . --force --json
+- Windows: `.\.raywaves\bin\rwcli.cmd`
+- Linux: `.raywaves/bin/rwcli`
+
+```text
+doctor . --json
+info . --json
+maps . --json
+validate . --json
+build . --json
+run . --frames 120 --screenshot shot.png --state state.json --json
+run . --frames 120 --input input.txt --json
+scene list . --json
+scene add . --map Platformer2D --name Crate --texture crate.png --position 620,300
+scene set . --map Platformer2D --id 1 --position 700,300
+scene remove . --map Platformer2D --id 1
+assets list . --json
+assets import . <file>
+lsp . --json
+lsp . --check --json
+lsp . --force --json
 ```
 
 `<project>` is the folder containing `project.raywaves`. The manifest file
@@ -54,16 +63,18 @@ Two tooling files are always refreshed on open/build/lsp because they pin the
 current package path:
 
 - `.raywaves/tooling.ini` — `[rwcli] available, path, packageRoot, version`
-- `.raywaves/bin/rwcli.cmd` — wrapper used by agents
+- `.raywaves/bin/rwcli.cmd` — Windows wrapper used by agents
+- `.raywaves/bin/rwcli` — Linux wrapper used by agents
 
-`.\.raywaves\bin\rwcli.cmd lsp . --force` refreshes the absolute
-engine/raylib/Zig paths after moving a project or updating the engine.
+The project wrapper's `lsp . --force` refreshes the absolute engine, raylib,
+and toolchain paths after moving a project or updating the engine.
 
 ## Editor setup
 
 See [editor-setup.md](editor-setup.md) for VS Code/clangd, IntelliSense fallback,
 and troubleshooting. Short version: install clangd, open the project, then run
-`.\.raywaves\bin\rwcli.cmd lsp . --check --json`.
+the project wrapper `lsp . --check --json` (`.\.raywaves\bin\rwcli.cmd` on
+Windows, `.raywaves/bin/rwcli` on Linux).
 
 ## Agent loop
 
@@ -134,13 +145,16 @@ functions) for replay to apply.
 - Input replay only applies to projects that call `rw::IsKeyDown`,
   `rw::IsKeyPressed`, `rw::IsMouseButtonDown`, or `rw::GetMousePosition`.
   Raw raylib input still works but is not scriptable.
-- LSP configs are generated with absolute engine paths; rerun
-  `.\.raywaves\bin\rwcli.cmd lsp . --force` after moving a project or updating the engine.
-- `lsp --check` needs `clangd.exe` in `PATH` or `C:/Program Files/LLVM/bin`.
+- LSP configs are generated with absolute engine paths; rerun the wrapper
+  `lsp . --force` after moving a project or updating the engine.
+- `lsp --check` needs `clangd` in `PATH` (Windows also checks
+  `C:/Program Files/LLVM/bin`; Linux installs it with `clangd` or
+  `clang-tools-extra`).
 - `--state` is empty for maps that do not override `SaveState` and do not
   register editor entities.
 - `run` needs an OpenGL context even with the hidden window. Headless machines
-  without a GPU driver must run on a desktop session.
+  without a GPU driver must run on a desktop session or under
+  `xvfb-run -a` with `LIBGL_ALWAYS_SOFTWARE=1` on Linux.
 - The editor and CLI must not build at the same time. The agent lock enforces
   this for `rwcli`; the editor reports a locked project instead of building.
   The editor also skips scene saves while the lock is held.

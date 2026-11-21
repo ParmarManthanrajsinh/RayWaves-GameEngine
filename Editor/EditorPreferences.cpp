@@ -1,4 +1,5 @@
 #include "EditorPreferences.h"
+#include "PlatformInfo.h"
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -11,13 +12,8 @@ EditorPreferences& EditorPreferences::GetInstance()
 
 std::string EditorPreferences::GetConfigPath()
 {
-    const char* appdata = std::getenv("APPDATA");
-    if (appdata != nullptr)
-    {
-        std::filesystem::path dir = std::filesystem::path(appdata) / "RayWaves";
-        return (dir / "editor_preferences.ini").string();
-    }
-    return "editor_preferences.ini"; // Fallback if APPDATA is somehow not set
+    const std::filesystem::path dir = PlatformInfo::GetAppConfigDirectory() / "RayWaves";
+    return (dir / "editor_preferences.ini").string();
 }
 
 bool EditorPreferences::m_bLoadFromFile()

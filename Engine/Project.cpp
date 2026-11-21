@@ -1,9 +1,26 @@
 #include "Project.h"
 #include "EngineVersion.h"
+#include "PlatformNames.h"
 #include <filesystem>
 #include <fstream>
 #include <iostream>
 namespace fs = std::filesystem;
+
+namespace
+{
+// Older manifests store "GameLogic.dll". Keep the stem and let the host
+// platform choose the module suffix.
+std::string NormalizeEntryModule(std::string value)
+{
+    fs::path entry(value);
+    if (!entry.has_extension())
+    {
+        return value.empty() ? std::string("GameLogic") : value;
+    }
+    entry.replace_extension();
+    return entry.empty() ? std::string("GameLogic") : entry.string();
+}
+} // namespace
 
 bool t_Project::m_bLoadFromFile(std::string_view manifest_path)
 {
@@ -24,7 +41,7 @@ bool t_Project::m_bLoadFromFile(std::string_view manifest_path)
     m_EngineVersion = RAYWAVES_VERSION;
     m_SourceDir = "GameLogic";
     m_AssetDir = "Assets";
-    m_EntryDll = "GameLogic.dll";
+    m_EntryDll = "GameLogic";
     m_IconPath = "";
 
     m_CameraX = 0.f;
@@ -90,7 +107,7 @@ bool t_Project::m_bLoadFromFile(std::string_view manifest_path)
             else if (key == "assetDir")
                 m_AssetDir = value;
             else if (key == "entryDll")
-                m_EntryDll = value;
+                m_EntryDll = NormalizeEntryModule(value);
             else if (key == "iconPath")
                 m_IconPath = value;
         }
@@ -135,10 +152,14 @@ bool t_Project::m_bLoadFromFile(std::string_view manifest_path)
 
     file.close();
 
-    // Resolve absolute paths
+    // Resolve absolute paths. The manifest stores a logical stem; append the
+    // host module suffix so Windows resolves .dll and Linux resolves .so.
     m_SourcePath = (fs::path(m_RootPath) / m_SourceDir).string();
     m_AssetPath = (fs::path(m_RootPath) / m_AssetDir).string();
-    m_DllPath = (fs::path(m_RootPath) / m_EntryDll).string();
+
+    fs::path module_path(m_EntryDll);
+    module_path += rw::platform::c_SharedLibrarySuffix;
+    m_DllPath = (fs::path(m_RootPath) / module_path).string();
 
     std::cerr << "Loaded project: " << m_Name << "\n";
     return true;

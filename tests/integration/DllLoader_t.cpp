@@ -1,12 +1,17 @@
 #include "Editor/GameLogicLoader.h"
 #include "Engine/GameEngine.h"
 #include "Engine/GameMap.h"
+#include "Engine/PlatformNames.h"
+#include "PlatformInfo.h"
+#include "ProcessRunner.h"
 #include "Runtime/DllLoader.h"
 #include "doctest/doctest.h"
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <iostream>
 #include <string>
+#include <vector>
 
 namespace fs = std::filesystem;
 
@@ -25,6 +30,7 @@ fs::path GetRepoRoot()
 // Minimal test DLL source exporting the required GameLogic ABI.
 // Built with -I<repo root>, so includes are repo-relative.
 constexpr const char* TEST_DLL_SOURCE = R"SRC(
+#include "Engine/GameLogicExports.h"
 #include "Engine/GameMap.h"
 #include <cstdint>
 #include <cstdlib>
@@ -35,33 +41,36 @@ public:
     void SaveState(StateBag& out) const override { out.SetFloat("value", 42.0f); }
     void LoadState(const StateBag& in) override { (void)in.GetInt("value", 0); }
 };
-extern "C" __declspec(dllexport) GameMap* CreateGameMap() { return new TestMap(); }
-extern "C" __declspec(dllexport) void DestroyGameMap(GameMap* m) {
+RW_GAMELOGIC_EXPORT GameMap* CreateGameMap() { return new TestMap(); }
+RW_GAMELOGIC_EXPORT void DestroyGameMap(GameMap* m) {
     if (const char* marker = std::getenv("RAYWAVES_TEST_DLL_DESTROY_MARKER")) {
         std::ofstream(marker) << "destroyed";
     }
     delete m;
 }
-extern "C" __declspec(dllexport) uint32_t GetGameLogicAbiVersion() { return RAYWAVES_GAMELOGIC_ABI_VERSION; }
+RW_GAMELOGIC_EXPORT uint32_t GetGameLogicAbiVersion() { return RAYWAVES_GAMELOGIC_ABI_VERSION; }
 )SRC";
 
 // Copy of the source with a WRONG ABI version, used for mismatch tests
 constexpr const char* TEST_DLL_BAD_ABI = R"SRC(
+#include "Engine/GameLogicExports.h"
 #include "Engine/GameMap.h"
 #include <cstdint>
 class TestMap : public GameMap {
 public:
     TestMap() : GameMap("TestMap") {}
 };
-extern "C" __declspec(dllexport) GameMap* CreateGameMap() { return new TestMap(); }
-extern "C" __declspec(dllexport) void DestroyGameMap(GameMap* m) { delete m; }
-extern "C" __declspec(dllexport) uint32_t GetGameLogicAbiVersion() { return 0xDEAD; }
+RW_GAMELOGIC_EXPORT GameMap* CreateGameMap() { return new TestMap(); }
+RW_GAMELOGIC_EXPORT void DestroyGameMap(GameMap* m) { delete m; }
+RW_GAMELOGIC_EXPORT uint32_t GetGameLogicAbiVersion() { return 0xDEAD; }
 )SRC";
 
-// Locate the repo-bundled zig relative to the test executable:
-// <repo>/build/<config>/<test>.exe
+// Windows test modules use the pinned Zig toolchain. Linux uses the same
+// system G++/libstdc++ as the host so STL objects can cross the module
+// boundary safely.
 fs::path repo_root = GetRepoRoot();
-fs::path zig_exe = repo_root / "Tools" / "zig" / "zig.exe";
+fs::path test_compiler = rw::platform::b_IsWindows ? (repo_root / "Tools" / "zig" / rw::platform::ExecutableName("zig"))
+                                                   : PlatformInfo::FindExecutable("g++");
 // Staged raylib root next to the test executable, with a fallback to the
 // FetchContent build tree. The staged lib/ directory is only populated by
 // a configure pass that runs after raylib has been built, so on a fresh
@@ -80,29 +89,24 @@ fs::path ResolveRaylibInclude()
     return raylib_staged / "include";
 }
 
-// Zig looks for raylib.dll, raylib.lib or libraylib.a. raylib's Zig build
-// produces an import library named libraylib.dll.a, so point the compiler
-// at the file directly (matching what packaging/package.ps1 does).
+// Zig looks for raylib.dll, raylib.lib, libraylib.a, or libraylib.so. Point
+// the compiler at the staged file directly so the import-name rules do not
+// matter.
 fs::path ResolveRaylibImportLib()
 {
     for (const auto& candidate : {
              raylib_staged / "lib" / "libraylib.a",
              raylib_staged / "lib" / "libraylib.dll.a",
+             raylib_staged / "lib" / "libraylib.so",
              raylib_fetched / "libraylib.dll.a",
              raylib_fetched / "libraylib.a",
+             raylib_fetched / "libraylib.so",
          })
     {
         if (fs::exists(candidate))
             return candidate;
     }
     return {};
-}
-
-// std::system goes through cmd.exe, so any path containing spaces must be
-// quoted or it is split into several arguments.
-std::string Quote(const fs::path& path)
-{
-    return "\"" + path.string() + "\"";
 }
 
 std::string WriteTestDll(const char* source, const std::string& tag)
@@ -115,7 +119,7 @@ std::string WriteTestDll(const char* source, const std::string& tag)
         ofs << source;
     }
 
-    if (!fs::exists(zig_exe))
+    if (test_compiler.empty() || !fs::exists(test_compiler))
         return "";
 
     fs::path raylib_include = ResolveRaylibInclude();
@@ -125,17 +129,34 @@ std::string WriteTestDll(const char* source, const std::string& tag)
 
     // GameMap isn't header-only; compile the minimal Engine translation
     // units it depends on (same approach the export pipeline uses).
-    std::string cmd = Quote(zig_exe) + " c++ -shared -std=c++23 -o " + Quote(tmp / "TestGameLogic.dll") + " " +
-        Quote(cpp) + " " + Quote(repo_root / "Engine" / "GameMap.cpp") + " " +
-        Quote(repo_root / "Engine" / "AssetResolver.cpp") + " -I" + Quote(repo_root) + " -I" + Quote(raylib_include) +
-        " " + Quote(raylib_import);
-    // cmd.exe /c strips the first and last quote when the command starts
-    // with a quoted path, which breaks paths containing spaces. Wrapping
-    // the whole command in an extra pair of quotes preserves them.
-    std::string wrapped = "\"" + cmd + "\"";
-    if (std::system(wrapped.c_str()) != 0)
+    const fs::path output = tmp / rw::platform::SharedLibraryName("TestGameLogic");
+    std::vector<std::string> argv = { test_compiler.string() };
+    if (rw::platform::b_IsWindows)
+    {
+        argv.push_back("c++");
+    }
+    else
+    {
+        argv.push_back("-fPIC");
+        argv.push_back("-fno-gnu-unique");
+    }
+    argv.insert(argv.end(),
+        { "-shared", "-std=c++23", "-o", output.string(), cpp.string(), (repo_root / "Engine" / "GameMap.cpp").string(),
+            (repo_root / "Engine" / "AssetResolver.cpp").string(), "-I" + repo_root.string(),
+            "-I" + raylib_include.string(), raylib_import.string() });
+
+    std::vector<std::string> output_lines;
+    const bool b_ok = ProcessRunner::RunAndWaitCommand(
+        argv, repo_root.string(), [&output_lines](std::string_view line, bool) { output_lines.emplace_back(line); });
+    if (!b_ok)
+    {
+        for (const std::string& line : output_lines)
+        {
+            std::cerr << line << "\n";
+        }
         return "";
-    return (tmp / "TestGameLogic.dll").string();
+    }
+    return output.string();
 }
 } // namespace
 
@@ -199,7 +220,7 @@ TEST_CASE("GameLogicLoader: unload destroys a plain DLL-backed GameMap")
 
     const fs::path marker = fs::temp_directory_path() / "raywaves_loader_destroy_marker.txt";
     fs::remove(marker);
-    REQUIRE(_putenv_s("RAYWAVES_TEST_DLL_DESTROY_MARKER", marker.string().c_str()) == 0);
+    REQUIRE(PlatformInfo::b_SetEnvironmentVariable("RAYWAVES_TEST_DLL_DESTROY_MARKER", marker.string()));
 
     {
         GameEngine engine;
@@ -212,7 +233,7 @@ TEST_CASE("GameLogicLoader: unload destroys a plain DLL-backed GameMap")
         CHECK(fs::exists(marker));
     }
 
-    _putenv_s("RAYWAVES_TEST_DLL_DESTROY_MARKER", "");
+    PlatformInfo::b_SetEnvironmentVariable("RAYWAVES_TEST_DLL_DESTROY_MARKER", "");
     fs::remove(marker);
 }
 
@@ -240,7 +261,8 @@ TEST_CASE("DllLoader: unload keeps original DLL file writable and intact")
 
 TEST_CASE("DllLoader: missing file falls back to direct load and fails gracefully")
 {
-    DllHandle dll = LoadDll("definitely_missing_dll_12345.dll");
+    const std::string missing = rw::platform::SharedLibraryName("definitely_missing_dll_12345");
+    DllHandle dll = LoadDll(missing.c_str());
     CHECK(dll.handle == nullptr);
     CHECK(GetDllSymbol(dll, "CreateGameMap") == nullptr);
     // Unload on a null handle must not crash
@@ -267,19 +289,20 @@ TEST_CASE("DllLoader: bad ABI version DLL still loads (editor rejects it)")
     UnloadDll(dll);
 }
 
-TEST_CASE("DllLoader: CRT import parsing on self and a real DLL")
+TEST_CASE("DllLoader: CRT import parsing on self and a real module")
 {
+#if defined(_WIN32)
     // The running test executable itself uses the dynamic CRT; parse its imports.
     std::string exe_path = GetHostExePath();
     REQUIRE(!exe_path.empty());
     std::vector<std::string> exe_imports = GetModuleCrtImports(exe_path.c_str());
     CHECK(!exe_imports.empty());
 
-    // A DLL built with the same toolchain must be compatible
+    // A module built with the same toolchain must be compatible
     std::string dll_path = WriteTestDll(TEST_DLL_SOURCE, "_crt");
     if (dll_path.empty())
     {
-        FAIL("Failed to build test DLL (zig not on PATH?)");
+        FAIL("Failed to build test module (zig not on PATH?)");
         return;
     }
     std::vector<std::string> dll_imports = GetModuleCrtImports(dll_path.c_str());
@@ -294,6 +317,13 @@ TEST_CASE("DllLoader: CRT import parsing on self and a real DLL")
 
     // Nonexistent module returns empty without crashing
     CHECK(GetModuleCrtImports("definitely_missing_dll_12345.dll").empty());
+#else
+    // POSIX has one process-wide C++ runtime; the PE import scan is a no-op.
+    const std::string missing = rw::platform::SharedLibraryName("definitely_missing_dll_12345");
+    CHECK(GetModuleCrtImports(missing.c_str()).empty());
+    CHECK(b_CrtImportsCompatible({}, {}));
+    CHECK(b_CrtImportsCompatible({ "anything" }, {}));
+#endif
 }
 
 TEST_CASE("DllLoader: CleanupStaleShadowCopies removes only old shadow DLLs")
@@ -301,9 +331,10 @@ TEST_CASE("DllLoader: CleanupStaleShadowCopies removes only old shadow DLLs")
     fs::path shadow_dir = fs::current_path() / ".raywaves" / "shadows";
     fs::create_directories(shadow_dir);
 
-    fs::path stale = shadow_dir / "GameLogic.shadow.123.456.dll";
-    fs::path fresh = shadow_dir / "GameLogic.shadow.123.999.dll";
-    fs::path foreign = shadow_dir / "unrelated.dll";
+    const std::string suffix = rw::platform::c_SharedLibrarySuffix;
+    fs::path stale = shadow_dir / ("GameLogic.shadow.123.456" + suffix);
+    fs::path fresh = shadow_dir / ("GameLogic.shadow.123.999" + suffix);
+    fs::path foreign = shadow_dir / ("unrelated" + suffix);
 
     {
         std::ofstream(stale) << "x";
@@ -322,7 +353,7 @@ TEST_CASE("DllLoader: CleanupStaleShadowCopies removes only old shadow DLLs")
     // must find those files and remove empty leftovers.
     fs::path nested_dir = shadow_dir / "123456789";
     fs::create_directories(nested_dir);
-    fs::path nested_stale = nested_dir / "GameLogic.shadow.7.8.9.dll";
+    fs::path nested_stale = nested_dir / ("GameLogic.shadow.7.8.9" + suffix);
     {
         std::ofstream(nested_stale) << "x";
     }
@@ -349,6 +380,33 @@ TEST_CASE("DllLoader: CleanupStaleShadowCopies removes only old shadow DLLs")
     fs::remove(foreign);
 }
 
+TEST_CASE("DllLoader: project-local shadow cleanup only removes stale project copies")
+{
+    const fs::path project = fs::temp_directory_path() / "raywaves_project_shadow_cleanup";
+    const fs::path shadow_dir = project / ".raywaves" / "shadows";
+    fs::remove_all(project);
+    fs::create_directories(shadow_dir);
+
+    const std::string suffix = rw::platform::c_SharedLibrarySuffix;
+    const fs::path stale = shadow_dir / ("GameLogic.shadow.1.2" + suffix);
+    const fs::path fresh = shadow_dir / ("GameLogic.shadow.1.3" + suffix);
+    const fs::path foreign = shadow_dir / ("not-a-shadow" + suffix);
+    std::ofstream(stale) << "x";
+    std::ofstream(fresh) << "x";
+    std::ofstream(foreign) << "x";
+
+    const auto old_time = fs::file_time_type::clock::now() - std::chrono::hours(2);
+    fs::last_write_time(stale, old_time);
+
+    CleanupStaleShadowCopies(project);
+
+    CHECK(!fs::exists(stale));
+    CHECK(fs::exists(fresh));
+    CHECK(fs::exists(foreign));
+
+    fs::remove_all(project);
+}
+
 TEST_CASE("DllLoader: log sink captures diagnostics, reset restores stderr default")
 {
     std::vector<std::string> captured_errors;
@@ -365,7 +423,7 @@ TEST_CASE("DllLoader: log sink captures diagnostics, reset restores stderr defau
     // Plant a stale shadow copy so the sweep has something to report
     fs::path shadow_dir = fs::current_path() / ".raywaves" / "shadows";
     fs::create_directories(shadow_dir);
-    fs::path stale = shadow_dir / "GameLogic.shadow.9.9.dll";
+    fs::path stale = shadow_dir / ("GameLogic.shadow.9.9" + std::string(rw::platform::c_SharedLibrarySuffix));
     {
         std::ofstream(stale) << "x";
     }

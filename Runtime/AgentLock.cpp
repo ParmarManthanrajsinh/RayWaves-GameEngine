@@ -1,10 +1,8 @@
 #include "AgentLock.h"
+#include "PlatformInfo.h"
 #include <cstdlib>
 #include <fstream>
 #include <iterator>
-
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
 
 namespace AgentLock
 {
@@ -51,21 +49,7 @@ std::filesystem::path GetLockPath(const std::filesystem::path& project_root)
 
 bool b_IsProcessAlive(int pid)
 {
-    if (pid <= 0)
-    {
-        return false;
-    }
-
-    HANDLE process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, static_cast<DWORD>(pid));
-    if (process == nullptr)
-    {
-        return false;
-    }
-
-    DWORD exit_code = STILL_ACTIVE;
-    const bool b_alive = GetExitCodeProcess(process, &exit_code) != FALSE && exit_code == STILL_ACTIVE;
-    CloseHandle(process);
-    return b_alive;
+    return PlatformInfo::b_IsProcessAlive(pid);
 }
 
 bool b_Query(const std::filesystem::path& project_root, FInfo& out_info)
@@ -122,20 +106,17 @@ bool b_Acquire(const std::filesystem::path& project_root, std::string_view comma
     const std::filesystem::path lock_path = GetLockPath(project_root);
     std::error_code error;
     std::filesystem::create_directories(lock_path.parent_path(), error);
-
-    std::ofstream file(lock_path, std::ios::trunc);
-    if (!file.is_open())
+    if (error)
     {
-        out_error = "Could not create " + lock_path.string();
+        out_error = "Could not create " + lock_path.parent_path().string() + ": " + error.message();
         return false;
     }
 
-    file << "pid=" << GetCurrentProcessId() << "\n";
-    file << "command=" << command << "\n";
-    file << "started=" << static_cast<unsigned long long>(GetTickCount64()) << "\n";
-    file.close();
-
-    return file.good();
+    std::string contents;
+    contents += "pid=" + std::to_string(PlatformInfo::GetCurrentProcessId()) + "\n";
+    contents += "command=" + std::string(command) + "\n";
+    contents += "started=" + std::to_string(PlatformInfo::GetMonotonicMilliseconds()) + "\n";
+    return PlatformInfo::b_CreateFileExclusive(lock_path, contents, out_error);
 }
 
 void Release(const std::filesystem::path& project_root)

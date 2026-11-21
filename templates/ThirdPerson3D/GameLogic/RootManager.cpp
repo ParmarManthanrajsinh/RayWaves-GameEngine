@@ -1,3 +1,4 @@
+#include "../Engine/GameLogicExports.h"
 #include "../Engine/GameMap.h"
 #include "../Engine/MapManager.h"
 #include "ThirdPersonMap.h"
@@ -5,12 +6,12 @@
 
 static MapManager* s_GameMapManager = nullptr;
 
-extern "C" __declspec(dllexport) uint32_t GetGameLogicAbiVersion()
+RW_GAMELOGIC_EXPORT uint32_t GetGameLogicAbiVersion()
 {
     return RAYWAVES_GAMELOGIC_ABI_VERSION;
 }
 
-extern "C" __declspec(dllexport) GameMap* CreateGameMap()
+RW_GAMELOGIC_EXPORT GameMap* CreateGameMap()
 {
     if (s_GameMapManager == nullptr)
     {
@@ -22,7 +23,7 @@ extern "C" __declspec(dllexport) GameMap* CreateGameMap()
     return s_GameMapManager;
 }
 
-extern "C" __declspec(dllexport) void DestroyGameMap(GameMap* map_manager)
+RW_GAMELOGIC_EXPORT void DestroyGameMap(GameMap* map_manager)
 {
     if (map_manager != nullptr)
     {

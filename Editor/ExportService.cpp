@@ -1,4 +1,6 @@
 #include "ExportService.h"
+#include "../Engine/PlatformInfo.h"
+#include "../Engine/PlatformNames.h"
 #include "../Engine/ProjectManager.h"
 #include "../Runtime/DllLoader.h"
 #include "EditorUtils.h"
@@ -8,6 +10,7 @@
 #include <filesystem>
 #include <fstream>
 #include <sstream>
+#include <vector>
 
 namespace fs = std::filesystem;
 
@@ -133,22 +136,66 @@ bool b_ValidateExportFolder(std::string_view out_dir, LogSink log)
     {
         for (const auto& ENTRY : fs::directory_iterator(out_dir, ec))
         {
-            if (!ec && ENTRY.is_regular_file() && ENTRY.path().extension() == ".exe")
+            if (ec || !ENTRY.is_regular_file())
+            {
+                continue;
+            }
+
+            const fs::path path = ENTRY.path();
+            const std::string filename = path.filename().string();
+            bool b_is_executable = false;
+            if (rw::platform::b_IsWindows)
+            {
+                b_is_executable = path.extension() == ".exe";
+            }
+            else
+            {
+                const fs::file_status status = ENTRY.status(ec);
+                b_is_executable = !ec && (status.permissions() & fs::perms::owner_exec) != fs::perms::none;
+            }
+
+            if (b_is_executable && filename != rw::platform::c_GameLogicModuleName &&
+                filename != rw::platform::c_RaylibRuntimeName)
             {
                 b_FoundGameExe = true;
-                log(std::string("Found game executable: ") + ENTRY.path().filename().string());
+                log(std::string("Found game executable: ") + filename);
                 break;
             }
         }
     }
     if (!b_FoundGameExe)
     {
-        log("Missing: Game executable (.exe file)");
+        log("Missing: Game executable");
         b_Ok = false;
     }
 
-    require(fs::path(out_dir) / "GameLogic.dll");
-    require(fs::path(out_dir) / "libraylib.dll");
+    require(fs::path(out_dir) / rw::platform::c_GameLogicModuleName);
+
+    bool b_FoundRaylib = false;
+    std::error_code raylib_ec;
+    if (fs::exists(out_dir, raylib_ec) && !raylib_ec)
+    {
+        for (const auto& entry : fs::directory_iterator(out_dir, raylib_ec))
+        {
+            if (raylib_ec || !entry.is_regular_file())
+            {
+                continue;
+            }
+            const std::string filename = entry.path().filename().string();
+            if (filename == "libraylib.dll" || filename == "raylib.dll" || filename.rfind("libraylib.so", 0) == 0 ||
+                filename.rfind("raylib.so", 0) == 0)
+            {
+                b_FoundRaylib = true;
+                log(std::string("Found raylib runtime: ") + filename);
+                break;
+            }
+        }
+    }
+    if (!b_FoundRaylib)
+    {
+        log("Missing: raylib runtime library");
+        b_Ok = false;
+    }
 
     fs::path assets_path = fs::path(out_dir) / "Assets";
     if (fs::exists(assets_path))
@@ -201,33 +248,56 @@ FExportResult RunExport(const FExportSettings& settings, const std::shared_ptr<s
         std::string host_exe = GetHostExePath();
         fs::path host_dir = host_exe.empty() ? current_path : fs::path(host_exe).parent_path();
 
-        const bool b_IsDistribution = fs::exists(host_dir / "Core" / "runtime.exe");
-        fs::path game_exe = b_IsDistribution ? (host_dir / "Core" / "runtime.exe") : (host_dir / "game.exe");
-        fs::path raylib_dll = host_dir / "libraylib.dll";
+        const std::string runtime_name = rw::platform::ExecutableName("runtime");
+        const std::string game_host_name = rw::platform::ExecutableName("game");
+        const bool b_IsDistribution = fs::exists(host_dir / "Core" / runtime_name);
+        fs::path game_exe = b_IsDistribution ? (host_dir / "Core" / runtime_name) : (host_dir / game_host_name);
+
+        auto find_raylib_files = [](const fs::path& directory)
+        {
+            std::vector<fs::path> files;
+            std::error_code error;
+            if (!fs::is_directory(directory, error))
+            {
+                return files;
+            }
+            for (const fs::directory_entry& entry : fs::directory_iterator(directory, error))
+            {
+                if (error || !entry.is_regular_file())
+                {
+                    continue;
+                }
+                const std::string filename = entry.path().filename().string();
+                if (filename == "libraylib.dll" || filename == "raylib.dll" || filename.rfind("libraylib.so", 0) == 0 ||
+                    filename.rfind("raylib.so", 0) == 0)
+                {
+                    files.push_back(entry.path());
+                }
+            }
+            return files;
+        };
+
+        std::vector<fs::path> raylib_files = find_raylib_files(host_dir);
 
         if (!fs::exists(game_exe))
-            game_exe = current_path / "game.exe";
-        if (!fs::exists(raylib_dll))
-            raylib_dll = current_path / "libraylib.dll";
+            game_exe = current_path / game_host_name;
+        if (raylib_files.empty())
+            raylib_files = find_raylib_files(current_path);
 
         if (!fs::exists(game_exe))
         {
-            return fail("ERROR: runtime.exe/game.exe not found! Please build the engine runtime first.");
+            return fail("ERROR: runtime/game executable not found! Please build the engine runtime first.");
         }
 
-        if (!fs::exists(raylib_dll))
+        if (raylib_files.empty())
         {
-            return fail("ERROR: libraylib.dll not found!");
+            return fail(std::string("ERROR: ") + rw::platform::c_RaylibRuntimeName + " not found!");
         }
 
-        // 1. Build the Project DLL using CMake
+        // 1. Build the project GameLogic module using CMake.
         log("Building project GameLogic (Release)...");
-        fs::path raywaves_dir = fs::path(proj.m_RootPath) / ".raywaves";
-        std::string path_str = raywaves_dir.string();
-        if (!EditorUtils::IsShellSafe(path_str))
-        {
-            return fail("ERROR: Project path contains unsafe characters!");
-        }
+        const fs::path raywaves_dir = fs::path(proj.m_RootPath) / ".raywaves";
+        const fs::path build_dir = raywaves_dir / "build";
 
         auto forward_output = [&log](std::string_view line, bool)
         {
@@ -237,24 +307,51 @@ FExportResult RunExport(const FExportSettings& settings, const std::shared_ptr<s
             }
         };
 
-        fs::path cmakeExe = ProjectManager::GetToolsDirectory() / "cmake" / "bin" / "cmake.exe";
-        if (!fs::exists(cmakeExe))
+        fs::path cmake_exe =
+            ProjectManager::GetToolsDirectory() / "cmake" / "bin" / rw::platform::ExecutableName("cmake");
+        if (!fs::exists(cmake_exe))
+        {
+            const fs::path system_cmake = PlatformInfo::FindExecutable("cmake");
+            if (!system_cmake.empty())
+            {
+                cmake_exe = system_cmake;
+            }
+        }
+        if (!fs::exists(cmake_exe))
         {
             log("Downloading CMake (first-time setup)...");
-            std::string fetchCmd = "powershell -ExecutionPolicy Bypass -File \"" +
-                (ProjectManager::GetToolsDirectory() / "setup_zig.ps1").string() + "\" -SkipZig -SkipRcEdit -SkipNinja";
-            ProcessRunner::RunAndWait(fetchCmd, forward_output, cancel);
+            std::vector<std::string> setup_argv;
+            if (rw::platform::b_IsWindows)
+            {
+                setup_argv = { "powershell", "-ExecutionPolicy", "Bypass", "-File",
+                    (ProjectManager::GetToolsDirectory() / "setup_tools.ps1").string(), "-SkipZig", "-SkipRcEdit",
+                    "-SkipNinja" };
+            }
+            else
+            {
+                setup_argv = { "bash", (ProjectManager::GetToolsDirectory() / "setup_tools.sh").string(), "--skip-zig",
+                    "--skip-rcedit", "--skip-ninja" };
+            }
+            ProcessRunner::RunAndWaitCommand(setup_argv, proj.m_RootPath, forward_output, cancel);
             if (is_cancelled())
                 return result;
         }
 
-        std::string cmakePath = "\"" + cmakeExe.string() + "\"";
-        std::string build_cmd = "cd /d \"" + path_str + "\" && (" + cmakePath + " -G Ninja . -B build || " + cmakePath +
-            " --fresh -G Ninja . -B build) && " + cmakePath + " --build build --config Release";
-
         // Blocking, but cancellable: the runner kills the whole build tree
         // when cancel is set, so Close() cannot hang on an export.
-        const bool b_BuildOk = ProcessRunner::RunAndWait(build_cmd, forward_output, cancel);
+        bool b_configured = ProcessRunner::RunAndWaitCommand(
+            { cmake_exe.string(), "-G", "Ninja", raywaves_dir.string(), "-B", build_dir.string() }, proj.m_RootPath,
+            forward_output, cancel);
+        if (!b_configured && !is_cancelled())
+        {
+            b_configured = ProcessRunner::RunAndWaitCommand(
+                { cmake_exe.string(), "--fresh", "-G", "Ninja", raywaves_dir.string(), "-B", build_dir.string() },
+                proj.m_RootPath, forward_output, cancel);
+        }
+        const bool b_BuildOk = b_configured &&
+            ProcessRunner::RunAndWaitCommand(
+                { cmake_exe.string(), "--build", build_dir.string(), "--config", "Release" }, proj.m_RootPath,
+                forward_output, cancel);
         if (is_cancelled())
             return result;
         if (!b_BuildOk)
@@ -262,19 +359,27 @@ FExportResult RunExport(const FExportSettings& settings, const std::shared_ptr<s
             return fail("ERROR: Build failed!");
         }
 
-        fs::path game_logic_dll = fs::path(proj.m_RootPath) / "GameLogic.dll";
-        if (!fs::exists(game_logic_dll))
+        const fs::path game_logic_module = proj.m_DllPath;
+        if (!fs::exists(game_logic_module))
         {
-            return fail("ERROR: GameLogic.dll was not produced by the build.");
+            return fail(
+                std::string("ERROR: ") + rw::platform::c_GameLogicModuleName + " was not produced by the build.");
         }
 
         fs::path export_dir = ResolveExportDir(settings.m_ExportPath, proj.m_RootPath);
         fs::create_directories(export_dir);
 
         const std::string safe_game_name = SanitizeGameName(settings.m_GameName);
-        const std::string game_exe_name = safe_game_name + ".exe";
+        const std::string game_exe_name = safe_game_name + rw::platform::c_ExecutableSuffix;
         log("Creating game executable: " + game_exe_name);
         fs::copy_file(game_exe, export_dir / game_exe_name, fs::copy_options::overwrite_existing);
+        if (!rw::platform::b_IsWindows)
+        {
+            std::error_code permission_error;
+            fs::permissions(export_dir / game_exe_name,
+                fs::perms::owner_exec | fs::perms::group_exec | fs::perms::others_exec, fs::perm_options::add,
+                permission_error);
+        }
 
         log("Creating game configuration...");
 
@@ -288,11 +393,15 @@ FExportResult RunExport(const FExportSettings& settings, const std::shared_ptr<s
             return fail("ERROR: Could not write game configuration.");
         }
 
-        log("Copying GameLogic.dll...");
-        fs::copy_file(game_logic_dll, export_dir / "GameLogic.dll", fs::copy_options::overwrite_existing);
+        log(std::string("Copying ") + rw::platform::c_GameLogicModuleName + "...");
+        fs::copy_file(
+            game_logic_module, export_dir / rw::platform::c_GameLogicModuleName, fs::copy_options::overwrite_existing);
 
-        log("Copying libraylib.dll...");
-        fs::copy_file(raylib_dll, export_dir / "libraylib.dll", fs::copy_options::overwrite_existing);
+        for (const fs::path& raylib_file : raylib_files)
+        {
+            log(std::string("Copying ") + raylib_file.filename().string() + "...");
+            fs::copy_file(raylib_file, export_dir / raylib_file.filename(), fs::copy_options::overwrite_existing);
+        }
 
         fs::path assets_dir = proj.m_AssetPath;
         if (fs::exists(assets_dir))
@@ -339,24 +448,22 @@ FExportResult RunExport(const FExportSettings& settings, const std::shared_ptr<s
             icon_path = fs::path(proj.m_RootPath) / icon_path;
         }
 
-        const std::string custom_icon = icon_path.string();
-        if (!custom_icon.empty() && fs::exists(custom_icon))
+        if (!rw::platform::b_IsWindows)
         {
-            if (!EditorUtils::IsShellSafe(custom_icon))
+            log("Icon embedding is Windows-only; skipped on this platform.");
+        }
+        else
+        {
+            const std::string custom_icon = icon_path.string();
+            if (!custom_icon.empty() && fs::exists(custom_icon))
             {
-                log("WARNING: Icon path contains unsafe shell characters; skipping icon update.");
-            }
-            else
-            {
-                fs::path rceditExe = ProjectManager::GetToolsDirectory() / "rcedit.exe";
+                const fs::path rceditExe = ProjectManager::GetToolsDirectory() / "rcedit.exe";
                 if (fs::exists(rceditExe))
                 {
-                    std::string exePath = (export_dir / game_exe_name).string();
-                    // cmd.exe /c strips first+last " when string starts with ". Wrap entire command in outer quotes.
-                    std::string cmd =
-                        "\"\"" + rceditExe.string() + "\" \"" + exePath + "\" --set-icon \"" + custom_icon + "\"\"";
-                    log("Icon cmd: " + cmd);
-                    const bool b_IconOk = ProcessRunner::RunAndWait(cmd, forward_output, cancel);
+                    const std::string exePath = (export_dir / game_exe_name).string();
+                    const bool b_IconOk =
+                        ProcessRunner::RunAndWaitCommand({ rceditExe.string(), exePath, "--set-icon", custom_icon },
+                            proj.m_RootPath, forward_output, cancel);
                     log(b_IconOk ? "rcedit: icon applied" : "rcedit: icon update failed");
                 }
                 else
@@ -364,11 +471,11 @@ FExportResult RunExport(const FExportSettings& settings, const std::shared_ptr<s
                     log("WARNING: rcedit.exe not found at: " + rceditExe.string());
                 }
             }
-        }
-        else
-        {
-            log("WARNING: No icon found. customIcon=" + custom_icon +
-                " exists=" + (fs::exists(custom_icon) ? "true" : "false"));
+            else
+            {
+                log("WARNING: No icon found. customIcon=" + custom_icon +
+                    " exists=" + (fs::exists(custom_icon) ? "true" : "false"));
+            }
         }
 
         log(std::string("Process completed. Validating export folder: ") + export_dir.string());

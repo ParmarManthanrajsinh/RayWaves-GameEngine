@@ -1,14 +1,20 @@
 # rwcli reference
 
 `rwcli` is the agent CLI shipped with RayWaves. It lives in the package
-(`rwcli.exe` next to `RayWaves.exe`), not inside each project.
+(`rwcli` / `rwcli.exe` next to the editor), not inside each project.
 
 ## Locate it
 
 From a project root:
 
 ```powershell
+# Windows
 .\.raywaves\bin\rwcli.cmd help
+```
+
+```sh
+# Linux
+.raywaves/bin/rwcli help
 ```
 
 The wrapper is generated on project open/create and points at the installed
@@ -17,21 +23,23 @@ package. If it is missing or stale, read `.raywaves\tooling.ini`:
 ```ini
 [rwcli]
 available=1
-path=D:\RayWaves\rwcli.exe
-packageRoot=D:\RayWaves
-engineRoot=D:\RayWaves
+path=/opt/RayWaves/rwcli        # Linux
+# path=D:\RayWaves\rwcli.exe  # Windows
+packageRoot=/opt/RayWaves
+engineRoot=/opt/RayWaves
 version=0.1.0
 
 [project]
-root=C:\Games\MyGame
+root=/home/me/Games/MyGame
 sourceDir=GameLogic
 assetDir=Assets
-entryDll=GameLogic.dll
+entryDll=GameLogic
 ```
 
 `available=0` means the package CLI was not found when the project was opened.
 Build it (`cmake --build build/zig-release --target rwcli`), reopen the
-project, or install `rwcli` on `PATH`; the wrapper falls back to `where`.
+project, or install `rwcli` on `PATH`; the wrapper falls back to `where` on
+Windows and `command -v` on Linux.
 
 Regenerate by opening the project in RayWaves or running `rwcli lsp` from the
 package. Do not guess the package location.
@@ -39,15 +47,23 @@ package. Do not guess the package location.
 In the development repo:
 
 ```powershell
-build\zig-release\rwcli.exe help
+# Windows
+.\build\zig-release\rwcli.exe help
 ```
 
-PowerShell does not run binaries from the current directory by bare name.
-Use `.\rwcli.exe` or the full path. `rwcli` is not added to the global `PATH`;
+```sh
+# Linux
+./build/zig-release/rwcli help
+```
+
+The CLI is not added to the global `PATH`; use the project wrapper or the full path.
 VS Code's integrated terminal gets the package path from
 `.vscode/settings.json`.
 
 ## Commands
+
+Examples abbreviate the wrapper as `rwcli`. On Windows use
+`.\.raywaves\bin\rwcli.cmd`; on Linux use `.raywaves/bin/rwcli`.
 
 | Command | Purpose |
 |---|---|
@@ -65,33 +81,33 @@ VS Code's integrated terminal gets the package path from
 
 ### help
 
-```powershell
-.\.raywaves\bin\rwcli.cmd help
-.\.raywaves\bin\rwcli.cmd help run
-.\.raywaves\bin\rwcli.cmd build --help
-.\.raywaves\bin\rwcli.cmd --version
+```text
+rwcli help
+rwcli help run
+rwcli build --help
+rwcli --version
 ```
 
 ### doctor
 
-```powershell
-.\.raywaves\bin\rwcli.cmd doctor . --json
-.\.raywaves\bin\rwcli.cmd doctor . --fix --json
+```text
+rwcli doctor . --json
+rwcli doctor . --fix --json
 ```
 
 Exit `3` when a check is `error`. `--fix` clears a stale build lock.
 
 ### info
 
-```powershell
-.\.raywaves\bin\rwcli.cmd info . --json
+```text
+rwcli info . --json
 ```
 
 ### build
 
-```powershell
-.\.raywaves\bin\rwcli.cmd build . --json
-.\.raywaves\bin\rwcli.cmd build . --clean --jobs 8 --json
+```text
+rwcli build . --json
+rwcli build . --clean --jobs 8 --json
 ```
 
 - Output: `.raywaves/build-agent/`.
@@ -102,10 +118,10 @@ Exit `3` when a check is `error`. `--fix` clears a stale build lock.
 
 ### run
 
-```powershell
-.\.raywaves\bin\rwcli.cmd run . --frames 120 --json
-.\.raywaves\bin\rwcli.cmd run . --frames 120 --screenshot shot.png --state state.json --json
-.\.raywaves\bin\rwcli.cmd run . --frames 120 --input input.txt --json
+```text
+rwcli run . --frames 120 --json
+rwcli run . --frames 120 --screenshot shot.png --state state.json --json
+rwcli run . --frames 120 --input input.txt --json
 ```
 
 Flags: `--frames`, `--dt`, `--seed`, `--screenshot`, `--screenshot-frame`,
@@ -137,31 +153,32 @@ consistency with the other commands.
 
 The hidden window still needs an OpenGL context. On a machine without a GPU
 driver, pass `--visible` or run on a desktop session; `run_window` reports the
-failure.
+failure. On headless Linux use `xvfb-run -a` and optionally
+`LIBGL_ALWAYS_SOFTWARE=1`.
 
 ### lsp
 
-```powershell
-.\.raywaves\bin\rwcli.cmd lsp . --json
-.\.raywaves\bin\rwcli.cmd lsp . --check --json
-.\.raywaves\bin\rwcli.cmd lsp . --force --json
+```text
+rwcli lsp . --json
+rwcli lsp . --check --json
+rwcli lsp . --force --json
 ```
 
 Writes `.clangd`, `.vscode/`, `AGENTS.md`, `.agents/skills/raywaves-game/`
 (SKILL.md + reference.md), `.raywaves/tooling.ini`, `.raywaves/bin/rwcli.cmd`,
-and `compile_commands.json`. `--check` runs clangd over
+`.raywaves/bin/rwcli`, and `compile_commands.json`. `--check` runs clangd over
 `GameLogic/**/*.cpp` and returns `diagnostics[]`. Use `--force` after moving the
 project or updating the engine; it refreshes IDE paths and tooling but does not
 overwrite `AGENTS.md`, `SKILL.md`, or `reference.md`.
 
 ### scene
 
-```powershell
-.\.raywaves\bin\rwcli.cmd scene list . --json
-.\.raywaves\bin\rwcli.cmd scene add . --map Platformer2D --name Crate --texture crate.png --position 620,300
-.\.raywaves\bin\rwcli.cmd scene set . --map Platformer2D --id 1 --position 700,300
-.\.raywaves\bin\rwcli.cmd scene duplicate . --map Platformer2D --id 1
-.\.raywaves\bin\rwcli.cmd scene remove . --map Platformer2D --id 1
+```text
+rwcli scene list . --json
+rwcli scene add . --map Platformer2D --name Crate --texture crate.png --position 620,300
+rwcli scene set . --map Platformer2D --id 1 --position 700,300
+rwcli scene duplicate . --map Platformer2D --id 1
+rwcli scene remove . --map Platformer2D --id 1
 ```
 
 `--map` is required when more than one `.scene` exists. `add` accepts
@@ -171,9 +188,9 @@ overwrite `AGENTS.md`, `SKILL.md`, or `reference.md`.
 
 ### assets
 
-```powershell
-.\.raywaves\bin\rwcli.cmd assets list . --json
-.\.raywaves\bin\rwcli.cmd assets import . "C:\art\player.png"
+```text
+rwcli assets list . --json
+rwcli assets import . <file>
 ```
 
 ## Exit codes
@@ -189,7 +206,9 @@ overwrite `AGENTS.md`, `SKILL.md`, or `reference.md`.
 | 7 | locked |
 | 8 | crash |
 
-## PowerShell notes
+## Shell notes
+
+Windows (PowerShell):
 
 - Use `.\` for local executables.
 - Quote paths with spaces.
@@ -200,14 +219,25 @@ overwrite `AGENTS.md`, `SKILL.md`, or `reference.md`.
 - If `$ErrorActionPreference = "Stop"`, set it to `Continue` around native
   calls or redirect stderr.
 
+Linux (bash):
+
+- Use `./` for local executables.
+- Quote paths with spaces.
+- Engine logs are printed to stderr. To capture JSON cleanly:
+  ```sh
+  json=$(.raywaves/bin/rwcli info . --json 2>/dev/null)
+  ```
+- Prefer `command -v rwcli` over `which` when probing `PATH`.
+
 ## Troubleshooting
 
 | Symptom | Fix |
 |---|---|
-| `rwcli` is not recognized | use the wrapper or `.\rwcli.exe` |
+| `rwcli` is not recognized | use the generated wrapper or the absolute path |
 | `invalid_project` | pass the folder containing `project.raywaves` |
 | `dll_missing` | run `build` first |
 | `build_locked` | wait; `doctor --fix` after the owner died |
-| `clangd_missing` | install LLVM |
+| `clangd_missing` | install LLVM (`clangd` or `clang-tools-extra` on Linux) |
 | stale LSP paths | `lsp --force` |
 | wrapper missing | read `tooling.ini` or open the project once |
+| `run_window` on a headless host | run on a desktop session or use `xvfb-run -a` |

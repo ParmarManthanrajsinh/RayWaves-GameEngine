@@ -1,15 +1,35 @@
 ﻿#include <algorithm>
 #include <cstdint>
 #include <cstdlib>
+#include <fstream>
 #include <iostream>
 #include <string>
 
 #include "Engine/GameMap.h"
 #include "Engine/GameState.h"
+#include "Engine/PlatformNames.h"
 #include "Runtime/DllLoader.h"
 
 namespace
 {
+bool HasShadowMapping()
+{
+#if defined(__linux__)
+    std::ifstream maps("/proc/self/maps");
+    std::string line;
+    while (std::getline(maps, line))
+    {
+        if (line.contains(".shadow."))
+        {
+            return true;
+        }
+    }
+#else
+    (void)0;
+#endif
+    return false;
+}
+
 int ParseIterations(int argc, char** argv)
 {
     for (int i = 1; i < argc; ++i)
@@ -39,10 +59,10 @@ int main(int argc, char** argv)
 
     for (int i = 0; i < iterations; ++i)
     {
-        DllHandle dll = LoadDll("GameLogic.dll");
+        DllHandle dll = LoadDll(rw::platform::c_GameLogicModuleName);
         if (dll.handle == nullptr)
         {
-            std::cerr << "Failed to load GameLogic.dll\n";
+            std::cerr << "Failed to load " << rw::platform::c_GameLogicModuleName << "\n";
             return 1;
         }
 
@@ -79,6 +99,11 @@ int main(int argc, char** argv)
         }
 
         UnloadDll(dll);
+        if (HasShadowMapping())
+        {
+            std::cerr << "Shadow module is still mapped after unload\n";
+            return 1;
+        }
         std::cout << "Cycle " << (i + 1) << "/" << iterations << " passed\n";
     }
 

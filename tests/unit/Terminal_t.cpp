@@ -106,9 +106,10 @@ TEST_CASE("Terminal screen: sends paste through the output callback")
     CHECK(output == "ab\rcd");
 }
 
+#if defined(_WIN32)
 TEST_CASE("Terminal shell detection: prefers pwsh then cmd")
 {
-    const auto exists = [](const std::wstring& name) { return name == L"pwsh.exe" || name == L"cmd.exe"; };
+    const auto exists = [](const std::string& name) { return name == "pwsh.exe" || name == "cmd.exe"; };
 
     const std::vector<term::t_ShellSpec> shells = term::DetectShells(exists);
     REQUIRE(shells.size() == 2);
@@ -119,9 +120,29 @@ TEST_CASE("Terminal shell detection: prefers pwsh then cmd")
 
 TEST_CASE("Terminal shell detection: falls back to cmd")
 {
-    const auto only_cmd = [](const std::wstring& name) { return name == L"cmd.exe"; };
+    const auto only_cmd = [](const std::string& name) { return name == "cmd.exe"; };
 
     const std::vector<term::t_ShellSpec> shells = term::DetectShells(only_cmd);
     REQUIRE(shells.size() == 1);
     CHECK(shells[0].display_name == "Command Prompt");
 }
+#else
+TEST_CASE("Terminal shell detection: prefers bash then sh")
+{
+    const auto exists = [](const std::string& name) { return name == "/bin/bash" || name == "/bin/sh"; };
+
+    const std::vector<term::t_ShellSpec> shells = term::DetectShells(exists);
+    REQUIRE(shells.size() >= 2);
+    CHECK(shells[0].display_name == "Bash");
+    CHECK(term::DefaultShell(exists).display_name == "Bash");
+}
+
+TEST_CASE("Terminal shell detection: falls back to sh")
+{
+    const auto only_sh = [](const std::string& name) { return name == "/bin/sh"; };
+
+    const std::vector<term::t_ShellSpec> shells = term::DetectShells(only_sh);
+    REQUIRE(shells.size() == 1);
+    CHECK(shells[0].display_name == "sh");
+}
+#endif

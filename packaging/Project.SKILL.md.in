@@ -5,7 +5,7 @@ description: Build, run, and modify this RayWaves project. Use for gameplay code
 
 # RayWaves game project
 
-C++23 gameplay compiled to `GameLogic.dll`. Levels are `rw::Level` subclasses in
+C++23 gameplay compiled to `@GAMELOGIC_MODULE@`. Levels are `rw::Level` subclasses in
 `@SOURCE_DIR@/`. Scenes are INI files in `@ASSET_DIR@/<MapId>.scene`.
 
 ## Before editing
@@ -19,24 +19,27 @@ C++23 gameplay compiled to `GameLogic.dll`. Levels are `rw::Level` subclasses in
 `rwcli` lives in the RayWaves package, not in this folder. Use the generated
 wrapper from the project root:
 
-```powershell
-.\.raywaves\bin\rwcli.cmd doctor . --json
-.\.raywaves\bin\rwcli.cmd info . --json
-.\.raywaves\bin\rwcli.cmd maps . --json
-.\.raywaves\bin\rwcli.cmd build . --json
-.\.raywaves\bin\rwcli.cmd run . --frames 120 --screenshot shot.png --state state.json --json
-.\.raywaves\bin\rwcli.cmd run . --frames 120 --input input.txt --json
-.\.raywaves\bin\rwcli.cmd scene list . --json
-.\.raywaves\bin\rwcli.cmd lsp . --check --json
-.\.raywaves\bin\rwcli.cmd validate . --json
+```text
+@RWCLI_WRAPPER@ doctor . --json
+@RWCLI_WRAPPER@ info . --json
+@RWCLI_WRAPPER@ maps . --json
+@RWCLI_WRAPPER@ build . --json
+@RWCLI_WRAPPER@ run . --frames 120 --screenshot shot.png --state state.json --json
+@RWCLI_WRAPPER@ run . --frames 120 --input input.txt --json
+@RWCLI_WRAPPER@ scene list . --json
+@RWCLI_WRAPPER@ lsp . --check --json
+@RWCLI_WRAPPER@ validate . --json
 ```
 
-If the wrapper is missing or stale, read `.raywaves\tooling.ini` and use
+The wrapper is `.raywaves\bin\rwcli.cmd` on Windows and `.raywaves/bin/rwcli` on Linux.
+If the wrapper is missing or stale, read `.raywaves/tooling.ini` and use
 `[rwcli] path`. If `available=0`, `rwcli` was not packaged; build the `rwcli`
 target or ask the user. Full flags, JSON and exit codes:
 `.agents/skills/raywaves-game/reference.md`.
 
-PowerShell: quote paths with spaces; `2>$null` suppresses informational stderr.
+Quote paths with spaces. Suppress informational stderr with `2>$null` on
+PowerShell or `2>/dev/null` on bash. Headless Linux runs need
+`xvfb-run -a` (and `LIBGL_ALWAYS_SOFTWARE=1` without a GPU driver).
 
 ## Loop
 

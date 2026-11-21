@@ -42,13 +42,14 @@ TEST_CASE("rw::Level: Spawn registers entities with the editor")
     CHECK(player.origin.x == doctest::Approx(-20.0f));
     CHECK(player.origin.y == doctest::Approx(-30.0f));
 
-    const std::span<const t_EditorEntity> registered = level.GetEditorEntities();
+    const auto& registered = level.GetEditorEntities();
     REQUIRE(registered.size() == 2);
-    CHECK(registered[0].m_Name == "Player");
-    CHECK(registered[0].m_Position == &player.position);
-    CHECK(registered[0].m_Size == &player.size);
-    CHECK(registered[0].m_Visible == &player.visible);
-    CHECK(registered[0].m_Rotation == &player.rotation);
+    const t_EditorEntity& first = registered.front();
+    CHECK(first.m_Name == "Player");
+    CHECK(first.m_Position == &player.position);
+    CHECK(first.m_Size == &player.size);
+    CHECK(first.m_Visible == &player.visible);
+    CHECK(first.m_Rotation == &player.rotation);
 }
 
 TEST_CASE("rw::Level: Inspector size edits reach the entity")
@@ -56,9 +57,9 @@ TEST_CASE("rw::Level: Inspector size edits reach the entity")
     TestLevel level;
     level.Initialize();
 
-    std::span<t_EditorEntity> registered = level.GetEditorEntities();
+    auto& registered = level.GetEditorEntities();
     REQUIRE(!registered.empty());
-    registered[0].m_Size->x = 128.0f;
+    registered.front().m_Size->x = 128.0f;
 
     CHECK(level.Entities()[0]->size.x == doctest::Approx(128.0f));
 }

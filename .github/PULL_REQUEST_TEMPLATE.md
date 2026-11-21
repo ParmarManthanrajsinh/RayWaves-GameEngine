@@ -6,8 +6,8 @@
 
 ## Testing
 
-- [ ] `scripts/test.ps1`
-- [ ] `scripts/check.ps1` (when clang-format is available)
+- [ ] `scripts/test.ps1` (Windows) / `./scripts/test.sh` (Linux)
+- [ ] `scripts/check.ps1` / `./scripts/check.sh` (when clang-format is available)
 - [ ] Manual check (describe)
 
 ## Notes

@@ -42,3 +42,7 @@ Thumbs.db
 
 # Editor runtime artifact written at the repo root when running RayWaves.exe
 /config.ini
+
+# Test artifacts written to repo root
+/*.scene
+/screenshot*.png

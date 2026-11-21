@@ -1,5 +1,6 @@
 #pragma once
 #include "AssetResolver.h"
+#include "GameLogicExports.h"
 #include "GameMap.h"
 #include "MapManager.h"
 #include <algorithm>
@@ -867,15 +868,15 @@ GameMap*& InstanceSlot()
 } // namespace detail
 } // namespace rw
 
-// Defines the three exports the editor and runtime load from GameLogic.dll.
-// Use exactly once per game module, in a .cpp file.
+// Defines the three exports the editor and runtime load from the GameLogic
+// module. Use exactly once per game module, in a .cpp file.
 // clang-format off
 #define RW_GAME(GameType)                                                                        \
-    extern "C" __declspec(dllexport) uint32_t GetGameLogicAbiVersion()                           \
+    RW_GAMELOGIC_EXPORT uint32_t GetGameLogicAbiVersion()                                       \
     {                                                                                            \
         return RAYWAVES_GAMELOGIC_ABI_VERSION;                                                   \
     }                                                                                            \
-    extern "C" __declspec(dllexport) GameMap* CreateGameMap()                                    \
+    RW_GAMELOGIC_EXPORT GameMap* CreateGameMap()                                                 \
     {                                                                                            \
         GameMap*& slot = rw::detail::InstanceSlot<GameType>();                                   \
         if (slot == nullptr)                                                                     \
@@ -884,7 +885,7 @@ GameMap*& InstanceSlot()
         }                                                                                        \
         return slot;                                                                             \
     }                                                                                            \
-    extern "C" __declspec(dllexport) void DestroyGameMap(GameMap* map)                           \
+    RW_GAMELOGIC_EXPORT void DestroyGameMap(GameMap* map)                                        \
     {                                                                                            \
         if (map == nullptr)                                                                      \
         {                                                                                        \

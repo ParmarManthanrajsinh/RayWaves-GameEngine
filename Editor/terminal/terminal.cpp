@@ -336,7 +336,7 @@ void Terminal::SetWorkingDirectory(std::string_view path)
     const std::filesystem::path candidate(path);
     if (std::filesystem::is_directory(candidate, error))
     {
-        m_WorkingDirectory = candidate.wstring();
+        m_WorkingDirectory = candidate.string();
     }
 }
 
@@ -414,7 +414,7 @@ void Terminal::NewShellTab(const t_ShellSpec& shell)
     if (m_WorkingDirectory.empty())
     {
         std::error_code error;
-        m_WorkingDirectory = std::filesystem::current_path(error).wstring();
+        m_WorkingDirectory = std::filesystem::current_path(error).string();
     }
 
     tab->session->b_Start(shell, m_WorkingDirectory);

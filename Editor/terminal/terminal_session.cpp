@@ -14,7 +14,7 @@ t_TerminalSession::~t_TerminalSession()
     Stop();
 }
 
-bool t_TerminalSession::b_Start(const t_ShellSpec& shell, const std::wstring& working_directory)
+bool t_TerminalSession::b_Start(const t_ShellSpec& shell, const std::string& working_directory)
 {
     Stop();
     m_bExitReported = false;

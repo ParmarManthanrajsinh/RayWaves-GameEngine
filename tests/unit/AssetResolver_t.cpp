@@ -1,36 +1,92 @@
 ﻿#include "Engine/AssetResolver.h"
 #include "doctest/doctest.h"
+#include "support/TempDir.h"
+#include <filesystem>
+#include <fstream>
+#include <string>
+
+namespace fs = std::filesystem;
+
+namespace
+{
+void Touch(const fs::path& path)
+{
+    fs::create_directories(path.parent_path());
+    std::ofstream(path) << "x";
+}
+} // namespace
 
 TEST_CASE("AssetResolver: default project path")
 {
+    AssetResolver::SetProjectAssetPath("");
     CHECK(AssetResolver::GetProjectAssetPath() == "");
 }
 
-TEST_CASE("AssetResolver: SetProjectAssetPath and resolve")
+TEST_CASE("AssetResolver: resolves an existing relative path")
 {
-    AssetResolver::SetProjectAssetPath("C:/MyGame/Assets");
-    CHECK(AssetResolver::GetProjectAssetPath() == "C:/MyGame/Assets");
+    TempDir temp("raywaves_assets");
+    const fs::path asset = temp.Path() / "Textures" / "player.png";
+    Touch(asset);
+    AssetResolver::SetProjectAssetPath(temp.Path().string());
 
-    std::string resolved = AssetResolver::Resolve("textures/player.png");
-    CHECK(resolved.find("Assets") != std::string::npos);
-    CHECK(resolved.find("textures") != std::string::npos);
-    CHECK(resolved.find("player.png") != std::string::npos);
+    CHECK(AssetResolver::GetProjectAssetPath() == temp.Path().string());
+    const std::string resolved = AssetResolver::Resolve("Textures/player.png");
+    CHECK(fs::path(resolved) == fs::path(asset).lexically_normal());
 }
 
-TEST_CASE("AssetResolver: empty relative path")
+TEST_CASE("AssetResolver: empty relative path returns the asset root")
 {
-    AssetResolver::SetProjectAssetPath("/base/path");
-    std::string resolved = AssetResolver::Resolve("");
-    CHECK_FALSE(resolved.empty());
+    TempDir temp("raywaves_assets_root");
+    AssetResolver::SetProjectAssetPath(temp.Path().string());
+    CHECK(AssetResolver::Resolve("") == temp.Path().string());
 }
 
 TEST_CASE("AssetResolver: path jail bypass check")
 {
-    AssetResolver::SetProjectAssetPath("C:/MyGame/Assets");
+    TempDir temp("raywaves_assets_jail");
+    fs::create_directories(temp.Path() / "Assets");
+    AssetResolver::SetProjectAssetPath((temp.Path() / "Assets").string());
 
-    // Attempt to access a sibling directory Assets2
-    std::string resolved = AssetResolver::Resolve("../Assets2/hacked.png");
+    CHECK(AssetResolver::Resolve("../Assets2/hacked.png") == "../Assets2/hacked.png");
+}
 
-    // Should reject and return the relative path
-    CHECK(resolved == "../Assets2/hacked.png");
+TEST_CASE("AssetResolver: case-insensitive fallback resolves Windows-authored paths")
+{
+    TempDir temp("raywaves_assets_case");
+    const fs::path asset = temp.Path() / "Textures" / "Player.PNG";
+    Touch(asset);
+    AssetResolver::SetProjectAssetPath(temp.Path().string());
+
+    const std::string resolved = AssetResolver::Resolve("textures/player.png");
+    CHECK(fs::path(resolved) == fs::path(asset).lexically_normal());
+}
+
+TEST_CASE("AssetResolver: backslash input is normalized")
+{
+    TempDir temp("raywaves_assets_slashes");
+    const fs::path asset = temp.Path() / "Textures" / "Player.PNG";
+    Touch(asset);
+    AssetResolver::SetProjectAssetPath(temp.Path().string());
+
+    const std::string resolved = AssetResolver::Resolve("textures\\player.png");
+    CHECK(fs::path(resolved) == fs::path(asset).lexically_normal());
+}
+
+TEST_CASE("AssetResolver: ambiguous case matches fail")
+{
+    TempDir temp("raywaves_assets_ambiguous");
+    Touch(temp.Path() / "Foo.png");
+    Touch(temp.Path() / "foo.png");
+    AssetResolver::SetProjectAssetPath(temp.Path().string());
+
+    CHECK(AssetResolver::Resolve("FOO.png") == "FOO.png");
+}
+
+TEST_CASE("AssetResolver: missing file keeps an absolute write path")
+{
+    TempDir temp("raywaves_assets_missing");
+    AssetResolver::SetProjectAssetPath(temp.Path().string());
+    const std::string resolved = AssetResolver::Resolve("missing/player.png");
+    CHECK(fs::path(resolved).is_absolute());
+    CHECK(resolved.ends_with("missing/player.png"));
 }

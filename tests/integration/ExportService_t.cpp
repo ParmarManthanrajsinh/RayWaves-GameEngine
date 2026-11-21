@@ -1,4 +1,7 @@
-﻿#include "ExportService.h"
+﻿#include "Engine/PlatformInfo.h"
+#include "Engine/PlatformNames.h"
+#include "Engine/ProjectManager.h"
+#include "ExportService.h"
 #include "doctest/doctest.h"
 #include "support/TempDir.h"
 #include <filesystem>
@@ -47,9 +50,11 @@ TEST_CASE("ExportService: SanitizeGameName rejects traversal and reserved names"
 
 TEST_CASE("ExportService: ResolveExportDir anchors relatives at project root")
 {
-    CHECK(ExportService::ResolveExportDir("export", "C:/Games/MyGame") ==
-        (fs::path("C:/Games/MyGame") / "export").string());
-    CHECK(ExportService::ResolveExportDir("C:/Out/Game", "C:/Games/MyGame") == "C:/Out/Game");
+    const fs::path project_root = fs::temp_directory_path() / "raywaves_export_project";
+    CHECK(ExportService::ResolveExportDir("export", project_root.string()) == (project_root / "export").string());
+
+    const fs::path absolute_output = fs::temp_directory_path() / "raywaves_export_out" / "Game";
+    CHECK(ExportService::ResolveExportDir(absolute_output.string(), project_root.string()) == absolute_output.string());
 }
 
 TEST_CASE("ExportService: b_WriteGameConfig round-trips all keys")
@@ -106,19 +111,72 @@ TEST_CASE("ExportService: b_ValidateExportFolder detects missing and complete ex
     CHECK(b_HasExeError);
 
     // Complete folder passes
+    const fs::path game_exe = tmp / rw::platform::ExecutableName("MyGame");
     {
-        std::ofstream(tmp / "MyGame.exe") << "x";
+        std::ofstream(game_exe) << "x";
+    }
+    if (!rw::platform::b_IsWindows)
+    {
+        fs::permissions(game_exe, fs::perms::owner_exec, fs::perm_options::add);
     }
     {
-        std::ofstream(tmp / "GameLogic.dll") << "x";
+        std::ofstream(tmp / rw::platform::c_GameLogicModuleName) << "x";
     }
     {
-        std::ofstream(tmp / "libraylib.dll") << "x";
+        std::ofstream(tmp / rw::platform::c_RaylibRuntimeName) << "x";
     }
     logs.clear();
     CHECK(ExportService::b_ValidateExportFolder(tmp.string(), sink));
 
-    // Missing one DLL fails again
-    fs::remove(tmp / "libraylib.dll");
+    // Missing the runtime library fails again
+    fs::remove(tmp / rw::platform::c_RaylibRuntimeName);
     CHECK_FALSE(ExportService::b_ValidateExportFolder(tmp.string(), sink));
+}
+
+TEST_CASE("ExportService: end-to-end export produces a runnable folder")
+{
+    const fs::path repo = PlatformInfo::GetExecutablePath().parent_path().parent_path().parent_path();
+    const fs::path template_dir = repo / "templates" / "Simple2D";
+    REQUIRE(fs::exists(template_dir / "project.raywaves"));
+
+    TempDir temp_dir("raywaves_export_e2e");
+    const fs::path project = temp_dir.Path() / "ExportGame";
+    fs::copy(template_dir, project, fs::copy_options::recursive);
+
+    REQUIRE(ProjectManager::b_OpenProject(project.string(), false));
+
+    FExportSettings settings;
+    settings.m_ExportPath = (temp_dir.Path() / "out").string();
+    settings.m_GameName = "ExportSmoke";
+
+    std::vector<std::string> logs;
+    auto sink = [&](std::string_view line) { logs.emplace_back(line); };
+    const FExportResult result = ExportService::RunExport(settings, nullptr, sink);
+    ProjectManager::CloseProject();
+
+    if (!result.m_bSuccess)
+    {
+        for (const std::string& line : logs)
+        {
+            MESSAGE(line);
+        }
+    }
+    REQUIRE(result.m_bSuccess);
+
+    const fs::path out = temp_dir.Path() / "out";
+    CHECK(fs::exists(out / (std::string("ExportSmoke") + rw::platform::c_ExecutableSuffix)));
+    CHECK(fs::exists(out / rw::platform::c_GameLogicModuleName));
+    CHECK(fs::exists(out / "config.ini"));
+    CHECK(fs::exists(out / "Assets"));
+
+    bool b_has_raylib = false;
+    for (const auto& entry : fs::directory_iterator(out))
+    {
+        if (entry.path().filename().string().rfind("libraylib.", 0) == 0)
+        {
+            b_has_raylib = true;
+            break;
+        }
+    }
+    CHECK(b_has_raylib);
 }

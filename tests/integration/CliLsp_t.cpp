@@ -1,10 +1,12 @@
+#include "Engine/PlatformNames.h"
 #include "ProcessRunner.h"
-#include "support/TempDir.h"
 #include "doctest/doctest.h"
+#include "support/TempDir.h"
 #include <filesystem>
 #include <fstream>
 #include <iterator>
 #include <string>
+#include <vector>
 
 namespace fs = std::filesystem;
 
@@ -12,12 +14,11 @@ namespace
 {
 std::string RunCli(const std::string& arguments)
 {
-    const fs::path exe = fs::current_path() / "rwcli.exe";
+    const fs::path exe = fs::current_path() / rw::platform::ExecutableName("rwcli");
     const std::string command = ProcessRunner::QuoteArg(exe.string()) + " " + arguments;
 
     std::string output;
-    ProcessRunner::RunAndWaitCommandLine(
-        command, fs::current_path().string(),
+    ProcessRunner::RunAndWaitCommandLine(command, fs::current_path().string(),
         [&output](std::string_view line, bool)
         {
             output += line;
@@ -65,14 +66,20 @@ TEST_CASE("rwcli lsp writes editor configs and a compilation database")
     CHECK(fs::exists(project / ".agents" / "skills" / "raywaves-game" / "reference.md"));
     CHECK(fs::exists(project / "AGENTS.md"));
     CHECK(fs::exists(project / ".raywaves" / "tooling.ini"));
-    CHECK(fs::exists(project / ".raywaves" / "bin" / "rwcli.cmd"));
+    const fs::path wrapper = project / ".raywaves" / "bin" / (rw::platform::b_IsWindows ? "rwcli.cmd" : "rwcli");
+    CHECK(fs::exists(wrapper));
 
     std::string wrapper_output;
-    const std::string wrapper_command = "cd /d " +
-        ProcessRunner::QuoteArg(project.string()) + " && " +
-        ProcessRunner::QuoteArg((project / ".raywaves" / "bin" / "rwcli.cmd").string()) + " info . --json";
-    ProcessRunner::RunAndWait(
-        wrapper_command,
+    std::vector<std::string> wrapper_argv;
+    if (rw::platform::b_IsWindows)
+    {
+        wrapper_argv = { "cmd.exe", "/C", wrapper.string(), "info", ".", "--json" };
+    }
+    else
+    {
+        wrapper_argv = { wrapper.string(), "info", ".", "--json" };
+    }
+    ProcessRunner::RunAndWaitCommand(wrapper_argv, project.string(),
         [&wrapper_output](std::string_view line, bool)
         {
             wrapper_output += line;
@@ -85,6 +92,14 @@ TEST_CASE("rwcli lsp writes editor configs and a compilation database")
         std::ifstream file(project / ".clangd");
         return std::string((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
     }();
+#if defined(_WIN32)
     CHECK(clangd.find("x86_64-windows-gnu") != std::string::npos);
     CHECK(clangd.find("libcxx") != std::string::npos);
+#else
+    // Linux uses the host libstdc++/glibc headers; Zig's target triple and
+    // per-architecture libc includes would make clangd parse conflicting
+    // definitions.
+    CHECK(clangd.find("-std=c++23") != std::string::npos);
+    CHECK(clangd.find("aarch64-linux") == std::string::npos);
+#endif
 }

@@ -1,79 +1,88 @@
 {
-    "version": 3,
-    "configurePresets": [
-        {
-            "name": "windows-base",
-            "hidden": true,
-            "generator": "Ninja",
-            "binaryDir": "${sourceDir}/build/${presetName}",
-            "installDir": "${sourceDir}/install/${presetName}",
-
-            "condition": {
-                "type": "equals",
-                "lhs": "${hostSystemName}",
-                "rhs": "Windows"
-            }
-        },
-
-        {
-            "name": "windows-zig",
-            "hidden": true,
-            "inherits": "windows-base",
-            "cacheVariables": {
-                "CMAKE_C_COMPILER": "${sourceDir}/Tools/zig-cc.bat",
-                "CMAKE_CXX_COMPILER": "${sourceDir}/Tools/zig-cxx.bat",
-                "CMAKE_SYSTEM_NAME": "Windows"
-            }
-        },
-
-        {
-            "name": "zig-debug",
-            "displayName": "Zig Debug",
-            "inherits": "windows-zig",
-            "architecture": {
-                "value": "x64",
-                "strategy": "external"
-            },
-            "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Debug"
-            }
-        },
-
-        {
-            "name": "zig-release",
-            "displayName": "Zig Release",
-            "inherits": "windows-zig",
-            "architecture": {
-                "value": "x64",
-                "strategy": "external"
-            },
-            "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Release"
-            }
-        }
-    ],
-    "testPresets": [
-        {
-            "name": "zig-debug",
-            "displayName": "Zig Debug Tests",
-            "configurePreset": "zig-debug",
-            "output": {
-                "outputOnFailure": true
-            },
-            "execution": {
-                "noTestsAction": "error"
-            }
-        },
-        {
-            "name": "zig-release",
-            "displayName": "Zig Release Tests",
-            "configurePreset": "zig-release",
-            "output": {
-                "outputOnFailure": true
-            },
-            "execution": {
-                "noTestsAction": "error"
-            }
-        }
-    ]
+  "version": 6,
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "installDir": "${sourceDir}/install/${presetName}",
+      "cacheVariables": {
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "RAYWAVES_TOOLCHAIN": "auto"
+      }
+    },
+    {
+      "name": "zig-debug",
+      "displayName": "Zig Debug",
+      "description": "Debug build using the pinned Zig toolchain (Windows and Linux)",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "zig-release",
+      "displayName": "Zig Release",
+      "description": "Release build using the pinned Zig toolchain (Windows and Linux)",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "zig-debug",
+      "configurePreset": "zig-debug"
+    },
+    {
+      "name": "zig-release",
+      "configurePreset": "zig-release"
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "zig-debug",
+      "displayName": "Zig Debug Tests",
+      "configurePreset": "zig-debug",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error"
+      }
+    },
+    {
+      "name": "zig-release",
+      "displayName": "Zig Release Tests",
+      "configurePreset": "zig-release",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error"
+      }
+    }
+  ],
+  "workflowPresets": [
+    {
+      "name": "dev",
+      "displayName": "Configure, build and test (Debug)",
+      "steps": [
+        { "type": "configure", "name": "zig-debug" },
+        { "type": "build", "name": "zig-debug" },
+        { "type": "test", "name": "zig-debug" }
+      ]
+    },
+    {
+      "name": "ci",
+      "displayName": "Configure, build and test (Release)",
+      "steps": [
+        { "type": "configure", "name": "zig-release" },
+        { "type": "build", "name": "zig-release" },
+        { "type": "test", "name": "zig-release" }
+      ]
+    }
+  ]
 }

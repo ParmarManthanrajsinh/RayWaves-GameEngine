@@ -12,7 +12,7 @@
             "compilerPath": "",
             "cStandard": "c17",
             "cppStandard": "c++23",
-            "intelliSenseMode": "windows-clang-x64"
+            "intelliSenseMode": "@INTELLISENSE_MODE@"
         }
     ],
     "version": 4
