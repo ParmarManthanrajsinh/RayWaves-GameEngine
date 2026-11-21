@@ -174,6 +174,8 @@ public:
         Vector3* m_Position3D = nullptr;
         Vector3* m_Size3D = nullptr;
         Vector3 m_Origin3D{ 0.0f, 0.0f, 0.0f };
+        t_EntityProperty* m_Properties = nullptr;
+        uint32_t m_PropertyCount = 0;
     };
 
     EEditorSelectionKind m_SelectionKind = EEditorSelectionKind::None;

@@ -27,6 +27,9 @@ From the project root, prefix each command with the host wrapper:
 - Linux: `.raywaves/bin/rwcli`
 
 ```text
+templates --json
+new MyGame --template Empty2D --json
+new-level . MyLevel --json
 doctor . --json
 info . --json
 maps . --json
@@ -35,7 +38,7 @@ build . --json
 run . --frames 120 --screenshot shot.png --state state.json --json
 run . --frames 120 --input input.txt --json
 scene list . --json
-scene add . --map Platformer2D --name Crate --texture crate.png --position 620,300
+scene add . --map Platformer2D --name Crate --type decor --texture crate.png --position 620,300
 scene set . --map Platformer2D --id 1 --position 700,300
 scene remove . --map Platformer2D --id 1
 assets list . --json

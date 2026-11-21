@@ -115,6 +115,10 @@ void ApplyKey(t_SceneObject& object, std::string_view key, std::string_view valu
     {
         object.m_Name = std::string(value);
     }
+    else if (key == "type")
+    {
+        object.m_Type = std::string(value);
+    }
     else if (key == "texture")
     {
         object.m_TexturePath = std::string(value);
@@ -358,6 +362,7 @@ bool Scene::b_SaveToFile(std::string_view path)
         file << "\n[object]\n";
         file << "id=" << object.m_Id << "\n";
         file << "name=" << object.m_Name << "\n";
+        file << "type=" << object.m_Type << "\n";
         file << "texture=" << object.m_TexturePath << "\n";
         file << "position=" << object.m_Position.x << "," << object.m_Position.y << "\n";
         file << "rotation=" << object.m_Rotation << "\n";

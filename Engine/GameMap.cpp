@@ -198,6 +198,63 @@ GameMap::t_EditorEntityList& GameMap::GetEditorEntities()
     return m_EditorEntities;
 }
 
+void GameMap::SetSceneObjects(const t_SceneObjectView* objects, size_t count)
+{
+    m_SceneObjects.clear();
+    if ((objects != nullptr) && (count > 0))
+    {
+        m_SceneObjects.reserve(count);
+        for (size_t index = 0; index < count; ++index)
+        {
+            const t_SceneObjectView& view = objects[index];
+            t_SceneObjectInfo info;
+            info.m_Id = view.m_Id;
+            if (view.m_Name != nullptr)
+            {
+                info.m_Name = view.m_Name;
+            }
+            if (view.m_Type != nullptr)
+            {
+                info.m_Type = view.m_Type;
+            }
+            if (view.m_TexturePath != nullptr)
+            {
+                info.m_TexturePath = view.m_TexturePath;
+            }
+            info.m_Position = view.m_Position;
+            info.m_Rotation = view.m_Rotation;
+            info.m_Scale = view.m_Scale;
+            info.m_Source = view.m_Source;
+            info.m_Tint = view.m_Tint;
+            info.m_Layer = view.m_Layer;
+            info.m_bVisible = view.m_bVisible;
+            m_SceneObjects.push_back(std::move(info));
+        }
+    }
+
+    OnSceneChanged();
+}
+
+const t_SceneObjectInfo* GameMap::FindSceneObject(std::string_view name) const
+{
+    const auto found =
+        std::ranges::find_if(m_SceneObjects, [name](const t_SceneObjectInfo& object) { return object.m_Name == name; });
+    return (found == m_SceneObjects.end()) ? nullptr : &*found;
+}
+
+std::vector<const t_SceneObjectInfo*> GameMap::FindSceneObjectsOfType(std::string_view type) const
+{
+    std::vector<const t_SceneObjectInfo*> matches;
+    for (const t_SceneObjectInfo& object : m_SceneObjects)
+    {
+        if (object.m_Type == type)
+        {
+            matches.push_back(&object);
+        }
+    }
+    return matches;
+}
+
 void GameMap::SetStandaloneMode(bool b_Standalone)
 {
     m_bStandalone = b_Standalone;

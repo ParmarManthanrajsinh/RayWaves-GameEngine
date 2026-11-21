@@ -1,18 +1,38 @@
 #pragma once
 #include "EditorEntity.h"
 #include "GameState.h"
+#include "SceneView.h"
+#include <cstddef>
 #include <cstdint>
 #include <functional>
 #include <list>
 #include <raylib.h>
 #include <string>
 #include <string_view>
+#include <vector>
 
 // GameLogic DLL ABI version. GameLogic DLLs must export
 // GetGameLogicAbiVersion() returning this value. The editor/runtime reject
 // DLLs with a different (or missing) version instead of risking heap
 // corruption across the DLL boundary.
-inline constexpr uint32_t RAYWAVES_GAMELOGIC_ABI_VERSION = 8;
+inline constexpr uint32_t RAYWAVES_GAMELOGIC_ABI_VERSION = 9;
+
+// Map-owned copy of one editor-authored scene object. Game code reads these
+// through GameMap::GetSceneObjects(); the engine still draws the sprites.
+struct t_SceneObjectInfo
+{
+    uint32_t m_Id = 0;
+    std::string m_Name;
+    std::string m_Type;
+    std::string m_TexturePath;
+    Vector2 m_Position{ 0.0f, 0.0f };
+    float m_Rotation = 0.0f;
+    Vector2 m_Scale{ 1.0f, 1.0f };
+    Rectangle m_Source{ 0.0f, 0.0f, 0.0f, 0.0f };
+    Color m_Tint = WHITE;
+    int m_Layer = 0;
+    bool m_bVisible = true;
+};
 
 class GameMap
 {
@@ -29,6 +49,10 @@ protected:
     using t_EditorEntityList = std::list<t_EditorEntity>;
     t_EditorEntityList m_EditorEntities;
     uint64_t m_NextEditorEntityId = 1;
+
+    // Read-only copy of the active map's editor-authored scene. The host
+    // refreshes it on load, on map switch, and when play starts.
+    std::vector<t_SceneObjectInfo> m_SceneObjects;
 
     // Host-owned editor camera. Only valid while the host is editing a 3D map.
     Camera3D m_EditorViewCamera3D{};
@@ -109,6 +133,18 @@ public:
     void ClearEditorEntities();
     const t_EditorEntityList& GetEditorEntities() const;
     t_EditorEntityList& GetEditorEntities();
+
+    // Editor-authored scene objects for this map. SetSceneObjects copies the
+    // host view into map-owned storage, then calls OnSceneChanged().
+    void SetSceneObjects(const t_SceneObjectView* objects, size_t count);
+    const std::vector<t_SceneObjectInfo>& GetSceneObjects() const { return m_SceneObjects; }
+    const t_SceneObjectInfo* FindSceneObject(std::string_view name) const;
+    std::vector<const t_SceneObjectInfo*> FindSceneObjectsOfType(std::string_view type) const;
+
+    // Called after SetSceneObjects copies a new snapshot. Spawn scene-derived
+    // objects here rather than in Initialize(): the host pushes the scene after
+    // the initial map has initialized.
+    virtual void OnSceneChanged() {}
 
     // True when the map runs inside the standalone runtime (game.exe), false
     // inside the editor. Templates use this to capture the cursor only in a

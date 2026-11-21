@@ -27,7 +27,7 @@ add_dependencies(GameLogic stage_raylib)
 # Compile-check the header-only rw templates so they cannot rot. They build no
 # extra DLL; the real project build is covered by ProjectManager tests and by
 # creating a project from the template in the editor.
-foreach(TEMPLATE Simple2D Platformer2D)
+foreach(TEMPLATE Simple2D Platformer2D Empty2D)
     add_library(${TEMPLATE}TemplateCheck OBJECT templates/${TEMPLATE}/GameLogic/Game.cpp)
     target_include_directories(${TEMPLATE}TemplateCheck PRIVATE
         ${CMAKE_SOURCE_DIR}

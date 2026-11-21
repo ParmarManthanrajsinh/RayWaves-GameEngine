@@ -17,6 +17,9 @@ public:
     void Initialize() override {}
     void Update(float /*delta_time*/) override {}
     void Draw() override {}
+    void OnSceneChanged() override { ++m_ScenePushes; }
+
+    int m_ScenePushes = 0;
 };
 
 class SceneMapA : public GameMap
@@ -106,6 +109,7 @@ TEST_CASE("Scene: save and load roundtrip")
 
     Scene scene;
     t_SceneObject& object = scene.AddObject("Player");
+    object.m_Type = "spawn";
     object.m_TexturePath = "player.png";
     object.m_Position = { 100.5f, 220.25f };
     object.m_Rotation = 45.0f;
@@ -125,6 +129,7 @@ TEST_CASE("Scene: save and load roundtrip")
     const t_SceneObject& copy = loaded.GetObjects().front();
     CHECK(copy.m_Id == 1);
     CHECK(copy.m_Name == "Player");
+    CHECK(copy.m_Type == "spawn");
     CHECK(copy.m_TexturePath == "player.png");
     CHECK(copy.m_Position.x == doctest::Approx(100.5f));
     CHECK(copy.m_Position.y == doctest::Approx(220.25f));
@@ -398,6 +403,14 @@ TEST_CASE("GameEngine: loads and saves the active map scene")
     CHECK(engine.GetScene().GetObjects().front().m_Name == "Loaded");
     CHECK(engine.GetScene().GetObjects().front().m_Position.x == doctest::Approx(11.0f));
     CHECK(engine.GetScene().GetObjects().front().m_Position.y == doctest::Approx(22.0f));
+
+    CHECK(map.m_ScenePushes == 1);
+    REQUIRE(map.GetSceneObjects().size() == 1);
+    CHECK(map.GetSceneObjects().front().m_Name == "Loaded");
+
+    engine.GetScene().AddObject("Marker");
+    engine.RefreshSceneObjects();
+    CHECK(map.GetSceneObjects().size() == 2);
 
     engine.GetScene().GetObjects().front().m_Position = { 33.0f, 44.0f };
     engine.GetScene().MarkDirty();

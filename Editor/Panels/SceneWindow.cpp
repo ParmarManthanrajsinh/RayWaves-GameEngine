@@ -264,7 +264,12 @@ void SceneWindow::Draw(GameEditor* editor)
     else
     {
         if (s_bIconButton("play_btn", ICON_FA_PLAY, ImVec2(32, 32), "Play"))
+        {
             editor->b_IsPlaying = true;
+            // Scene edits made while stopped must reach gameplay before the
+            // first Update() of this playback session.
+            editor->GetGameEngine().RefreshSceneObjects();
+        }
     }
 
     ImGui::SameLine();

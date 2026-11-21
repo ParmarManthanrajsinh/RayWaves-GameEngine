@@ -101,7 +101,7 @@ scripts/package.ps1 -IncludeCompiler -Zip
 | `Runtime/` | Editor/runtime entry points and module loading |
 | `tests/` | Unit, integration, and smoke suites |
 | `benchmarks/` | Standalone performance harness |
-| `templates/` | Starter projects (Simple2D, Platformer2D, ThirdPerson3D, SlimeQuest) |
+| `templates/` | Starter projects (Empty2D, Simple2D, Platformer2D, ThirdPerson3D, SlimeQuest) |
 | `.github/workflows/` | Windows + Linux CI and packaging |
 | `packaging/` | Distribution scripts and the shared project CMake template |
 | `scripts/` | Day-to-day developer commands |
@@ -135,6 +135,7 @@ scripts/package.ps1 -IncludeCompiler -Zip
 - [Benchmarks](docs/benchmarks.md)
 - [Distribution](docs/distribution.md)
 - [Game developer guide](docs/GAME_DEVELOPER_GUIDE.md)
+- [Game cookbook](docs/game/cookbook.md)
 - [Troubleshooting](docs/TROUBLESHOOTING.md)
 
 ## Adding a map
@@ -159,7 +160,8 @@ public:
 };
 ```
 
-Register it in your project's `RootManager.cpp` with one line:
+Register it in your project's `RootManager.cpp` (or `Game.cpp`) with one
+`AddLevel` line:
 
 ```cpp
 class MyGame : public rw::Game

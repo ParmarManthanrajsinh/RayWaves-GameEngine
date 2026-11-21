@@ -36,7 +36,7 @@ RayWaves/
 │  ├─ smoke/                   # Hot-reload load/unload cycles
 │  └─ support/                 # doctest main + TempDir helper
 ├─ benchmarks/                 # Standalone benchmark harness + cases
-├─ templates/                  # Project templates (Simple2D, Platformer2D, ThirdPerson3D, SlimeQuest)
+├─ templates/                  # Project templates (Empty2D, Simple2D, Platformer2D, ThirdPerson3D, SlimeQuest)
 ├─ packaging/                  # package.ps1/.sh + Project.CMakeLists.in + config.ini
 ├─ scripts/                    # build/test/bench/package/check entry points
 ├─ docs/                       # Documentation index and guides

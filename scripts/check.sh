@@ -32,8 +32,9 @@ if command -v clang-format >/dev/null 2>&1; then
                    -o -name 'raygui.h' \) -prune -o \
                 \( -name '*.cpp' -o -name '*.h' \) -type f -print
             find tests \( -name '*.cpp' -o -name '*.h' \) -type f -print
-            find templates/SlimeQuest/GameLogic templates/Platformer2D/GameLogic \
-                templates/ThirdPerson3D/GameLogic \( -name '*.cpp' -o -name '*.h' \) -type f -print
+            find templates/SlimeQuest/GameLogic templates/Simple2D/GameLogic templates/Empty2D/GameLogic \
+                templates/Platformer2D/GameLogic templates/ThirdPerson3D/GameLogic \
+                \( -name '*.cpp' -o -name '*.h' \) -type f -print
         } | sort
     )
     clang-format --dry-run --Werror --style=file "${files[@]}"

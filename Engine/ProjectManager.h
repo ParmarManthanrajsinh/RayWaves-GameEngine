@@ -15,6 +15,8 @@ public:
     static bool b_OpenProject(std::string_view folder_path, bool b_add_recent = true);
     static void CloseProject();
     static bool b_CreateProject(std::string_view target_folder, std::string_view template_name = "Simple2D");
+    // Structured-error variant used by rwcli and other non-UI callers.
+    static bool b_CreateProject(std::string_view target_folder, std::string_view template_name, std::string& out_error);
     static bool b_SaveCurrentProject();
     static bool GenerateCMakeLists();
     static bool b_WriteIdeConfigs(bool b_force = false);

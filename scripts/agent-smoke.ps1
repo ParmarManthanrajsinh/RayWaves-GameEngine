@@ -76,6 +76,26 @@ try {
     $player = @($inputJson.entities) | Where-Object { $_.name -eq "Player" } | Select-Object -First 1
     if (-not $player -or $player.position[0] -le 320) { throw "input replay did not move the player" }
 
+    Write-Host "scaffold: templates/new/new-level" -ForegroundColor Cyan
+    $templatesJson = (Invoke-RwCli @("templates", "--json")) | ConvertFrom-Json
+    if (-not $templatesJson.ok) { throw "templates failed" }
+    if ($templatesJson.templates -notcontains "Empty2D") { throw "Empty2D template missing" }
+
+    $Scaffold = Join-Path $Temp "ScaffoldGame"
+    $newJson = (Invoke-RwCli @("new", $Scaffold, "--template", "Empty2D", "--json")) | ConvertFrom-Json
+    if (-not $newJson.ok) { throw "project scaffold failed" }
+    $newLevelJson = (Invoke-RwCli @("new-level", $Scaffold, "ExtraLevel", "--json")) | ConvertFrom-Json
+    if (-not $newLevelJson.ok -or -not $newLevelJson.registrationAdded) { throw "new-level failed" }
+    if (-not (Test-Path (Join-Path $Scaffold "GameLogic/ExtraLevel.h"))) { throw "level header missing" }
+    $scaffoldBuildJson = (Invoke-RwCli @("build", $Scaffold, "--json")) | ConvertFrom-Json
+    if (-not $scaffoldBuildJson.ok) { throw "scaffolded project build failed: $($scaffoldBuildJson.rawTail)" }
+
+    Write-Host "scene --type" -ForegroundColor Cyan
+    $sceneJson = (Invoke-Wrapper @("scene", "add", $Temp, "--map", "SmokeMap", "--name", "Spawn", "--type", "spawn", "--json")) | ConvertFrom-Json
+    if (-not $sceneJson.ok) { throw "scene add --type failed" }
+    $sceneText = Get-Content (Join-Path $Temp "Assets/SmokeMap.scene") -Raw
+    if ($sceneText -notmatch "type=spawn") { throw "scene type missing from file" }
+
     Write-Host "validate (via wrapper)" -ForegroundColor Cyan
     $validate = Invoke-Wrapper @("validate", $Temp, "--json")
     $validateJson = $validate | ConvertFrom-Json

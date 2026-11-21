@@ -83,7 +83,10 @@ RW_GAME(MyLevel)
 ```
 
 - `rw::Game` + `AddLevel<T>("id")` for multiple levels.
+- `rwcli new-level . MyLevel` scaffolds a level and registers it.
 - `Spawn` registers the entity with the editor and `rwcli` state.
+- `OnSceneLoaded()` + `SceneObjectsOfType("spawn")` read editor markers.
+- `entity->Expose("Speed", &m_Speed, 0.0f, 500.0f)` adds an Inspector field.
 - Use `rw::IsKeyDown` / `rw::IsKeyPressed` / `rw::IsMouseButtonDown` so
   `--input` can drive the game.
 - Assets resolve through `@ASSET_DIR@/`.

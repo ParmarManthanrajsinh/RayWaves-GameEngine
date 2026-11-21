@@ -157,6 +157,23 @@ Rules of thumb:
 
 The `Simple2D` template is this example in project form.
 
+### Authoring hooks
+
+- `OnSceneLoaded()` runs when the editor's `.scene` snapshot reaches the map
+  (after the initial `OnStart`, and again when playback starts). Spawn actors
+  from authored markers there:
+
+  ```cpp
+  for (const t_SceneObjectInfo* marker : SceneObjectsOfType("spawn"))
+  {
+      Spawn(marker->m_Name, marker->m_Position);
+  }
+  ```
+
+- `Entity::Expose("Speed", &m_Speed, 0.0f, 500.0f)` adds an Inspector field.
+  Values survive hot reloads; app restart resets them.
+- Scene objects are read-only markers; the engine keeps drawing their sprites.
+
 ---
 
 ## Editing Gameplay Entities (raw `GameMap`)
@@ -195,6 +212,11 @@ RegisterEditorEntity(entity);
 
 Keep `m_Size` (or `m_Size3D`) pointing at storage that outlives registration:
 a map member, a heap object, or an `rw::Entity`.
+
+Raw maps can also expose Inspector fields by filling a `t_EntityProperty` array
+and assigning `m_Properties` / `m_PropertyCount` on the registered entity. Keep
+the array and its `m_Name` strings alive for as long as the entity stays
+registered.
 
 Rules that keep this safe:
 

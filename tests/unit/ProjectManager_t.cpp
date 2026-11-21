@@ -66,6 +66,7 @@ TEST_CASE("ProjectManager: b_CreateProject copies templates")
     TempDir dir;
 
     auto available = ProjectManager::GetAvailableTemplates();
+    CHECK(std::find(available.begin(), available.end(), "Empty2D") != available.end());
     CHECK(std::find(available.begin(), available.end(), "Simple2D") != available.end());
     CHECK(std::find(available.begin(), available.end(), "Platformer2D") != available.end());
     CHECK(std::find(available.begin(), available.end(), "ThirdPerson3D") != available.end());
@@ -76,7 +77,7 @@ TEST_CASE("ProjectManager: b_CreateProject copies templates")
     // Sorted so the New Project wizard has a stable default order.
     CHECK(std::is_sorted(available.begin(), available.end()));
 
-    for (const char* name : { "Simple2D", "ThirdPerson3D" })
+    for (const char* name : { "Empty2D", "Simple2D", "ThirdPerson3D" })
     {
         std::filesystem::path target = dir.Path() / name;
         REQUIRE(ProjectManager::b_CreateProject(target.string(), name));
@@ -97,6 +98,7 @@ TEST_CASE("ProjectManager: b_CreateProject copies templates")
         CHECK(project.m_Name == name);
     }
 
+    CHECK(std::filesystem::exists(dir.Path() / "Empty2D" / "GameLogic" / "Game.cpp"));
     CHECK(std::filesystem::exists(dir.Path() / "Simple2D" / "GameLogic" / "Game.cpp"));
     CHECK(std::filesystem::exists(dir.Path() / "ThirdPerson3D" / "GameLogic" / "RootManager.cpp"));
 }

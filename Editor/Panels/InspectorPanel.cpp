@@ -97,6 +97,58 @@ void DrawEntityHeader(const GameEditor::FEditorEntityRef& entity)
     ImGui::TextDisabled("- gameplay object - id %llu", static_cast<unsigned long long>(entity.m_Id));
 }
 
+void DrawEntityProperties(const GameEditor::FEditorEntityRef& entity)
+{
+    if ((entity.m_Properties == nullptr) || (entity.m_PropertyCount == 0))
+    {
+        return;
+    }
+
+    ImGui::Spacing();
+    ImGui::SeparatorText("Properties");
+    ImGui::PushID(static_cast<int>(entity.m_Id));
+    for (uint32_t index = 0; index < entity.m_PropertyCount; ++index)
+    {
+        t_EntityProperty& property = entity.m_Properties[index];
+        if ((property.m_Name == nullptr) || (property.m_Data == nullptr))
+        {
+            continue;
+        }
+
+        ImGui::PushID(static_cast<int>(index));
+        switch (property.m_Type)
+        {
+            case EEntityPropertyType::Float:
+            {
+                PropertyLabel(property.m_Name);
+                ImGui::SetNextItemWidth(-1.0f);
+                ImGui::DragFloat("##value", static_cast<float*>(property.m_Data), 0.1f, property.m_Min, property.m_Max);
+                break;
+            }
+            case EEntityPropertyType::Int:
+            {
+                PropertyLabel(property.m_Name);
+                ImGui::SetNextItemWidth(-1.0f);
+                ImGui::DragInt("##value", static_cast<int*>(property.m_Data), 1.0f, static_cast<int>(property.m_Min),
+                    static_cast<int>(property.m_Max));
+                break;
+            }
+            case EEntityPropertyType::Bool:
+            {
+                ImGui::Checkbox(property.m_Name, static_cast<bool*>(property.m_Data));
+                break;
+            }
+            case EEntityPropertyType::Vector2:
+            {
+                Vector2Row(property.m_Name, property.m_Name, &static_cast<Vector2*>(property.m_Data)->x, "%.2f");
+                break;
+            }
+        }
+        ImGui::PopID();
+    }
+    ImGui::PopID();
+}
+
 void DrawEntityInspector(GameEditor* editor, GameEditor::FEditorEntityRef& entity)
 {
     DrawEntityHeader(entity);
@@ -162,6 +214,8 @@ void DrawEntityInspector(GameEditor* editor, GameEditor::FEditorEntityRef& entit
     ImGui::TextDisabled("The editor only writes them; gameplay code decides what they mean.");
     ImGui::PopTextWrapPos();
 
+    DrawEntityProperties(entity);
+
     std::string exposed;
     const auto add_exposed = [&exposed](const char* name)
     {
@@ -186,6 +240,13 @@ void DrawEntityInspector(GameEditor* editor, GameEditor::FEditorEntityRef& entit
     if (entity.m_Visible != nullptr)
     {
         add_exposed("visibility");
+    }
+    for (uint32_t index = 0; index < entity.m_PropertyCount; ++index)
+    {
+        if (entity.m_Properties[index].m_Name != nullptr)
+        {
+            add_exposed(entity.m_Properties[index].m_Name);
+        }
     }
 
     ImGui::Spacing();
@@ -285,6 +346,10 @@ void DrawSceneObjectInspector(GameEditor* editor, t_SceneObject& object)
     PropertyLabel("Name");
     ImGui::SetNextItemWidth(-1.0f);
     b_changed |= ImGui::InputTextWithHint("##object_name", "Object name", &object.m_Name);
+
+    PropertyLabel("Type / Tag");
+    ImGui::SetNextItemWidth(-1.0f);
+    b_changed |= ImGui::InputTextWithHint("##object_type", "spawn, enemy, decor", &object.m_Type);
 
     ImGui::Spacing();
 

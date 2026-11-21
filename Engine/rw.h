@@ -629,6 +629,17 @@ private:
     bool m_bHasBounds = false;
 };
 
+// A gameplay field exposed to the Inspector. Points into the entity's owning
+// game object; the editor writes through m_Data.
+struct Property
+{
+    std::string m_Name;
+    EEntityPropertyType m_Type = EEntityPropertyType::Float;
+    void* m_Data = nullptr;
+    float m_Min = 0.0f;
+    float m_Max = 0.0f;
+};
+
 // A drawable object the editor can select. Game code owns behaviour; the
 // editor owns selection. Fields are public on purpose: mutate them directly.
 struct Entity
@@ -641,6 +652,49 @@ struct Entity
     Vector2 origin{ 0.0f, 0.0f }; // position -> draw rect top-left
     float rotation = 0.0f;
     bool visible = true;
+
+    // Expose a gameplay value to the editor Inspector. Call during OnStart, or
+    // at spawn time; values are also carried across hot reloads.
+    void Expose(std::string_view property_name, float* value, float min = 0.0f, float max = 0.0f)
+    {
+        ExposeProperty(property_name, EEntityPropertyType::Float, value, min, max);
+    }
+    void Expose(std::string_view property_name, int* value, int min = 0, int max = 0)
+    {
+        ExposeProperty(
+            property_name, EEntityPropertyType::Int, value, static_cast<float>(min), static_cast<float>(max));
+    }
+    void Expose(std::string_view property_name, bool* value)
+    {
+        ExposeProperty(property_name, EEntityPropertyType::Bool, value, 0.0f, 0.0f);
+    }
+    void Expose(std::string_view property_name, Vector2* value)
+    {
+        ExposeProperty(property_name, EEntityPropertyType::Vector2, value, 0.0f, 0.0f);
+    }
+
+    // Stable property storage (unique_ptr keeps addresses valid when the list
+    // grows) and the contiguous views handed to the editor.
+    std::vector<std::unique_ptr<Property>> m_Properties;
+    std::vector<t_EntityProperty> m_PropertyViews;
+    t_EditorEntity* m_EditorEntity = nullptr;
+    bool m_bPropertiesDirty = false;
+
+    void ExposeProperty(std::string_view property_name, EEntityPropertyType type, void* data, float min, float max)
+    {
+        if (data == nullptr)
+        {
+            return;
+        }
+        auto property = std::make_unique<Property>();
+        property->m_Name = std::string(property_name);
+        property->m_Type = type;
+        property->m_Data = data;
+        property->m_Min = min;
+        property->m_Max = max;
+        m_Properties.push_back(std::move(property));
+        m_bPropertiesDirty = true;
+    }
 };
 
 inline void DrawSprite(const Texture2D& texture, const Entity& entity, Color tint = WHITE)
@@ -716,7 +770,8 @@ public:
         options.Rotation = &raw->rotation;
         options.Visible = &raw->visible;
 
-        const t_EditorEntity* registered = AddEntity(raw->name, &raw->position, &raw->size, options);
+        t_EditorEntity* registered = AddEntity(raw->name, &raw->position, &raw->size, options);
+        raw->m_EditorEntity = registered;
         raw->id = (registered != nullptr) ? registered->m_Id : 0;
         return raw;
     }
@@ -745,6 +800,14 @@ public:
     using EntityList = std::vector<std::unique_ptr<Entity>>;
     const EntityList& Entities() const { return m_Entities; }
 
+    // Editor-authored scene objects. Read-only: the engine still draws the
+    // sprites, and gameplay can read tags/markers to spawn its own actors.
+    const std::vector<t_SceneObjectInfo>& SceneObjects() const { return GetSceneObjects(); }
+    std::vector<const t_SceneObjectInfo*> SceneObjectsOfType(std::string_view type) const
+    {
+        return FindSceneObjectsOfType(type);
+    }
+
     Camera& Cam() { return m_Camera; }
     const Camera& Cam() const { return m_Camera; }
 
@@ -761,6 +824,7 @@ public:
         input_detail::Reset();
         m_Camera.SetViewport(ViewportWidth(), ViewportHeight());
         OnStart();
+        RefreshProperties();
     }
 
     void Update(float delta_time) final
@@ -768,6 +832,7 @@ public:
         input_detail::BeginFrame();
         m_Camera.SetViewport(ViewportWidth(), ViewportHeight());
         OnUpdate(delta_time);
+        RefreshPropertiesIfDirty();
     }
 
     void Draw() final
@@ -782,8 +847,12 @@ public:
     Camera2D GetViewCamera() const final { return m_Camera.Get(); }
     Camera2D* GetMutableViewCamera() final { return &m_Camera.Get(); }
 
-    // Hot reload keeps entity transforms (keyed by spawn order) and forwards to
-    // the game hooks for everything else.
+    // Scene snapshots arrive after the initial map has initialized. Levels
+    // override OnSceneLoaded() to spawn actors from authored markers.
+    void OnSceneChanged() final { OnSceneLoaded(); }
+
+    // Hot reload keeps entity transforms and exposed property values (keyed by
+    // spawn order) and forwards to the game hooks for everything else.
     void SaveState(StateBag& out) const final
     {
         out.SetInt("rw.entity.count", static_cast<int>(m_Entities.size()));
@@ -795,6 +864,34 @@ public:
             out.SetVector2(base + ".size", entity.size);
             out.SetFloat(base + ".rotation", entity.rotation);
             out.SetBool(base + ".visible", entity.visible);
+
+            const std::string properties_base = base + ".props";
+            out.SetInt(properties_base + ".count", static_cast<int>(entity.m_Properties.size()));
+            for (size_t property_index = 0; property_index < entity.m_Properties.size(); ++property_index)
+            {
+                const Property& property = *entity.m_Properties[property_index];
+                if (property.m_Data == nullptr)
+                {
+                    continue;
+                }
+                const std::string property_base = properties_base + "." + std::to_string(property_index);
+                out.SetString(property_base + ".name", property.m_Name);
+                switch (property.m_Type)
+                {
+                    case EEntityPropertyType::Float:
+                        out.SetFloat(property_base + ".value", *static_cast<const float*>(property.m_Data));
+                        break;
+                    case EEntityPropertyType::Int:
+                        out.SetInt(property_base + ".value", *static_cast<const int*>(property.m_Data));
+                        break;
+                    case EEntityPropertyType::Bool:
+                        out.SetBool(property_base + ".value", *static_cast<const bool*>(property.m_Data));
+                        break;
+                    case EEntityPropertyType::Vector2:
+                        out.SetVector2(property_base + ".value", *static_cast<const Vector2*>(property.m_Data));
+                        break;
+                }
+            }
         }
         OnSave(out);
     }
@@ -810,12 +907,56 @@ public:
             entity.size = in.GetVector2(base + ".size", entity.size);
             entity.rotation = in.GetFloat(base + ".rotation", entity.rotation);
             entity.visible = in.GetBool(base + ".visible", entity.visible);
+
+            const std::string properties_base = base + ".props";
+            const int property_count = in.GetInt(properties_base + ".count", 0);
+            for (int property_index = 0; property_index < property_count; ++property_index)
+            {
+                const std::string property_base = properties_base + "." + std::to_string(property_index);
+                const std::string saved_name = in.GetString(property_base + ".name", "");
+                if (saved_name.empty())
+                {
+                    continue;
+                }
+
+                const auto match = std::find_if(entity.m_Properties.begin(), entity.m_Properties.end(),
+                    [&saved_name](const std::unique_ptr<Property>& property)
+                    { return property->m_Name == saved_name; });
+                if (match == entity.m_Properties.end())
+                {
+                    continue;
+                }
+
+                Property& property = **match;
+                if (property.m_Data == nullptr)
+                {
+                    continue;
+                }
+                switch (property.m_Type)
+                {
+                    case EEntityPropertyType::Float:
+                        *static_cast<float*>(property.m_Data) = in.GetFloat(property_base + ".value", 0.0f);
+                        break;
+                    case EEntityPropertyType::Int:
+                        *static_cast<int*>(property.m_Data) = in.GetInt(property_base + ".value", 0);
+                        break;
+                    case EEntityPropertyType::Bool:
+                        *static_cast<bool*>(property.m_Data) = in.GetBool(property_base + ".value", false);
+                        break;
+                    case EEntityPropertyType::Vector2:
+                        *static_cast<Vector2*>(property.m_Data) =
+                            in.GetVector2(property_base + ".value", Vector2{ 0.0f, 0.0f });
+                        break;
+                }
+            }
         }
         OnLoad(in);
+        RefreshProperties();
     }
 
 protected:
     virtual void OnStart() {}
+    virtual void OnSceneLoaded() {}
     virtual void OnUpdate(float delta_time) { (void)delta_time; }
     virtual void OnDraw() {}
     virtual void OnDrawUI() {}
@@ -823,6 +964,53 @@ protected:
     virtual void OnLoad(const StateBag& in) { (void)in; }
 
 private:
+    // Rebuilds the contiguous property views the editor reads. Property nodes
+    // are unique_ptr, so the names and values they point at stay stable.
+    void RefreshProperties()
+    {
+        for (const std::unique_ptr<Entity>& entity : m_Entities)
+        {
+            if (entity->m_EditorEntity == nullptr)
+            {
+                continue;
+            }
+
+            entity->m_PropertyViews.clear();
+            entity->m_PropertyViews.reserve(entity->m_Properties.size());
+            for (const std::unique_ptr<Property>& property : entity->m_Properties)
+            {
+                if (property->m_Data == nullptr)
+                {
+                    continue;
+                }
+                t_EntityProperty view;
+                view.m_Name = property->m_Name.c_str();
+                view.m_Type = property->m_Type;
+                view.m_Data = property->m_Data;
+                view.m_Min = property->m_Min;
+                view.m_Max = property->m_Max;
+                entity->m_PropertyViews.push_back(view);
+            }
+
+            entity->m_EditorEntity->m_Properties =
+                entity->m_PropertyViews.empty() ? nullptr : entity->m_PropertyViews.data();
+            entity->m_EditorEntity->m_PropertyCount = static_cast<uint32_t>(entity->m_PropertyViews.size());
+            entity->m_bPropertiesDirty = false;
+        }
+    }
+
+    void RefreshPropertiesIfDirty()
+    {
+        for (const std::unique_ptr<Entity>& entity : m_Entities)
+        {
+            if (entity->m_bPropertiesDirty)
+            {
+                RefreshProperties();
+                return;
+            }
+        }
+    }
+
     EntityList m_Entities;
     Camera m_Camera;
     Color m_Background{ 24, 24, 24, 255 };

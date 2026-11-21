@@ -51,6 +51,9 @@ Shell notes:
 |---|---|
 | `help [command]` | general or per-command usage |
 | `--version` | CLI/engine version |
+| `templates` | list project templates |
+| `new <targetDir>` | create a project from a template |
+| `new-level <project> <Name>` | scaffold a level and register it |
 | `doctor <project>` | toolchain, manifest, scenes, lock, IDE config |
 | `info <project>` | manifest paths, scenes, tools |
 | `maps <project>` | map ids from the DLL, or scene filenames |
@@ -60,6 +63,34 @@ Shell notes:
 | `lsp <project>` | write editor configs + compile database |
 | `scene <sub> <project>` | list/add/set/remove/duplicate scene objects |
 | `assets <sub> <project>` | list/import assets |
+
+### templates
+
+```text
+rwcli templates --json
+```
+
+Lists the shipped template folders. Pass one to `new --template`.
+
+### new
+
+```text
+rwcli new MyGame
+rwcli new MyGame --template Empty2D --json
+```
+
+Creates a project, generates the IDE/tooling files, and prints next steps.
+The target folder must not exist.
+
+### new-level
+
+```text
+rwcli new-level . MyLevel
+rwcli new-level . MyLevel --id LevelTwo --dry-run --json
+```
+
+Creates `<sourceDir>/MyLevel.h` and inserts `AddLevel<MyLevel>("MyLevel")`
+before `Start(...)`. Idempotent; `--dry-run` prints the planned edits.
 
 ### doctor
 
@@ -159,13 +190,15 @@ rwcli lsp . --force --json
 ```text
 rwcli scene list . --json
 rwcli scene list . --map Platformer2D --json
-rwcli scene add . --map Platformer2D --name Crate --texture crate.png --position 620,300
+rwcli scene add . --map Platformer2D --name Crate --type decor --texture crate.png --position 620,300
+rwcli scene add . --map Platformer2D --name Spawn --type spawn --position 620,300
 rwcli scene set . --map Platformer2D --id 1 --position 700,300 --rotation 15 --visible 0
 rwcli scene duplicate . --map Platformer2D --id 1
 rwcli scene remove . --map Platformer2D --id 1
 ```
 
 - `--map` is required when more than one `.scene` exists.
+- `--type TAG` marks gameplay data (`spawn`, `enemy`, `decor`, ...).
 - `--scale 2` or `--scale 2,3`
 - `--layer N`
 - `--dry-run` validates without writing.

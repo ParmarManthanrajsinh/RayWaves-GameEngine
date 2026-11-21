@@ -5,7 +5,7 @@ Start here if you are making a game with RayWaves.
 ## First steps
 
 1. Run the editor (`RayWaves.exe` on Windows, `RayWaves` on Linux).
-2. Create a project from a template: `Simple2D` (recommended), `Platformer2D`, `ThirdPerson3D`, or `SlimeQuest`.
+2. Create a project from a template: `Empty2D`, `Simple2D` (recommended), `Platformer2D`, `ThirdPerson3D`, or `SlimeQuest`.
 3. Edit gameplay code in your project's `GameLogic/` folder.
 4. Click **Compile** in the editor.
 5. Export when ready.
@@ -13,6 +13,7 @@ Start here if you are making a game with RayWaves.
 ## Guides
 
 - [Game developer guide](../GAME_DEVELOPER_GUIDE.md) — templates, hot reload, workflow.
+- [Cookbook](cookbook.md) — copy-paste recipes for movement, markers, properties, audio.
 - [Fundamentals](../GUIDE_FUNDAMENTALS.md) — DLL contract, maps, StateBag, first map.
 - [Reference](../GUIDE_REFERENCE.md) — camera, input, audio, assets, export patterns.
 - [API reference](../API_REFERENCE.md) — engine classes.
@@ -39,5 +40,6 @@ flat in `Assets/`; the FileSystem panel groups files virtually by extension.
 - Hot-reload preserves state only through `SaveState` / `LoadState`.
 - Raw pointers, texture handles, and static gameplay state do not survive reload.
 - Rebuild after an ABI mismatch; the editor rejects stale DLLs.
-- Scene sprites are an editor prop layer drawn above the map; they do not
-  scroll with a gameplay camera.
+- Scene sprites are world-space editor props. Gameplay can read their `type`
+  tags through `GameMap::GetSceneObjects()` / `rw::Level::SceneObjectsOfType()`;
+  the engine still draws the sprite.

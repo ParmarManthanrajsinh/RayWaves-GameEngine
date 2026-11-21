@@ -5,6 +5,7 @@ add_executable(rwcli
     Cli/CliCommon.cpp
     Cli/Commands.cpp
     Cli/RunWorker.cpp
+    Cli/Scaffold.cpp
     Cli/main.cpp
 )
 

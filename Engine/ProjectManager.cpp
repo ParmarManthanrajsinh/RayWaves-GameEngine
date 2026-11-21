@@ -175,10 +175,20 @@ void ProjectManager::CloseProject()
 
 bool ProjectManager::b_CreateProject(std::string_view target_folder, std::string_view template_name)
 {
+    std::string ignored;
+    return b_CreateProject(target_folder, template_name, ignored);
+}
+
+bool ProjectManager::b_CreateProject(
+    std::string_view target_folder, std::string_view template_name, std::string& out_error)
+{
+    out_error.clear();
+
     fs::path target_path = target_folder;
     if (fs::exists(target_path))
     {
-        std::cerr << "Target folder already exists: " << target_folder << '\n';
+        out_error = "Target folder already exists: " + std::string(target_folder);
+        std::cerr << out_error << '\n';
         return false;
     }
 
@@ -193,7 +203,8 @@ bool ProjectManager::b_CreateProject(std::string_view target_folder, std::string
 
     if (!fs::exists(template_dir))
     {
-        std::cerr << "Template not found: " << template_dir.string() << '\n';
+        out_error = "Template not found: " + std::string(template_name);
+        std::cerr << out_error << " (" << template_dir.string() << ")\n";
         return false;
     }
 
@@ -217,7 +228,8 @@ bool ProjectManager::b_CreateProject(std::string_view target_folder, std::string
     }
     catch (const std::exception& e)
     {
-        std::cerr << "Failed to create project from template: " << e.what() << '\n';
+        out_error = "Failed to create project from template: " + std::string(e.what());
+        std::cerr << out_error << '\n';
         return false;
     }
 }

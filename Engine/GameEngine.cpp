@@ -173,6 +173,7 @@ void GameEngine::SetWindowMode(bool fullscreen)
 
 void GameEngine::SetMap(GameMap* game_map)
 {
+    ClearSceneFromMap();
     m_GameMap = game_map;
     if (m_GameMap != nullptr)
     {
@@ -255,12 +256,68 @@ bool GameEngine::b_SaveActiveScene()
 
 void GameEngine::UnloadScene()
 {
+    ClearSceneFromMap();
     if (!m_LoadedSceneKey.empty() && m_Scene.b_IsDirty())
     {
         b_SaveActiveScene();
     }
     m_Scene.Clear();
     m_LoadedSceneKey.clear();
+}
+
+GameMap* GameEngine::GetActiveMap()
+{
+    if (m_MapManager != nullptr)
+    {
+        return m_MapManager->GetCurrentMap();
+    }
+    return m_GameMap;
+}
+
+void GameEngine::ClearSceneFromMap()
+{
+    if (m_SceneMap != nullptr)
+    {
+        m_SceneMap->SetSceneObjects(nullptr, 0);
+        m_SceneMap = nullptr;
+    }
+}
+
+void GameEngine::PushSceneToMap()
+{
+    GameMap* map = GetActiveMap();
+    if (map == nullptr)
+    {
+        ClearSceneFromMap();
+        return;
+    }
+
+    std::vector<t_SceneObjectView> views;
+    views.reserve(m_Scene.GetObjects().size());
+    for (const t_SceneObject& object : m_Scene.GetObjects())
+    {
+        t_SceneObjectView view;
+        view.m_Id = object.m_Id;
+        view.m_Name = object.m_Name.c_str();
+        view.m_Type = object.m_Type.c_str();
+        view.m_TexturePath = object.m_TexturePath.c_str();
+        view.m_Position = object.m_Position;
+        view.m_Rotation = object.m_Rotation;
+        view.m_Scale = object.m_Scale;
+        view.m_Source = object.m_Source;
+        view.m_Tint = object.m_Tint;
+        view.m_Layer = object.m_Layer;
+        view.m_bVisible = object.m_bVisible;
+        views.push_back(view);
+    }
+
+    map->SetSceneObjects(views.empty() ? nullptr : views.data(), views.size());
+    m_SceneMap = map;
+}
+
+void GameEngine::RefreshSceneObjects()
+{
+    PushSceneToMap();
 }
 
 void GameEngine::SetSceneSaveGuard(SceneSaveGuard guard)
@@ -273,6 +330,12 @@ void GameEngine::SyncSceneWithMap()
     const std::string key = Scene::ToFileKey(GetActiveSceneKey());
     if (key == m_LoadedSceneKey)
     {
+        // Hot reload and map switches replace the map object without changing
+        // the key; push again so the new instance has the scene snapshot.
+        if (GetActiveMap() != m_SceneMap)
+        {
+            PushSceneToMap();
+        }
         return;
     }
 
@@ -285,10 +348,12 @@ void GameEngine::SyncSceneWithMap()
     {
         m_Scene.Clear();
         m_LoadedSceneKey.clear();
+        ClearSceneFromMap();
         return;
     }
 
     b_LoadActiveScene();
+    PushSceneToMap();
 }
 
 void GameEngine::DrawMap()
@@ -328,6 +393,10 @@ void GameEngine::UpdateMap(float dt)
     {
         m_GameMap->Update(dt);
     }
+
+    // A map switch or a reload can replace the active map object; keep the
+    // scene snapshot attached to whichever map is current.
+    SyncSceneWithMap();
 }
 
 void GameEngine::ResetMap()
@@ -345,6 +414,7 @@ void GameEngine::ResetMap()
 
 void GameEngine::SetMapManager(MapManager* map_manager)
 {
+    ClearSceneFromMap();
     m_MapManager = map_manager;
     if (m_MapManager != nullptr)
     {

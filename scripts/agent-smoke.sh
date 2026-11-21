@@ -41,6 +41,19 @@ echo "Agent smoke project: $TMP"
 "$RWCLI" doctor "$TMP" --json >/dev/null
 "$RWCLI" lsp "$TMP" --json >/dev/null
 
+echo "scaffold: templates/new/new-level" >&2
+"$RWCLI" templates --json > "$TMP/templates.json"
+grep -q 'Empty2D' "$TMP/templates.json"
+SCAFFOLD="$TMP/ScaffoldGame"
+"$RWCLI" new "$SCAFFOLD" --template Empty2D --json > "$TMP/new.json"
+grep -q '"ok":true' "$TMP/new.json"
+"$RWCLI" new-level "$SCAFFOLD" ExtraLevel --json > "$TMP/new-level.json"
+grep -q '"ok":true' "$TMP/new-level.json"
+grep -q '"registrationAdded":true' "$TMP/new-level.json"
+[ -f "$SCAFFOLD/GameLogic/ExtraLevel.h" ]
+"$RWCLI" build "$SCAFFOLD" --json > "$TMP/scaffold-build.json"
+grep -q '"ok":true' "$TMP/scaffold-build.json"
+
 WRAPPER="$TMP/.raywaves/bin/rwcli"
 [ -x "$WRAPPER" ] || { echo "rwcli wrapper missing" >&2; exit 1; }
 
@@ -61,6 +74,10 @@ grep -q '"nonEmpty":true' "$RUN_JSON"
 printf '0,KEY_RIGHT,down\n30,KEY_RIGHT,up\n' > "$TMP/input.txt"
 "$WRAPPER" run "$TMP" --frames 30 --input input.txt --json > "$TMP/input-run.json"
 grep -q '"ok":true' "$TMP/input-run.json"
+
+"$WRAPPER" scene add "$TMP" --map SmokeMap --name Spawn --type spawn --json > "$TMP/scene.json"
+grep -q '"ok":true' "$TMP/scene.json"
+grep -q 'type=spawn' "$TMP/Assets/SmokeMap.scene"
 
 "$WRAPPER" validate "$TMP" --json > "$TMP/validate.json"
 grep -q '"ok":true' "$TMP/validate.json"

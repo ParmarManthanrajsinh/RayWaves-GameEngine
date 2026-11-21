@@ -41,6 +41,9 @@ Current, intentional limits. Update this page when one changes.
 - **Levels need a map registered in `GameLogic`.** The FileSystem panel can
   create, open, and delete `Assets/<MapId>.scene` files, but it cannot define
   gameplay maps; those stay in code.
+- **Scene objects are read-only gameplay markers.** Maps can read their `type`
+  tag and transform (`SceneObjectsOfType`), but the engine still draws the
+  sprite; gameplay cannot take ownership of a scene object.
 - **Code opens in the system default editor.** There is no built-in C++ editor.
 - **`Assets/` imports are flat by design.** The FileSystem panel groups files
   virtually by extension; it does not create per-type subfolders.
@@ -58,6 +61,8 @@ Current, intentional limits. Update this page when one changes.
   and `static`/global gameplay state are lost with the old DLL.
 - GameLogic ABI is tied to `RAYWAVES_GAMELOGIC_ABI_VERSION`. The editor rejects
   mismatched or missing exports; rebuild instead of forcing a load.
+- Inspector-exposed `rw::Entity::Expose` values are carried across hot reloads
+  through `StateBag`, but reset when the application restarts.
 - A crash inside gameplay code can take down the editor because the DLL runs in
   the host process.
 

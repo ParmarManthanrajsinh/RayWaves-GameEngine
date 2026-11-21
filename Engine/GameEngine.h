@@ -33,7 +33,13 @@ private:
     Scene m_Scene;
     std::string m_LoadedSceneKey;
     SceneSaveGuard m_SceneSaveGuard;
+    // Map that currently owns a copy of the scene snapshot. Host-owned; never
+    // dereferenced after the map is unloaded.
+    GameMap* m_SceneMap = nullptr;
     void SyncSceneWithMap();
+    GameMap* GetActiveMap();
+    void ClearSceneFromMap();
+    void PushSceneToMap();
 
 public:
     GameEngine();
@@ -67,6 +73,10 @@ public:
     void SetSceneSaveGuard(SceneSaveGuard guard);
     bool b_LoadActiveScene();
     void UnloadScene();
+
+    // Re-push the current scene snapshot to the active map. The editor calls
+    // this when playback starts so edits made while stopped reach gameplay.
+    void RefreshSceneObjects();
 
     // MapManager integration methods
     void SetMapManager(MapManager* map_manager);

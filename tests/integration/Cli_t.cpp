@@ -64,7 +64,7 @@ TEST_CASE("rwcli reports project info and edits scenes")
     CHECK(info.find("CliGame") != std::string::npos);
 
     const std::string add = RunCli("scene add " + ProcessRunner::QuoteArg(project.string()) +
-        " --map TestMap --name Crate --texture crate.png --position 10,20 --json");
+        " --map TestMap --name Crate --type spawn --texture crate.png --position 10,20 --json");
     CHECK(add.find("\"ok\":true") != std::string::npos);
     CHECK(add.find("\"id\":1") != std::string::npos);
 
@@ -72,15 +72,48 @@ TEST_CASE("rwcli reports project info and edits scenes")
     REQUIRE(fs::exists(scene_file));
     const std::string scene_text = ReadFile(scene_file);
     CHECK(scene_text.find("name=Crate") != std::string::npos);
+    CHECK(scene_text.find("type=spawn") != std::string::npos);
     CHECK(scene_text.find("texture=crate.png") != std::string::npos);
 
     const std::string list = RunCli("scene list " + ProcessRunner::QuoteArg(project.string()) + " --json");
     CHECK(list.find("\"Crate\"") != std::string::npos);
+    CHECK(list.find("\"type\":\"spawn\"") != std::string::npos);
 
     const std::string remove =
         RunCli("scene remove " + ProcessRunner::QuoteArg(project.string()) + " --map TestMap --id 1 --json");
     CHECK(remove.find("\"ok\":true") != std::string::npos);
     CHECK(ReadFile(scene_file).find("name=Crate") == std::string::npos);
+}
+
+TEST_CASE("rwcli lists templates and scaffolds a project and level")
+{
+    TempDir temp("raywaves_cli_scaffold");
+    const fs::path project = temp.Path() / "ScaffoldGame";
+
+    const std::string templates = RunCli("templates --json");
+    CHECK(templates.find("\"ok\":true") != std::string::npos);
+    CHECK(templates.find("Empty2D") != std::string::npos);
+
+    const std::string created =
+        RunCli("new " + ProcessRunner::QuoteArg(project.string()) + " --template Empty2D --json");
+    CHECK(created.find("\"ok\":true") != std::string::npos);
+    CHECK(fs::exists(project / "project.raywaves"));
+    CHECK(fs::exists(project / "GameLogic" / "Game.cpp"));
+
+    const std::string level = RunCli("new-level " + ProcessRunner::QuoteArg(project.string()) + " LevelTwo --json");
+    CHECK(level.find("\"ok\":true") != std::string::npos);
+    CHECK(level.find("\"registrationAdded\":true") != std::string::npos);
+    CHECK(fs::exists(project / "GameLogic" / "LevelTwo.h"));
+
+    const std::string game_text = ReadFile(project / "GameLogic" / "Game.cpp");
+    const size_t first = game_text.find("AddLevel<LevelTwo>(\"LevelTwo\")");
+    REQUIRE(first != std::string::npos);
+    CHECK(game_text.find("AddLevel<LevelTwo>", first + 1) == std::string::npos);
+
+    const std::string again = RunCli("new-level " + ProcessRunner::QuoteArg(project.string()) + " LevelTwo --json");
+    CHECK(again.find("\"ok\":true") != std::string::npos);
+    CHECK(again.find("\"registrationAdded\":false") != std::string::npos);
+    CHECK(ReadFile(project / "GameLogic" / "Game.cpp") == game_text);
 }
 
 TEST_CASE("rwcli rejects a folder without a manifest")

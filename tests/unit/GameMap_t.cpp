@@ -17,6 +17,19 @@ public:
     StateBag m_SavedState;
 };
 
+class SceneAwareMap : public GameMap
+{
+public:
+    using GameMap::GameMap;
+
+    void Initialize() override {}
+    void Update(float /*delta_time*/) override {}
+    void Draw() override {}
+    void OnSceneChanged() override { ++m_SceneChanges; }
+
+    int m_SceneChanges = 0;
+};
+
 TEST_CASE("GameMap: SetProjectAssetPath")
 {
     TestGameMap map;
@@ -357,4 +370,47 @@ TEST_CASE("GameMap: editor entity keeps optional transform fields")
     CHECK(registered->m_Origin.y == doctest::Approx(8.0f));
     CHECK(registered->m_Rotation == &rotation);
     CHECK(registered->m_Visible == &visible);
+}
+
+TEST_CASE("GameMap: scene objects copy into map storage and fire the hook")
+{
+    SceneAwareMap map("Level");
+
+    t_SceneObjectView views[2]{};
+    views[0].m_Id = 3;
+    views[0].m_Name = "Spawn A";
+    views[0].m_Type = "spawn";
+    views[0].m_TexturePath = "marker.png";
+    views[0].m_Position = { 10.0f, 20.0f };
+    views[1].m_Id = 4;
+    views[1].m_Name = "Crate";
+    views[1].m_Type = "decor";
+    views[1].m_Position = { 30.0f, 40.0f };
+
+    map.SetSceneObjects(views, 2);
+
+    CHECK(map.m_SceneChanges == 1);
+    REQUIRE(map.GetSceneObjects().size() == 2);
+    CHECK(map.GetSceneObjects()[0].m_Name == "Spawn A");
+    CHECK(map.GetSceneObjects()[0].m_Type == "spawn");
+    CHECK(map.GetSceneObjects()[0].m_TexturePath == "marker.png");
+    CHECK(map.GetSceneObjects()[0].m_Position.x == doctest::Approx(10.0f));
+
+    CHECK(map.FindSceneObject("Crate") != nullptr);
+    CHECK(map.FindSceneObject("Missing") == nullptr);
+    const auto spawns = map.FindSceneObjectsOfType("spawn");
+    REQUIRE(spawns.size() == 1);
+    CHECK(spawns.front()->m_Name == "Spawn A");
+
+    t_SceneObjectView sparse{};
+    sparse.m_Id = 9;
+    map.SetSceneObjects(&sparse, 1);
+    REQUIRE(map.GetSceneObjects().size() == 1);
+    CHECK(map.GetSceneObjects().front().m_Name.empty());
+    CHECK(map.GetSceneObjects().front().m_Type.empty());
+    CHECK(map.m_SceneChanges == 2);
+
+    map.SetSceneObjects(nullptr, 0);
+    CHECK(map.GetSceneObjects().empty());
+    CHECK(map.m_SceneChanges == 3);
 }

@@ -11,6 +11,7 @@
 #include "PlatformNames.h"
 #include "ProcessRunner.h"
 #include "ProjectManager.h"
+#include "Scaffold.h"
 #include "Scene.h"
 #include <algorithm>
 #include <chrono>
@@ -731,7 +732,8 @@ int SceneCommand(const FProjectContext& project, const FArgs& args, bool b_json,
             for (const t_SceneObject& object : scene.GetObjects())
             {
                 objects.push_back("{" + CliJson::Key("id") + CliJson::Number(static_cast<int>(object.m_Id)) + "," +
-                    CliJson::Key("name") + CliJson::Quoted(object.m_Name) + "," + CliJson::Key("texture") +
+                    CliJson::Key("name") + CliJson::Quoted(object.m_Name) + "," + CliJson::Key("type") +
+                    CliJson::Quoted(object.m_Type) + "," + CliJson::Key("texture") +
                     CliJson::Quoted(object.m_TexturePath) + "," + CliJson::Key("position") + "[" +
                     CliJson::Number(object.m_Position.x) + "," + CliJson::Number(object.m_Position.y) + "]," +
                     CliJson::Key("layer") + CliJson::Number(object.m_Layer) + "," + CliJson::Key("visible") +
@@ -795,6 +797,7 @@ int SceneCommand(const FProjectContext& project, const FArgs& args, bool b_json,
     if (subcommand == "add")
     {
         t_SceneObject& object = scene.AddObject(args.Get("name", "Object"));
+        object.m_Type = args.Get("type", "");
         object.m_TexturePath = args.Get("texture", "");
         const std::string position = args.Get("position", "");
         if (!position.empty())
@@ -837,6 +840,10 @@ int SceneCommand(const FProjectContext& project, const FArgs& args, bool b_json,
         if (args.b_Has("name"))
         {
             target->m_Name = args.Get("name");
+        }
+        if (args.b_Has("type"))
+        {
+            target->m_Type = args.Get("type");
         }
         if (args.b_Has("texture"))
         {
@@ -1118,6 +1125,9 @@ void PrintGeneralHelp()
                  "  rwcli help [command]\n"
                  "  rwcli --version\n\n"
                  "Commands:\n"
+                 "  templates list project templates\n"
+                 "  new       create a project from a template\n"
+                 "  new-level scaffold a level and register it\n"
                  "  doctor    toolchain, manifest, scenes, lock, IDE config\n"
                  "  info      project paths, scenes, tool availability\n"
                  "  maps      map ids from the DLL or scene filenames\n"
@@ -1133,7 +1143,22 @@ void PrintGeneralHelp()
 
 void PrintCommandHelp(std::string_view command)
 {
-    if (command == "doctor")
+    if (command == "templates")
+    {
+        std::cout << "rwcli templates [--json]\n"
+                     "Lists project templates available to `rwcli new`.\n";
+    }
+    else if (command == "new")
+    {
+        std::cout << "rwcli new <targetDir> [--template Simple2D] [--json]\n"
+                     "Copies a template into <targetDir> and writes the generated project files.\n";
+    }
+    else if (command == "new-level")
+    {
+        std::cout << "rwcli new-level <project> <Name> [--id MapId] [--dry-run] [--json]\n"
+                     "Creates <sourceDir>/<Name>.h and registers it in RootManager.cpp (or Game.cpp).\n";
+    }
+    else if (command == "doctor")
     {
         std::cout << "rwcli doctor <project> [--fix] [--json]\n"
                      "Checks manifest, dirs, scenes, textures, RW_GAME, tools, lock, IDE config.\n";
@@ -1178,9 +1203,9 @@ void PrintCommandHelp(std::string_view command)
     else if (command == "scene")
     {
         std::cout << "rwcli scene list <project> [--map M] [--json]\n"
-                     "rwcli scene add <project> --map M --name NAME [--texture T] [--position X,Y]\n"
+                     "rwcli scene add <project> --map M --name NAME [--type TAG] [--texture T] [--position X,Y]\n"
                      "  [--scale S|SX,SY] [--rotation DEG] [--layer N] [--json]\n"
-                     "rwcli scene set <project> --map M --id N [--position X,Y] [--rotation DEG]\n"
+                     "rwcli scene set <project> --map M --id N [--type TAG] [--position X,Y] [--rotation DEG]\n"
                      "  [--layer N] [--visible 0|1] [--name NAME] [--texture T] [--json]\n"
                      "rwcli scene duplicate <project> --map M --id N [--json]\n"
                      "rwcli scene remove <project> --map M --id N [--json]\n"
@@ -1358,8 +1383,17 @@ int Run(const FArgs& args)
     }
 
     const std::string command = args.m_Positional[0];
+    if (command == "templates")
+    {
+        return TemplatesCommand(b_json);
+    }
+    if (command == "new")
+    {
+        return NewCommand(args, b_json);
+    }
+
     if (command == "doctor" || command == "info" || command == "maps" || command == "validate" || command == "build" ||
-        command == "run" || command == "lsp")
+        command == "run" || command == "lsp" || command == "new-level")
     {
         const std::string project_path = args.m_Positional.size() > 1 ? args.m_Positional[1] : "";
         FProjectContext project;
@@ -1393,6 +1427,10 @@ int Run(const FArgs& args)
         if (command == "lsp")
         {
             return LspCommand(project, args, b_json);
+        }
+        if (command == "new-level")
+        {
+            return NewLevelCommand(args, b_json);
         }
         return Cli::RunCommand(project, args, b_json);
     }

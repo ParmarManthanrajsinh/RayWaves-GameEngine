@@ -5,6 +5,8 @@ them alphabetically and preselects `Simple2D`.
 
 ## Simple API (`Engine/rw.h`)
 
+- `Empty2D/` - blank multi-level starter: `rw::Game`, one empty level, no
+  assets. The easiest base for a new game.
 - `Simple2D/` - smallest complete game: one `rw::Level`, a sprite, a follow
   camera, and three editor-visible props. Start here.
 - `Platformer2D/` - movement, jumping, and rectangle collision on top of

@@ -236,6 +236,50 @@ returns.
 
 ---
 
+## 🎬 Scene Objects and Exposed Properties
+
+The editor-authored `.scene` layer is readable from gameplay. The engine still
+draws every scene sprite; game code treats the data as markers.
+
+```cpp
+protected:
+    void OnSceneLoaded() override
+    {
+        for (const t_SceneObjectInfo* marker : SceneObjectsOfType("spawn"))
+        {
+            Spawn(marker->m_Name, marker->m_Position);
+        }
+    }
+```
+
+| API | Purpose |
+|---|---|
+| `SceneObjects()` | Every scene object in the active map (copied map-side). |
+| `SceneObjectsOfType(type)` | Pointers whose `type` tag matches. |
+| `FindSceneObject(name)` | One object by name, or `nullptr`. |
+| `OnSceneLoaded()` | `rw::Level` hook: the scene snapshot arrived or changed. |
+
+With a raw `MapManager`, read from `GetCurrentMap()->GetSceneObjects()`. The
+manager itself does not store a snapshot.
+
+`type` is free-form (`spawn`, `enemy`, `decor`, ...), set in the Inspector under
+**Type / Tag** or with `rwcli scene --type`.
+
+Gameplay values can also be exposed to the Inspector:
+
+```cpp
+m_Slime = Spawn("Slime", { 400, 300 }, { 64, 64 });
+m_Slime->Expose("Speed", &m_Speed, 0.0f, 500.0f);
+m_Slime->Expose("Health", &m_Health, 0, 100);
+m_Slime->Expose("Flying", &m_bFlying);
+m_Slime->Expose("Patrol", &m_PatrolRange);
+```
+
+Supported types: `float`, `int`, `bool`, `Vector2`. `rw::Level` carries the
+values across hot reloads through `StateBag`; a full app restart resets them.
+
+---
+
 ## ⚙️ GameConfig
 
 Access and modify global engine settings like window resolution and VSync.

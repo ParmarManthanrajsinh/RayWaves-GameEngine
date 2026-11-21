@@ -47,6 +47,10 @@ namespace
 // template READMEs; unknown folders simply show no description.
 const char* s_TemplateDescription(std::string_view name)
 {
+    if (name == "Empty2D")
+    {
+        return "Blank multi-level starter: rw::Game, one empty level, no assets.";
+    }
     if (name == "Simple2D")
     {
         return "Recommended start: rw::Level, one sprite, follow camera.";
@@ -827,6 +831,8 @@ void GameEditor::RefreshEditorEntities()
         ref.m_Position3D = entity.m_Position3D;
         ref.m_Size3D = entity.m_Size3D;
         ref.m_Origin3D = entity.m_Origin3D;
+        ref.m_Properties = entity.m_Properties;
+        ref.m_PropertyCount = entity.m_PropertyCount;
         m_EditorEntities.push_back(std::move(ref));
     }
 

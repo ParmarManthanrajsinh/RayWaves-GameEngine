@@ -69,6 +69,9 @@ Examples abbreviate the wrapper as `rwcli`. On Windows use
 |---|---|
 | `help [command]` | general or per-command usage |
 | `--version` | print the CLI/engine version |
+| `templates` | list project templates |
+| `new <targetDir>` | create a project from a template |
+| `new-level <project> <Name>` | scaffold a level and register it |
 | `doctor <project>` | toolchain, manifest, scenes, lock, IDE config |
 | `info <project>` | manifest paths, scenes, tools |
 | `maps <project>` | map ids from the DLL, or scene stems |
@@ -87,6 +90,40 @@ rwcli help run
 rwcli build --help
 rwcli --version
 ```
+
+### templates
+
+```text
+rwcli templates
+rwcli templates --json
+```
+
+Lists the folders shipped as project templates: `Empty2D`, `Platformer2D`,
+`Simple2D`, `SlimeQuest`, `ThirdPerson3D`.
+
+### new
+
+```text
+rwcli new MyGame
+rwcli new C:\Projects\MyGame --template Empty2D --json
+```
+
+Copies a template, rewrites the manifest name, and generates `.raywaves/`,
+`.clangd`, `.vscode/`, `AGENTS.md`, and the project skill. The target folder
+must not exist. JSON: `{ok, project, template, nextSteps[]}`.
+
+### new-level
+
+```text
+rwcli new-level . MyLevel
+rwcli new-level . MyLevel --id LevelTwo --dry-run --json
+```
+
+Creates `<sourceDir>/MyLevel.h` from the `rw::Level` skeleton and inserts
+`AddLevel<MyLevel>("MyLevel")` before `Start(...)` (or `RegisterMap<MyLevel>`
+in a raw `MapManager` project). Add `--id` to decouple the map id from the
+class name. Rerunning is idempotent. JSON: `{ok, level, mapId, header,
+created, entryPoint, includeAdded, registrationAdded, dryRun, warnings[]}`.
 
 ### doctor
 
@@ -175,16 +212,20 @@ overwrite `AGENTS.md`, `SKILL.md`, or `reference.md`.
 
 ```text
 rwcli scene list . --json
-rwcli scene add . --map Platformer2D --name Crate --texture crate.png --position 620,300
+rwcli scene add . --map Platformer2D --name Crate --type decor --texture crate.png --position 620,300
+rwcli scene add . --map Platformer2D --name Spawn A --type spawn --position 620,300
 rwcli scene set . --map Platformer2D --id 1 --position 700,300
 rwcli scene duplicate . --map Platformer2D --id 1
 rwcli scene remove . --map Platformer2D --id 1
 ```
 
 `--map` is required when more than one `.scene` exists. `add` accepts
-`--texture`, `--position X,Y`, `--scale S|SX,SY`, `--rotation`, `--layer`.
-`set` accepts `--name`, `--texture`, `--position`, `--rotation`, `--layer`,
-`--visible 0|1`. Use `--dry-run` to validate without writing.
+`--type TAG`, `--texture`, `--position X,Y`, `--scale S|SX,SY`, `--rotation`,
+`--layer`. `set` accepts `--type`, `--name`, `--texture`, `--position`,
+`--rotation`, `--layer`, `--visible 0|1`. Use `--dry-run` to validate without
+writing. The `type` tag is free-form data for gameplay
+(`GameMap::GetSceneObjects()` / `rw::Level::SceneObjectsOfType()`); the engine
+still draws the sprite.
 
 ### assets
 

@@ -13,6 +13,9 @@ struct t_SceneObject
 {
     uint32_t m_Id = 0;
     std::string m_Name;
+    // Free-form gameplay tag. The engine only draws the sprite; game code can
+    // read it through GameMap::GetSceneObjects() to find spawn points or decor.
+    std::string m_Type;
     std::string m_TexturePath;
     Texture2D m_Texture{};
     Vector2 m_Position{ 0.0f, 0.0f };

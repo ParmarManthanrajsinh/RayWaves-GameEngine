@@ -75,7 +75,12 @@ RW_GAME(MyLevel)
 ```
 
 - `rw::Game` + `AddLevel<T>("id")` for multiple levels.
+- `rwcli new-level . MyLevel` scaffolds a level and registers it.
 - `Spawn(name, position, size, origin)` registers with the editor and `rwcli state`.
+- `OnSceneLoaded()` + `SceneObjectsOfType("spawn")` spawn actors from
+  editor-placed markers.
+- `entity->Expose("Speed", &m_Speed, 0.0f, 500.0f)` adds an Inspector field;
+  values survive hot reloads.
 - `rw::IsKeyDown` / `rw::IsKeyPressed` / `rw::IsMouseButtonDown` are replayable
   by `rwcli run --input script.txt`. Raw `IsKeyDown` still works but is not
   scriptable.
@@ -89,7 +94,7 @@ RW_GAME(MyLevel)
 - Do not edit `.raywaves/`; it is generated.
 - Asset names: `A-Z a-z 0-9 . _ -`.
 - Scene files: prefer `rwcli scene ...`; hand-editing is allowed, keys are
-  `id,name,texture,position,rotation,scale,source,tint,layer,visible`.
+  `id,name,type,texture,position,rotation,scale,source,tint,layer,visible`.
 - Close the editor before scene edits, or rely on the agent lock.
 
 ## Failure recovery
