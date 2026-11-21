@@ -27,7 +27,7 @@ path=/opt/RayWaves/rwcli        # Linux
 # path=D:\RayWaves\rwcli.exe  # Windows
 packageRoot=/opt/RayWaves
 engineRoot=/opt/RayWaves
-version=0.1.0
+version=0.6.0
 
 [project]
 root=/home/me/Games/MyGame

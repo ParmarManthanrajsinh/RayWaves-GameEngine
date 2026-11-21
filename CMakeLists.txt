@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 3.25)
 # wrappers rather than the host compiler.
 include(cmake/Toolchain.cmake)
 
-project(RayWaves VERSION 0.1.0 LANGUAGES C CXX)
+project(RayWaves VERSION 0.6.0 LANGUAGES C CXX)
 
 find_package(Threads REQUIRED)
 
