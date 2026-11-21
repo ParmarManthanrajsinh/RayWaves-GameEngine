@@ -1,0 +1,13 @@
+Research
+↓
+Architecture
+↓
+Implementation
+↓
+Optimization
+↓
+Testing
+↓
+Refactoring
+↓
+Iteration
