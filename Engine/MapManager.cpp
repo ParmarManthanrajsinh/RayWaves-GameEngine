@@ -243,7 +243,6 @@ bool MapManager::b_GotoMap(std::string_view map_id, bool force_reload)
     // If it's the same map and we don't want to force reload, just return true
     if (m_CurrentMapId == map_id && !force_reload)
     {
-        std::cerr << "[MapManager] Map '" << map_id << "' is already loaded" << "\n";
         return true;
     }
 

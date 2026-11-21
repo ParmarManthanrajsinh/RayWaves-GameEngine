@@ -74,7 +74,7 @@ MyNewGame/
 ├─ project.raywaves         # Manifest (name, version, scene settings)
 ├─ Assets/                  # Flat: textures, audio, fonts, <MapId>.scene
 ├─ GameLogic/               # Your C++ gameplay code
-│  ├─ RootManager.cpp       # Registers maps with RegisterMap<T>()
+│  ├─ RootManager.cpp       # rw::Game entry point: AddLevel<T>() + Start
 │  └─ ...                   # Any number of maps, entities, systems
 ├─ .raywaves/               # Editor/CLI cache (auto-generated)
 │  ├─ CMakeLists.txt        # Generated from packaging/Project.CMakeLists.in

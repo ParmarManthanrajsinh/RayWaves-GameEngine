@@ -403,7 +403,7 @@ RequestGotoMap("NextLevel");
 
 **Option 2: StateBag in the manager map** (survives reload and restart)
 
-Override `SaveState`/`LoadState` on your MapManager-derived class (see SlimeQuest's `RootManager.cpp`). StateBag is available to all child maps via `GameMap::SaveState`/`LoadState`.
+Override `SaveState`/`LoadState` on your `rw::Game`/`MapManager` subclass and register it with `RW_GAME`. StateBag is available to all child maps via `GameMap::SaveState`/`LoadState`.
 
 ### HUD Overlay
 

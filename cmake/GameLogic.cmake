@@ -38,7 +38,7 @@ foreach(TEMPLATE Simple2D Platformer2D)
     add_dependencies(${TEMPLATE}TemplateCheck stage_raylib)
 endforeach()
 
-# 3D template has no Game.cpp; RootManager owns the RW_GAME export.
+# 3D template has no Game.cpp; RootManager.cpp owns the RW_GAME export.
 add_library(ThirdPerson3DTemplateCheck OBJECT templates/ThirdPerson3D/GameLogic/RootManager.cpp)
 target_include_directories(ThirdPerson3DTemplateCheck PRIVATE
     ${CMAKE_SOURCE_DIR}

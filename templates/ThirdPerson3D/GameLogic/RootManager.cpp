@@ -1,36 +1,16 @@
-#include "../Engine/GameLogicExports.h"
-#include "../Engine/GameMap.h"
-#include "../Engine/MapManager.h"
 #include "ThirdPersonMap.h"
-#include <cstdint>
+#include "rw.h"
 
-static MapManager* s_GameMapManager = nullptr;
-
-RW_GAMELOGIC_EXPORT uint32_t GetGameLogicAbiVersion()
+// Module entry point. Add a level with one AddLevel<T>() line; RW_GAME
+// generates the three exports the editor and runtime load.
+class ThirdPersonGame : public rw::Game
 {
-    return RAYWAVES_GAMELOGIC_ABI_VERSION;
-}
-
-RW_GAMELOGIC_EXPORT GameMap* CreateGameMap()
-{
-    if (s_GameMapManager == nullptr)
+public:
+    ThirdPersonGame()
     {
-        s_GameMapManager = new MapManager();
-        s_GameMapManager->RegisterMap<ThirdPersonMap>("ThirdPersonMap");
+        AddLevel<ThirdPersonMap>("ThirdPersonMap", "Third-person sandbox");
+        Start("ThirdPersonMap");
     }
+};
 
-    s_GameMapManager->b_GotoMap("ThirdPersonMap");
-    return s_GameMapManager;
-}
-
-RW_GAMELOGIC_EXPORT void DestroyGameMap(GameMap* map_manager)
-{
-    if (map_manager != nullptr)
-    {
-        delete map_manager;
-        if (map_manager == s_GameMapManager)
-        {
-            s_GameMapManager = nullptr;
-        }
-    }
-}
+RW_GAME(ThirdPersonGame)

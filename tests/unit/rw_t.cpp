@@ -224,3 +224,19 @@ TEST_CASE("rw::Game: levels register and the initial level starts")
     CHECK(game.GetCurrentMap()->GetEditorEntities().size() == 2);
     CHECK(game.GetCurrentMap()->GetMutableViewCamera() != nullptr);
 }
+
+TEST_CASE("rw::Game: GoTo switches levels and rebuilds the editor registry")
+{
+    rw::Game game;
+    game.AddLevel<TestLevel>("menu");
+    game.AddLevel<TestLevel>("play");
+    game.Start("menu");
+    game.Initialize();
+
+    REQUIRE(game.GetCurrentMapId() == "menu");
+
+    CHECK(game.GoTo("play"));
+    CHECK(game.GetCurrentMapId() == "play");
+    REQUIRE(game.GetCurrentMap() != nullptr);
+    CHECK(game.GetCurrentMap()->GetEditorEntities().size() == 2);
+}

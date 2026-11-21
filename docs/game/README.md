@@ -25,7 +25,7 @@ MyGame/
 ├─ project.raywaves      # Project manifest
 ├─ Assets/               # Flat: textures, audio, fonts, <MapId>.scene
 ├─ GameLogic/            # Your C++ gameplay code
-│  ├─ RootManager.cpp    # Registers maps
+│  ├─ RootManager.cpp    # rw::Game entry point: AddLevel<T>() + Start
 │  └─ YourMap.cpp
 └─ .raywaves/            # Generated build cache (do not edit)
 ```

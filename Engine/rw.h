@@ -845,14 +845,15 @@ class Game : public MapManager
 {
 public:
     template <typename LevelType>
-    void AddLevel(std::string_view id, std::string_view description = "")
+    Game& AddLevel(std::string_view id, std::string_view description = "")
     {
         static_assert(std::is_base_of_v<GameMap, LevelType>, "rw::Game::AddLevel requires a GameMap subclass");
         RegisterMap<LevelType>(id, description);
+        return *this;
     }
 
     void Start(std::string_view level_id) { SetInitialMap(level_id); }
-    void GoTo(std::string_view level_id, bool force_reload = false) { b_GotoMap(level_id, force_reload); }
+    bool GoTo(std::string_view level_id, bool force_reload = false) { return b_GotoMap(level_id, force_reload); }
 };
 
 namespace detail

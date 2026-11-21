@@ -8,49 +8,40 @@
 
 RayWaves compiles your `GameLogic/` code into a **module** (`GameLogic.dll` on Windows, `GameLogic.so` on Linux). The editor loads it at runtime, calls into it, and hot-reloads it when you recompile.
 
-Every project **must** export three symbols. Raw `GameMap` projects write them by
-hand in `RootManager.cpp`; `rw` projects generate them with `RW_GAME`.
+Every project **must** export three symbols. `RW_GAME(Type)` generates them for
+you in `RootManager.cpp` (or `Game.cpp` in the `rw` templates):
 
 ```cpp
-#include "Engine/GameMap.h"
-#include <cstdint>
+#include "rw.h"
 
-static MapManager* s_GameMapManager = nullptr;
-
-extern "C" __declspec(dllexport) uint32_t GetGameLogicAbiVersion()
+class MyGame : public rw::Game
 {
-    return RAYWAVES_GAMELOGIC_ABI_VERSION;
-}
-
-extern "C" __declspec(dllexport) GameMap* CreateGameMap()
-{
-    if (s_GameMapManager == nullptr)
+public:
+    MyGame()
     {
-        s_GameMapManager = new MapManager();
-
-        // Register all your maps here (one-time setup)
-        s_GameMapManager->RegisterMap<MyLevel>("MyLevel");
+        AddLevel<MyLevel>("MyLevel", "First level");
+        Start("MyLevel");
     }
+};
 
-    // Set which map loads first
-    s_GameMapManager->b_GotoMap("MyLevel");
-    return s_GameMapManager;
-}
-
-extern "C" __declspec(dllexport) void DestroyGameMap(GameMap* map_manager)
-{
-    delete map_manager;
-    if (map_manager == s_GameMapManager)
-        s_GameMapManager = nullptr;
-}
+// GetGameLogicAbiVersion, CreateGameMap, DestroyGameMap
+RW_GAME(MyGame)
 ```
+
+Adding a map is one line: `AddLevel<NewMap>("NewMap")` in the constructor.
+`AddLevel` accepts any `GameMap` subclass, including hand-written maps.
 
 ### Key Rules
 
 - **GetGameLogicAbiVersion** must return `RAYWAVES_GAMELOGIC_ABI_VERSION` (defined in `Engine/GameMap.h`). The editor and the standalone runtime **refuse to load** any DLL that is missing this export or returns a mismatched version — rebuild your GameLogic with the current engine version if you see this error.
-- **CreateGameMap** is called once when the DLL loads. `RegisterMap<>` calls must happen inside the `if (s_GameMapManager == nullptr)` guard — they register map types, not map instances.
-- **DestroyGameMap** is called when the editor closes or unloads the DLL. It must clean up all memory.
-- The `static` pointer outside the guard means **map registrations survive hot-reloads**. On recompile, `CreateGameMap` is called again, but `s_GameMapManager` is not null (since the global variable in the DLL persists), so registration is skipped. Only `b_GotoMap` runs to restore the current map.
+- **CreateGameMap** is called when the module loads. `RW_GAME` creates the game instance once per module load and reuses it until `DestroyGameMap`.
+- **DestroyGameMap** is called when the editor closes or unloads the module. `RW_GAME` deletes the instance inside the module, so there is no manual `delete`, static pointer, or cleanup guard to maintain.
+- Map registrations live in the game constructor. On hot reload the new module is constructed from scratch, so `AddLevel`/`RegisterMap` run again and `Start(...)` seeds the initial map. Durable gameplay state still has to go through `StateBag` (see below).
+
+> Advanced: a custom manager can still write the three exports by hand and mark
+> them with `RW_GAMELOGIC_EXPORT` from `Engine/GameLogicExports.h`. That macro is
+> portable (`__declspec(dllexport)` on Windows, `visibility("default")` on
+> Linux), so no `__declspec` belongs in your own code.
 
 ---
 
@@ -83,7 +74,7 @@ When you click **Compile**:
 1. `SaveState()` is called on the current map — you save values you want to preserve (player position, score, etc.) into the `StateBag`.
 2. The old GameLogic module is unloaded — all its memory is freed.
 3. The new GameLogic module is loaded — `CreateGameMap()` is called.
-4. `s_GameMapManager` is **null** in the new DLL (it's a fresh global), so `new MapManager()` runs and maps are re-registered.
+4. `RW_GAME` constructs a fresh game instance, so `AddLevel`/`RegisterMap` run again and `Start(...)` loads the initial map.
 5. The editor requests the previous map. `Initialize()` runs on the new map instance.
 6. `LoadState()` is called with the same `StateBag` — you restore preserved values.
 
@@ -294,7 +285,7 @@ Compile again. Press SPACE to move from the menu to the level.
 - The actual transition happens after `Update()` returns — not immediately.
 
 When you need the low-level API instead (custom cameras, non-entity state),
-`SlimeQuest` shows the raw `GameMap` + `RootManager.cpp` path.
+`SlimeQuest` shows raw `GameMap` levels registered through `rw::Game` in `RootManager.cpp`.
 
 ---
 

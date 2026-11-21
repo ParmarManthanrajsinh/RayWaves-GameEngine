@@ -159,13 +159,25 @@ public:
 };
 ```
 
-Register it in your project's `RootManager.cpp`:
+Register it in your project's `RootManager.cpp` with one line:
 
 ```cpp
-s_GameMapManager->RegisterMap<MyLevel>("Level_1");
+class MyGame : public rw::Game
+{
+public:
+    MyGame()
+    {
+        AddLevel<MyLevel>("Level_1", "My first level");
+        Start("Level_1");
+    }
+};
+
+RW_GAME(MyGame)
 ```
 
-Gameplay code belongs in your project's `GameLogic/`, never in `Engine/`.
+Raw `GameMap` classes work with `AddLevel` (it only requires a `GameMap`
+subclass). Gameplay code belongs in your project's `GameLogic/`, never in
+`Engine/`.
 
 ## License
 

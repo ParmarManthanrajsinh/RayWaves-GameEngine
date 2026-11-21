@@ -44,6 +44,44 @@ toolchain; Linux builds with system GCC/G++.
 - The project manifest stores `entryDll=GameLogic`, a logical stem. The host
   appends `.dll` or `.so` at load time.
 
+## Cross-Platform Code
+
+Windows and Linux are peer targets. A change that touches OS behavior is not
+done until both backends exist and both builds compile.
+
+- Shared contract first: declare the API in a shared header, then implement it
+  in `Runtime/platform/Win32/` and `Runtime/platform/Posix/` (or the matching
+  `Editor/platform/` pair) in the same change.
+- Never land one backend alone. If Windows gets `X.cpp`, Posix gets `X.cpp`.
+  When the OS cannot support the feature, implement an explicit unsupported
+  path (return false with a clear error, or expose `b_IsSupported()`/`LastError()`
+  where the API has them), not a silent no-op.
+- Add both files to CMake (`cmake/Runtime.cmake`, `cmake/Editor.cmake` via
+  `${RAYWAVES_PLATFORM_DIR}`). A platform file without its counterpart is a
+  Definition-of-Done failure.
+- Keep `#if defined(_WIN32)` out of shared code. The only allowed compile-time
+  split is `Engine/PlatformNames.h` and the `platform/{Win32,Posix}/` folders.
+  Use `PlatformInfo` / `PlatformNames` for paths, pid, environment, module names,
+  and suffixes.
+- Match behavior across backends: same function names, signatures, error
+  reporting, cancellation, and lifetime rules. Prefer native APIs
+  (`LoadLibrary`/`dlopen`, `CreateProcessA`/`fork`+`exec`, ConPTY/`posix_openpt`).
+- Add the platform source to the format/lint scope (`Tools/run_analysis.bat`),
+  and test the shared contract. Platform-specific tests go in
+  `tests/integration/` (`Pty_t`, `DllLoader_t`, `ProcessRunner_t`).
+- Do not assume case-sensitive paths, `/` separators, or POSIX permissions in
+  shared tests; assert with `std::filesystem` (`equivalent`, `path` comparison).
+
+| Feature | Windows | Linux |
+|---|---|---|
+| Shell open, file association | `Editor/platform/Win32/{EditorUtils,FileAssociation}.cpp` | `Editor/platform/Posix/{EditorUtils,FileAssociation}.cpp` |
+| Terminal PTY | `Editor/platform/Win32/pty_session.cpp` | `Editor/platform/Posix/pty_session.cpp` |
+| Module loading | `Runtime/platform/Win32/DllLoader.cpp` | `Runtime/platform/Posix/DllLoader.cpp` |
+| Process runner | `Runtime/platform/Win32/ProcessRunner.cpp` | `Runtime/platform/Posix/ProcessRunner.cpp` |
+| CRT import scan | `Runtime/platform/Win32/PeCrtCheck.cpp` | `Runtime/platform/Posix/PeCrtCheck.cpp` (stub) |
+| Host services | `Engine/PlatformInfo.cpp` (`_WIN32` branch) | `Engine/PlatformInfo.cpp` (POSIX branch) |
+| Window tweaks | `Engine/WindowUtils.cpp` (Win32) | `Engine/WindowUtils.cpp` + `Engine/X11WindowType.cpp` |
+
 ## Repository Map
 
 ```text
@@ -80,6 +118,10 @@ Allman braces. Comments explain Why, not What, and only when needed.
 | `F` | editor struct type | `FThemePreset`, `FBuildMessage` |
 | `E` | enum type | `EBuildStatus`, `EEditorFont` |
 | `c_` / `k_` | compile-time constant | `c_NUM_SEGMENTS`, `k_FrameCount` |
+
+Platform behavior is code, not `#ifdef`: shared logic calls `PlatformInfo` or a
+platform backend; only `PlatformNames.h` and `platform/{Win32,Posix}/` may branch
+on the OS at compile time.
 
 Formatting and lint (Windows):
 
@@ -269,6 +311,12 @@ scripts/package.ps1 -IncludeCompiler -Zip
 - Build passes for `zig-debug` and `zig-release` on the host OS.
 - `scripts/check.ps1` (Windows) or `./scripts/check.sh` (Linux) passes; both
   include the format, docs, and test gates when their tools are available.
+- Platform-specific changes update both `Win32` and `Posix` backends, or provide
+  an explicit unsupported path, and register both in the CMake module lists.
+- Shared tests pass on both hosts: no case-sensitive path assumptions, no
+  hardcoded `/` or `\`, no POSIX-only filesystem expectations.
+- If the other OS is not available locally, verify its `cmake/*.cmake`
+  conditionals and keep the matching CI job in `.github/workflows/ci.yml` green.
 - CI matrix in `.github/workflows/ci.yml` covers Windows and Linux; do not add a
   Windows-only step without a Linux equivalent.
 - New behavior has a test; new hot path has a benchmark.

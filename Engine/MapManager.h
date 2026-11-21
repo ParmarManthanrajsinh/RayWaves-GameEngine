@@ -16,18 +16,23 @@
  * 
  * Example Usage:
  * @code
- * // In your map registration (usually in Initialize):
- * manager.RegisterMap<YourMapClass>("map_id");
+ * // Register maps (chainable) and pick the first one:
+ * manager.RegisterMap<MenuMap>("menu")
+ *        .RegisterMap<LevelMap>("level")
+ *        .SetInitialMap("menu");
  * 
  * // Switch maps anywhere in your code:
- * manager.b_GotoMap("map_id");
+ * manager.b_GotoMap("level");
  * 
  * // Check current map:
- * if (manager.b_IsCurrentMap("map_id")) 
+ * if (manager.b_IsCurrentMap("level")) 
  * {
  *     // Do something specific to that map
  * }
  * @endcode
+ *
+ * Most projects register through rw::Game + AddLevel<T>() instead; this class
+ * stays the raw foundation for custom managers.
  */
 class MapManager : public GameMap
 {
@@ -90,7 +95,7 @@ public:
     Camera3D GetViewCamera3D() const override;
 
     template <typename T>
-    void RegisterMap(std::string_view map_id, std::string_view description = "");
+    MapManager& RegisterMap(std::string_view map_id, std::string_view description = "");
     // Returns true when the swap happened, or when it was queued because a
     // swap is already in progress (applied by the next Update()/Draw()).
     bool b_GotoMap(std::string_view map_id, bool force_reload = false);
@@ -130,7 +135,7 @@ private:
 */
 
 template <typename T>
-void MapManager::RegisterMap(std::string_view map_id, std::string_view description)
+MapManager& MapManager::RegisterMap(std::string_view map_id, std::string_view description)
 {
     static_assert(std::is_base_of_v<GameMap, T>, "Map type must inherit from GameMap");
 
@@ -142,31 +147,5 @@ void MapManager::RegisterMap(std::string_view map_id, std::string_view descripti
 
     m_bMapsCacheDirty = true;
     std::cerr << "[MapManager] Registered map: " << map_id << "::" << description << std::endl;
-}
-/*
-+----------------------------------------------------------------+
-|                    HELPER TEMPLATE FUNCTIONS                   |
-+----------------------------------------------------------------+
-*/
-
-/*
-Disadvantages of macros:
-
-No type safety (compiler won't catch mismatches).
-
-Harder to debug (the debugger doesn't "see" macros).
-
-Error messages can be confusing.
-
-Can accidentally evaluate arguments multiple times.
-
-*/
-
-//#define REGISTER_MAP(manager, MapClass) \
-//    (manager).RegisterMap<MapClass>(#MapClass)
-
-template <typename MapClass, typename Manager>
-inline void RegisterMap(Manager& manager, std::string_view name = typeid(MapClass).name())
-{
-    manager.template RegisterMap<MapClass>(std::string(name));
+    return *this;
 }

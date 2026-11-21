@@ -96,9 +96,9 @@ RW_GAME(MyGame)
 
 | Method | Description |
 |--------|-------------|
-| `AddLevel<T>(id, description)` | Registers a `rw::Level` subclass. |
+| `AddLevel<T>(id, description)` | Registers a level (`GameMap` subclass). Chainable. |
 | `Start(id)` | Initial level loaded on first `Initialize`. |
-| `GoTo(id, force)` | Request a transition. |
+| `GoTo(id, force)` | Requests a transition; returns true when it happened or was queued. |
 
 ---
 
@@ -191,13 +191,17 @@ The `StateBag` class provides safe getters and setters. Getters include a defaul
 
 ## 📦 MapManager
 
-The `MapManager` handles registration and switching of maps. You typically interact with this in `RootManager.cpp`.
+The `MapManager` handles registration and switching of maps. Most projects use
+`rw::Game` (a thin `MapManager` subclass) from `RootManager.cpp`; the raw
+`MapManager` API remains available for custom managers.
 
 ### Key Methods
 
 | Method | Description |
 |--------|-------------|
-| `RegisterMap<T>("ID")` | Registers a map class `T` with a unique string ID. |
+| `AddLevel<T>("ID", "description")` | `rw::Game` sugar for `RegisterMap<T>`. |
+| `RegisterMap<T>("ID")` | Registers a map class `T` with a unique string ID. Returns the manager, so calls chain. |
+| `Start("ID")` | `rw::Game` sugar for `SetInitialMap`: loads `ID` on `Initialize()`. |
 | `b_GotoMap("ID")` | Switches to the specified map immediately. |
 | `GetCurrentMapId()` | Returns the ID of the active map. |
 | `GetAvailableMaps()` | Returns a list of all registered map IDs. |
@@ -205,23 +209,28 @@ The `MapManager` handles registration and switching of maps. You typically inter
 ### Registration Example
 
 ```cpp
-// In GameLogic/RootManager.cpp — the three required exports
-extern "C" __declspec(dllexport) uint32_t GetGameLogicAbiVersion()
-{
-    return RAYWAVES_GAMELOGIC_ABI_VERSION; // from Engine/GameMap.h
-}
+// GameLogic/RootManager.cpp — RW_GAME provides the three exports
+#include "Level1.h"
+#include "Level2.h"
+#include "rw.h"
 
-extern "C" __declspec(dllexport) GameMap* CreateGameMap() 
+class MyGame : public rw::Game
 {
-    if (s_GameMapManager == nullptr) 
+public:
+    MyGame()
     {
-        s_GameMapManager = new MapManager();
-        s_GameMapManager->RegisterMap<Level1>("Level1"); // "Level1" is the ID
-        s_GameMapManager->RegisterMap<Level2>("Level2");
+        AddLevel<Level1>("Level1"); // "Level1" is the ID
+        AddLevel<Level2>("Level2");
+        Start("Level1");
     }
-    return s_GameMapManager;
-}
+};
+
+RW_GAME(MyGame)
 ```
+
+Levels that request transitions from inside a callback call
+`RequestGotoMap("Level2")`; the manager defers the swap until the current frame
+returns.
 
 > **ABI check:** The editor and runtime verify `GetGameLogicAbiVersion()` before loading a GameLogic DLL. A missing or mismatched version means the DLL was built against a different engine build — the load is rejected with a clear error instead of risking heap corruption across the DLL boundary. Additionally, `LoadDll` compares CRT imports of the host EXE and the DLL and refuses static-vs-dynamic CRT mixes for the same reason.
 

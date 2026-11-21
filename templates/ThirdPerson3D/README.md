@@ -44,7 +44,7 @@ and orbits continuously; the cursor is restored when the map is destroyed.
 - `ThirdPersonCamera` -- yaw/pitch/distance orbit with smooth follow.
 - `Player` -- capsule movement, gravity, jump, AABB collision, `StateBag` state.
 - `SceneTarget` -- 2x supersampling target (SSAA) for smoother 3D edges.
-- `RootManager.cpp` -- DLL exports and map registration.
+- `RootManager.cpp` -- `rw::Game` entry point (`AddLevel` + `Start`).
 
 The template is asset-free and uses only raylib primitives. Replace the
 procedural boxes and capsule with your own models when ready.

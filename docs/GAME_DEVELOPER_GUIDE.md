@@ -42,8 +42,9 @@ the map, and restores state. Concretely:
 - Anything you write in `SaveState` and read back in `LoadState` (`StateBag`
   keys: floats, ints, bools, strings, `Vector2`). This is the **only**
   supported channel for carrying game state across a reload.
-- Map registrations (`RegisterMap<>` calls inside the `s_GameMapManager == nullptr`
-  guard in `RootManager.cpp`) — they run once per process, not per reload.
+- Map registrations (`AddLevel<>` / `RegisterMap<>` calls in
+  `RootManager.cpp` or `Game.cpp`) — the new module is constructed from scratch
+  on each reload, so they run again and `Start(...)` reloads the initial map.
 - Anything `Initialize()` rebuilds from scratch (textures, sounds, fonts).
 
 **Does not survive (no):**
@@ -72,7 +73,7 @@ MyGame/
 ├── project.raywaves      # Manifest (name, version, scene settings)
 ├── Assets/                # Textures, sounds, fonts, <MapId>.scene
 ├── GameLogic/             # YOUR C++ GAMEPLAY CODE
-│   ├── RootManager.cpp    # module entry point, map registration
+│   ├── RootManager.cpp    # module entry point: AddLevel<T> + Start
 │   └── YourMap.cpp        # Any number of maps, entities, systems
 └── .raywaves/             # Auto-managed build cache (do not touch)
 ```

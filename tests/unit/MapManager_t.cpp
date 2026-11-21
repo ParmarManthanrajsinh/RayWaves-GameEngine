@@ -170,6 +170,17 @@ TEST_CASE("MapManager: set initial map")
     CHECK(mgr.b_IsCurrentMap("start"));
 }
 
+TEST_CASE("MapManager: RegisterMap is chainable")
+{
+    MapManager mgr;
+    mgr.RegisterMap<MockGameMap>("menu").RegisterMap<MockGameMap>("level").SetInitialMap("level");
+    mgr.Initialize();
+
+    CHECK(mgr.b_IsMapRegistered("menu"));
+    CHECK(mgr.b_IsMapRegistered("level"));
+    CHECK(mgr.b_IsCurrentMap("level"));
+}
+
 TEST_CASE("MapManager: standalone mode reaches new maps")
 {
     StandaloneProbeMap::s_StandaloneAtInit = false;

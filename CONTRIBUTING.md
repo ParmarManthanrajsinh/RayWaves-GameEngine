@@ -53,7 +53,7 @@ functions and types.
 ## Where new code goes
 
 - **Gameplay (players, enemies, levels):** the project's `GameLogic/` DLL,
-  never `Engine/`. Register maps in `RootManager.cpp`.
+  never `Engine/`. Register maps with `AddLevel<T>` in `RootManager.cpp`.
 - **Editor UI:** a new file pair under `Editor/Panels/` implementing
   `IEditorPanel`, plus one `b_RegisterPanel<T>()` line in its own `.cpp`.
 - **Engine systems:** `Engine/`, an explicit entry in `cmake/Engine.cmake`

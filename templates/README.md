@@ -25,8 +25,8 @@ them alphabetically and preselects `Simple2D`.
   not duplicated in each template folder.
 - `.raywaves/tooling.ini` and `.raywaves/bin/rwcli.cmd` /
   `.raywaves/bin/rwcli` are generated to point agents at the packaged `rwcli`.
-- `rw` templates export with `RW_GAME` from `Game.cpp`; raw templates use
-  `RootManager.cpp` with the three `extern "C"` exports.
+- Every template exports with `RW_GAME`; `rw` templates put it in `Game.cpp`,
+  raw `GameMap` templates put it in `RootManager.cpp`.
 - Editor entities are registered with `rw::Level::Spawn` (simple API) or
   `GameMap::AddEntity` (raw API). Both are additive and safe to mix.
 - Build artifacts and `.raywaves/` folders are stripped from distributions.
