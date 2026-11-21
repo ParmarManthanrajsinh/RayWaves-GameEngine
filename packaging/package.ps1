@@ -19,7 +19,7 @@ if (-not $Version) {
     $versionMatch = Select-String -Path $CMakeLists `
         -Pattern 'project\s*\(\s*RayWaves\s+VERSION\s+([0-9]+\.[0-9]+\.[0-9]+)' |
         Select-Object -First 1
-    $Version = if ($versionMatch) { $versionMatch.Matches[0].Groups[1].Value } else { "0.1.0" }
+    $Version = if ($versionMatch) { $versionMatch.Matches[0].Groups[1].Value } else { "0.6.0" }
 }
 
 Write-Host "Packaging RayWaves $Version ($Config)" -ForegroundColor Cyan

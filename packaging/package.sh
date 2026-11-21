@@ -49,7 +49,7 @@ esac
 
 if [ -z "$VERSION" ]; then
     VERSION=$(sed -n 's/.*project(RayWaves VERSION \([0-9][0-9.]*\).*/\1/p' "$ROOT/CMakeLists.txt" | head -n 1)
-    VERSION=${VERSION:-0.1.0}
+    VERSION=${VERSION:-0.6.0}
 fi
 
 PRESET="zig-$(echo "$CONFIG" | tr '[:upper:]' '[:lower:]')"
