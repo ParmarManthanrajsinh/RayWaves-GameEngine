@@ -169,10 +169,13 @@ if "%CMD%"=="format" (
     echo == Formatting all source files ...
     for %%f in (
         "%PROJECT_ROOT%\Engine\*.cpp"    "%PROJECT_ROOT%\Engine\*.h"
+        "%PROJECT_ROOT%\Cli\*.cpp"       "%PROJECT_ROOT%\Cli\*.h"
         "%PROJECT_ROOT%\Editor\*.cpp"    "%PROJECT_ROOT%\Editor\*.h"
         "%PROJECT_ROOT%\Editor\Panels\*.cpp" "%PROJECT_ROOT%\Editor\Panels\*.h"
         "%PROJECT_ROOT%\Editor\terminal\*.cpp" "%PROJECT_ROOT%\Editor\terminal\*.h"
+        "%PROJECT_ROOT%\Editor\platform\Win32\*.cpp" "%PROJECT_ROOT%\Editor\platform\Win32\*.h"
         "%PROJECT_ROOT%\Runtime\*.cpp"      "%PROJECT_ROOT%\Runtime\*.h"
+        "%PROJECT_ROOT%\Runtime\platform\Win32\*.cpp" "%PROJECT_ROOT%\Runtime\platform\Win32\*.h"
         "%PROJECT_ROOT%\tests\*.cpp"     "%PROJECT_ROOT%\tests\*.h"
         "%PROJECT_ROOT%\templates\SlimeQuest\GameLogic\*.cpp"
         "%PROJECT_ROOT%\templates\SlimeQuest\GameLogic\*.h"
@@ -194,10 +197,13 @@ if "%CMD%"=="format-check" (
     set "UNFORMATTED=0"
     for %%f in (
         "%PROJECT_ROOT%\Engine\*.cpp"    "%PROJECT_ROOT%\Engine\*.h"
+        "%PROJECT_ROOT%\Cli\*.cpp"       "%PROJECT_ROOT%\Cli\*.h"
         "%PROJECT_ROOT%\Editor\*.cpp"    "%PROJECT_ROOT%\Editor\*.h"
         "%PROJECT_ROOT%\Editor\Panels\*.cpp" "%PROJECT_ROOT%\Editor\Panels\*.h"
         "%PROJECT_ROOT%\Editor\terminal\*.cpp" "%PROJECT_ROOT%\Editor\terminal\*.h"
+        "%PROJECT_ROOT%\Editor\platform\Win32\*.cpp" "%PROJECT_ROOT%\Editor\platform\Win32\*.h"
         "%PROJECT_ROOT%\Runtime\*.cpp"      "%PROJECT_ROOT%\Runtime\*.h"
+        "%PROJECT_ROOT%\Runtime\platform\Win32\*.cpp" "%PROJECT_ROOT%\Runtime\platform\Win32\*.h"
         "%PROJECT_ROOT%\tests\*.cpp"     "%PROJECT_ROOT%\tests\*.h"
         "%PROJECT_ROOT%\templates\SlimeQuest\GameLogic\*.cpp"
         "%PROJECT_ROOT%\templates\SlimeQuest\GameLogic\*.h"

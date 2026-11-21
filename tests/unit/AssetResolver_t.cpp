@@ -4,6 +4,7 @@
 #include <filesystem>
 #include <fstream>
 #include <string>
+#include <system_error>
 
 namespace fs = std::filesystem;
 
@@ -57,8 +58,12 @@ TEST_CASE("AssetResolver: case-insensitive fallback resolves Windows-authored pa
     Touch(asset);
     AssetResolver::SetProjectAssetPath(temp.Path().string());
 
+    // Windows resolves the differently-cased path through its case-insensitive
+    // filesystem, so compare identity instead of requiring on-disk casing.
     const std::string resolved = AssetResolver::Resolve("textures/player.png");
-    CHECK(fs::path(resolved) == fs::path(asset).lexically_normal());
+    std::error_code error;
+    CHECK(fs::equivalent(fs::path(resolved), asset, error));
+    CHECK_FALSE(error);
 }
 
 TEST_CASE("AssetResolver: backslash input is normalized")
@@ -69,9 +74,14 @@ TEST_CASE("AssetResolver: backslash input is normalized")
     AssetResolver::SetProjectAssetPath(temp.Path().string());
 
     const std::string resolved = AssetResolver::Resolve("textures\\player.png");
-    CHECK(fs::path(resolved) == fs::path(asset).lexically_normal());
+    std::error_code error;
+    CHECK(fs::equivalent(fs::path(resolved), asset, error));
+    CHECK_FALSE(error);
 }
 
+// NTFS cannot store two names that differ only by case in the same directory,
+// so the ambiguity guard is only observable on a case-sensitive filesystem.
+#if !defined(_WIN32)
 TEST_CASE("AssetResolver: ambiguous case matches fail")
 {
     TempDir temp("raywaves_assets_ambiguous");
@@ -81,12 +91,14 @@ TEST_CASE("AssetResolver: ambiguous case matches fail")
 
     CHECK(AssetResolver::Resolve("FOO.png") == "FOO.png");
 }
+#endif
 
 TEST_CASE("AssetResolver: missing file keeps an absolute write path")
 {
     TempDir temp("raywaves_assets_missing");
     AssetResolver::SetProjectAssetPath(temp.Path().string());
     const std::string resolved = AssetResolver::Resolve("missing/player.png");
+    const fs::path expected = (temp.Path() / "missing" / "player.png").lexically_normal();
     CHECK(fs::path(resolved).is_absolute());
-    CHECK(resolved.ends_with("missing/player.png"));
+    CHECK(fs::path(resolved).lexically_normal() == expected);
 }
