@@ -8,8 +8,11 @@
 #include "../GameEditor.h"
 #include <algorithm>
 #include <cctype>
+#include <cstdint>
 #include <imgui.h>
+#include <imgui_stdlib.h>
 #include <tinyfiledialogs.h>
+#include <vector>
 
 namespace
 {
@@ -27,6 +30,14 @@ bool b_MatchesFilter(std::string_view name, std::string_view filter)
         return true;
     }
     return ToLower(std::string(name)).contains(ToLower(std::string(filter)));
+}
+
+// Scene files authored on Windows may store separators as '\'; the asset
+// resolver normalizes them, so comparisons in this panel must too.
+std::string NormalizeAssetKey(std::string text)
+{
+    std::replace(text.begin(), text.end(), '\\', '/');
+    return text;
 }
 
 const char* IconForPath(const std::filesystem::path& path)
@@ -60,29 +71,38 @@ void CreateSprite(GameEditor* editor, const std::string& relative_path, Vector2 
     editor->SelectSceneObject(object.m_Id);
 }
 
-void AssignTexture(GameEditor* editor, const std::filesystem::path& path)
+void AssignTextureRelative(GameEditor* editor, const std::string& relative_path)
 {
-    const std::string relative = EditorAssets::ToRelativeAssetPath(path);
-    if (relative.empty())
+    if (relative_path.empty())
     {
         return;
     }
 
-    if (editor->m_SelectionKind == GameEditor::EEditorSelectionKind::SceneObject)
+    if (t_SceneObject* object = editor->GetSelectedSceneObject())
     {
-        if (t_SceneObject* object = editor->GetSelectedSceneObject())
-        {
-            object->m_TexturePath = relative;
-            editor->GetScene().ReloadTexture(object->m_Id);
-        }
+        object->m_TexturePath = relative_path;
+        editor->GetScene().ReloadTexture(object->m_Id);
         return;
     }
 
     if (editor->m_SelectionKind == GameEditor::EEditorSelectionKind::None)
     {
-        CreateSprite(editor, relative, editor->GetViewportCenterWorld());
+        CreateSprite(editor, relative_path, editor->GetViewportCenterWorld());
     }
 }
+
+void AssignTexture(GameEditor* editor, const std::filesystem::path& path)
+{
+    AssignTextureRelative(editor, EditorAssets::ToRelativeAssetPath(path));
+}
+
+const char* const* ImageFileFilters()
+{
+    static const char* s_Filters[] = { "*.png", "*.jpg", "*.jpeg", "*.bmp", "*.tga", "*.gif", "*.qoi", "*.psd" };
+    return s_Filters;
+}
+
+constexpr int c_ImageFilterCount = 8;
 } // namespace
 
 FileSystemPanel::~FileSystemPanel()
@@ -305,7 +325,8 @@ void FileSystemPanel::DrawAssets(GameEditor* editor, const std::filesystem::path
         }
         b_any = true;
 
-        ImGui::PushID(file.string().c_str());
+        const std::string path_key = file.string();
+        ImGui::PushID(path_key.c_str());
 
         if (EditorAssets::b_IsImage(file.string()))
         {
@@ -330,6 +351,28 @@ void FileSystemPanel::DrawAssets(GameEditor* editor, const std::filesystem::path
         ImGui::SameLine(0.0f, 6.0f);
 
         const std::string filename = file.filename().string();
+        if (m_RenamingAssetPath == path_key)
+        {
+            if (m_bRenameFocusPending)
+            {
+                ImGui::SetKeyboardFocusHere();
+                m_bRenameFocusPending = false;
+            }
+            ImGui::SetNextItemWidth(-1.0f);
+            const bool b_commit = ImGui::InputText("##asset_rename", &m_RenameBuffer,
+                ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_AutoSelectAll);
+            if (b_commit)
+            {
+                CommitRename(editor, file);
+            }
+            else if (ImGui::IsItemDeactivated())
+            {
+                m_RenamingAssetPath.clear();
+            }
+            ImGui::PopID();
+            continue;
+        }
+
         ImGui::Selectable(filename.c_str(), false, ImGuiSelectableFlags_None,
             ImVec2(ImGui::GetContentRegionAvail().x, EditorWidgets::c_RowHeight));
 
@@ -377,6 +420,10 @@ void FileSystemPanel::DrawAssets(GameEditor* editor, const std::filesystem::path
                     CreateSprite(editor, relative, editor->GetViewportCenterWorld());
                 }
             }
+            if (ImGui::MenuItem("Rename"))
+            {
+                StartRename(file);
+            }
             if (ImGui::MenuItem("Reveal"))
             {
                 EditorUtils::OpenInExplorer(file.parent_path());
@@ -387,6 +434,11 @@ void FileSystemPanel::DrawAssets(GameEditor* editor, const std::filesystem::path
                 {
                     std::error_code error;
                     std::filesystem::remove(file, error);
+                    if (m_RenamingAssetPath == path_key)
+                    {
+                        m_RenamingAssetPath.clear();
+                        m_bRenameFocusPending = false;
+                    }
                     UnloadThumbnails();
                 }
             }
@@ -399,6 +451,246 @@ void FileSystemPanel::DrawAssets(GameEditor* editor, const std::filesystem::path
     if (!b_any)
     {
         ImGui::TextDisabled(m_Filter.empty() ? "No assets yet." : "No matching assets.");
+    }
+}
+
+void FileSystemPanel::StartRename(const std::filesystem::path& asset)
+{
+    m_RenamingAssetPath = asset.string();
+    m_RenameBuffer = asset.filename().string();
+    m_bRenameFocusPending = true;
+}
+
+void FileSystemPanel::CommitRename(GameEditor* editor, const std::filesystem::path& asset)
+{
+    m_RenamingAssetPath.clear();
+    m_bRenameFocusPending = false;
+
+    const std::string old_relative = EditorAssets::ToRelativeAssetPath(asset);
+    if (old_relative.empty())
+    {
+        editor->GetTerminal().add_text(
+            "Rename failed: asset is outside the project's Assets folder.", term::Severity::Error);
+        return;
+    }
+
+    std::filesystem::path new_path;
+    std::string error;
+    if (!EditorAssets::b_RenameAsset(asset, m_RenameBuffer, new_path, error))
+    {
+        editor->GetTerminal().add_text("Rename failed: " + error, term::Severity::Error);
+        tinyfd_messageBox("Rename Asset", error.c_str(), "ok", "error", 0);
+        return;
+    }
+
+    const std::string new_relative = EditorAssets::ToRelativeAssetPath(new_path);
+    if (new_relative.empty() || new_relative == old_relative)
+    {
+        UnloadThumbnails();
+        return;
+    }
+
+    // The scene stores relative texture paths, so a rename has to retarget every
+    // object that referenced the old path before geometry can reload.
+    Scene& scene = editor->GetScene();
+    const std::string old_key = NormalizeAssetKey(old_relative);
+    int updated_count = 0;
+    for (t_SceneObject& object : scene.GetObjects())
+    {
+        if (NormalizeAssetKey(object.m_TexturePath) != old_key)
+        {
+            continue;
+        }
+        object.m_TexturePath = new_relative;
+        scene.ReloadTexture(object.m_Id);
+        ++updated_count;
+    }
+
+    UnloadThumbnails();
+
+    std::string message = "Renamed '" + old_relative + "' -> '" + new_relative + "'.";
+    if (updated_count > 0)
+    {
+        message += " Updated " + std::to_string(updated_count) + " scene object(s).";
+    }
+    if (asset.extension() != new_path.extension())
+    {
+        message += " The extension changed.";
+    }
+    message += " GameLogic code references are not updated.";
+    editor->GetTerminal().add_text(message, term::Severity::Warn);
+}
+
+void FileSystemPanel::DrawMissingAssets(GameEditor* editor, const std::filesystem::path& asset_root)
+{
+    struct FMissingAsset
+    {
+        uint32_t m_ObjectId = 0;
+        std::string m_ObjectName;
+        std::string m_Path;
+    };
+
+    std::vector<FMissingAsset> missing;
+    if (!asset_root.empty())
+    {
+        for (const t_SceneObject& object : editor->GetScene().GetObjects())
+        {
+            if (object.m_TexturePath.empty())
+            {
+                continue;
+            }
+
+            std::error_code error;
+            const std::filesystem::path candidate =
+                asset_root / std::filesystem::path(NormalizeAssetKey(object.m_TexturePath));
+            if (!std::filesystem::is_regular_file(candidate, error))
+            {
+                missing.push_back(
+                    { object.m_Id, object.m_Name.empty() ? ("Object " + std::to_string(object.m_Id)) : object.m_Name,
+                        object.m_TexturePath });
+            }
+        }
+    }
+
+    const std::string header = std::string(ICON_FA_TRIANGLE_EXCLAMATION) + " Missing Assets (" +
+        std::to_string(missing.size()) + ")###missing_assets";
+    const ImGuiTreeNodeFlags header_flags = missing.empty() ? ImGuiTreeNodeFlags_None : ImGuiTreeNodeFlags_DefaultOpen;
+    if (!ImGui::CollapsingHeader(header.c_str(), header_flags))
+    {
+        return;
+    }
+
+    if (asset_root.empty())
+    {
+        ImGui::TextDisabled("No asset folder is configured for this project.");
+        return;
+    }
+
+    if (missing.empty())
+    {
+        ImGui::TextDisabled("Every scene texture path resolves.");
+        return;
+    }
+
+    ImGui::TextDisabled("Current scene references only; source code is not scanned.");
+    if (ImGui::SmallButton(ICON_FA_FOLDER_OPEN " Reveal Assets"))
+    {
+        EditorUtils::OpenInExplorer(asset_root);
+    }
+
+    for (const FMissingAsset& entry : missing)
+    {
+        ImGui::PushID(static_cast<int>(entry.m_ObjectId));
+        ImGui::Text("%s: %s", entry.m_ObjectName.c_str(), entry.m_Path.c_str());
+
+        if (ImGui::SmallButton(ICON_FA_MAGNIFYING_GLASS " Locate..."))
+        {
+            const char* selected = tinyfd_openFileDialog("Locate Missing Asset", asset_root.string().c_str(),
+                c_ImageFilterCount, ImageFileFilters(), "Image files", 0);
+            if (selected != nullptr)
+            {
+                std::string relative;
+                if (EditorAssets::b_ImportFile(selected, relative))
+                {
+                    if (t_SceneObject* object = editor->GetScene().FindObject(entry.m_ObjectId))
+                    {
+                        object->m_TexturePath = relative;
+                        editor->GetScene().ReloadTexture(object->m_Id);
+                    }
+                    UnloadThumbnails();
+                }
+                else
+                {
+                    editor->GetTerminal().add_text(
+                        std::string("Failed to import located asset: ") + selected, term::Severity::Error);
+                }
+            }
+        }
+
+        ImGui::SameLine();
+        if (ImGui::SmallButton(ICON_FA_ERASER " Clear"))
+        {
+            if (t_SceneObject* object = editor->GetScene().FindObject(entry.m_ObjectId))
+            {
+                object->m_TexturePath.clear();
+                editor->GetScene().ReloadTexture(object->m_Id);
+            }
+        }
+        ImGui::PopID();
+    }
+}
+
+void FileSystemPanel::HandleFileDrop(GameEditor* editor)
+{
+    // Raylib holds dropped paths until UnloadDroppedFiles() clears them, and this
+    // panel is the only consumer. Drops queued while the panel is hidden or
+    // collapsed are therefore left untouched: Draw() is not reached then, so the
+    // FileSystem panel is the editor's drop target by construction.
+    if (!IsFileDropped())
+    {
+        return;
+    }
+
+    const FilePathList dropped = LoadDroppedFiles();
+    const unsigned int dropped_count = dropped.count;
+    std::vector<std::string> imported;
+
+    for (unsigned int index = 0; index < dropped_count; ++index)
+    {
+        const char* raw = (dropped.paths != nullptr) ? dropped.paths[index] : nullptr;
+        if (raw == nullptr)
+        {
+            continue;
+        }
+
+        const std::filesystem::path source(raw);
+        std::error_code error;
+        if (!std::filesystem::is_regular_file(source, error))
+        {
+            editor->GetTerminal().add_text(
+                "Skipped dropped path (not a file): " + source.string(), term::Severity::Warn);
+            continue;
+        }
+
+        std::string relative;
+        if (!EditorAssets::b_ImportFile(source, relative))
+        {
+            editor->GetTerminal().add_text("Failed to import dropped file: " + source.string(), term::Severity::Error);
+            continue;
+        }
+        imported.push_back(relative);
+    }
+
+    UnloadDroppedFiles(dropped);
+
+    if (imported.empty())
+    {
+        return;
+    }
+
+    std::string summary = "Imported " + std::to_string(imported.size()) + " dropped asset(s):";
+    for (const std::string& relative : imported)
+    {
+        summary += ' ';
+        summary += relative;
+    }
+    editor->GetTerminal().add_text(summary, term::Severity::Debug);
+    UnloadThumbnails();
+
+    if (dropped_count != 1 || imported.size() != 1 || !EditorAssets::b_IsImage(imported.front()))
+    {
+        return;
+    }
+
+    // A single image is applied to the selection when one exists; otherwise it
+    // becomes a sprite the user can see and move.
+    if (editor->m_SelectionKind == GameEditor::EEditorSelectionKind::SceneObject)
+    {
+        AssignTextureRelative(editor, imported.front());
+    }
+    else
+    {
+        CreateSprite(editor, imported.front(), editor->GetViewportCenterWorld());
     }
 }
 
@@ -464,6 +756,10 @@ void FileSystemPanel::Draw(GameEditor* editor)
         return;
     }
 
+    // The panel window is open, so it owns OS drops for this frame. A collapsed
+    // window returns false from Begin() above and drops stay queued.
+    HandleFileDrop(editor);
+
     const t_Project project = ProjectManager::GetCurrentCopy();
     const std::filesystem::path asset_root = project.m_AssetPath;
     const std::filesystem::path source_root = project.m_SourcePath;
@@ -526,6 +822,9 @@ void FileSystemPanel::Draw(GameEditor* editor)
 
         ImGui::EndTabBar();
     }
+
+    ImGui::Separator();
+    DrawMissingAssets(editor, asset_root);
 
     ImGui::End();
 }

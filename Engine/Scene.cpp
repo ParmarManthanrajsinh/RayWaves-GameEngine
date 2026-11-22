@@ -203,6 +203,45 @@ t_SceneObject* Scene::DuplicateObject(uint32_t object_id)
     return &m_Objects.back();
 }
 
+t_SceneObject& Scene::InsertObject(t_SceneObject object)
+{
+    return InsertObjectAt(m_Objects.size(), std::move(object));
+}
+
+t_SceneObject& Scene::InsertObjectAt(std::size_t index, t_SceneObject object)
+{
+    if (object.m_Id == 0)
+    {
+        object.m_Id = m_NextId;
+    }
+    m_NextId = std::max(m_NextId, object.m_Id + 1);
+
+    // Never carry a GPU handle across an undo boundary: the scene that removed
+    // the object already unloaded it, and reloading is lazy.
+    object.m_Texture = {};
+    object.m_bTextureMissing = false;
+
+    if (index > m_Objects.size())
+    {
+        index = m_Objects.size();
+    }
+    m_Objects.insert(m_Objects.begin() + static_cast<std::ptrdiff_t>(index), std::move(object));
+    m_bDirty = true;
+    return m_Objects[index];
+}
+
+std::size_t Scene::IndexOfObject(uint32_t object_id) const
+{
+    for (std::size_t index = 0; index < m_Objects.size(); ++index)
+    {
+        if (m_Objects[index].m_Id == object_id)
+        {
+            return index;
+        }
+    }
+    return m_Objects.size();
+}
+
 bool Scene::b_RemoveObject(uint32_t object_id)
 {
     auto object_it =

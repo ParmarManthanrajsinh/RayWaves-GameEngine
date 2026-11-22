@@ -88,6 +88,58 @@ bool EditorPreferences::m_bLoadFromFile()
             {
             }
         }
+        else if (key == "SceneGridEnabled")
+        {
+            if (value == "0")
+            {
+                m_Preferences.SceneGridEnabled = false;
+            }
+            else if (value == "1")
+            {
+                m_Preferences.SceneGridEnabled = true;
+            }
+        }
+        else if (key == "SceneGridSize")
+        {
+            try
+            {
+                m_Preferences.SceneGridSize = std::clamp(std::stof(value), 1.0f, 256.0f);
+            }
+            catch (...)
+            {
+            }
+        }
+        else if (key == "SceneSnapEnabled")
+        {
+            if (value == "0")
+            {
+                m_Preferences.SceneSnapEnabled = false;
+            }
+            else if (value == "1")
+            {
+                m_Preferences.SceneSnapEnabled = true;
+            }
+        }
+        else if (key == "SceneSnapStep")
+        {
+            try
+            {
+                m_Preferences.SceneSnapStep = std::clamp(std::stof(value), 1.0f, 256.0f);
+            }
+            catch (...)
+            {
+            }
+        }
+        else if (key == "SceneAngleSnapDegrees")
+        {
+            try
+            {
+                m_Preferences.SceneAngleSnapDegrees = std::clamp(std::stof(value), 1.0f, 90.0f);
+            }
+            catch (...)
+            {
+            }
+        }
     }
 
     file.close();
@@ -113,6 +165,11 @@ bool EditorPreferences::m_bSaveToFile() const
     contents << "FontFamily=" << m_Preferences.FontFamily << "\n";
     contents << "AutoSaveEnabled=" << (m_Preferences.AutoSaveEnabled ? 1 : 0) << "\n";
     contents << "AutoSaveIntervalSeconds=" << std::clamp(m_Preferences.AutoSaveIntervalSeconds, 10, 3600) << "\n";
+    contents << "SceneGridEnabled=" << (m_Preferences.SceneGridEnabled ? 1 : 0) << "\n";
+    contents << "SceneGridSize=" << std::clamp(m_Preferences.SceneGridSize, 1.0f, 256.0f) << "\n";
+    contents << "SceneSnapEnabled=" << (m_Preferences.SceneSnapEnabled ? 1 : 0) << "\n";
+    contents << "SceneSnapStep=" << std::clamp(m_Preferences.SceneSnapStep, 1.0f, 256.0f) << "\n";
+    contents << "SceneAngleSnapDegrees=" << std::clamp(m_Preferences.SceneAngleSnapDegrees, 1.0f, 90.0f) << "\n";
 
     // Replace rather than truncate so a crash mid-write cannot leave a
     // half-written preferences file behind.

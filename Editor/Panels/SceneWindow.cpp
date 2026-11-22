@@ -4,19 +4,24 @@
 #include "../../Engine/GameEngine.h"
 #include "../../Engine/MapManager.h"
 #include "../../Engine/ProjectManager.h"
+#include "../EditorPreferences.h"
 #include "../GameEditor.h"
+#include "../SceneCommands.h"
 #include "ProcessRunner.h"
 
 #include "../../Engine/Profiler.h"
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <cstdio>
 #include <imgui.h>
 #include <imgui_internal.h>
 #include <limits>
+#include <memory>
 #include <numbers>
 #include <raymath.h>
 #include <rlImGui.h>
+#include <tinyfiledialogs.h>
 #include <vector>
 
 namespace
@@ -149,6 +154,67 @@ bool UnprojectSceneToPlane(
     out = Vector3Add(near_point, Vector3Scale(direction, distance));
     return true;
 }
+
+// World-space reference grid for the stopped 2D viewport. Two line levels:
+// minor lines every `grid_size`, brighter lines every fourth step. The stride
+// is promoted when zoomed far out so a dense grid never floods the draw list.
+template <typename FWorldToScreen>
+void DrawWorldGrid(ImDrawList* draw_list, ImVec2 clip_min, ImVec2 clip_max, Vector2 world_min, Vector2 world_max,
+    float grid_size, FWorldToScreen world_to_screen)
+{
+    if (grid_size < 1.0f)
+    {
+        return;
+    }
+
+    constexpr float c_MAX_LINES = 256.0f;
+
+    float step = grid_size;
+    if (((world_max.x - world_min.x) / step) > c_MAX_LINES || ((world_max.y - world_min.y) / step) > c_MAX_LINES)
+    {
+        step *= 4.0f;
+    }
+    if (((world_max.x - world_min.x) / step) > c_MAX_LINES || ((world_max.y - world_min.y) / step) > c_MAX_LINES)
+    {
+        return;
+    }
+
+    // Bounds the float->int grid indices: scenes live near the origin, and a
+    // runaway pan should drop the grid rather than overflow the index.
+    constexpr float c_MAX_ABS_COORD = 1.0e7f;
+    if (std::fabs(world_min.x) > c_MAX_ABS_COORD || std::fabs(world_max.x) > c_MAX_ABS_COORD ||
+        std::fabs(world_min.y) > c_MAX_ABS_COORD || std::fabs(world_max.y) > c_MAX_ABS_COORD)
+    {
+        return;
+    }
+
+    const int first_x = static_cast<int>(std::floor(world_min.x / step));
+    const int last_x = static_cast<int>(std::ceil(world_max.x / step));
+    const int first_y = static_cast<int>(std::floor(world_min.y / step));
+    const int last_y = static_cast<int>(std::ceil(world_max.y / step));
+
+    const ImU32 minor_color = IM_COL32(255, 255, 255, 18);
+    const ImU32 major_color = IM_COL32(255, 255, 255, 46);
+
+    draw_list->PushClipRect(clip_min, clip_max, true);
+
+    for (int index = first_x; index <= last_x; ++index)
+    {
+        const float world_x = static_cast<float>(index) * step;
+        const bool b_major = (index % 4) == 0;
+        draw_list->AddLine(world_to_screen({ world_x, world_min.y }), world_to_screen({ world_x, world_max.y }),
+            b_major ? major_color : minor_color, 1.0f);
+    }
+    for (int index = first_y; index <= last_y; ++index)
+    {
+        const float world_y = static_cast<float>(index) * step;
+        const bool b_major = (index % 4) == 0;
+        draw_list->AddLine(world_to_screen({ world_min.x, world_y }), world_to_screen({ world_max.x, world_y }),
+            b_major ? major_color : minor_color, 1.0f);
+    }
+
+    draw_list->PopClipRect();
+}
 } // namespace
 
 void SceneWindow::DrawToolbarBackground()
@@ -226,6 +292,7 @@ bool SceneWindow::s_bIconButton(
 void SceneWindow::Draw(GameEditor* editor)
 {
     SCOPED_TIMER("panel_scene_window");
+    t_EditorPreferences& prefs = EditorPreferences::GetInstance().GetPreferences();
     ImGuiStyle& style = ImGui::GetStyle();
     style.WindowMenuButtonPosition = ImGuiDir_Left;
 
@@ -511,58 +578,105 @@ void SceneWindow::Draw(GameEditor* editor)
         auto world_to_screen = [&scene_to_screen, &world_to_scene](Vector2 world_point) -> ImVec2
         { return scene_to_screen(world_to_scene(world_point)); };
 
-        // Selected outline. Drawn even while playing so the selection stays
+        // Reference grid sits on the world origin and is drawn after the scene
+        // texture but before selection outlines and handles. 3D maps have no 2D
+        // world plane, so the grid only applies to the 2D view.
+        if (!editor->b_IsPlaying && prefs.SceneGridEnabled && !editor->b_ActiveMapUses3DView())
+        {
+            const Vector2 world_a = scene_to_world(screen_to_scene(image_min));
+            const Vector2 world_b = scene_to_world(screen_to_scene(image_max));
+            const Vector2 world_min{ std::min(world_a.x, world_b.x), std::min(world_a.y, world_b.y) };
+            const Vector2 world_max{ std::max(world_a.x, world_b.x), std::max(world_a.y, world_b.y) };
+
+            DrawWorldGrid(ImGui::GetWindowDrawList(), image_min, image_max, world_min, world_max, prefs.SceneGridSize,
+                [&world_to_screen](Vector2 world_point) { return world_to_screen(world_point); });
+        }
+
+        // Selected outlines. Drawn even while playing so the selection stays
         // visible, but editing handles are stopped-only.
-        bool b_drew_outline = false;
         ImVec2 object_corners[4]{};
         Vector2 object_center_world{};
         Vector2 object_base{ 32.0f, 32.0f };
         bool b_has_object_selection = false;
 
-        if (const GameEditor::FEditorEntityRef* selected_entity = editor->GetSelectedEditorEntity();
-            selected_entity != nullptr && selected_entity->m_Position != nullptr)
+        const auto draw_scene_object_outline = [&](const t_SceneObject& selected, bool b_primary)
         {
-            const Rectangle rect = entity_rect(*selected_entity);
-            const ImVec2 min = world_to_screen({ rect.x, rect.y });
-            const ImVec2 max = world_to_screen({ rect.x + rect.width, rect.y + rect.height });
-            ImGui::GetWindowDrawList()->AddRect(min, max, IM_COL32(120, 200, 255, 235), 0.0f, 0, 1.5f);
-            b_drew_outline = true;
-        }
+            const Vector2 base = object_base_size(selected);
+            const Vector2 local_corners[4] = {
+                { 0.0f, 0.0f },
+                { base.x * selected.m_Scale.x, 0.0f },
+                { base.x * selected.m_Scale.x, base.y * selected.m_Scale.y },
+                { 0.0f, base.y * selected.m_Scale.y },
+            };
 
-        if (!b_drew_outline)
-        {
-            if (const t_SceneObject* selected = editor->GetSelectedSceneObject())
+            ImVec2 corners[4];
+            for (int index = 0; index < 4; ++index)
             {
-                object_base = object_base_size(*selected);
-                const Vector2 local_corners[4] = {
-                    { 0.0f, 0.0f },
-                    { object_base.x * selected->m_Scale.x, 0.0f },
-                    { object_base.x * selected->m_Scale.x, object_base.y * selected->m_Scale.y },
-                    { 0.0f, object_base.y * selected->m_Scale.y },
-                };
+                const Vector2 rotated = RotatePoint(local_corners[index], selected.m_Rotation);
+                corners[index] = world_to_screen({
+                    selected.m_Position.x + rotated.x,
+                    selected.m_Position.y + rotated.y,
+                });
+            }
 
+            ImGui::GetWindowDrawList()->AddPolyline(
+                corners, 4, IM_COL32(120, 200, 255, 235), ImDrawFlags_Closed, b_primary ? 2.0f : 1.0f);
+
+            if (b_primary)
+            {
+                object_base = base;
                 for (int index = 0; index < 4; ++index)
                 {
-                    const Vector2 rotated = RotatePoint(local_corners[index], selected->m_Rotation);
-                    const Vector2 world = {
-                        selected->m_Position.x + rotated.x,
-                        selected->m_Position.y + rotated.y,
-                    };
-                    object_corners[index] = world_to_screen(world);
+                    object_corners[index] = corners[index];
                 }
 
-                const Vector2 half = {
-                    object_base.x * selected->m_Scale.x * 0.5f,
-                    object_base.y * selected->m_Scale.y * 0.5f,
-                };
-                const Vector2 rotated_center = RotatePoint(half, selected->m_Rotation);
+                const Vector2 half = { base.x * selected.m_Scale.x * 0.5f, base.y * selected.m_Scale.y * 0.5f };
+                const Vector2 rotated_center = RotatePoint(half, selected.m_Rotation);
                 object_center_world = {
-                    selected->m_Position.x + rotated_center.x,
-                    selected->m_Position.y + rotated_center.y,
+                    selected.m_Position.x + rotated_center.x,
+                    selected.m_Position.y + rotated_center.y,
                 };
+            }
+        };
 
-                ImGui::GetWindowDrawList()->AddPolyline(
-                    object_corners, 4, IM_COL32(120, 200, 255, 235), ImDrawFlags_Closed, 1.5f);
+        if (editor->m_SelectionKind == GameEditor::EEditorSelectionKind::GameplayEntity)
+        {
+            for (const uint64_t id : editor->GetSelectedEditorEntityIds())
+            {
+                for (const GameEditor::FEditorEntityRef& entity : editor->GetEditorEntities())
+                {
+                    if (entity.m_Id != id || entity.m_Position == nullptr)
+                    {
+                        continue;
+                    }
+
+                    const Rectangle rect = entity_rect(entity);
+                    const ImVec2 min = world_to_screen({ rect.x, rect.y });
+                    const ImVec2 max = world_to_screen({ rect.x + rect.width, rect.y + rect.height });
+                    ImGui::GetWindowDrawList()->AddRect(min, max, IM_COL32(120, 200, 255, 235), 0.0f, 0, 1.5f);
+                    break;
+                }
+            }
+        }
+        else if (editor->m_SelectionKind == GameEditor::EEditorSelectionKind::SceneObject)
+        {
+            // Draw the primary last so its thicker outline stays on top.
+            for (const uint32_t id : editor->GetSelectedSceneObjectIds())
+            {
+                const bool b_primary = id == editor->m_SelectedSceneObjectId;
+                if (b_primary)
+                {
+                    continue;
+                }
+                if (const t_SceneObject* selected = scene.FindObject(id))
+                {
+                    draw_scene_object_outline(*selected, false);
+                }
+            }
+
+            if (const t_SceneObject* primary = scene.FindObject(editor->m_SelectedSceneObjectId))
+            {
+                draw_scene_object_outline(*primary, true);
                 b_has_object_selection = true;
             }
         }
@@ -650,6 +764,26 @@ void SceneWindow::Draw(GameEditor* editor)
                             ((ImGui::GetIO().MousePos.x - center.x) * (ImGui::GetIO().MousePos.x - center.x)) +
                             ((ImGui::GetIO().MousePos.y - center.y) * (ImGui::GetIO().MousePos.y - center.y)));
                         m_GizmoStartDistance = std::max(m_GizmoStartDistance, 1.0f);
+
+                        m_GizmoStarts.clear();
+                        m_bGizmoGroupDrag = m_GizmoMode != EGizmoMode::Scale;
+                        m_GizmoStarts.push_back(
+                            { selected->m_Id, 0, selected->m_Position, {}, selected->m_Scale, selected->m_Rotation });
+                        if (m_bGizmoGroupDrag)
+                        {
+                            for (const uint32_t id : editor->GetSelectedSceneObjectIds())
+                            {
+                                if (id == selected->m_Id)
+                                {
+                                    continue;
+                                }
+                                if (const t_SceneObject* object = scene.FindObject(id))
+                                {
+                                    m_GizmoStarts.push_back(
+                                        { id, 0, object->m_Position, {}, object->m_Scale, object->m_Rotation });
+                                }
+                            }
+                        }
                         b_gizmo_consumed = true;
                     }
                 }
@@ -700,19 +834,62 @@ void SceneWindow::Draw(GameEditor* editor)
 
                         if (m_GizmoMode != EGizmoMode::Scale)
                         {
-                            if (ImGui::GetIO().KeyCtrl)
+                            const Vector2 delta = { next_position.x - m_GizmoStartPosition.x,
+                                next_position.y - m_GizmoStartPosition.y };
+                            for (const FDragStart& start : m_GizmoStarts)
                             {
-                                constexpr float c_SNAP = 8.0f;
-                                next_position.x = std::round(next_position.x / c_SNAP) * c_SNAP;
-                                next_position.y = std::round(next_position.y / c_SNAP) * c_SNAP;
+                                t_SceneObject* object = scene.FindObject(start.m_SceneId);
+                                if (object == nullptr)
+                                {
+                                    continue;
+                                }
+
+                                Vector2 position = { start.m_Position.x + delta.x, start.m_Position.y + delta.y };
+                                if (ImGui::GetIO().KeyCtrl)
+                                {
+                                    constexpr float c_SNAP = 8.0f;
+                                    position.x = std::round(position.x / c_SNAP) * c_SNAP;
+                                    position.y = std::round(position.y / c_SNAP) * c_SNAP;
+                                }
+                                object->m_Position = position;
                             }
-                            selected->m_Position = next_position;
                             scene.MarkDirty();
                             b_gizmo_consumed = true;
                         }
                     }
                     else
                     {
+                        std::vector<SceneCommands::FSceneObjectTransformEntry> entries;
+                        for (const FDragStart& start : m_GizmoStarts)
+                        {
+                            t_SceneObject* object = scene.FindObject(start.m_SceneId);
+                            if (object == nullptr)
+                            {
+                                continue;
+                            }
+
+                            const SceneCommands::FSceneObjectTransform after = SceneCommands::ReadTransform(*object);
+                            if (start.m_Position.x == after.m_Position.x && start.m_Position.y == after.m_Position.y &&
+                                start.m_Rotation == after.m_Rotation && start.m_Scale.x == after.m_Scale.x &&
+                                start.m_Scale.y == after.m_Scale.y)
+                            {
+                                continue;
+                            }
+
+                            SceneCommands::FSceneObjectTransformEntry entry;
+                            entry.m_Id = start.m_SceneId;
+                            entry.m_Before = { start.m_Position, start.m_Rotation, start.m_Scale };
+                            entry.m_After = after;
+                            entries.push_back(entry);
+                        }
+                        if (!entries.empty())
+                        {
+                            editor->GetCommandStack().Record(
+                                std::make_unique<SceneCommands::SceneObjectsTransformCommand>(
+                                    scene, std::move(entries), "Transform Object"));
+                        }
+                        m_GizmoStarts.clear();
+                        m_bGizmoGroupDrag = false;
                         m_GizmoMode = EGizmoMode::None;
                     }
                 }
@@ -822,6 +999,19 @@ void SceneWindow::Draw(GameEditor* editor)
                         m_GizmoObjectId = selected_entity->m_Id;
                         m_GizmoStartPosition = *selected_entity->m_Position;
                         m_GizmoStartWorldMouse = scene_to_world(screen_to_scene(mouse));
+
+                        m_GizmoStarts.clear();
+                        for (const uint64_t id : editor->GetSelectedEditorEntityIds())
+                        {
+                            for (const GameEditor::FEditorEntityRef& entity : editor->GetEditorEntities())
+                            {
+                                if (entity.m_Id == id && entity.m_Position != nullptr)
+                                {
+                                    m_GizmoStarts.push_back({ 0, id, *entity.m_Position, {}, { 1.0f, 1.0f }, 0.0f });
+                                    break;
+                                }
+                            }
+                        }
                         b_gizmo_consumed = true;
                     }
                 }
@@ -849,18 +1039,65 @@ void SceneWindow::Draw(GameEditor* editor)
                                 break;
                         }
 
-                        if (ImGui::GetIO().KeyCtrl)
+                        const Vector2 delta = { next_position.x - m_GizmoStartPosition.x,
+                            next_position.y - m_GizmoStartPosition.y };
+                        for (const FDragStart& start : m_GizmoStarts)
                         {
-                            constexpr float c_Snap = 1.0f;
-                            next_position.x = std::round(next_position.x / c_Snap) * c_Snap;
-                            next_position.y = std::round(next_position.y / c_Snap) * c_Snap;
-                        }
+                            for (GameEditor::FEditorEntityRef& entity : editor->GetEditorEntities())
+                            {
+                                if (entity.m_Id != start.m_EntityId || entity.m_Position == nullptr)
+                                {
+                                    continue;
+                                }
 
-                        *selected_entity->m_Position = next_position;
+                                Vector2 position = {
+                                    start.m_Position.x + delta.x,
+                                    start.m_Position.y + delta.y,
+                                };
+                                if (ImGui::GetIO().KeyCtrl && prefs.SceneSnapEnabled)
+                                {
+                                    const float snap_step = std::max(prefs.SceneSnapStep, 1.0f);
+                                    position.x = std::round(position.x / snap_step) * snap_step;
+                                    position.y = std::round(position.y / snap_step) * snap_step;
+                                }
+                                *entity.m_Position = position;
+                                break;
+                            }
+                        }
                         b_gizmo_consumed = true;
                     }
                     else
                     {
+                        std::vector<SceneCommands::FEntityTransformEntry> entries;
+                        for (const FDragStart& start : m_GizmoStarts)
+                        {
+                            for (GameEditor::FEditorEntityRef& entity : editor->GetEditorEntities())
+                            {
+                                if (entity.m_Id != start.m_EntityId || entity.m_Position == nullptr)
+                                {
+                                    continue;
+                                }
+
+                                if (start.m_Position.x == entity.m_Position->x &&
+                                    start.m_Position.y == entity.m_Position->y)
+                                {
+                                    break;
+                                }
+
+                                SceneCommands::FEntityTransformEntry entry;
+                                entry.m_Position = entity.m_Position;
+                                entry.m_Before.m_Position = start.m_Position;
+                                entry.m_After.m_Position = *entity.m_Position;
+                                entries.push_back(entry);
+                                break;
+                            }
+                        }
+                        if (!entries.empty())
+                        {
+                            editor->GetCommandStack().Record(std::make_unique<SceneCommands::EntityTransformCommand>(
+                                std::move(entries), "Move Entities"));
+                        }
+                        m_GizmoStarts.clear();
                         m_GizmoMode = EGizmoMode::None;
                         m_bGizmoEntity = false;
                     }
@@ -1051,6 +1288,22 @@ void SceneWindow::Draw(GameEditor* editor)
                             m_GizmoStartPosition3D = *selected_entity->m_Position3D;
                             m_GizmoStartScreenMouse3D = { mouse.x, mouse.y };
 
+                            m_GizmoStarts.clear();
+                            for (const uint64_t id : editor->GetSelectedEditorEntityIds())
+                            {
+                                for (const GameEditor::FEditorEntityRef& entity : editor->GetEditorEntities())
+                                {
+                                    if (entity.m_Id == id && entity.m_Position3D != nullptr)
+                                    {
+                                        FDragStart start;
+                                        start.m_EntityId = id;
+                                        start.m_Position3D = *entity.m_Position3D;
+                                        m_GizmoStarts.push_back(start);
+                                        break;
+                                    }
+                                }
+                            }
+
                             if (m_GizmoMode == EGizmoMode::AxisY)
                             {
                                 ImVec2 up_screen{};
@@ -1120,11 +1373,66 @@ void SceneWindow::Draw(GameEditor* editor)
                                 next.z = std::round(next.z / c_SNAP) * c_SNAP;
                             }
 
-                            *selected_entity->m_Position3D = next;
+                            const Vector3 total_delta = { next.x - m_GizmoStartPosition3D.x,
+                                next.y - m_GizmoStartPosition3D.y, next.z - m_GizmoStartPosition3D.z };
+                            for (const FDragStart& start : m_GizmoStarts)
+                            {
+                                for (GameEditor::FEditorEntityRef& entity : editor->GetEditorEntities())
+                                {
+                                    if (entity.m_Id != start.m_EntityId || entity.m_Position3D == nullptr)
+                                    {
+                                        continue;
+                                    }
+
+                                    Vector3 position = { start.m_Position3D.x + total_delta.x,
+                                        start.m_Position3D.y + total_delta.y, start.m_Position3D.z + total_delta.z };
+                                    if (ImGui::GetIO().KeyCtrl)
+                                    {
+                                        constexpr float c_SNAP = 0.5f;
+                                        position.x = std::round(position.x / c_SNAP) * c_SNAP;
+                                        position.y = std::round(position.y / c_SNAP) * c_SNAP;
+                                        position.z = std::round(position.z / c_SNAP) * c_SNAP;
+                                    }
+                                    *entity.m_Position3D = position;
+                                    break;
+                                }
+                            }
                             b_gizmo_consumed = true;
                         }
                         else
                         {
+                            std::vector<SceneCommands::FEntityTransformEntry> entries;
+                            for (const FDragStart& start : m_GizmoStarts)
+                            {
+                                for (GameEditor::FEditorEntityRef& entity : editor->GetEditorEntities())
+                                {
+                                    if (entity.m_Id != start.m_EntityId || entity.m_Position3D == nullptr)
+                                    {
+                                        continue;
+                                    }
+
+                                    if (start.m_Position3D.x == entity.m_Position3D->x &&
+                                        start.m_Position3D.y == entity.m_Position3D->y &&
+                                        start.m_Position3D.z == entity.m_Position3D->z)
+                                    {
+                                        break;
+                                    }
+
+                                    SceneCommands::FEntityTransformEntry entry;
+                                    entry.m_Position3D = entity.m_Position3D;
+                                    entry.m_Before.m_Position3D = start.m_Position3D;
+                                    entry.m_After.m_Position3D = *entity.m_Position3D;
+                                    entries.push_back(entry);
+                                    break;
+                                }
+                            }
+                            if (!entries.empty())
+                            {
+                                editor->GetCommandStack().Record(
+                                    std::make_unique<SceneCommands::EntityTransformCommand>(
+                                        std::move(entries), "Move Entities"));
+                            }
+                            m_GizmoStarts.clear();
                             m_GizmoMode = EGizmoMode::None;
                         }
                     }
@@ -1140,6 +1448,23 @@ void SceneWindow::Draw(GameEditor* editor)
 
         if (!editor->b_IsPlaying)
         {
+            // Grid/snap toggles live on the viewport only. Shift+G is spare:
+            // the 3D camera reads W/A/S/D/Q/E only while the right button drags.
+            if (!ImGui::GetIO().WantTextInput && !editor->GetTerminal().b_IsKeyboardCaptured() &&
+                (b_image_hovered || ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows)))
+            {
+                if (ImGui::IsKeyChordPressed(ImGuiMod_Shift | ImGuiKey_G))
+                {
+                    prefs.SceneSnapEnabled = !prefs.SceneSnapEnabled;
+                    EditorPreferences::GetInstance().m_bSaveToFile();
+                }
+                else if (ImGui::IsKeyPressed(ImGuiKey_G, false))
+                {
+                    prefs.SceneGridEnabled = !prefs.SceneGridEnabled;
+                    EditorPreferences::GetInstance().m_bSaveToFile();
+                }
+            }
+
             if (mutable_camera != nullptr)
             {
                 ImGuiIO& io = ImGui::GetIO();
@@ -1306,13 +1631,31 @@ void SceneWindow::Draw(GameEditor* editor)
 
                 if (best_id != 0)
                 {
-                    editor->SelectEditorEntity(best_id);
+                    const ImGuiIO& io = ImGui::GetIO();
+                    if (io.KeyCtrl)
+                    {
+                        editor->ToggleEditorEntitySelection(best_id);
+                    }
+                    else if (io.KeyShift)
+                    {
+                        editor->AddEditorEntityToSelection(best_id);
+                    }
+                    else
+                    {
+                        editor->SelectEditorEntity(best_id);
+                    }
                     b_gizmo_consumed = true;
+                }
+                else if (!ImGui::GetIO().KeyCtrl && !ImGui::GetIO().KeyShift)
+                {
+                    editor->ClearSelection();
                 }
             }
 
             if (!b_gizmo_consumed && b_image_hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !m_bDragging)
             {
+                const ImGuiIO& io = ImGui::GetIO();
+                const bool b_additive = io.KeyCtrl || io.KeyShift;
                 const Vector2 scene_mouse = screen_to_scene(ImGui::GetMousePos());
                 const Vector2 world_mouse = scene_to_world(scene_mouse);
                 bool b_hit_entity = false;
@@ -1329,15 +1672,49 @@ void SceneWindow::Draw(GameEditor* editor)
                     {
                         continue;
                     }
-                    if (CheckCollisionPointRec(world_mouse, entity_rect(*it)))
+                    if (!CheckCollisionPointRec(world_mouse, entity_rect(*it)))
                     {
-                        editor->SelectEditorEntity(it->m_Id);
-                        m_bDragging = true;
-                        m_bDraggingEntity = true;
-                        m_DragEntityId = it->m_Id;
-                        b_hit_entity = true;
+                        continue;
+                    }
+
+                    b_hit_entity = true;
+                    if (b_additive)
+                    {
+                        if (io.KeyCtrl)
+                        {
+                            editor->ToggleEditorEntitySelection(it->m_Id);
+                        }
+                        else
+                        {
+                            editor->AddEditorEntityToSelection(it->m_Id);
+                        }
                         break;
                     }
+
+                    if (editor->m_SelectionKind != GameEditor::EEditorSelectionKind::GameplayEntity ||
+                        !editor->b_IsEditorEntitySelected(it->m_Id))
+                    {
+                        editor->SelectEditorEntity(it->m_Id);
+                    }
+
+                    // Drag the whole selection from its captured start values.
+                    m_bDragging = true;
+                    m_bDraggingEntity = true;
+                    m_DragEntityId = it->m_Id;
+                    m_DragStartWorldMouse = world_mouse;
+                    m_DragStarts.clear();
+                    for (const uint64_t id : editor->GetSelectedEditorEntityIds())
+                    {
+                        for (const GameEditor::FEditorEntityRef& entity : editor->GetEditorEntities())
+                        {
+                            if (entity.m_Id == id && entity.m_Position != nullptr)
+                            {
+                                m_DragStarts.push_back({ 0, id, *entity.m_Position, {}, { 1.0f, 1.0f }, 0.0f });
+                                break;
+                            }
+                        }
+                    }
+                    break;
                 }
 
                 if (!b_hit_entity)
@@ -1366,61 +1743,100 @@ void SceneWindow::Draw(GameEditor* editor)
 
                     if (hit != nullptr)
                     {
-                        editor->SelectSceneObject(hit->m_Id);
-                        m_bDragging = true;
-                        m_bDraggingEntity = false;
-                        m_DragObjectId = hit->m_Id;
+                        if (b_additive)
+                        {
+                            if (io.KeyCtrl)
+                            {
+                                editor->ToggleSceneObjectSelection(hit->m_Id);
+                            }
+                            else
+                            {
+                                editor->AddSceneObjectToSelection(hit->m_Id);
+                            }
+                        }
+                        else
+                        {
+                            if (editor->m_SelectionKind != GameEditor::EEditorSelectionKind::SceneObject ||
+                                !editor->b_IsSceneObjectSelected(hit->m_Id))
+                            {
+                                editor->SelectSceneObject(hit->m_Id);
+                            }
+
+                            m_bDragging = true;
+                            m_bDraggingEntity = false;
+                            m_DragObjectId = hit->m_Id;
+                            m_DragStartWorldMouse = world_mouse;
+                            m_DragStarts.clear();
+                            for (const uint32_t id : editor->GetSelectedSceneObjectIds())
+                            {
+                                if (const t_SceneObject* object = scene.FindObject(id))
+                                {
+                                    m_DragStarts.push_back(
+                                        { id, 0, object->m_Position, {}, object->m_Scale, object->m_Rotation });
+                                }
+                            }
+                        }
                     }
-                    else
+                    else if (!b_additive)
                     {
                         editor->ClearSelection();
                     }
+                    // Additive click on empty space keeps the existing set.
                 }
             }
 
             if (m_bDragging)
             {
                 const ImGuiIO& io = ImGui::GetIO();
-                const ImVec2 delta = io.MouseDelta;
                 const Vector2 current_world = scene_to_world(screen_to_scene(io.MousePos));
-                const Vector2 previous_world =
-                    scene_to_world(screen_to_scene(ImVec2{ io.MousePos.x - delta.x, io.MousePos.y - delta.y }));
-                const Vector2 world_delta{ current_world.x - previous_world.x, current_world.y - previous_world.y };
+                const Vector2 delta = { current_world.x - m_DragStartWorldMouse.x,
+                    current_world.y - m_DragStartWorldMouse.y };
 
                 if (m_bDraggingEntity)
                 {
-                    for (GameEditor::FEditorEntityRef& entity : editor->GetEditorEntities())
+                    for (const FDragStart& start : m_DragStarts)
                     {
-                        if (entity.m_Id != m_DragEntityId)
+                        for (GameEditor::FEditorEntityRef& entity : editor->GetEditorEntities())
+                        {
+                            if (entity.m_Id != start.m_EntityId || entity.m_Position == nullptr)
+                            {
+                                continue;
+                            }
+
+                            Vector2 position = { start.m_Position.x + delta.x, start.m_Position.y + delta.y };
+                            if (io.KeyCtrl)
+                            {
+                                constexpr float c_SNAP = 8.0f;
+                                position.x = std::round(position.x / c_SNAP) * c_SNAP;
+                                position.y = std::round(position.y / c_SNAP) * c_SNAP;
+                            }
+                            *entity.m_Position = position;
+                            break;
+                        }
+                    }
+                }
+                else
+                {
+                    bool b_moved = false;
+                    for (const FDragStart& start : m_DragStarts)
+                    {
+                        t_SceneObject* object = scene.FindObject(start.m_SceneId);
+                        if (object == nullptr)
                         {
                             continue;
                         }
 
-                        entity.m_Position->x += world_delta.x;
-                        entity.m_Position->y += world_delta.y;
-
-                        if (ImGui::GetIO().KeyCtrl)
+                        Vector2 position = { start.m_Position.x + delta.x, start.m_Position.y + delta.y };
+                        if (io.KeyCtrl)
                         {
                             constexpr float c_SNAP = 8.0f;
-                            entity.m_Position->x = std::round(entity.m_Position->x / c_SNAP) * c_SNAP;
-                            entity.m_Position->y = std::round(entity.m_Position->y / c_SNAP) * c_SNAP;
+                            position.x = std::round(position.x / c_SNAP) * c_SNAP;
+                            position.y = std::round(position.y / c_SNAP) * c_SNAP;
                         }
-                        break;
+                        object->m_Position = position;
+                        b_moved = true;
                     }
-                }
-                else if (t_SceneObject* object = scene.FindObject(m_DragObjectId))
-                {
-                    object->m_Position.x += world_delta.x;
-                    object->m_Position.y += world_delta.y;
-
-                    if (ImGui::GetIO().KeyCtrl)
-                    {
-                        constexpr float c_SNAP = 8.0f;
-                        object->m_Position.x = std::round(object->m_Position.x / c_SNAP) * c_SNAP;
-                        object->m_Position.y = std::round(object->m_Position.y / c_SNAP) * c_SNAP;
-                    }
-
-                    if (delta.x != 0.0f || delta.y != 0.0f)
+                    if (b_moved)
                     {
                         scene.MarkDirty();
                     }
@@ -1428,8 +1844,71 @@ void SceneWindow::Draw(GameEditor* editor)
 
                 if (!ImGui::IsMouseDown(ImGuiMouseButton_Left))
                 {
+                    if (m_bDraggingEntity)
+                    {
+                        std::vector<SceneCommands::FEntityTransformEntry> entries;
+                        for (const FDragStart& start : m_DragStarts)
+                        {
+                            for (GameEditor::FEditorEntityRef& entity : editor->GetEditorEntities())
+                            {
+                                if (entity.m_Id != start.m_EntityId || entity.m_Position == nullptr)
+                                {
+                                    continue;
+                                }
+                                if (start.m_Position.x == entity.m_Position->x &&
+                                    start.m_Position.y == entity.m_Position->y)
+                                {
+                                    break;
+                                }
+
+                                SceneCommands::FEntityTransformEntry entry;
+                                entry.m_Position = entity.m_Position;
+                                entry.m_Before.m_Position = start.m_Position;
+                                entry.m_After.m_Position = *entity.m_Position;
+                                entries.push_back(entry);
+                                break;
+                            }
+                        }
+                        if (!entries.empty())
+                        {
+                            editor->GetCommandStack().Record(std::make_unique<SceneCommands::EntityTransformCommand>(
+                                std::move(entries), "Move Entities"));
+                        }
+                    }
+                    else
+                    {
+                        std::vector<SceneCommands::FSceneObjectTransformEntry> entries;
+                        for (const FDragStart& start : m_DragStarts)
+                        {
+                            t_SceneObject* object = scene.FindObject(start.m_SceneId);
+                            if (object == nullptr)
+                            {
+                                continue;
+                            }
+
+                            const SceneCommands::FSceneObjectTransform after = SceneCommands::ReadTransform(*object);
+                            if (start.m_Position.x == after.m_Position.x && start.m_Position.y == after.m_Position.y)
+                            {
+                                continue;
+                            }
+
+                            SceneCommands::FSceneObjectTransformEntry entry;
+                            entry.m_Id = start.m_SceneId;
+                            entry.m_Before = { start.m_Position, start.m_Rotation, start.m_Scale };
+                            entry.m_After = after;
+                            entries.push_back(entry);
+                        }
+                        if (!entries.empty())
+                        {
+                            editor->GetCommandStack().Record(
+                                std::make_unique<SceneCommands::SceneObjectsTransformCommand>(
+                                    scene, std::move(entries), "Move Objects"));
+                        }
+                    }
+
                     m_bDragging = false;
                     m_bDraggingEntity = false;
+                    m_DragStarts.clear();
                 }
             }
         }
@@ -1438,6 +1917,25 @@ void SceneWindow::Draw(GameEditor* editor)
             m_bDragging = false;
             m_bDraggingEntity = false;
             m_bPanning = false;
+        }
+
+        // Delete works from the viewport too: the hierarchy is not the only
+        // place a multi-selection can be created.
+        if (!editor->b_IsPlaying && !ImGui::GetIO().WantTextInput && !editor->GetTerminal().b_IsKeyboardCaptured() &&
+            (b_image_hovered || ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows)) &&
+            ImGui::IsKeyPressed(ImGuiKey_Delete) &&
+            editor->m_SelectionKind == GameEditor::EEditorSelectionKind::SceneObject &&
+            !editor->GetSelectedSceneObjectIds().empty())
+        {
+            const std::vector<uint32_t> ids = editor->GetSelectedSceneObjectIds();
+            const std::string prompt = ids.size() > 1
+                ? "Delete the " + std::to_string(ids.size()) + " selected scene objects?"
+                : std::string("Delete the selected scene object?");
+            if (tinyfd_messageBox("Delete Object", prompt.c_str(), "yesno", "warning", 0) == 1)
+            {
+                editor->GetCommandStack().Push(std::make_unique<SceneCommands::SceneObjectRemoveCommand>(scene, ids));
+                editor->ClearSelection();
+            }
         }
 
         if (ImGui::BeginDragDropTarget())
@@ -1449,11 +1947,11 @@ void SceneWindow::Draw(GameEditor* editor)
                 if (!relative_path.empty())
                 {
                     const Vector2 position = scene_to_world(screen_to_scene(ImGui::GetMousePos()));
-                    t_SceneObject& object = scene.AddObject("Sprite");
-                    object.m_TexturePath = relative_path;
-                    object.m_Position = position;
-                    scene.ReloadTexture(object.m_Id);
-                    editor->SelectSceneObject(object.m_Id);
+                    auto command = std::make_unique<SceneCommands::SceneObjectAddCommand>(
+                        scene, "Sprite", position, relative_path);
+                    auto* raw = command.get();
+                    editor->GetCommandStack().Push(std::move(command));
+                    editor->SelectSceneObject(raw->Id());
                 }
             }
             ImGui::EndDragDropTarget();
@@ -1466,7 +1964,7 @@ void SceneWindow::Draw(GameEditor* editor)
 
         if (!editor->b_IsPlaying && mutable_camera != nullptr)
         {
-            constexpr const char* c_HINT = "MMB Pan  |  Wheel Zoom  |  F Frame";
+            constexpr const char* c_HINT = "MMB Pan  |  Wheel Zoom  |  F Frame  |  G Grid  |  Shift+G Snap";
             const ImVec2 text_size = ImGui::CalcTextSize(c_HINT);
             const ImVec2 text_pos{ image_min.x + 8.0f, image_max.y - text_size.y - 8.0f };
             ImDrawList* draw_list = ImGui::GetWindowDrawList();
@@ -1474,6 +1972,37 @@ void SceneWindow::Draw(GameEditor* editor)
                 ImVec2{ text_pos.x + text_size.x + 4.0f, text_pos.y + text_size.y + 2.0f }, IM_COL32(0, 0, 0, 140),
                 3.0f);
             draw_list->AddText(text_pos, ImGui::GetColorU32(ImGuiCol_TextDisabled), c_HINT);
+
+            // Readout occupies the opposite corner so it never covers the hint.
+            char position_text[96] = "x -  y -";
+            if (b_image_hovered)
+            {
+                const Vector2 cursor_world =
+                    GetScreenToWorld2D(screen_to_scene(ImGui::GetIO().MousePos), *mutable_camera);
+                std::snprintf(position_text, sizeof(position_text), "x %.1f  y %.1f", cursor_world.x, cursor_world.y);
+            }
+
+            char state_text[96];
+            std::snprintf(state_text, sizeof(state_text), "Zoom %d%%  |  Sel %d",
+                static_cast<int>(std::lround(mutable_camera->zoom * 100.0f)),
+                static_cast<int>(editor->GetSelectionCount()));
+
+            const float line_height = ImGui::GetTextLineHeight();
+            const float readout_width =
+                std::max(ImGui::CalcTextSize(position_text).x, ImGui::CalcTextSize(state_text).x);
+
+            // Small viewports cannot fit the hint and the readout side by side,
+            // so the readout moves above the hint instead of overlapping it.
+            const float readout_bottom_y =
+                (image_size.x < (text_size.x + readout_width + 32.0f)) ? text_pos.y - 8.0f : image_max.y - 8.0f;
+            const ImVec2 readout_max{ image_max.x - 8.0f, readout_bottom_y };
+            const ImVec2 readout_min{ readout_max.x - readout_width - 8.0f,
+                readout_max.y - (line_height * 2.0f) - 6.0f };
+            draw_list->AddRectFilled(readout_min, readout_max, IM_COL32(0, 0, 0, 140), 3.0f);
+            draw_list->AddText(ImVec2{ readout_min.x + 4.0f, readout_min.y + 3.0f },
+                ImGui::GetColorU32(ImGuiCol_TextDisabled), position_text);
+            draw_list->AddText(ImVec2{ readout_min.x + 4.0f, readout_min.y + 3.0f + line_height },
+                ImGui::GetColorU32(ImGuiCol_Text), state_text);
         }
         else if (!editor->b_IsPlaying && mutable_camera == nullptr && b_image_hovered)
         {

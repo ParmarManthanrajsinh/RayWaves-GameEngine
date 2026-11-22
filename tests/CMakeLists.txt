@@ -25,6 +25,7 @@ set(UNIT_TEST_SRC
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/ReloadRoundtrip_t.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/rw_t.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/Scene_t.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/unit/SceneCommands_t.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/StateBag_t.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/Terminal_t.cpp
 )
@@ -70,7 +71,8 @@ endfunction()
 add_executable(raywaves_tests_unit ${TEST_SUPPORT_SRC} ${UNIT_TEST_SRC}
     ${CMAKE_SOURCE_DIR}/Editor/Autosave.cpp
     ${CMAKE_SOURCE_DIR}/Editor/CommandStack.cpp
-    ${CMAKE_SOURCE_DIR}/Editor/EditorAssets.cpp)
+    ${CMAKE_SOURCE_DIR}/Editor/EditorAssets.cpp
+    ${CMAKE_SOURCE_DIR}/Editor/SceneCommands.cpp)
 raywaves_configure_test_target(raywaves_tests_unit)
 
 add_executable(raywaves_tests_integration

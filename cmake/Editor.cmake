@@ -1,6 +1,7 @@
 set(EDITOR_SRC_CPP
     Editor/Autosave.cpp
     Editor/CommandStack.cpp
+    Editor/SceneCommands.cpp
     Editor/EditorAssets.cpp
     Editor/EditorPreferences.cpp
     Editor/GameEditor.cpp

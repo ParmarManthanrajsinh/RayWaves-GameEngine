@@ -3,6 +3,7 @@
 #include "../GameEditor.h"
 #include "../GameEditorLayout.h"
 #include "../GameEditorTheme.h"
+#include <algorithm>
 #include <filesystem>
 
 void EditorPreferencesPanel::Draw(GameEditor* editor)
@@ -75,6 +76,45 @@ void EditorPreferencesPanel::Draw(GameEditor* editor)
             }
             ImGui::EndCombo();
         }
+
+        ImGui::Separator();
+        ImGui::Spacing();
+
+        ImGui::SeparatorText("Grid & Snapping");
+
+        if (ImGui::Checkbox("Show grid  (G)", &prefs.SceneGridEnabled))
+        {
+            bSavePrefs = true;
+        }
+
+        ImGui::SetNextItemWidth(-1.0f);
+        ImGui::SliderFloat("##SceneGridSize", &prefs.SceneGridSize, 1.0f, 256.0f, "Grid size: %.0f px");
+        if (ImGui::IsItemDeactivatedAfterEdit())
+        {
+            bSavePrefs = true;
+        }
+        prefs.SceneGridSize = std::clamp(prefs.SceneGridSize, 1.0f, 256.0f);
+
+        if (ImGui::Checkbox("Snap with Ctrl  (Shift+G)", &prefs.SceneSnapEnabled))
+        {
+            bSavePrefs = true;
+        }
+
+        ImGui::SetNextItemWidth(-1.0f);
+        ImGui::SliderFloat("##SceneSnapStep", &prefs.SceneSnapStep, 1.0f, 256.0f, "Snap step: %.0f");
+        if (ImGui::IsItemDeactivatedAfterEdit())
+        {
+            bSavePrefs = true;
+        }
+        prefs.SceneSnapStep = std::clamp(prefs.SceneSnapStep, 1.0f, 256.0f);
+
+        ImGui::SetNextItemWidth(-1.0f);
+        ImGui::SliderFloat("##SceneAngleSnap", &prefs.SceneAngleSnapDegrees, 1.0f, 90.0f, "Angle snap: %.0f deg");
+        if (ImGui::IsItemDeactivatedAfterEdit())
+        {
+            bSavePrefs = true;
+        }
+        prefs.SceneAngleSnapDegrees = std::clamp(prefs.SceneAngleSnapDegrees, 1.0f, 90.0f);
 
         ImGui::Separator();
         ImGui::Spacing();

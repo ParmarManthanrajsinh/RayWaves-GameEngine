@@ -1,4 +1,5 @@
 #pragma once
+#include <cstddef>
 #include <cstdint>
 #include <raylib.h>
 #include <string>
@@ -41,6 +42,13 @@ public:
     t_SceneObject& AddObject(std::string_view name);
     t_SceneObject* DuplicateObject(uint32_t id);
     bool b_RemoveObject(uint32_t id);
+
+    // Undo helpers: reinsert a previously removed/copied object without losing
+    // its id or position in the list. The GPU handle is always dropped so the
+    // scene keeps ownership of textures; the next Draw reloads it lazily.
+    t_SceneObject& InsertObject(t_SceneObject object);
+    t_SceneObject& InsertObjectAt(std::size_t index, t_SceneObject object);
+    std::size_t IndexOfObject(uint32_t id) const;
 
     t_SceneObject* FindObject(uint32_t id);
     const t_SceneObject* FindObject(uint32_t id) const;

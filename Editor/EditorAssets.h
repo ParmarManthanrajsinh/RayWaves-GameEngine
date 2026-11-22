@@ -22,4 +22,11 @@ std::string ToRelativeAssetPath(const std::filesystem::path& absolute_path);
 // path when it is already inside. Name collisions get a numeric suffix instead
 // of overwriting user data.
 bool b_ImportFile(const std::filesystem::path& source, std::string& out_relative_path);
+
+// Renames an asset inside the project's Assets folder. The new name must be a
+// bare filename in the same directory: no separators, no "..", no characters
+// Windows rejects. The extension may change; callers own reference updates.
+// Returns the absolute path of the renamed file, or false with an error.
+bool b_RenameAsset(const std::filesystem::path& asset, std::string_view new_filename,
+    std::filesystem::path& out_new_path, std::string& out_error);
 } // namespace EditorAssets

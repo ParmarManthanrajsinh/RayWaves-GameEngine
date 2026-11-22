@@ -4,6 +4,7 @@
 #include <array>
 #include <atomic>
 #include <chrono>
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <filesystem>
@@ -20,6 +21,7 @@
 #include <vector>
 
 #include "../Engine/GameState.h"
+#include "CommandStack.h"
 #include "EditorCamera3D.h"
 #include "GameEditorLayout.h"
 #include "GameEditorTheme.h"
@@ -182,9 +184,15 @@ public:
         uint32_t m_PropertyCount = 0;
     };
 
+    // Primary selection: what the Inspector shows. The id vectors hold the full
+    // selection set; the primary id is always one of them.
     EEditorSelectionKind m_SelectionKind = EEditorSelectionKind::None;
     uint32_t m_SelectedSceneObjectId = 0;
     uint64_t m_SelectedEditorEntityId = 0;
+    std::vector<uint32_t> m_SelectedSceneObjectIds;
+    std::vector<uint64_t> m_SelectedEditorEntityIds;
+
+    CommandStack m_CommandStack;
 
     std::vector<FEditorEntityRef> m_EditorEntities;
     GameMap* m_LastActiveMap = nullptr;
@@ -251,26 +259,31 @@ public:
         return m_GameEngine.GetScene().FindObject(m_SelectedSceneObjectId);
     }
 
-    void SelectSceneObject(uint32_t id)
-    {
-        m_SelectionKind = EEditorSelectionKind::SceneObject;
-        m_SelectedSceneObjectId = id;
-        m_SelectedEditorEntityId = 0;
-    }
+    CommandStack& GetCommandStack() { return m_CommandStack; }
+    const CommandStack& GetCommandStack() const { return m_CommandStack; }
 
-    void SelectEditorEntity(uint64_t id)
-    {
-        m_SelectionKind = EEditorSelectionKind::GameplayEntity;
-        m_SelectedEditorEntityId = id;
-        m_SelectedSceneObjectId = 0;
-    }
+    bool b_IsSceneObjectSelected(uint32_t id) const;
+    bool b_IsEditorEntitySelected(uint64_t id) const;
 
-    void ClearSelection()
-    {
-        m_SelectionKind = EEditorSelectionKind::None;
-        m_SelectedSceneObjectId = 0;
-        m_SelectedEditorEntityId = 0;
-    }
+    const std::vector<uint32_t>& GetSelectedSceneObjectIds() const { return m_SelectedSceneObjectIds; }
+    const std::vector<uint64_t>& GetSelectedEditorEntityIds() const { return m_SelectedEditorEntityIds; }
+
+    // Number of objects in the current selection set, regardless of kind.
+    std::size_t GetSelectionCount() const;
+
+    void SelectSceneObject(uint32_t id);
+    void ToggleSceneObjectSelection(uint32_t id);
+    void AddSceneObjectToSelection(uint32_t id);
+    void SelectSceneObjects(const std::vector<uint32_t>& ids);
+    void RemoveSceneObjectFromSelection(uint32_t id);
+
+    void SelectEditorEntity(uint64_t id);
+    void ToggleEditorEntitySelection(uint64_t id);
+    void AddEditorEntityToSelection(uint64_t id);
+    void SelectEditorEntities(const std::vector<uint64_t>& ids);
+    void RemoveEditorEntityFromSelection(uint64_t id);
+
+    void ClearSelection();
 
     bool m_bUseOpaquePass = true;
 

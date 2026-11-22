@@ -8,6 +8,14 @@ struct t_EditorPreferences
     std::string FontFamily = "Roboto";
     bool AutoSaveEnabled = true;
     int AutoSaveIntervalSeconds = 60;
+
+    // Scene viewport grid and snapping. The viewport reads these every frame,
+    // so they are stored clamped rather than validated at the point of use.
+    bool SceneGridEnabled = true;
+    float SceneGridSize = 32.0f;
+    bool SceneSnapEnabled = true;
+    float SceneSnapStep = 1.0f;
+    float SceneAngleSnapDegrees = 15.0f;
 };
 
 class EditorPreferences

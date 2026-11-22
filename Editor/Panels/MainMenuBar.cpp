@@ -89,6 +89,43 @@ void MainMenuBar::Draw(GameEditor* editor)
             SaveProjectWithSceneSettings(editor);
         }
 
+        // Undo/redo are global, but a focused text field still owns Ctrl+Z for
+        // its own edit history. Check redo first: Ctrl+Shift+Z also satisfies
+        // the Ctrl+Z chord.
+        const bool b_keyboard_free = !editor->GetTerminal().b_IsKeyboardCaptured() && !ImGui::GetIO().WantTextInput;
+        if (b_keyboard_free &&
+            (ImGui::IsKeyChordPressed(ImGuiMod_Ctrl | ImGuiMod_Shift | ImGuiKey_Z) ||
+                ImGui::IsKeyChordPressed(ImGuiMod_Ctrl | ImGuiKey_Y)))
+        {
+            editor->GetCommandStack().Redo();
+        }
+        else if (b_keyboard_free && ImGui::IsKeyChordPressed(ImGuiMod_Ctrl | ImGuiKey_Z))
+        {
+            editor->GetCommandStack().Undo();
+        }
+
+        if (ImGui::BeginMenu("Edit"))
+        {
+            CommandStack& commands = editor->GetCommandStack();
+            const IEditorCommand* undo = commands.PeekUndo();
+            const IEditorCommand* redo = commands.PeekRedo();
+
+            const std::string undo_label = undo != nullptr ? "Undo " + std::string(undo->Name()) : std::string("Undo");
+            const std::string redo_label = redo != nullptr ? "Redo " + std::string(redo->Name()) : std::string("Redo");
+
+            if (ImGui::MenuItem(
+                    (std::string(ICON_FA_ROTATE_LEFT) + " " + undo_label).c_str(), "Ctrl+Z", false, undo != nullptr))
+            {
+                commands.Undo();
+            }
+            if (ImGui::MenuItem(
+                    (std::string(ICON_FA_ROTATE_RIGHT) + " " + redo_label).c_str(), "Ctrl+Y", false, redo != nullptr))
+            {
+                commands.Redo();
+            }
+            ImGui::EndMenu();
+        }
+
         if (ImGui::BeginMenu("View"))
         {
             ImGui::MenuItem(ICON_FA_FOLDER_TREE " FileSystem", nullptr, &editor->m_bShowFileSystem);

@@ -675,6 +675,7 @@ bool GameEditor::OpenProject(std::string_view folderPath)
     m_GameEngine.UnloadScene();
     m_LogicLoader.Unload();
     ClearSelection();
+    m_CommandStack.Clear();
     m_EditorEntities.clear();
     m_LastActiveMap = nullptr;
     m_bHasSavedViewCamera = false;
@@ -757,6 +758,7 @@ void GameEditor::CleanupProject()
     m_LogicLoader.Unload();
     m_LogicLoader.SetGameLogicPath("");
     ClearSelection();
+    m_CommandStack.Clear();
     m_EditorEntities.clear();
     m_LastActiveMap = nullptr;
     m_bHasSavedViewCamera = false;
@@ -936,6 +938,233 @@ void GameEditor::UpdatePlayStateCamera()
     m_bWasPlaying = b_IsPlaying;
 }
 
+bool GameEditor::b_IsSceneObjectSelected(uint32_t id) const
+{
+    return std::ranges::find(m_SelectedSceneObjectIds, id) != m_SelectedSceneObjectIds.end();
+}
+
+bool GameEditor::b_IsEditorEntitySelected(uint64_t id) const
+{
+    return std::ranges::find(m_SelectedEditorEntityIds, id) != m_SelectedEditorEntityIds.end();
+}
+
+std::size_t GameEditor::GetSelectionCount() const
+{
+    if (m_SelectionKind == EEditorSelectionKind::SceneObject)
+    {
+        return m_SelectedSceneObjectIds.size();
+    }
+    if (m_SelectionKind == EEditorSelectionKind::GameplayEntity)
+    {
+        return m_SelectedEditorEntityIds.size();
+    }
+    return 0;
+}
+
+void GameEditor::SelectSceneObject(uint32_t id)
+{
+    m_SelectionKind = EEditorSelectionKind::SceneObject;
+    m_SelectedSceneObjectIds.clear();
+    if (id != 0)
+    {
+        m_SelectedSceneObjectIds.push_back(id);
+    }
+    m_SelectedSceneObjectId = id;
+    m_SelectedEditorEntityId = 0;
+    m_SelectedEditorEntityIds.clear();
+}
+
+void GameEditor::ToggleSceneObjectSelection(uint32_t id)
+{
+    if (id == 0)
+    {
+        return;
+    }
+
+    if (m_SelectionKind != EEditorSelectionKind::SceneObject)
+    {
+        SelectSceneObject(id);
+        return;
+    }
+
+    const auto found = std::ranges::find(m_SelectedSceneObjectIds, id);
+    if (found != m_SelectedSceneObjectIds.end())
+    {
+        m_SelectedSceneObjectIds.erase(found);
+        if (m_SelectedSceneObjectIds.empty())
+        {
+            ClearSelection();
+            return;
+        }
+        if (m_SelectedSceneObjectId == id)
+        {
+            m_SelectedSceneObjectId = m_SelectedSceneObjectIds.back();
+        }
+        return;
+    }
+
+    m_SelectedSceneObjectIds.push_back(id);
+    m_SelectedSceneObjectId = id;
+}
+
+void GameEditor::AddSceneObjectToSelection(uint32_t id)
+{
+    if (id == 0)
+    {
+        return;
+    }
+    if (m_SelectionKind != EEditorSelectionKind::SceneObject)
+    {
+        SelectSceneObject(id);
+        return;
+    }
+    if (!b_IsSceneObjectSelected(id))
+    {
+        m_SelectedSceneObjectIds.push_back(id);
+    }
+    m_SelectedSceneObjectId = id;
+}
+
+void GameEditor::SelectSceneObjects(const std::vector<uint32_t>& ids)
+{
+    if (ids.empty())
+    {
+        ClearSelection();
+        return;
+    }
+
+    m_SelectionKind = EEditorSelectionKind::SceneObject;
+    m_SelectedSceneObjectIds = ids;
+    m_SelectedSceneObjectId = ids.back();
+    m_SelectedEditorEntityId = 0;
+    m_SelectedEditorEntityIds.clear();
+}
+
+void GameEditor::RemoveSceneObjectFromSelection(uint32_t id)
+{
+    const auto found = std::ranges::find(m_SelectedSceneObjectIds, id);
+    if (found == m_SelectedSceneObjectIds.end())
+    {
+        return;
+    }
+
+    m_SelectedSceneObjectIds.erase(found);
+    if (m_SelectedSceneObjectIds.empty())
+    {
+        ClearSelection();
+    }
+    else if (m_SelectedSceneObjectId == id)
+    {
+        m_SelectedSceneObjectId = m_SelectedSceneObjectIds.back();
+    }
+}
+
+void GameEditor::SelectEditorEntity(uint64_t id)
+{
+    m_SelectionKind = EEditorSelectionKind::GameplayEntity;
+    m_SelectedEditorEntityIds.clear();
+    if (id != 0)
+    {
+        m_SelectedEditorEntityIds.push_back(id);
+    }
+    m_SelectedEditorEntityId = id;
+    m_SelectedSceneObjectId = 0;
+    m_SelectedSceneObjectIds.clear();
+}
+
+void GameEditor::ToggleEditorEntitySelection(uint64_t id)
+{
+    if (id == 0)
+    {
+        return;
+    }
+    if (m_SelectionKind != EEditorSelectionKind::GameplayEntity)
+    {
+        SelectEditorEntity(id);
+        return;
+    }
+
+    const auto found = std::ranges::find(m_SelectedEditorEntityIds, id);
+    if (found != m_SelectedEditorEntityIds.end())
+    {
+        m_SelectedEditorEntityIds.erase(found);
+        if (m_SelectedEditorEntityIds.empty())
+        {
+            ClearSelection();
+            return;
+        }
+        if (m_SelectedEditorEntityId == id)
+        {
+            m_SelectedEditorEntityId = m_SelectedEditorEntityIds.back();
+        }
+        return;
+    }
+
+    m_SelectedEditorEntityIds.push_back(id);
+    m_SelectedEditorEntityId = id;
+}
+
+void GameEditor::AddEditorEntityToSelection(uint64_t id)
+{
+    if (id == 0)
+    {
+        return;
+    }
+    if (m_SelectionKind != EEditorSelectionKind::GameplayEntity)
+    {
+        SelectEditorEntity(id);
+        return;
+    }
+    if (!b_IsEditorEntitySelected(id))
+    {
+        m_SelectedEditorEntityIds.push_back(id);
+    }
+    m_SelectedEditorEntityId = id;
+}
+
+void GameEditor::SelectEditorEntities(const std::vector<uint64_t>& ids)
+{
+    if (ids.empty())
+    {
+        ClearSelection();
+        return;
+    }
+
+    m_SelectionKind = EEditorSelectionKind::GameplayEntity;
+    m_SelectedEditorEntityIds = ids;
+    m_SelectedEditorEntityId = ids.back();
+    m_SelectedSceneObjectId = 0;
+    m_SelectedSceneObjectIds.clear();
+}
+
+void GameEditor::RemoveEditorEntityFromSelection(uint64_t id)
+{
+    const auto found = std::ranges::find(m_SelectedEditorEntityIds, id);
+    if (found == m_SelectedEditorEntityIds.end())
+    {
+        return;
+    }
+
+    m_SelectedEditorEntityIds.erase(found);
+    if (m_SelectedEditorEntityIds.empty())
+    {
+        ClearSelection();
+    }
+    else if (m_SelectedEditorEntityId == id)
+    {
+        m_SelectedEditorEntityId = m_SelectedEditorEntityIds.back();
+    }
+}
+
+void GameEditor::ClearSelection()
+{
+    m_SelectionKind = EEditorSelectionKind::None;
+    m_SelectedSceneObjectId = 0;
+    m_SelectedEditorEntityId = 0;
+    m_SelectedSceneObjectIds.clear();
+    m_SelectedEditorEntityIds.clear();
+}
+
 void GameEditor::RefreshEditorEntities()
 {
     GameMap* active_map = GetActiveMap();
@@ -945,6 +1174,9 @@ void GameEditor::RefreshEditorEntities()
         m_bHasSavedViewCamera = false;
         m_bWasPlaying = b_IsPlaying;
         ClearSelection();
+        // Commands hold Scene references and gameplay pointers; a map swap
+        // makes both stale.
+        m_CommandStack.Clear();
     }
 
     m_EditorEntities.clear();
@@ -979,13 +1211,37 @@ void GameEditor::RefreshEditorEntities()
         m_EditorEntities.push_back(std::move(ref));
     }
 
-    if (m_SelectionKind == EEditorSelectionKind::SceneObject && GetSelectedSceneObject() == nullptr)
+    // Drop ids the refreshed map no longer owns. Stop at the first invalid
+    // primary so the selection always has a live Inspector target.
+    if (m_SelectionKind == EEditorSelectionKind::SceneObject)
     {
-        ClearSelection();
+        std::erase_if(m_SelectedSceneObjectIds,
+            [this](uint32_t id) { return m_GameEngine.GetScene().FindObject(id) == nullptr; });
+        if (m_SelectedSceneObjectIds.empty())
+        {
+            ClearSelection();
+        }
+        else if (!b_IsSceneObjectSelected(m_SelectedSceneObjectId))
+        {
+            m_SelectedSceneObjectId = m_SelectedSceneObjectIds.back();
+        }
     }
-    else if (m_SelectionKind == EEditorSelectionKind::GameplayEntity && GetSelectedEditorEntity() == nullptr)
+    else if (m_SelectionKind == EEditorSelectionKind::GameplayEntity)
     {
-        ClearSelection();
+        std::erase_if(m_SelectedEditorEntityIds,
+            [this](uint64_t id)
+            {
+                return std::ranges::find_if(m_EditorEntities, [id](const FEditorEntityRef& entity)
+                           { return entity.m_Id == id; }) == m_EditorEntities.end();
+            });
+        if (m_SelectedEditorEntityIds.empty())
+        {
+            ClearSelection();
+        }
+        else if (!b_IsEditorEntitySelected(m_SelectedEditorEntityId))
+        {
+            m_SelectedEditorEntityId = m_SelectedEditorEntityIds.back();
+        }
     }
 }
 
@@ -994,6 +1250,7 @@ void GameEditor::InvalidateEditorEntities()
     m_EditorEntities.clear();
     m_LastActiveMap = nullptr;
     ClearSelection();
+    m_CommandStack.Clear();
 }
 
 void GameEditor::CloseProject()

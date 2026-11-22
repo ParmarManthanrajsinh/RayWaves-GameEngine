@@ -4,9 +4,15 @@
 #include "../../Engine/ProjectManager.h"
 #include "../EditorWidgets.h"
 #include "../GameEditor.h"
+#include "../SceneCommands.h"
+#include <algorithm>
+#include <cctype>
 #include <cstdio>
 #include <imgui.h>
+#include <initializer_list>
+#include <memory>
 #include <string>
+#include <string_view>
 #include <tinyfiledialogs.h>
 #include <vector>
 
@@ -23,13 +29,11 @@ bool b_IsSelected(GameEditor* editor, const FHierarchyItem& item)
 {
     if (item.m_Kind == GameEditor::EEditorSelectionKind::SceneObject)
     {
-        return editor->m_SelectionKind == GameEditor::EEditorSelectionKind::SceneObject &&
-            editor->m_SelectedSceneObjectId == item.m_SceneId;
+        return editor->b_IsSceneObjectSelected(item.m_SceneId);
     }
     if (item.m_Kind == GameEditor::EEditorSelectionKind::GameplayEntity)
     {
-        return editor->m_SelectionKind == GameEditor::EEditorSelectionKind::GameplayEntity &&
-            editor->m_SelectedEditorEntityId == item.m_EntityId;
+        return editor->b_IsEditorEntitySelected(item.m_EntityId);
     }
     return false;
 }
@@ -44,6 +48,92 @@ void SelectItem(GameEditor* editor, const FHierarchyItem& item)
     {
         editor->SelectEditorEntity(item.m_EntityId);
     }
+}
+
+// Ctrl toggles membership, Shift extends the set. A plain click replaces it.
+void SelectClickedItem(GameEditor* editor, const FHierarchyItem& item)
+{
+    const ImGuiIO& io = ImGui::GetIO();
+    if (item.m_Kind == GameEditor::EEditorSelectionKind::SceneObject)
+    {
+        if (io.KeyCtrl)
+        {
+            editor->ToggleSceneObjectSelection(item.m_SceneId);
+        }
+        else if (io.KeyShift)
+        {
+            editor->AddSceneObjectToSelection(item.m_SceneId);
+        }
+        else
+        {
+            editor->SelectSceneObject(item.m_SceneId);
+        }
+    }
+    else if (item.m_Kind == GameEditor::EEditorSelectionKind::GameplayEntity)
+    {
+        if (io.KeyCtrl)
+        {
+            editor->ToggleEditorEntitySelection(item.m_EntityId);
+        }
+        else if (io.KeyShift)
+        {
+            editor->AddEditorEntityToSelection(item.m_EntityId);
+        }
+        else
+        {
+            editor->SelectEditorEntity(item.m_EntityId);
+        }
+    }
+}
+
+GameEditor::FEditorEntityRef* FindEntity(GameEditor* editor, uint64_t id)
+{
+    for (GameEditor::FEditorEntityRef& entity : editor->GetEditorEntities())
+    {
+        if (entity.m_Id == id)
+        {
+            return &entity;
+        }
+    }
+    return nullptr;
+}
+
+// If the clicked row is part of a multi-selection, act on the whole set.
+std::vector<uint32_t> AffectedSceneIds(GameEditor* editor, uint32_t clicked_id)
+{
+    if (editor->m_SelectionKind == GameEditor::EEditorSelectionKind::SceneObject &&
+        editor->b_IsSceneObjectSelected(clicked_id) && editor->GetSelectionCount() > 1)
+    {
+        return editor->GetSelectedSceneObjectIds();
+    }
+    return { clicked_id };
+}
+
+std::string ToLower(std::string_view text)
+{
+    std::string lowered(text);
+    std::ranges::transform(
+        lowered, lowered.begin(), [](unsigned char character) { return static_cast<char>(std::tolower(character)); });
+    return lowered;
+}
+
+// Query is expected to be lower case already; an empty query matches everything
+// so callers can skip the search special case.
+bool b_MatchesSearch(std::string_view query, std::initializer_list<std::string_view> fields)
+{
+    if (query.empty())
+    {
+        return true;
+    }
+
+    for (const std::string_view field : fields)
+    {
+        if (ToLower(field).find(query) != std::string::npos)
+        {
+            return true;
+        }
+    }
+    return false;
 }
 } // namespace
 
@@ -66,10 +156,12 @@ void SceneHierarchyPanel::Draw(GameEditor* editor)
     Scene& scene = editor->GetScene();
     MapManager* manager = editor->GetMapManager();
 
-    if (editor->m_SelectedSceneObjectId != m_LastSceneId || editor->m_SelectedEditorEntityId != m_LastEntityId)
+    if (editor->m_SelectedSceneObjectId != m_LastSceneId || editor->m_SelectedEditorEntityId != m_LastEntityId ||
+        editor->GetSelectionCount() != m_LastSelectionCount)
     {
         m_LastSceneId = editor->m_SelectedSceneObjectId;
         m_LastEntityId = editor->m_SelectedEditorEntityId;
+        m_LastSelectionCount = editor->GetSelectionCount();
         m_bScrollToSelection = true;
     }
 
@@ -112,6 +204,12 @@ void SceneHierarchyPanel::Draw(GameEditor* editor)
     }
 
     ImGui::Separator();
+
+    // Fixed above the scrolling list so the filter stays reachable in deep
+    // hierarchies.
+    EditorWidgets::ClearableFilter("hierarchy_search", m_Search, "Search name or type...");
+    ImGui::Separator();
+
     ImGui::BeginChild("##hierarchy_objects", ImVec2(0, 0), ImGuiChildFlags_None);
 
     // Empty space doubles as the add surface, so the header stays free of
@@ -121,9 +219,11 @@ void SceneHierarchyPanel::Draw(GameEditor* editor)
     {
         if (ImGui::MenuItem(ICON_FA_PLUS " Add Object"))
         {
-            t_SceneObject& object = scene.AddObject("Object");
-            object.m_Position = editor->GetViewportCenterWorld();
-            editor->SelectSceneObject(object.m_Id);
+            auto command = std::make_unique<SceneCommands::SceneObjectAddCommand>(
+                scene, "Object", editor->GetViewportCenterWorld());
+            auto* raw = command.get();
+            editor->GetCommandStack().Push(std::move(command));
+            editor->SelectSceneObject(raw->Id());
         }
         ImGui::EndPopup();
     }
@@ -134,62 +234,166 @@ void SceneHierarchyPanel::Draw(GameEditor* editor)
     const auto start_rename = [this](const t_SceneObject& object)
     {
         m_RenamingSceneId = object.m_Id;
+        m_RenameOriginal = object.m_Name;
         std::snprintf(m_RenameBuffer, sizeof(m_RenameBuffer), "%s", object.m_Name.c_str());
     };
 
-    const auto finish_rename = [this, &scene](t_SceneObject& object)
+    const auto finish_rename = [this, &scene, editor](t_SceneObject& object)
     {
-        if (m_RenameBuffer[0] != '\0')
+        if (m_RenameBuffer[0] != '\0' && m_RenameOriginal != m_RenameBuffer)
         {
-            object.m_Name = m_RenameBuffer;
-            scene.MarkDirty();
+            editor->GetCommandStack().Push(std::make_unique<SceneCommands::SceneObjectFieldCommand>(scene, object.m_Id,
+                SceneCommands::ESceneObjectField::Name, SceneCommands::FSceneObjectFieldValue::Text(m_RenameOriginal),
+                SceneCommands::FSceneObjectFieldValue::Text(m_RenameBuffer), "Rename Object"));
         }
         m_RenamingSceneId = 0;
+        m_RenameOriginal.clear();
     };
 
-    const std::string gameplay_group = std::string(ICON_FA_GAMEPAD) + " Gameplay###gameplay_group";
-    const bool b_gameplay_open =
-        ImGui::TreeNodeEx(gameplay_group.c_str(), ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_SpanAvailWidth);
-    EditorWidgets::RowCountBadge(static_cast<int>(editor->GetEditorEntities().size()));
-    if (b_gameplay_open)
+    const std::string query = ToLower(m_Search);
+    const bool b_searching = !query.empty();
+
+    std::vector<const GameEditor::FEditorEntityRef*> filtered_entities;
+    for (const GameEditor::FEditorEntityRef& entity : editor->GetEditorEntities())
     {
-        if (editor->GetEditorEntities().empty())
+        if (b_MatchesSearch(query, { entity.m_Name, entity.m_Type }))
         {
-            ImGui::PushTextWrapPos(0.0f);
-            ImGui::TextDisabled("No gameplay entities.");
-            ImGui::PopTextWrapPos();
+            filtered_entities.push_back(&entity);
         }
+    }
 
-        for (const GameEditor::FEditorEntityRef& entity : editor->GetEditorEntities())
+    std::vector<t_SceneObject*> filtered_objects;
+    for (t_SceneObject& object : scene.GetObjects())
+    {
+        if (b_MatchesSearch(query, { object.m_Name, object.m_Type }))
         {
-            ImGui::PushID(static_cast<int>(entity.m_Id));
+            filtered_objects.push_back(&object);
+        }
+    }
 
-            if (entity.m_Visible != nullptr)
+    const auto draw_entity_row = [&](const GameEditor::FEditorEntityRef& entity)
+    {
+        ImGui::PushID(static_cast<int>(entity.m_Id));
+
+        if (entity.m_Visible != nullptr)
+        {
+            if (EditorWidgets::RowIconButton("visibility", *entity.m_Visible ? ICON_FA_EYE : ICON_FA_EYE_SLASH,
+                    "Toggle visibility", !*entity.m_Visible))
             {
-                if (EditorWidgets::RowIconButton("visibility", *entity.m_Visible ? ICON_FA_EYE : ICON_FA_EYE_SLASH,
-                        "Toggle visibility", !*entity.m_Visible))
+                const bool b_after = !*entity.m_Visible;
+                std::vector<uint64_t> ids{ entity.m_Id };
+                if (editor->m_SelectionKind == GameEditor::EEditorSelectionKind::GameplayEntity &&
+                    editor->b_IsEditorEntitySelected(entity.m_Id) && editor->GetSelectionCount() > 1)
                 {
-                    *entity.m_Visible = !*entity.m_Visible;
+                    ids = editor->GetSelectedEditorEntityIds();
+                }
+
+                std::vector<SceneCommands::FEntityTransformEntry> entries;
+                entries.reserve(ids.size());
+                for (const uint64_t id : ids)
+                {
+                    GameEditor::FEditorEntityRef* target = FindEntity(editor, id);
+                    if (target == nullptr || target->m_Visible == nullptr)
+                    {
+                        continue;
+                    }
+
+                    SceneCommands::FEntityTransformEntry entry;
+                    entry.m_Visible = target->m_Visible;
+                    entry.m_Before.m_bVisible = *target->m_Visible;
+                    entry.m_After.m_bVisible = b_after;
+                    entries.push_back(entry);
+                }
+                if (!entries.empty())
+                {
+                    editor->GetCommandStack().Push(std::make_unique<SceneCommands::EntityTransformCommand>(
+                        std::move(entries), "Change Visibility"));
                 }
             }
-            else
-            {
-                EditorWidgets::RowIconGutter();
-            }
-            ImGui::SameLine(0.0f, 4.0f);
+        }
+        else
+        {
+            EditorWidgets::RowIconGutter();
+        }
+        ImGui::SameLine(0.0f, 4.0f);
 
-            std::string label = std::string(ICON_FA_GAMEPAD) + " " + entity.m_Name;
-            if (entity.m_Type != entity.m_Name)
-            {
-                label += "  (" + entity.m_Type + ")";
-            }
+        std::string label = std::string(ICON_FA_GAMEPAD) + " " + entity.m_Name;
+        if (entity.m_Type != entity.m_Name)
+        {
+            label += "  (" + entity.m_Type + ")";
+        }
 
-            const FHierarchyItem item{ GameEditor::EEditorSelectionKind::GameplayEntity, 0, entity.m_Id };
-            const bool b_selected = b_IsSelected(editor, item);
+        const FHierarchyItem item{ GameEditor::EEditorSelectionKind::GameplayEntity, 0, entity.m_Id };
+        const bool b_selected = b_IsSelected(editor, item);
+        if (ImGui::Selectable(label.c_str(), b_selected, ImGuiSelectableFlags_AllowDoubleClick,
+                ImVec2(ImGui::GetContentRegionAvail().x, EditorWidgets::c_RowHeight)))
+        {
+            SelectClickedItem(editor, item);
+        }
+        if (b_selected && m_bScrollToSelection)
+        {
+            ImGui::SetScrollHereY(0.5f);
+            m_bScrollToSelection = false;
+            b_selected_drawn = true;
+        }
+
+        if (ImGui::IsItemHovered())
+        {
+            if (entity.m_Position != nullptr)
+            {
+                ImGui::SetTooltip(
+                    "%s\nposition %.1f, %.1f", entity.m_Type.c_str(), entity.m_Position->x, entity.m_Position->y);
+            }
+            else if (entity.m_Position3D != nullptr)
+            {
+                ImGui::SetTooltip("%s\nposition %.1f, %.1f, %.1f", entity.m_Type.c_str(), entity.m_Position3D->x,
+                    entity.m_Position3D->y, entity.m_Position3D->z);
+            }
+        }
+
+        visible_items.push_back(item);
+        ImGui::PopID();
+    };
+
+    // Returns true when the object list changed and the caller must stop
+    // iterating its cached pointers.
+    const auto draw_object_row = [&](t_SceneObject& object) -> bool
+    {
+        ImGui::PushID(static_cast<int>(object.m_Id));
+
+        if (EditorWidgets::RowIconButton("visibility", object.m_bVisible ? ICON_FA_EYE : ICON_FA_EYE_SLASH,
+                "Toggle visibility", !object.m_bVisible))
+        {
+            editor->GetCommandStack().Push(std::make_unique<SceneCommands::SceneObjectsVisibleCommand>(
+                scene, AffectedSceneIds(editor, object.m_Id), !object.m_bVisible));
+        }
+        ImGui::SameLine(0.0f, 4.0f);
+
+        const FHierarchyItem item{ GameEditor::EEditorSelectionKind::SceneObject, object.m_Id, 0 };
+        const bool b_selected = b_IsSelected(editor, item);
+
+        if (m_RenamingSceneId == object.m_Id)
+        {
+            ImGui::SetNextItemWidth(-1.0f);
+            const bool b_commit = ImGui::InputText("##rename", m_RenameBuffer, sizeof(m_RenameBuffer),
+                ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_AutoSelectAll);
+            if (b_commit || ImGui::IsItemDeactivated())
+            {
+                finish_rename(object);
+            }
+        }
+        else
+        {
+            std::string label =
+                std::string(ICON_FA_IMAGE) + " " + (object.m_Name.empty() ? std::string("Object") : object.m_Name);
+            if (!object.m_Type.empty())
+            {
+                label += "  (" + object.m_Type + ")";
+            }
             if (ImGui::Selectable(label.c_str(), b_selected, ImGuiSelectableFlags_AllowDoubleClick,
                     ImVec2(ImGui::GetContentRegionAvail().x, EditorWidgets::c_RowHeight)))
             {
-                editor->SelectEditorEntity(entity.m_Id);
+                SelectClickedItem(editor, item);
             }
             if (b_selected && m_bScrollToSelection)
             {
@@ -197,130 +401,198 @@ void SceneHierarchyPanel::Draw(GameEditor* editor)
                 m_bScrollToSelection = false;
                 b_selected_drawn = true;
             }
-
+            if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
+            {
+                start_rename(object);
+            }
             if (ImGui::IsItemHovered())
             {
-                if (entity.m_Position != nullptr)
+                ImGui::SetTooltip("layer %d\n%s", object.m_Layer,
+                    object.m_TexturePath.empty() ? "(no texture)" : object.m_TexturePath.c_str());
+            }
+        }
+
+        bool b_list_changed = false;
+        if (ImGui::BeginPopupContextItem("##scene_object_context"))
+        {
+            if (ImGui::MenuItem("Rename"))
+            {
+                start_rename(object);
+            }
+            if (ImGui::MenuItem("Duplicate"))
+            {
+                auto command = std::make_unique<SceneCommands::SceneObjectDuplicateCommand>(
+                    scene, AffectedSceneIds(editor, object.m_Id));
+                auto* raw = command.get();
+                editor->GetCommandStack().Push(std::move(command));
+                editor->SelectSceneObjects(raw->CreatedIds());
+                // Inserting invalidates the cached object pointers.
+                b_list_changed = true;
+            }
+            if (ImGui::MenuItem("Delete"))
+            {
+                const std::vector<uint32_t> ids = AffectedSceneIds(editor, object.m_Id);
+                const std::string prompt = ids.size() > 1
+                    ? "Delete the " + std::to_string(ids.size()) + " selected scene objects?"
+                    : std::string("Delete the selected scene object?");
+                if (tinyfd_messageBox("Delete Object", prompt.c_str(), "yesno", "warning", 0) == 1)
                 {
-                    ImGui::SetTooltip(
-                        "%s\nposition %.1f, %.1f", entity.m_Type.c_str(), entity.m_Position->x, entity.m_Position->y);
-                }
-                else if (entity.m_Position3D != nullptr)
-                {
-                    ImGui::SetTooltip("%s\nposition %.1f, %.1f, %.1f", entity.m_Type.c_str(), entity.m_Position3D->x,
-                        entity.m_Position3D->y, entity.m_Position3D->z);
+                    editor->GetCommandStack().Push(
+                        std::make_unique<SceneCommands::SceneObjectRemoveCommand>(scene, ids));
+                    editor->ClearSelection();
+                    b_list_changed = true;
                 }
             }
-
-            visible_items.push_back(item);
-            ImGui::PopID();
+            ImGui::EndPopup();
         }
-        ImGui::TreePop();
-    }
 
-    const std::string editor_objects_group = std::string(ICON_FA_IMAGE) + " Editor Objects###editor_objects_group";
-    const bool b_editor_objects_open = ImGui::TreeNodeEx(
-        editor_objects_group.c_str(), ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_SpanAvailWidth);
-    EditorWidgets::RowCountBadge(static_cast<int>(scene.GetObjects().size()));
+        if (b_list_changed)
+        {
+            ImGui::PopID();
+            return true;
+        }
 
-    if (b_editor_objects_open)
+        visible_items.push_back(item);
+        ImGui::PopID();
+        return false;
+    };
+
+    // Groups the editor objects by layer. The eye toggles the whole layer as one
+    // undo step. Returns true when a row changed the object list.
+    const auto draw_layer_group = [&](int layer) -> bool
     {
-        if (scene.GetObjects().empty())
+        ImGui::PushID(layer);
+
+        std::vector<uint32_t> layer_ids;
+        bool b_any_visible = false;
+        for (const t_SceneObject* object : filtered_objects)
         {
-            ImGui::PushTextWrapPos(0.0f);
-            ImGui::TextDisabled("No editor objects. Drag a sprite here or right-click to add one.");
-            ImGui::PopTextWrapPos();
+            if (object->m_Layer != layer)
+            {
+                continue;
+            }
+            layer_ids.push_back(object->m_Id);
+            b_any_visible = b_any_visible || object->m_bVisible;
         }
-        for (t_SceneObject& object : scene.GetObjects())
+
+        if (EditorWidgets::RowIconButton("layer_visibility", b_any_visible ? ICON_FA_EYE : ICON_FA_EYE_SLASH,
+                "Toggle layer visibility", !b_any_visible))
         {
-            ImGui::PushID(static_cast<int>(object.m_Id));
+            editor->GetCommandStack().Push(std::make_unique<SceneCommands::SceneObjectsVisibleCommand>(
+                scene, layer_ids, !b_any_visible, "Change Layer Visibility"));
+        }
+        ImGui::SameLine(0.0f, 4.0f);
 
-            if (EditorWidgets::RowIconButton("visibility", object.m_bVisible ? ICON_FA_EYE : ICON_FA_EYE_SLASH,
-                    "Toggle visibility", !object.m_bVisible))
-            {
-                object.m_bVisible = !object.m_bVisible;
-                scene.MarkDirty();
-            }
-            ImGui::SameLine(0.0f, 4.0f);
+        const std::string label = std::string(ICON_FA_LAYER_GROUP) + " Layer " + std::to_string(layer) + "###layer";
+        const bool b_open =
+            ImGui::TreeNodeEx(label.c_str(), ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_SpanAvailWidth);
+        ImGui::SameLine();
+        ImGui::TextDisabled("(%d)", static_cast<int>(layer_ids.size()));
 
-            const FHierarchyItem item{ GameEditor::EEditorSelectionKind::SceneObject, object.m_Id, 0 };
-            const bool b_selected = b_IsSelected(editor, item);
-
-            if (m_RenamingSceneId == object.m_Id)
+        bool b_list_changed = false;
+        if (b_open)
+        {
+            for (t_SceneObject* object : filtered_objects)
             {
-                ImGui::SetNextItemWidth(-1.0f);
-                const bool b_commit = ImGui::InputText("##rename", m_RenameBuffer, sizeof(m_RenameBuffer),
-                    ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_AutoSelectAll);
-                if (b_commit || ImGui::IsItemDeactivated())
+                if (object->m_Layer != layer)
                 {
-                    finish_rename(object);
+                    continue;
                 }
-            }
-            else
-            {
-                const std::string label =
-                    std::string(ICON_FA_IMAGE) + " " + (object.m_Name.empty() ? std::string("Object") : object.m_Name);
-                if (ImGui::Selectable(label.c_str(), b_selected, ImGuiSelectableFlags_AllowDoubleClick,
-                        ImVec2(ImGui::GetContentRegionAvail().x, EditorWidgets::c_RowHeight)))
+                if (draw_object_row(*object))
                 {
-                    editor->SelectSceneObject(object.m_Id);
-                }
-                if (b_selected && m_bScrollToSelection)
-                {
-                    ImGui::SetScrollHereY(0.5f);
-                    m_bScrollToSelection = false;
-                    b_selected_drawn = true;
-                }
-                if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
-                {
-                    start_rename(object);
-                }
-                if (ImGui::IsItemHovered())
-                {
-                    ImGui::SetTooltip("layer %d\n%s", object.m_Layer,
-                        object.m_TexturePath.empty() ? "(no texture)" : object.m_TexturePath.c_str());
+                    b_list_changed = true;
+                    break;
                 }
             }
+            ImGui::TreePop();
+        }
 
-            bool b_deleted = false;
-            if (ImGui::BeginPopupContextItem("##scene_object_context"))
+        ImGui::PopID();
+        return b_list_changed;
+    };
+
+    if (b_searching && filtered_entities.empty() && filtered_objects.empty())
+    {
+        ImGui::Spacing();
+        ImGui::PushTextWrapPos(0.0f);
+        ImGui::TextDisabled("No matches for \"%s\".", m_Search.c_str());
+        ImGui::PopTextWrapPos();
+    }
+    else
+    {
+        // A search hides empty groups so the result list stays short.
+        if (!b_searching || !filtered_entities.empty())
+        {
+            const std::string gameplay_group = std::string(ICON_FA_GAMEPAD) + " Gameplay###gameplay_group";
+            const bool b_gameplay_open = ImGui::TreeNodeEx(
+                gameplay_group.c_str(), ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_SpanAvailWidth);
+            EditorWidgets::RowCountBadge(static_cast<int>(filtered_entities.size()));
+            if (b_gameplay_open)
             {
-                if (ImGui::MenuItem("Rename"))
+                if (filtered_entities.empty())
                 {
-                    start_rename(object);
+                    ImGui::PushTextWrapPos(0.0f);
+                    ImGui::TextDisabled("No gameplay entities.");
+                    ImGui::PopTextWrapPos();
                 }
-                if (ImGui::MenuItem("Duplicate"))
+
+                for (const GameEditor::FEditorEntityRef* entity : filtered_entities)
                 {
-                    if (t_SceneObject* copy = scene.DuplicateObject(object.m_Id))
+                    draw_entity_row(*entity);
+                }
+                ImGui::TreePop();
+            }
+        }
+
+        if (!b_searching || !filtered_objects.empty())
+        {
+            const std::string editor_objects_group =
+                std::string(ICON_FA_IMAGE) + " Editor Objects###editor_objects_group";
+            const bool b_editor_objects_open = ImGui::TreeNodeEx(
+                editor_objects_group.c_str(), ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_SpanAvailWidth);
+            EditorWidgets::RowCountBadge(static_cast<int>(filtered_objects.size()));
+
+            if (b_editor_objects_open)
+            {
+                if (filtered_objects.empty())
+                {
+                    ImGui::PushTextWrapPos(0.0f);
+                    ImGui::TextDisabled("No editor objects. Drag a sprite here or right-click to add one.");
+                    ImGui::PopTextWrapPos();
+                }
+
+                if (b_searching)
+                {
+                    for (t_SceneObject* object : filtered_objects)
                     {
-                        copy->m_Position.x += 16.0f;
-                        copy->m_Position.y += 16.0f;
-                        editor->SelectSceneObject(copy->m_Id);
+                        if (draw_object_row(*object))
+                        {
+                            break;
+                        }
                     }
                 }
-                if (ImGui::MenuItem("Delete"))
+                else
                 {
-                    if (tinyfd_messageBox(
-                            "Delete Object", "Delete the selected scene object?", "yesno", "warning", 0) == 1)
+                    std::vector<int> layers;
+                    layers.reserve(filtered_objects.size());
+                    for (const t_SceneObject* object : filtered_objects)
                     {
-                        scene.b_RemoveObject(object.m_Id);
-                        editor->ClearSelection();
-                        b_deleted = true;
+                        layers.push_back(object->m_Layer);
+                    }
+                    std::ranges::sort(layers);
+                    layers.erase(std::unique(layers.begin(), layers.end()), layers.end());
+
+                    for (const int layer : layers)
+                    {
+                        if (draw_layer_group(layer))
+                        {
+                            break;
+                        }
                     }
                 }
-                ImGui::EndPopup();
+                ImGui::TreePop();
             }
-
-            if (b_deleted)
-            {
-                ImGui::PopID();
-                break;
-            }
-
-            visible_items.push_back(item);
-            ImGui::PopID();
         }
-        ImGui::TreePop();
     }
 
     if (!b_selected_drawn)
@@ -360,15 +632,17 @@ void SceneHierarchyPanel::Draw(GameEditor* editor)
         }
 
         if (ImGui::IsKeyPressed(ImGuiKey_Delete) &&
-            editor->m_SelectionKind == GameEditor::EEditorSelectionKind::SceneObject)
+            editor->m_SelectionKind == GameEditor::EEditorSelectionKind::SceneObject &&
+            !editor->GetSelectedSceneObjectIds().empty())
         {
-            if (t_SceneObject* object = editor->GetSelectedSceneObject())
+            const std::vector<uint32_t> ids = editor->GetSelectedSceneObjectIds();
+            const std::string prompt = ids.size() > 1
+                ? "Delete the " + std::to_string(ids.size()) + " selected scene objects?"
+                : std::string("Delete the selected scene object?");
+            if (tinyfd_messageBox("Delete Object", prompt.c_str(), "yesno", "warning", 0) == 1)
             {
-                if (tinyfd_messageBox("Delete Object", "Delete the selected scene object?", "yesno", "warning", 0) == 1)
-                {
-                    scene.b_RemoveObject(object->m_Id);
-                    editor->ClearSelection();
-                }
+                editor->GetCommandStack().Push(std::make_unique<SceneCommands::SceneObjectRemoveCommand>(scene, ids));
+                editor->ClearSelection();
             }
         }
 
