@@ -27,6 +27,7 @@
 #include "GameEditorTheme.h"
 #include "GameEngine.h"
 #include "GameLogicLoader.h"
+#include "LogBuffer.h"
 #include "terminal/terminal.h"
 namespace fs = std::filesystem;
 
@@ -59,6 +60,23 @@ public:
     ~GameEditor();
 
     bool b_IsPlaying;
+
+    // Playback state. b_IsPlaying is kept equal to "not stopped" because panels
+    // outside this class only know that flag and use it to disable editing.
+    enum class EPlayState
+    {
+        Stopped,
+        Playing,
+        Paused
+    };
+
+    EPlayState GetPlayState() const { return m_PlayState; }
+    bool b_IsPaused() const { return m_PlayState == EPlayState::Paused; }
+    void SetPlayState(EPlayState state);
+    // Requests a single fixed-size frame. From Stopped this enters Paused first
+    // so the gameplay camera is preserved like any other playback session.
+    void StepOnce();
+
     std::atomic<bool> b_IsCompiling;
     bool Init(int width, int height, std::string_view title);
     void LoadMap(GameMap* game_map);
@@ -93,6 +111,8 @@ public:
     GameLogicLoader& GetLogicLoader() { return m_LogicLoader; }
     std::shared_ptr<std::atomic<bool>> GetThreadCancelFlag() const { return m_ThreadCancelFlag; }
     term::Terminal& GetTerminal() { return m_Terminal; }
+    LogBuffer& GetLogBuffer() { return m_LogBuffer; }
+    const LogBuffer& GetLogBuffer() const { return m_LogBuffer; }
 
     std::string version = std::string("RayWaves v") + RAYWAVES_VERSION;
 
@@ -149,6 +169,8 @@ public:
     void ParseBuildLine(std::string_view line);
 
     bool m_bShowTerminal = true;
+    bool m_bShowLog = false;
+    LogBuffer m_LogBuffer;
     bool m_bShowSceneSettings = false;
     bool m_bShowExport = false;
     bool m_bShowEditorPreferences = false;
@@ -316,6 +338,11 @@ private:
 
     bool m_bCloseRequested = false;
     std::shared_ptr<std::atomic<bool>> m_ThreadCancelFlag = std::make_shared<std::atomic<bool>>(false);
+
+    EPlayState m_PlayState = EPlayState::Stopped;
+    bool m_bStepRequested = false;
+    // Returns true once per request so a step never leaks into the next frame.
+    bool b_ConsumeStepRequest();
 
     // Frame-time accumulator for periodic autosave. Editor-only, UI thread.
     float m_AutoSaveElapsedSeconds = 0.0f;

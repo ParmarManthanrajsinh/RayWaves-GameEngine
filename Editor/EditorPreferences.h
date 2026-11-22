@@ -9,6 +9,10 @@ struct t_EditorPreferences
     bool AutoSaveEnabled = true;
     int AutoSaveIntervalSeconds = 60;
 
+    // CMake build type used when compiling project GameLogic from the editor.
+    // Clamped to Debug, Release, or RelWithDebInfo on load.
+    std::string BuildConfig = "Release";
+
     // Scene viewport grid and snapping. The viewport reads these every frame,
     // so they are stored clamped rather than validated at the point of use.
     bool SceneGridEnabled = true;

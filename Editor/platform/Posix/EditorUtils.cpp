@@ -1,17 +1,25 @@
 #include "EditorUtils.h"
+#include "ProcessRunner.h"
 
 #include <cerrno>
 #include <cstring>
 #include <iostream>
 #include <spawn.h>
+#include <string>
 #include <sys/wait.h>
+#include <system_error>
 #include <thread>
 #include <unistd.h>
+#include <vector>
 
 extern char** environ;
 
 namespace
 {
+// VS Code first; VSCodium ships the same CLI under "codium" for users who
+// replaced Microsoft's build.
+constexpr const char* k_EditorCommands[] = { "code", "codium" };
+
 bool SpawnDetached(const std::filesystem::path& target)
 {
     const std::string program = "xdg-open";
@@ -39,6 +47,32 @@ bool SpawnDetached(const std::filesystem::path& target)
         .detach();
     return true;
 }
+
+bool TryOpenInEditor(const std::filesystem::path& absolute_path, int line)
+{
+    const std::string target = absolute_path.string();
+    const std::string location = target + ":" + std::to_string(line);
+
+    for (const char* command : k_EditorCommands)
+    {
+        std::vector<std::string> argv;
+        if (line > 0)
+        {
+            argv = { command, "--goto", location };
+        }
+        else
+        {
+            argv = { command, target };
+        }
+
+        // argv form keeps spaces in the path intact without a shell string.
+        if (ProcessRunner::RunAndWaitCommand(argv, {}))
+        {
+            return true;
+        }
+    }
+    return false;
+}
 } // namespace
 
 namespace EditorUtils
@@ -62,6 +96,35 @@ bool OpenInDefaultApp(const std::filesystem::path& path)
         return false;
     }
     return SpawnDetached(std::filesystem::absolute(path, error));
+}
+
+bool OpenFileAtLine(const std::filesystem::path& path, int line)
+{
+    if (line < 0)
+    {
+        return false;
+    }
+
+    std::error_code error;
+    if (!std::filesystem::exists(path, error) || error)
+    {
+        std::cerr << "Failed to open file: path does not exist. Path: " << path.string() << '\n';
+        return false;
+    }
+
+    const std::filesystem::path abs_path = std::filesystem::absolute(path, error);
+    if (error)
+    {
+        return false;
+    }
+
+    if (TryOpenInEditor(abs_path, line))
+    {
+        return true;
+    }
+
+    // No editor CLI on PATH: hand the file to the shell (line is ignored).
+    return OpenInDefaultApp(abs_path);
 }
 
 bool OpenURL(std::string_view url)

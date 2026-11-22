@@ -5,6 +5,19 @@
 #include <filesystem>
 #include <fstream>
 #include <sstream>
+
+namespace
+{
+std::string s_NormalizeBuildConfig(const std::string& value)
+{
+    if (value == "Debug" || value == "Release" || value == "RelWithDebInfo")
+    {
+        return value;
+    }
+    return "Release";
+}
+} // namespace
+
 EditorPreferences& EditorPreferences::GetInstance()
 {
     static EditorPreferences s_Instance;
@@ -88,6 +101,10 @@ bool EditorPreferences::m_bLoadFromFile()
             {
             }
         }
+        else if (key == "BuildConfig")
+        {
+            m_Preferences.BuildConfig = s_NormalizeBuildConfig(value);
+        }
         else if (key == "SceneGridEnabled")
         {
             if (value == "0")
@@ -165,6 +182,7 @@ bool EditorPreferences::m_bSaveToFile() const
     contents << "FontFamily=" << m_Preferences.FontFamily << "\n";
     contents << "AutoSaveEnabled=" << (m_Preferences.AutoSaveEnabled ? 1 : 0) << "\n";
     contents << "AutoSaveIntervalSeconds=" << std::clamp(m_Preferences.AutoSaveIntervalSeconds, 10, 3600) << "\n";
+    contents << "BuildConfig=" << s_NormalizeBuildConfig(m_Preferences.BuildConfig) << "\n";
     contents << "SceneGridEnabled=" << (m_Preferences.SceneGridEnabled ? 1 : 0) << "\n";
     contents << "SceneGridSize=" << std::clamp(m_Preferences.SceneGridSize, 1.0f, 256.0f) << "\n";
     contents << "SceneSnapEnabled=" << (m_Preferences.SceneSnapEnabled ? 1 : 0) << "\n";

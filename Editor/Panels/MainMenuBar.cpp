@@ -1,4 +1,5 @@
 #include "MainMenuBar.h"
+#include "../../Engine/MapManager.h"
 #include "../../Engine/Profiler.h"
 #include "../../Engine/ProjectManager.h"
 #include "../Autosave.h"
@@ -8,6 +9,32 @@
 #include <imgui.h>
 #include <rlImGui.h>
 #include <tinyfiledialogs.h>
+
+static void TogglePlayPause(GameEditor* editor)
+{
+    switch (editor->GetPlayState())
+    {
+        case GameEditor::EPlayState::Stopped:
+            editor->SetPlayState(GameEditor::EPlayState::Playing);
+            break;
+        case GameEditor::EPlayState::Playing:
+            editor->SetPlayState(GameEditor::EPlayState::Paused);
+            break;
+        case GameEditor::EPlayState::Paused:
+            editor->SetPlayState(GameEditor::EPlayState::Playing);
+            break;
+    }
+}
+
+static void RestartPlayback(GameEditor* editor)
+{
+    editor->SetPlayState(GameEditor::EPlayState::Stopped);
+    editor->InvalidateEditorEntities();
+    if (MapManager* map_manager = editor->GetMapManager())
+    {
+        map_manager->b_ReloadCurrentMap();
+    }
+}
 
 static void SaveProjectWithSceneSettings(GameEditor* editor)
 {
@@ -104,6 +131,68 @@ void MainMenuBar::Draw(GameEditor* editor)
             editor->GetCommandStack().Undo();
         }
 
+        // Playback shortcuts mirror the Play menu. They use the same text-field
+        // guard so typing in the terminal or a field never triggers them.
+        if (b_keyboard_free)
+        {
+            if (ImGui::IsKeyChordPressed(ImGuiMod_Ctrl | ImGuiKey_F5))
+            {
+                if (editor->GetMapManager() != nullptr)
+                {
+                    RestartPlayback(editor);
+                }
+            }
+            else if (ImGui::IsKeyChordPressed(ImGuiMod_Shift | ImGuiKey_F5))
+            {
+                editor->SetPlayState(GameEditor::EPlayState::Stopped);
+            }
+            else if (ImGui::IsKeyChordPressed(ImGuiKey_F5))
+            {
+                TogglePlayPause(editor);
+            }
+            else if (ImGui::IsKeyChordPressed(ImGuiKey_F7) && editor->GetPlayState() != GameEditor::EPlayState::Playing)
+            {
+                editor->StepOnce();
+            }
+        }
+
+        if (ImGui::BeginMenu("Play"))
+        {
+            const GameEditor::EPlayState play_state = editor->GetPlayState();
+            const char* play_icon = ICON_FA_PLAY;
+            const char* play_label = " Play";
+            if (play_state == GameEditor::EPlayState::Playing)
+            {
+                play_icon = ICON_FA_PAUSE;
+                play_label = " Pause";
+            }
+            else if (play_state == GameEditor::EPlayState::Paused)
+            {
+                play_icon = ICON_FA_PLAY;
+                play_label = " Resume";
+            }
+
+            if (ImGui::MenuItem((std::string(play_icon) + play_label).c_str(), "F5"))
+            {
+                TogglePlayPause(editor);
+            }
+            if (ImGui::MenuItem(ICON_FA_STOP " Stop", "Shift+F5", false, play_state != GameEditor::EPlayState::Stopped))
+            {
+                editor->SetPlayState(GameEditor::EPlayState::Stopped);
+            }
+            if (ImGui::MenuItem(
+                    ICON_FA_FORWARD_STEP " Step", "F7", false, play_state != GameEditor::EPlayState::Playing))
+            {
+                editor->StepOnce();
+            }
+            if (ImGui::MenuItem(
+                    ICON_FA_ARROW_ROTATE_RIGHT " Restart", "Ctrl+F5", false, editor->GetMapManager() != nullptr))
+            {
+                RestartPlayback(editor);
+            }
+            ImGui::EndMenu();
+        }
+
         if (ImGui::BeginMenu("Edit"))
         {
             CommandStack& commands = editor->GetCommandStack();
@@ -133,6 +222,7 @@ void MainMenuBar::Draw(GameEditor* editor)
             ImGui::MenuItem(ICON_FA_SLIDERS " Inspector", nullptr, &editor->m_bShowInspector);
             ImGui::Separator();
             ImGui::MenuItem(ICON_FA_TERMINAL " Terminal", nullptr, &editor->m_bShowTerminal);
+            ImGui::MenuItem(ICON_FA_LIST " Log", nullptr, &editor->m_bShowLog);
             ImGui::MenuItem(ICON_FA_CHART_LINE " Performance Stats", nullptr, &editor->m_bShowPerformanceStats);
             // bShowMessageLog is atomic (written from the build worker);
             // proxy through a local bool for ImGui.

@@ -1,4 +1,5 @@
 #include "MessageLogPanel.h"
+#include "../EditorUtils.h"
 #include "../EditorWidgets.h"
 #include "../GameEditor.h"
 #include <imgui.h>
@@ -143,7 +144,11 @@ void MessageLogPanel::Draw(GameEditor* editor)
                     ImGui::Text("%s:%d", filename.c_str(), msg.Line);
                     if (ImGui::IsItemHovered())
                     {
-                        ImGui::SetTooltip("%s:%d", msg.File.c_str(), msg.Line);
+                        ImGui::SetTooltip("%s:%d\nDouble-click to open", msg.File.c_str(), msg.Line);
+                        if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
+                        {
+                            EditorUtils::OpenFileAtLine(msg.File, msg.Line);
+                        }
                     }
                 }
                 else
@@ -167,6 +172,10 @@ void MessageLogPanel::Draw(GameEditor* editor)
                     }
                     if (!msg.File.empty())
                     {
+                        if (ImGui::MenuItem("Open Location"))
+                        {
+                            EditorUtils::OpenFileAtLine(msg.File, msg.Line);
+                        }
                         if (ImGui::MenuItem("Copy Location + Message"))
                         {
                             std::string full_msg = msg.File + ":" + std::to_string(msg.Line) + " - " + msg.Text;

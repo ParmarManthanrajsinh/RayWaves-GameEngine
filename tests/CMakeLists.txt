@@ -15,6 +15,7 @@ set(UNIT_TEST_SRC
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/GameMap_t.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/InputReplay_t.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/Log_t.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/unit/LogBuffer_t.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/MapManager_t.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/PanelRegistry_t.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/PlatformInfo_t.cpp
@@ -72,6 +73,7 @@ add_executable(raywaves_tests_unit ${TEST_SUPPORT_SRC} ${UNIT_TEST_SRC}
     ${CMAKE_SOURCE_DIR}/Editor/Autosave.cpp
     ${CMAKE_SOURCE_DIR}/Editor/CommandStack.cpp
     ${CMAKE_SOURCE_DIR}/Editor/EditorAssets.cpp
+    ${CMAKE_SOURCE_DIR}/Editor/LogBuffer.cpp
     ${CMAKE_SOURCE_DIR}/Editor/SceneCommands.cpp)
 raywaves_configure_test_target(raywaves_tests_unit)
 

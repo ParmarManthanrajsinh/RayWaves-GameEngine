@@ -119,6 +119,32 @@ void EditorPreferencesPanel::Draw(GameEditor* editor)
         ImGui::Separator();
         ImGui::Spacing();
 
+        ImGui::SeparatorText("Build");
+
+        ImGui::Text("Build Configuration");
+        const char* build_configs[] = { "Debug", "Release", "RelWithDebInfo" };
+        ImGui::SetNextItemWidth(-1.0f);
+        if (ImGui::BeginCombo("##BuildConfig", prefs.BuildConfig.c_str()))
+        {
+            for (const char* config : build_configs)
+            {
+                const bool b_selected = (prefs.BuildConfig == config);
+                if (ImGui::Selectable(config, b_selected))
+                {
+                    prefs.BuildConfig = config;
+                    bSavePrefs = true;
+                }
+                if (b_selected)
+                {
+                    ImGui::SetItemDefaultFocus();
+                }
+            }
+            ImGui::EndCombo();
+        }
+
+        ImGui::Separator();
+        ImGui::Spacing();
+
         if (ImGui::Button("Reset Layout to Default"))
         {
             std::string layout_path = EditorPreferences::GetInstance().GetConfigPath();

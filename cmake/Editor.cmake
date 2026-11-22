@@ -1,6 +1,7 @@
 set(EDITOR_SRC_CPP
     Editor/Autosave.cpp
     Editor/CommandStack.cpp
+    Editor/LogBuffer.cpp
     Editor/SceneCommands.cpp
     Editor/EditorAssets.cpp
     Editor/EditorPreferences.cpp
@@ -14,6 +15,7 @@ set(EDITOR_SRC_CPP
     Editor/Panels/ExportPanel.cpp
     Editor/Panels/FileSystemPanel.cpp
     Editor/Panels/InspectorPanel.cpp
+    Editor/Panels/LogPanel.cpp
     Editor/Panels/MainMenuBar.cpp
     Editor/Panels/MessageLogPanel.cpp
     Editor/Panels/PerformanceOverlay.cpp

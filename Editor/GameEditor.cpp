@@ -1,6 +1,7 @@
 #include "GameEditor.h"
 #include "../Engine/AssetResolver.h"
 #include "../Engine/BuildDiagnostics.h"
+#include "../Engine/Log.h"
 #include "../Engine/MapManager.h"
 #include "../Engine/PlatformInfo.h"
 #include "../Engine/PlatformNames.h"
@@ -27,6 +28,7 @@ using Clock = std::chrono::steady_clock;
 #include "Panels/ExportPanel.h"
 #include "Panels/FileSystemPanel.h"
 #include "Panels/InspectorPanel.h"
+#include "Panels/LogPanel.h"
 #include "Panels/MainMenuBar.h"
 #include "Panels/MessageLogPanel.h"
 #include "Panels/PerformanceOverlay.h"
@@ -86,6 +88,7 @@ std::vector<FPanelFactory> s_CorePanelFactories()
         &s_fMakePanel<SceneWindow>,
         &s_fMakePanel<PerformanceOverlay>,
         &s_fMakePanel<MessageLogPanel>,
+        &s_fMakePanel<LogPanel>,
         &s_fMakePanel<EditorPreferencesPanel>,
         &s_fMakePanel<TerminalPanel>,
     };
@@ -108,6 +111,16 @@ GameEditor::GameEditor()
     m_FrameOffset(0)
 {
     m_Terminal.InitCapture();
+
+    // Mirror every engine/runtime log line into the Log panel. The sink must not
+    // call Log (Log::Emit holds its sink mutex across this call); writing the
+    // same line to std::cerr keeps the existing terminal/stderr output intact.
+    Log::SetSink(
+        [this](Log::ELevel level, std::string_view category, std::string_view message)
+        {
+            m_LogBuffer.Add(level, category, message);
+            std::cerr << '[' << category << "] " << message << '\n';
+        });
 
     // A scene write from rwcli must win over a stale in-memory editor copy.
     // Skip the save instead of overwriting the agent's file.
@@ -140,7 +153,7 @@ GameEditor::GameEditor()
             }
         });
 
-    m_Panels.reserve(11);
+    m_Panels.reserve(12);
     for (FPanelFactory factory : s_CorePanelFactories())
     {
         m_Panels.push_back(factory());
@@ -158,6 +171,11 @@ GameEditor::~GameEditor()
     {
         Close();
     }
+
+    // Drop the sink before m_LogBuffer dies; SetSink waits for any in-flight
+    // sink call, so no worker can append to a destroyed buffer. An empty sink
+    // restores Log's default stderr behavior.
+    Log::SetSink(Log::FSink{});
 }
 
 bool GameEditor::Init(int width, int height, std::string_view title)
@@ -671,6 +689,8 @@ bool GameEditor::OpenProject(std::string_view folderPath)
         m_BuildThread.join();
     }
 
+    SetPlayState(EPlayState::Stopped);
+
     // 1. Unload old DLL and reset map state (single teardown path in the loader)
     m_GameEngine.UnloadScene();
     m_LogicLoader.Unload();
@@ -754,6 +774,7 @@ bool GameEditor::OpenProject(std::string_view folderPath)
 
 void GameEditor::CleanupProject()
 {
+    SetPlayState(EPlayState::Stopped);
     m_GameEngine.UnloadScene();
     m_LogicLoader.Unload();
     m_LogicLoader.SetGameLogicPath("");
@@ -911,6 +932,53 @@ Vector2 GameEditor::GetViewportCenterWorld()
     return GetScreenToWorld2D({ static_cast<float>(m_SceneSettings.m_SceneWidth) * 0.5f,
                                   static_cast<float>(m_SceneSettings.m_SceneHeight) * 0.5f },
         camera);
+}
+
+void GameEditor::SetPlayState(EPlayState state)
+{
+    if (m_PlayState == state)
+    {
+        return;
+    }
+
+    const EPlayState previous = m_PlayState;
+    m_PlayState = state;
+
+    if (state == EPlayState::Stopped)
+    {
+        // A pending step belongs to the session that is ending.
+        m_bStepRequested = false;
+    }
+    else if (previous == EPlayState::Stopped)
+    {
+        // Scene edits made while stopped must reach gameplay before the first
+        // Update() of this playback session.
+        m_GameEngine.RefreshSceneObjects();
+    }
+
+    // Panels outside this class only know b_IsPlaying; keep it as "not stopped"
+    // so editing stays disabled while playing and while paused. Pause/resume
+    // never change it, which is what preserves the camera across those moves.
+    b_IsPlaying = (m_PlayState != EPlayState::Stopped);
+}
+
+void GameEditor::StepOnce()
+{
+    if (m_PlayState == EPlayState::Stopped)
+    {
+        SetPlayState(EPlayState::Paused);
+    }
+    m_bStepRequested = true;
+}
+
+bool GameEditor::b_ConsumeStepRequest()
+{
+    if (!m_bStepRequested)
+    {
+        return false;
+    }
+    m_bStepRequested = false;
+    return true;
 }
 
 void GameEditor::UpdatePlayStateCamera()
@@ -1356,9 +1424,16 @@ void GameEditor::Run()
         UpdatePlayStateCamera();
         SyncEditorCamera3D();
         ApplyEditorViewCamera3D();
-        if (b_IsPlaying)
+        const bool b_step_requested = b_ConsumeStepRequest();
+        if (m_PlayState == EPlayState::Playing)
         {
             m_GameEngine.UpdateMap(delta_time);
+        }
+        else if (b_step_requested)
+        {
+            // One step is a fixed-size frame so stepping stays deterministic
+            // regardless of the editor's frame time.
+            m_GameEngine.UpdateMap(1.0f / 60.0f);
         }
 
         // Handle deferred texture recreation outside ImGui render loop to avoid OpenGL crashes
@@ -1535,11 +1610,14 @@ bool GameEditor::b_ReloadGameLogic()
     // pointers before the swap; panels may still draw later this frame.
     InvalidateEditorEntities();
 
-    bool b_WasPlaying = b_IsPlaying;
-    b_IsPlaying = false;
+    // Pause playback around the swap, then restore the exact previous state.
+    // SetPlayState only updates b_IsPlaying here, so UpdatePlayStateCamera keeps
+    // the saved camera intact across the reload.
+    const EPlayState previous_state = m_PlayState;
+    SetPlayState(EPlayState::Stopped);
 
-    bool b_Ok = m_LogicLoader.b_ReloadGameLogic();
-    b_IsPlaying = b_WasPlaying;
+    const bool b_Ok = m_LogicLoader.b_ReloadGameLogic();
+    SetPlayState(previous_state);
 
     return b_Ok;
 }
@@ -1622,11 +1700,19 @@ void GameEditor::CompileGameLogic()
     }
 
     b_IsCompiling = true;
-    b_IsPlaying = false;
+    SetPlayState(EPlayState::Stopped);
+
+    // Unknown values in the preferences file fall back to Release so a stale
+    // hand-edited config cannot produce an unconfigured build.
+    std::string build_config = EditorPreferences::GetInstance().GetPreferences().BuildConfig;
+    if (build_config != "Debug" && build_config != "Release" && build_config != "RelWithDebInfo")
+    {
+        build_config = "Release";
+    }
 
     m_bShowTerminal = true;
     m_Terminal.SelectConsole();
-    m_Terminal.add_text("Starting build process...", term::Severity::Debug);
+    m_Terminal.add_text("Starting build process (" + build_config + ")...", term::Severity::Debug);
 
     BuildStatus = EBuildStatus::Compiling;
     {
@@ -1662,7 +1748,8 @@ void GameEditor::CompileGameLogic()
 
     auto cancel = m_BuildCancel;
     m_BuildThread = std::thread(
-        [this, cancel, build_lock, app_dir, cmake_exe, setup_tool, project_root, source_dir, build_dir, b_has_project]()
+        [this, cancel, build_lock, app_dir, cmake_exe, setup_tool, project_root, source_dir, build_dir, b_has_project,
+            build_config]()
         {
             // Keep the cross-process lock alive for the whole build; the
             // shared_ptr releases it on every exit path, including cancel.
@@ -1708,18 +1795,19 @@ void GameEditor::CompileGameLogic()
             {
                 // Project folders are portable, but CMake caches contain
                 // absolute paths. Try a normal configure, then --fresh.
-                b_ok = run(
-                    { cmake_exe.string(), "-G", "Ninja", source_dir.string(), "-B", build_dir.string() }, project_root);
+                b_ok = run({ cmake_exe.string(), "-G", "Ninja", source_dir.string(), "-B", build_dir.string(),
+                               "-DCMAKE_BUILD_TYPE=" + build_config },
+                    project_root);
                 if (!b_ok)
                 {
-                    b_ok = run(
-                        { cmake_exe.string(), "--fresh", "-G", "Ninja", source_dir.string(), "-B", build_dir.string() },
+                    b_ok = run({ cmake_exe.string(), "--fresh", "-G", "Ninja", source_dir.string(), "-B",
+                                   build_dir.string(), "-DCMAKE_BUILD_TYPE=" + build_config },
                         project_root);
                 }
                 if (b_ok)
                 {
-                    b_ok =
-                        run({ cmake_exe.string(), "--build", build_dir.string(), "--config", "Release" }, project_root);
+                    b_ok = run(
+                        { cmake_exe.string(), "--build", build_dir.string(), "--config", build_config }, project_root);
                 }
             }
             else if (b_ok)

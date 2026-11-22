@@ -314,28 +314,91 @@ void SceneWindow::Draw(GameEditor* editor)
     float button_height = 32.0f;
     float vertical_offset = (toolbar_height - button_height) / 2.0f;
     ImGui::SetCursorPosY(ImGui::GetCursorPosY() + vertical_offset);
-    const std::string center_icon = editor->b_IsPlaying ? ICON_FA_PLAY : ICON_FA_STOP;
-    const std::string center_label = editor->b_IsPlaying ? " PLAYING" : " STOPPED";
-    float status_w = ImGui::CalcTextSize((center_icon + center_label).c_str()).x + 32.0f;
-    float spacing_x = ImGui::GetStyle().ItemSpacing.x;
-    float total_center_w = 226.0f + status_w + (6.0f * spacing_x);
+    const float toolbar_button_y = ImGui::GetCursorPosY();
+
+    const GameEditor::EPlayState play_state = editor->GetPlayState();
+
+    std::string_view primary_icon = ICON_FA_PLAY;
+    std::string_view primary_tooltip = "Play";
+    std::string_view status_icon = ICON_FA_STOP;
+    std::string_view status_label = " STOPPED";
+    ImVec4 status_color(0.7f, 0.15f, 0.15f, 1.0f);
+    if (play_state == GameEditor::EPlayState::Playing)
+    {
+        primary_icon = ICON_FA_PAUSE;
+        primary_tooltip = "Pause";
+        status_icon = ICON_FA_PLAY;
+        status_label = " PLAYING";
+        status_color = ImVec4(0.15f, 0.6f, 0.15f, 1.0f);
+    }
+    else if (play_state == GameEditor::EPlayState::Paused)
+    {
+        primary_icon = ICON_FA_PLAY;
+        primary_tooltip = "Resume";
+        status_icon = ICON_FA_PAUSE;
+        status_label = " PAUSED";
+        status_color = ImVec4(0.65f, 0.45f, 0.1f, 1.0f);
+    }
+
+    const std::string status_full = std::string(status_icon) + std::string(status_label);
+    const float status_w = ImGui::CalcTextSize(status_full.c_str()).x + 32.0f;
+    const float spacing_x = ImGui::GetStyle().ItemSpacing.x;
+    const float total_center_w = (32.0f * 8.0f) + status_w + (8.0f * spacing_x) + 24.0f;
 
     ImGui::SetCursorPosX((ImGui::GetWindowWidth() - total_center_w) * 0.5f);
 
-    // Play/Pause
-    if (editor->b_IsPlaying)
+    // Play / Pause / Resume
+    if (s_bIconButton("play_pause_btn", primary_icon, ImVec2(32, 32), primary_tooltip))
     {
-        if (s_bIconButton("pause_btn", ICON_FA_PAUSE, ImVec2(32, 32), "Pause"))
-            editor->b_IsPlaying = false;
-    }
-    else
-    {
-        if (s_bIconButton("play_btn", ICON_FA_PLAY, ImVec2(32, 32), "Play"))
+        switch (play_state)
         {
-            editor->b_IsPlaying = true;
-            // Scene edits made while stopped must reach gameplay before the
-            // first Update() of this playback session.
-            editor->GetGameEngine().RefreshSceneObjects();
+            case GameEditor::EPlayState::Stopped:
+                editor->SetPlayState(GameEditor::EPlayState::Playing);
+                break;
+            case GameEditor::EPlayState::Playing:
+                editor->SetPlayState(GameEditor::EPlayState::Paused);
+                break;
+            case GameEditor::EPlayState::Paused:
+                editor->SetPlayState(GameEditor::EPlayState::Playing);
+                break;
+        }
+    }
+
+    ImGui::SameLine();
+
+    // Stop returns to the editor camera. Disabled while already stopped.
+    {
+        const bool b_can_stop = play_state != GameEditor::EPlayState::Stopped;
+        if (!b_can_stop)
+        {
+            ImGui::PushStyleVar(ImGuiStyleVar_Alpha, 0.5f);
+        }
+        if (s_bIconButton("stop_btn", ICON_FA_STOP, ImVec2(32, 32), "Stop") && b_can_stop)
+        {
+            editor->SetPlayState(GameEditor::EPlayState::Stopped);
+        }
+        if (!b_can_stop)
+        {
+            ImGui::PopStyleVar();
+        }
+    }
+
+    ImGui::SameLine();
+
+    // Step advances exactly one fixed 1/60s frame; only meaningful while paused.
+    {
+        const bool b_can_step = play_state == GameEditor::EPlayState::Paused;
+        if (!b_can_step)
+        {
+            ImGui::PushStyleVar(ImGuiStyleVar_Alpha, 0.5f);
+        }
+        if (s_bIconButton("step_btn", ICON_FA_FORWARD_STEP, ImVec2(32, 32), "Step (paused only)") && b_can_step)
+        {
+            editor->StepOnce();
+        }
+        if (!b_can_step)
+        {
+            ImGui::PopStyleVar();
         }
     }
 
@@ -351,7 +414,7 @@ void SceneWindow::Draw(GameEditor* editor)
             b_CanRestart ? "Restart" : "Restart unavailable: project has no MapManager") &&
         b_CanRestart)
     {
-        editor->b_IsPlaying = false;
+        editor->SetPlayState(GameEditor::EPlayState::Stopped);
         editor->InvalidateEditorEntities();
         restart_map_manager->b_ReloadCurrentMap();
     }
@@ -361,28 +424,17 @@ void SceneWindow::Draw(GameEditor* editor)
     ImGui::SameLine();
     ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 12);
 
-    // Status Text
-    const ImVec4 COLOR = editor->b_IsPlaying ? ImVec4(0.2f, 0.8f, 0.2f, 1.0f) : ImVec4(0.8f, 0.2f, 0.2f, 1.0f);
-    std::string_view ICON = editor->b_IsPlaying ? ICON_FA_PLAY : ICON_FA_STOP;
-    std::string_view LABEL = editor->b_IsPlaying ? " PLAYING" : " STOPPED";
-
+    // Status pill
     ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(16.0f, 4.0f));
     ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 12.0f);
 
-    ImVec4 bgColor = editor->b_IsPlaying ? ImVec4(0.15f, 0.6f, 0.15f, 1.0f) : ImVec4(0.7f, 0.15f, 0.15f, 1.0f);
-    ImVec4 textColor = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
+    ImGui::PushStyleColor(ImGuiCol_Button, status_color);
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, status_color);
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, status_color);
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
 
-    ImGui::PushStyleColor(ImGuiCol_Button, bgColor);
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, bgColor);
-    ImGui::PushStyleColor(ImGuiCol_ButtonActive, bgColor);
-    ImGui::PushStyleColor(ImGuiCol_Text, textColor);
-
-    std::string fullLabel;
-    fullLabel.reserve(ICON.size() + LABEL.size());
-    fullLabel.append(ICON);
-    fullLabel.append(LABEL);
-    ImGui::Button(fullLabel.c_str(), ImVec2(0, 32.0f));
+    ImGui::Button(status_full.c_str(), ImVec2(0, 32.0f));
 
     ImGui::PopStyleVar(3);
     ImGui::PopStyleColor(4);
@@ -393,7 +445,7 @@ void SceneWindow::Draw(GameEditor* editor)
     // Restore
     if (s_bIconButton("restore_btn", ICON_FA_ARROW_ROTATE_LEFT, ImVec2(32, 32), "Reset Game"))
     {
-        editor->b_IsPlaying = false;
+        editor->SetPlayState(GameEditor::EPlayState::Stopped);
         if (!editor->b_ReloadGameLogic())
             editor->GetGameEngine().ResetMap();
     }
@@ -436,35 +488,40 @@ void SceneWindow::Draw(GameEditor* editor)
     ImGui::SameLine();
 
     // Compile
-    float button_sz = 32.0f + (ImGui::GetStyle().FramePadding.x * 2.0f);
+    const float button_sz = 32.0f + (ImGui::GetStyle().FramePadding.x * 2.0f);
     float status_sz = 0.0f;
-
+    std::string compile_label;
     if (editor->b_IsCompiling)
-        status_sz = 20.0f + ImGui::GetStyle().ItemSpacing.x + ImGui::CalcTextSize("Compiling...").x +
-            ImGui::GetStyle().ItemSpacing.x;
+    {
+        compile_label = "Compiling " + prefs.BuildConfig + "...";
+        status_sz = 20.0f + (3.0f * spacing_x) + ImGui::CalcTextSize(compile_label.c_str()).x + 32.0f;
+    }
 
-    float avail = ImGui::GetContentRegionAvail().x;
-    float pos_x = ImGui::GetCursorPosX() + avail - button_sz - status_sz;
+    const float avail = ImGui::GetContentRegionAvail().x;
+    const float pos_x = ImGui::GetCursorPosX() + avail - button_sz - status_sz;
 
     if (pos_x > ImGui::GetCursorPosX())
         ImGui::SetCursorPosX(pos_x);
 
     if (editor->b_IsCompiling)
     {
-        float spinner_height = 20.0f;
-        float spinner_y_offset = (toolbar_height - spinner_height) / 2.0f;
-        ImGui::SetCursorPosY(ImGui::GetCursorPosY() - vertical_offset + spinner_y_offset);
-
+        ImGui::SetCursorPosY(toolbar_button_y + ((button_height - 20.0f) * 0.5f));
         s_fDrawSpinner(10.0f, 2.0f, ImGui::GetColorU32(ImVec4(0.2f, 0.8f, 0.2f, 1.0f)));
 
         ImGui::SameLine();
-        float text_compile_y_offset = (toolbar_height - ImGui::GetTextLineHeight()) / 2.0f;
-        ImGui::SetCursorPosY(ImGui::GetCursorPosY() - vertical_offset - 5 + text_compile_y_offset);
-        ImGui::TextColored(ImVec4(0.2f, 0.8f, 0.2f, 1.0f), "Compiling...");
+        ImGui::SetCursorPosY(toolbar_button_y + ((button_height - ImGui::GetTextLineHeight()) * 0.5f));
+        ImGui::TextColored(ImVec4(0.2f, 0.8f, 0.2f, 1.0f), "%s", compile_label.c_str());
+
         ImGui::SameLine();
+        ImGui::SetCursorPosY(toolbar_button_y);
+        if (s_bIconButton("cancel_build_btn", ICON_FA_XMARK, ImVec2(32, 32), "Cancel Build"))
+            editor->CancelBuild();
+
+        ImGui::SameLine();
+        ImGui::SetCursorPosY(toolbar_button_y);
     }
 
-    bool b_Disabled = editor->b_IsCompiling.load();
+    const bool b_Disabled = editor->b_IsCompiling.load();
     if (b_Disabled)
         ImGui::PushStyleVar(ImGuiStyleVar_Alpha, 0.5f);
 
