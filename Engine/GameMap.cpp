@@ -1,7 +1,7 @@
 #include "GameMap.h"
 #include "AssetResolver.h"
+#include "Log.h"
 #include <algorithm>
-#include <iostream>
 
 GameMap::GameMap() : m_MapName("DefaultMap")
 {
@@ -136,7 +136,7 @@ t_EditorEntity* GameMap::RegisterEditorEntity(t_EditorEntity entity)
 {
     if ((entity.m_Position == nullptr) && (entity.m_Position3D == nullptr))
     {
-        std::cerr << "[GameMap] RegisterEditorEntity rejected: null position for '" << entity.m_Name << "'\n";
+        Log::Error("GameMap", "RegisterEditorEntity rejected: null position for '" + entity.m_Name + "'");
         return nullptr;
     }
 
@@ -283,7 +283,7 @@ void GameMap::RequestExit()
     }
     else
     {
-        std::cerr << "Exit callback not set!\n";
+        Log::Error("GameMap", "Exit callback not set!");
     }
 }
 
@@ -295,6 +295,6 @@ void GameMap::RequestGotoMap(std::string_view map_id, bool force_reload) const
     }
     else
     {
-        std::cerr << "Transition callback not set!\n";
+        Log::Error("GameMap", "Transition callback not set!");
     }
 }

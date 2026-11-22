@@ -1,9 +1,9 @@
 #include "Project.h"
 #include "EngineVersion.h"
+#include "Log.h"
 #include "PlatformNames.h"
 #include <filesystem>
 #include <fstream>
-#include <iostream>
 namespace fs = std::filesystem;
 
 namespace
@@ -28,7 +28,7 @@ bool t_Project::m_bLoadFromFile(std::string_view manifest_path)
     std::ifstream file(path_str);
     if (!file.is_open())
     {
-        std::cerr << "Project manifest not found: " << manifest_path << "\n";
+        Log::Error("Project", "Project manifest not found: " + path_str);
         return false;
     }
 
@@ -161,7 +161,7 @@ bool t_Project::m_bLoadFromFile(std::string_view manifest_path)
     module_path += rw::platform::c_SharedLibrarySuffix;
     m_DllPath = (fs::path(m_RootPath) / module_path).string();
 
-    std::cerr << "Loaded project: " << m_Name << "\n";
+    Log::Debug("Project", "Loaded project: " + m_Name);
     return true;
 }
 
@@ -171,7 +171,7 @@ bool t_Project::m_bSaveToFile() const
     std::ofstream file(manifest_path);
     if (!file.is_open())
     {
-        std::cerr << "Failed to create project manifest: " << manifest_path << "\n";
+        Log::Error("Project", "Failed to create project manifest: " + manifest_path);
         return false;
     }
 
@@ -195,7 +195,7 @@ bool t_Project::m_bSaveToFile() const
     file << "targetFPS=" << m_TargetFPS << "\n";
 
     file.close();
-    std::cerr << "Saved project manifest to: " << manifest_path << "\n";
+    Log::Debug("Project", "Saved project manifest to: " + manifest_path);
     return true;
 }
 

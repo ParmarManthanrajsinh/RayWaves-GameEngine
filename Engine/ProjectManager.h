@@ -13,6 +13,14 @@ public:
     static std::filesystem::path GetToolsDirectory();
 
     static bool b_OpenProject(std::string_view folder_path, bool b_add_recent = true);
+    // Structured-error variant of b_OpenProject. The two-argument overload
+    // above keeps working and delegates here.
+    static bool b_OpenProject(std::string_view folder_path, bool b_add_recent, std::string& out_error);
+
+    // Resolve a folder path, a path inside it, or project.raywaves; parse and
+    // validate without changing the current project or recent list.
+    static bool b_ValidateProject(std::string_view path, t_Project& out_project, std::string& out_error);
+
     static void CloseProject();
     static bool b_CreateProject(std::string_view target_folder, std::string_view template_name = "Simple2D");
     // Structured-error variant used by rwcli and other non-UI callers.

@@ -6,14 +6,17 @@ set(UNIT_TEST_SRC
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/AgentLock_t.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/AssetResolver_t.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/BuildDiagnostics_t.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/unit/CommandStack_t.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/EditorAssets_t.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/EditorCamera3D_t.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/GameConfig_t.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/GameEngine_t.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/GameMap_t.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/InputReplay_t.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/unit/Log_t.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/MapManager_t.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/PanelRegistry_t.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/unit/PlatformInfo_t.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/PlatformNames_t.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/Profiler_t.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/ProjectManager_t.cpp
@@ -64,6 +67,7 @@ function(raywaves_configure_test_target target)
 endfunction()
 
 add_executable(raywaves_tests_unit ${TEST_SUPPORT_SRC} ${UNIT_TEST_SRC}
+    ${CMAKE_SOURCE_DIR}/Editor/CommandStack.cpp
     ${CMAKE_SOURCE_DIR}/Editor/EditorAssets.cpp)
 raywaves_configure_test_target(raywaves_tests_unit)
 

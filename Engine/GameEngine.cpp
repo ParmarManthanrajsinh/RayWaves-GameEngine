@@ -1,9 +1,9 @@
 #include "GameEngine.h"
 #include "AssetResolver.h"
+#include "Log.h"
 #include "MapManager.h"
 #include "Profiler.h"
 #include "WindowUtils.h"
-#include <iostream>
 #include <utility>
 
 GameEngine::GameEngine()
@@ -50,7 +50,9 @@ bool GameEngine::LaunchWindow(int width, int height, std::string_view title, boo
     m_WindowWidth = width;
     m_WindowHeight = height;
     m_WindowTitle = title;
-    std::cerr << "Window initialized: " << title << " (" << width << "x" << height << ")\n";
+    const std::string window_info =
+        "Window initialized: " + std::string(title) + " (" + std::to_string(width) + "x" + std::to_string(height) + ")";
+    Log::Info("GameEngine", window_info);
 
     // The editor creates a hidden, resizable window first so it can advertise
     // a normal X11 window type and sane size bounds before mapping; tiling
@@ -66,7 +68,7 @@ bool GameEngine::LaunchWindow(int width, int height, std::string_view title, boo
     InitWindow(width, height, title.data());
     if (!IsWindowReady())
     {
-        std::cerr << "Failed to create the RayWaves window. Check DISPLAY/X11 and the OpenGL driver.\n";
+        Log::Error("GameEngine", "Failed to create the RayWaves window. Check DISPLAY/X11 and the OpenGL driver.");
         return false;
     }
 
@@ -101,8 +103,10 @@ bool GameEngine::LaunchWindow(const t_WindowConfig& config)
     m_WindowHeight = config.height;
     m_WindowTitle = config.title;
 
-    std::cerr << "Window initialized from config: " << config.title << " (" << config.width << "x" << config.height
-              << ") " << (config.b_Fullscreen ? "Fullscreen" : "Windowed") << "\n";
+    const std::string window_info = "Window initialized from config: " + config.title + " (" +
+        std::to_string(config.width) + "x" + std::to_string(config.height) + ") " +
+        (config.b_Fullscreen ? "Fullscreen" : "Windowed");
+    Log::Info("GameEngine", window_info);
 
     // Set window flags before initialization
     unsigned int flags = 0;
@@ -121,7 +125,7 @@ bool GameEngine::LaunchWindow(const t_WindowConfig& config)
     InitWindow(config.width, config.height, config.title.c_str());
     if (!IsWindowReady())
     {
-        std::cerr << "Failed to create the game window. Check DISPLAY/X11 and the OpenGL driver.\n";
+        Log::Error("GameEngine", "Failed to create the game window. Check DISPLAY/X11 and the OpenGL driver.");
         return false;
     }
 
@@ -148,11 +152,11 @@ void GameEngine::ToggleFullscreen()
     ::ToggleFullscreen();
     if (IsWindowFullscreen())
     {
-        std::cerr << "Switched to fullscreen mode\n";
+        Log::Info("GameEngine", "Switched to fullscreen mode");
     }
     else
     {
-        std::cerr << "Switched to windowed mode\n";
+        Log::Info("GameEngine", "Switched to windowed mode");
     }
 }
 
@@ -162,12 +166,12 @@ void GameEngine::SetWindowMode(bool fullscreen)
     if (fullscreen && !b_IsCurrentlyFullscreen)
     {
         ::ToggleFullscreen();
-        std::cerr << "Switched to fullscreen mode\n";
+        Log::Info("GameEngine", "Switched to fullscreen mode");
     }
     else if (!fullscreen && b_IsCurrentlyFullscreen)
     {
         ::ToggleFullscreen();
-        std::cerr << "Switched to windowed mode\n";
+        Log::Info("GameEngine", "Switched to windowed mode");
     }
 }
 

@@ -1,6 +1,6 @@
 #include "GameConfig.h"
+#include "Log.h"
 #include <fstream>
-#include <iostream>
 #include <sstream>
 
 GameConfig& GameConfig::GetInstance()
@@ -15,7 +15,7 @@ bool GameConfig::m_bLoadFromFile(std::string_view config_path)
     std::ifstream file(path_str);
     if (!file.is_open())
     {
-        std::cerr << "Config file not found: " << config_path << ". Using defaults.\n";
+        Log::Error("GameConfig", "Config file not found: " + std::string(config_path) + ". Using defaults.");
         return false;
     }
 
@@ -100,7 +100,7 @@ bool GameConfig::m_bLoadFromFile(std::string_view config_path)
     }
 
     file.close();
-    std::cerr << "Loaded configuration from: " << config_path << "\n";
+    Log::Info("GameConfig", "Loaded configuration from: " + std::string(config_path));
     return true;
 }
 
@@ -110,7 +110,7 @@ bool GameConfig::m_bSaveToFile(std::string_view config_path) const
     std::ofstream file(path_str);
     if (!file.is_open())
     {
-        std::cerr << "Failed to create config file: " << config_path << "\n";
+        Log::Error("GameConfig", "Failed to create config file: " + std::string(config_path));
         return false;
     }
 
@@ -128,7 +128,7 @@ bool GameConfig::m_bSaveToFile(std::string_view config_path) const
     file << "scene_fps=" << m_WindowConfig.scene_fps << "\n";
 
     file.close();
-    std::cerr << "Saved configuration to: " << config_path << "\n";
+    Log::Info("GameConfig", "Saved configuration to: " + std::string(config_path));
     return true;
 }
 

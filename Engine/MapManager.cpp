@@ -1,11 +1,11 @@
 #include "MapManager.h"
-#include <iostream>
+#include "Log.h"
 #include <sstream>
 
 MapManager::MapManager() : m_CurrentMap(nullptr), m_bUsingDefaultMap(false)
 {
     m_MapName = "MapManager";
-    std::cerr << "[MapManager] Initialized - ready for map registration\n";
+    Log::Info("MapManager", "Initialized - ready for map registration");
 }
 
 // NOLINTNEXTLINE(bugprone-exception-escape)
@@ -16,12 +16,12 @@ MapManager::~MapManager()
         m_CurrentMap->SetTransitionCallback(nullptr);
         m_CurrentMap->SetExitCallback(nullptr);
     }
-    std::cerr << "[MapManager] Destroyed - all maps cleaned up\n";
+    Log::Info("MapManager", "Destroyed - all maps cleaned up");
 }
 
 void MapManager::Initialize()
 {
-    std::cerr << "[MapManager] MapManager initialized - waiting for map registration\n";
+    Log::Info("MapManager", "MapManager initialized - waiting for map registration");
     if (m_CurrentMap)
     {
         // Make sure the map has proper scene bounds
@@ -40,7 +40,7 @@ void MapManager::Initialize()
 
         m_CurrentMap->ClearEditorEntities();
         m_CurrentMap->Initialize();
-        std::cerr << "[MapManager] Successfully initialized with map: '" << m_CurrentMapId << "'" << "\n";
+        Log::Info("MapManager", "Successfully initialized with map: '" + m_CurrentMapId + "'");
         // The current map requested a transition from its own
         // Initialize(); its frame has returned, so swapping is safe.
         ProcessPendingTransition();
@@ -49,23 +49,25 @@ void MapManager::Initialize()
     {
         if (!m_InitialMapId.empty() && b_IsMapRegistered(m_InitialMapId))
         {
-            std::cerr << "[MapManager] Auto-loading initial map: " << m_InitialMapId << "\n";
+            Log::Info("MapManager", "Auto-loading initial map: " + m_InitialMapId);
             b_GotoMap(m_InitialMapId);
         }
         else
         {
-            std::cerr << "[MapManager] Maps registered but none loaded yet. Use GotoMap() to load a map." << "\n";
+            Log::Info("MapManager", "Maps registered but none loaded yet. Use GotoMap() to load a map.");
 
-            std::cerr << "[MapManager] Registered maps: ";
+            std::ostringstream registered_maps;
+            registered_maps << "Registered maps:";
             for (const auto& PAIR : m_MapRegistry)
             {
-                std::cerr << "'" << PAIR.first << "' " << "\n";
+                registered_maps << " '" << PAIR.first << "'";
             }
+            Log::Info("MapManager", registered_maps.str());
         }
     }
     else
     {
-        std::cerr << "[MapManager] No maps registered yet. Register maps using RegisterMap<YourMap>()" << "\n";
+        Log::Info("MapManager", "No maps registered yet. Register maps using RegisterMap<YourMap>()");
     }
 }
 
@@ -195,8 +197,9 @@ void MapManager::ProcessPendingTransition()
     {
         if (applied >= k_MaxTransitionsPerDrain)
         {
-            std::cerr << "[MapManager] Transition limit reached (" << k_MaxTransitionsPerDrain
-                      << " per frame); dropping request for '" << m_PendingMapId << "'\n";
+            const std::string drop_message = "Transition limit reached (" + std::to_string(k_MaxTransitionsPerDrain) +
+                " per frame); dropping request for '" + m_PendingMapId + "'";
+            Log::Warn("MapManager", drop_message);
             m_bPendingTransition = false;
             m_PendingMapId.clear();
             m_bPendingForce = false;
@@ -228,15 +231,15 @@ bool MapManager::b_GotoMap(std::string_view map_id, bool force_reload)
     // Check if map is registered
     if (!b_IsMapRegistered(map_id))
     {
-        std::cerr << "[MapManager] Error: Map '" << map_id << "' is not registered!" << "\n";
+        Log::Error("MapManager", "Error: Map '" + std::string(map_id) + "' is not registered!");
 
-        auto maps = GetAvailableMaps();
-        std::cerr << "[MapManager] Available maps: ";
-        for (const auto& available_map : maps)
+        std::ostringstream available_maps;
+        available_maps << "Available maps:";
+        for (const auto& available_map : GetAvailableMaps())
         {
-            std::cerr << "'" << available_map << "' " << "\n";
+            available_maps << " '" << available_map << "'";
         }
-        std::cerr << "\n";
+        Log::Error("MapManager", available_maps.str());
         return false;
     }
 
@@ -246,7 +249,7 @@ bool MapManager::b_GotoMap(std::string_view map_id, bool force_reload)
         return true;
     }
 
-    std::cerr << "[MapManager] Switching to map: '" << map_id << "'" << "\n";
+    Log::Info("MapManager", "Switching to map: '" + std::string(map_id) + "'");
 
     // Set the guard for the rest of this function. Cleared on every exit
     // path below so a queued transition can be applied afterwards.
@@ -265,7 +268,7 @@ bool MapManager::b_GotoMap(std::string_view map_id, bool force_reload)
 
         if (!new_map)
         {
-            std::cerr << "[MapManager] Error: Factory for map '" << map_id << "' returned null!" << "\n";
+            Log::Error("MapManager", "Error: Factory for map '" + std::string(map_id) + "' returned null!");
             m_bInTransition = false;
             return false;
         }
@@ -300,9 +303,9 @@ bool MapManager::b_GotoMap(std::string_view map_id, bool force_reload)
 
         m_bInTransition = false;
 
-        std::cerr << "[MapManager] Successfully loaded map: '" << map_id << "'" << "\n";
+        Log::Info("MapManager", "Successfully loaded map: '" + std::string(map_id) + "'");
 
-        std::cerr << "[MapManager] Current map Id: '" << m_CurrentMapId << "'" << "\n";
+        Log::Info("MapManager", "Current map Id: '" + m_CurrentMapId + "'");
 
         // A transition requested from the new map's Initialize() is applied
         // by the next Update()/Draw(), not here. Draining here would nest
@@ -312,13 +315,13 @@ bool MapManager::b_GotoMap(std::string_view map_id, bool force_reload)
     catch (const std::exception& e)
     {
         m_bInTransition = false;
-        std::cerr << "[MapManager] Error creating map '" << map_id << "': " << e.what() << "\n";
+        Log::Error("MapManager", "Error creating map '" + std::string(map_id) + "': " + e.what());
         return false;
     }
     catch (...)
     {
         m_bInTransition = false;
-        std::cerr << "[MapManager] Unknown error creating map '" << map_id << "'\n";
+        Log::Error("MapManager", "Unknown error creating map '" + std::string(map_id) + "'");
         return false;
     }
 }
@@ -352,7 +355,7 @@ void MapManager::UnloadCurrentMap()
 {
     if (m_CurrentMap)
     {
-        std::cerr << "[MapManager] Unloading map '" << m_CurrentMapId << "'" << "\n";
+        Log::Info("MapManager", "Unloading map '" + m_CurrentMapId + "'");
 
         // Mark as not loaded in metadata
         auto info_it = m_MapInfo.find(m_CurrentMapId);
@@ -370,7 +373,7 @@ void MapManager::UnloadCurrentMap()
     }
     else
     {
-        std::cerr << "[MapManager] No map to unload" << "\n";
+        Log::Warn("MapManager", "No map to unload");
     }
 }
 
@@ -378,12 +381,12 @@ bool MapManager::b_ReloadCurrentMap()
 {
     if (m_CurrentMapId.empty())
     {
-        std::cerr << "[MapManager] No current map to reload" << "\n";
+        Log::Error("MapManager", "No current map to reload");
         return false;
     }
 
     std::string map_to_reload = m_CurrentMapId;
-    std::cerr << "[MapManager] Reloading map: '" << map_to_reload << "'" << "\n";
+    Log::Info("MapManager", "Reloading map: '" + map_to_reload + "'");
 
     return b_GotoMap(map_to_reload, true);
 }
@@ -417,6 +420,6 @@ std::string MapManager::GetDebugInfo() const
 
 void MapManager::LoadDefaultMap()
 {
-    std::cerr << "[MapManager] No default map available in Engine library" << "\n";
-    std::cerr << "[MapManager] Register and load your own maps using RegisterMap<YourMap>()" << "\n";
+    Log::Warn("MapManager", "No default map available in Engine library");
+    Log::Warn("MapManager", "Register and load your own maps using RegisterMap<YourMap>()");
 }

@@ -1,4 +1,5 @@
 set(EDITOR_SRC_CPP
+    Editor/CommandStack.cpp
     Editor/EditorAssets.cpp
     Editor/EditorPreferences.cpp
     Editor/GameEditor.cpp

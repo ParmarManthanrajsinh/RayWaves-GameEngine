@@ -1,6 +1,6 @@
-#include <iostream> // load-bearing: RegisterMap<T>() below logs via std::cerr
 #pragma once
 #include "GameMap.h"
+#include "Log.h"
 #include <functional>
 #include <map>
 #include <memory>
@@ -146,6 +146,6 @@ MapManager& MapManager::RegisterMap(std::string_view map_id, std::string_view de
     m_MapInfo[std::string(map_id)] = { description.empty() ? "No description" : std::string(description), false };
 
     m_bMapsCacheDirty = true;
-    std::cerr << "[MapManager] Registered map: " << map_id << "::" << description << std::endl;
+    Log::Info("MapManager", "Registered map: " + std::string(map_id) + "::" + std::string(description));
     return *this;
 }

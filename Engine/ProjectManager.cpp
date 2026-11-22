@@ -1,12 +1,13 @@
 #include "ProjectManager.h"
 #include "EngineVersion.h"
+#include "Log.h"
 #include "PlatformInfo.h"
 #include "PlatformNames.h"
 #include <algorithm>
 #include <filesystem>
 #include <fstream>
-#include <iostream>
 #include <iterator>
+#include <mutex>
 #include <vector>
 
 namespace fs = std::filesystem;
@@ -14,7 +15,7 @@ namespace fs = std::filesystem;
 namespace
 {
 bool b_WriteProjectFiles(const fs::path& project_root, const t_Project& project, bool b_force);
-}
+} // namespace
 
 fs::path ProjectManager::GetEngineRootDirectory()
 {
@@ -127,43 +128,139 @@ void ProjectManager::InitializeRecentPath()
     s_RecentPath = (dir / "recent.ini").string();
 }
 
-bool ProjectManager::b_OpenProject(std::string_view folder_path, bool b_add_recent)
+bool ProjectManager::b_ValidateProject(std::string_view path, t_Project& out_project, std::string& out_error)
 {
-    std::scoped_lock lock(s_Mutex);
-    std::string manifest_path = (fs::path(folder_path) / "project.raywaves").string();
-    if (!fs::exists(manifest_path))
+    out_error.clear();
+    out_project = t_Project{};
+
+    if (path.empty())
     {
-        std::cerr << "Project manifest not found at: " << manifest_path << '\n';
+        out_error = "Project path is empty.";
         return false;
     }
 
-    t_Project new_project;
-    if (new_project.m_bLoadFromFile(manifest_path))
+    std::error_code error;
+    fs::path resolved = fs::weakly_canonical(fs::path(path), error);
+    if (error)
     {
-        s_Current = new_project;
-        s_bOpen = true;
-        if (b_add_recent)
+        error.clear();
+        resolved = fs::absolute(fs::path(path), error);
+        if (error)
         {
-            AddRecent(folder_path);
+            out_error = "Invalid project path: " + std::string(path);
+            return false;
+        }
+        resolved = resolved.lexically_normal();
+    }
+
+    // A manifest path names the project directly; anything else may be the
+    // project folder or a path inside it, so walk up looking for the manifest.
+    fs::path manifest_path;
+    if (resolved.filename() == "project.raywaves")
+    {
+        manifest_path = resolved;
+    }
+    else
+    {
+        fs::path current = resolved;
+        if (!fs::is_directory(current, error))
+        {
+            current = current.parent_path();
         }
 
-        // Keep the agent guide self-contained inside the project. Never
-        // overwrite a guide the project owner edited.
-        b_WriteProjectFiles(fs::path(folder_path), s_Current, false);
+        while (!current.empty())
+        {
+            const fs::path candidate = current / "project.raywaves";
+            if (fs::is_regular_file(candidate, error))
+            {
+                manifest_path = candidate;
+                break;
+            }
 
-        // Ensure project local cache directory exists
-        fs::path raywaves_dir = fs::path(folder_path) / ".raywaves";
-        fs::create_directories(raywaves_dir / "shadows");
-        fs::create_directories(raywaves_dir / "build");
-
-        // Assets and code folders are part of the project contract. Older
-        // projects may be missing one; create it instead of rejecting them.
-        fs::create_directories(s_Current.m_AssetPath);
-        fs::create_directories(s_Current.m_SourcePath);
-
-        return GenerateCMakeLists();
+            const fs::path parent = current.parent_path();
+            if (parent == current)
+            {
+                break;
+            }
+            current = parent;
+        }
     }
-    return false;
+
+    if (manifest_path.empty())
+    {
+        out_error = "Project manifest not found under: " + resolved.string();
+        return false;
+    }
+
+    if (!fs::is_regular_file(manifest_path, error))
+    {
+        out_error = "Project manifest not found: " + manifest_path.string();
+        return false;
+    }
+
+    t_Project project;
+    if (!project.m_bLoadFromFile(manifest_path.string()))
+    {
+        out_error = "Could not parse project manifest: " + manifest_path.string();
+        return false;
+    }
+
+    // The folders are part of the project contract but are repairable: open
+    // creates them. Validation only checks the manifest and that the derived
+    // paths are sane, so legacy projects missing Assets/GameLogic still open.
+    if (project.m_SourceDir.empty() || project.m_AssetDir.empty())
+    {
+        out_error = "Project manifest has an empty sourceDir or assetDir.";
+        return false;
+    }
+
+    out_project = project;
+    return true;
+}
+
+bool ProjectManager::b_OpenProject(std::string_view folder_path, bool b_add_recent)
+{
+    std::string ignored_error;
+    return b_OpenProject(folder_path, b_add_recent, ignored_error);
+}
+
+bool ProjectManager::b_OpenProject(std::string_view folder_path, bool b_add_recent, std::string& out_error)
+{
+    out_error.clear();
+
+    // Validate before touching any shared state so a rejected path leaves the
+    // current project, open flag, and recent list untouched.
+    t_Project project;
+    if (!b_ValidateProject(folder_path, project, out_error))
+    {
+        return false;
+    }
+
+    std::scoped_lock lock(s_Mutex);
+    s_Current = project;
+    s_bOpen = true;
+    if (b_add_recent)
+    {
+        // Store the resolved root so the entry works no matter which path form
+        // the caller passed.
+        AddRecent(s_Current.m_RootPath);
+    }
+
+    // Keep the agent guide self-contained inside the project. Never
+    // overwrite a guide the project owner edited.
+    b_WriteProjectFiles(fs::path(s_Current.m_RootPath), s_Current, false);
+
+    // Ensure project local cache directory exists
+    fs::path raywaves_dir = fs::path(s_Current.m_RootPath) / ".raywaves";
+    fs::create_directories(raywaves_dir / "shadows");
+    fs::create_directories(raywaves_dir / "build");
+
+    // Assets and code folders are part of the project contract and were
+    // validated above; create them defensively so the open path stays idempotent.
+    fs::create_directories(s_Current.m_AssetPath);
+    fs::create_directories(s_Current.m_SourcePath);
+
+    return GenerateCMakeLists();
 }
 
 void ProjectManager::CloseProject()
@@ -188,7 +285,7 @@ bool ProjectManager::b_CreateProject(
     if (fs::exists(target_path))
     {
         out_error = "Target folder already exists: " + std::string(target_folder);
-        std::cerr << out_error << '\n';
+        Log::Error("ProjectManager", out_error);
         return false;
     }
 
@@ -204,7 +301,7 @@ bool ProjectManager::b_CreateProject(
     if (!fs::exists(template_dir))
     {
         out_error = "Template not found: " + std::string(template_name);
-        std::cerr << out_error << " (" << template_dir.string() << ")\n";
+        Log::Error("ProjectManager", out_error + " (" + template_dir.string() + ")");
         return false;
     }
 
@@ -229,7 +326,7 @@ bool ProjectManager::b_CreateProject(
     catch (const std::exception& e)
     {
         out_error = "Failed to create project from template: " + std::string(e.what());
-        std::cerr << out_error << '\n';
+        Log::Error("ProjectManager", out_error);
         return false;
     }
 }
@@ -972,8 +1069,9 @@ bool ProjectManager::GenerateCMakeLists()
     fs::path template_path = FindProjectTemplate(exe_dir, engine_root);
     if (template_path.empty())
     {
-        std::cerr << "Project CMake template not found. Expected packaging/Project.CMakeLists.in "
-                     "next to the editor or in Core/.\n";
+        Log::Error("ProjectManager",
+            "Project CMake template not found. Expected packaging/Project.CMakeLists.in next to the editor or in "
+            "Core/.");
         return false;
     }
 
@@ -996,7 +1094,7 @@ bool ProjectManager::GenerateCMakeLists()
         const fs::path cxx_compiler = PlatformInfo::FindExecutable("g++");
         if (c_compiler.empty() || cxx_compiler.empty())
         {
-            std::cerr << "GCC/G++ not found. Install build-essential before opening this project.\n";
+            Log::Error("ProjectManager", "GCC/G++ not found. Install build-essential before opening this project.");
             return false;
         }
         content = ReplaceToken(content, "@C_COMPILER@", ToForwardSlashes(c_compiler));

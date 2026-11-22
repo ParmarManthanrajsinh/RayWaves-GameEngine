@@ -1,8 +1,8 @@
 #include "AssetResolver.h"
+#include "Log.h"
 #include <algorithm>
 #include <cctype>
 #include <filesystem>
-#include <iostream>
 #include <string>
 #include <vector>
 
@@ -59,12 +59,13 @@ std::filesystem::path FindComponentIgnoreCase(
     if (matches.size() > 1)
     {
         out_ambiguous = true;
-        std::cerr << "[AssetResolver] ambiguous case-insensitive match for '" << component << "':";
+        std::string message = "ambiguous case-insensitive match for '" + component + "':";
         for (const std::filesystem::path& match : matches)
         {
-            std::cerr << ' ' << match.string();
+            message += ' ';
+            message += match.string();
         }
-        std::cerr << '\n';
+        Log::Warn("AssetResolver", message);
         return {};
     }
     return matches.front();

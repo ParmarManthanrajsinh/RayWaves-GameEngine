@@ -142,8 +142,8 @@ std::string WriteTestDll(const char* source, const std::string& tag)
     }
     argv.insert(argv.end(),
         { "-shared", "-std=c++23", "-o", output.string(), cpp.string(), (repo_root / "Engine" / "GameMap.cpp").string(),
-            (repo_root / "Engine" / "AssetResolver.cpp").string(), "-I" + repo_root.string(),
-            "-I" + raylib_include.string(), raylib_import.string() });
+            (repo_root / "Engine" / "AssetResolver.cpp").string(), (repo_root / "Engine" / "Log.cpp").string(),
+            "-I" + repo_root.string(), "-I" + raylib_include.string(), raylib_import.string() });
 
     std::vector<std::string> output_lines;
     const bool b_ok = ProcessRunner::RunAndWaitCommand(

@@ -1,5 +1,102 @@
 #include "PlatformInfo.h"
 
+#include <atomic>
+#include <chrono>
+#include <fstream>
+
+namespace
+{
+// Keeping the temp file next to the target means the final replace stays on one
+// volume, which is what makes it atomic.
+std::filesystem::path MakeTempPath(const std::filesystem::path& target)
+{
+    static std::atomic<unsigned long long> counter{ 0 };
+    const auto stamp = std::chrono::steady_clock::now().time_since_epoch().count();
+
+    std::filesystem::path parent = target.parent_path();
+    if (parent.empty())
+    {
+        parent = ".";
+    }
+
+    std::string name = target.filename().string();
+    name += ".tmp.";
+    name += std::to_string(PlatformInfo::GetCurrentProcessId());
+    name += ".";
+    name += std::to_string(stamp);
+    name += ".";
+    name += std::to_string(counter.fetch_add(1));
+    return parent / name;
+}
+
+bool b_WriteTempFile(const std::filesystem::path& temp_path, std::string_view contents, std::string& out_error)
+{
+    std::ofstream file(temp_path, std::ios::binary | std::ios::trunc);
+    if (!file.is_open())
+    {
+        out_error = "Could not open temporary file " + temp_path.string();
+        return false;
+    }
+
+    if (!contents.empty())
+    {
+        file.write(contents.data(), static_cast<std::streamsize>(contents.size()));
+    }
+    file.flush();
+    const bool b_written = file.good();
+    file.close();
+    if (!b_written || file.fail())
+    {
+        out_error = "Could not write temporary file " + temp_path.string();
+        return false;
+    }
+    return true;
+}
+
+bool b_CheckParentDirectory(const std::filesystem::path& path, std::string& out_error)
+{
+    std::filesystem::path parent = path.parent_path();
+    if (parent.empty())
+    {
+        parent = ".";
+    }
+
+    std::error_code error;
+    if (!std::filesystem::is_directory(parent, error))
+    {
+        out_error = "Could not write " + path.string() + ": directory " + parent.string() + " does not exist";
+        return false;
+    }
+    return true;
+}
+
+void RemoveQuietly(const std::filesystem::path& path)
+{
+    std::error_code ignored;
+    std::filesystem::remove(path, ignored);
+}
+
+bool b_CopyToBackup(const std::filesystem::path& path, std::string& out_error)
+{
+    std::error_code error;
+    if (!std::filesystem::is_regular_file(path, error))
+    {
+        out_error = "Could not back up " + path.string() + ": source file does not exist";
+        return false;
+    }
+
+    std::filesystem::path backup_path = path;
+    backup_path += ".bak";
+    std::filesystem::copy_file(path, backup_path, std::filesystem::copy_options::overwrite_existing, error);
+    if (error)
+    {
+        out_error = "Could not back up " + path.string() + " to " + backup_path.string() + ": " + error.message();
+        return false;
+    }
+    return true;
+}
+} // namespace
+
 #if defined(_WIN32)
 
 #include <array>
@@ -103,6 +200,40 @@ bool b_CreateFileExclusive(const std::filesystem::path& path, std::string_view c
         return false;
     }
     return true;
+}
+
+bool b_WriteFileAtomic(const std::filesystem::path& path, std::string_view contents, std::string& out_error)
+{
+    out_error.clear();
+    if (!b_CheckParentDirectory(path, out_error))
+    {
+        return false;
+    }
+
+    const std::filesystem::path temp_path = MakeTempPath(path);
+    if (!b_WriteTempFile(temp_path, contents, out_error))
+    {
+        RemoveQuietly(temp_path);
+        return false;
+    }
+
+    // WRITE_THROUGH flushes the metadata before returning, so a crash right
+    // after this call cannot resurrect the old contents.
+    if (::MoveFileExA(temp_path.string().c_str(), path.string().c_str(),
+            MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH) == FALSE)
+    {
+        const DWORD last_error = ::GetLastError();
+        RemoveQuietly(temp_path);
+        out_error = "Could not replace " + path.string() + " (error " + std::to_string(last_error) + ")";
+        return false;
+    }
+    return true;
+}
+
+bool b_BackupFile(const std::filesystem::path& path, std::string& out_error)
+{
+    out_error.clear();
+    return b_CopyToBackup(path, out_error);
 }
 } // namespace PlatformInfo
 
@@ -262,6 +393,39 @@ bool b_CreateFileExclusive(const std::filesystem::path& path, std::string_view c
         return false;
     }
     return true;
+}
+
+bool b_WriteFileAtomic(const std::filesystem::path& path, std::string_view contents, std::string& out_error)
+{
+    out_error.clear();
+    if (!b_CheckParentDirectory(path, out_error))
+    {
+        return false;
+    }
+
+    const std::filesystem::path temp_path = MakeTempPath(path);
+    if (!b_WriteTempFile(temp_path, contents, out_error))
+    {
+        RemoveQuietly(temp_path);
+        return false;
+    }
+
+    // rename(2) over an existing file in the same directory is atomic on POSIX.
+    std::error_code rename_error;
+    std::filesystem::rename(temp_path, path, rename_error);
+    if (rename_error)
+    {
+        RemoveQuietly(temp_path);
+        out_error = "Could not replace " + path.string() + ": " + rename_error.message();
+        return false;
+    }
+    return true;
+}
+
+bool b_BackupFile(const std::filesystem::path& path, std::string& out_error)
+{
+    out_error.clear();
+    return b_CopyToBackup(path, out_error);
 }
 } // namespace PlatformInfo
 

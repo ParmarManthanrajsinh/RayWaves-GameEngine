@@ -4,6 +4,7 @@ set(ENGINE_SRC_CPP
     Engine/GameConfig.cpp
     Engine/GameEngine.cpp
     Engine/GameMap.cpp
+    Engine/Log.cpp
     Engine/MapManager.cpp
     Engine/PlatformInfo.cpp
     Engine/Profiler.cpp
