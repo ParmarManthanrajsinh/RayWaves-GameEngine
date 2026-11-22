@@ -1,9 +1,11 @@
 #include "Project.h"
 #include "EngineVersion.h"
 #include "Log.h"
+#include "PlatformInfo.h"
 #include "PlatformNames.h"
 #include <filesystem>
 #include <fstream>
+#include <sstream>
 namespace fs = std::filesystem;
 
 namespace
@@ -167,35 +169,51 @@ bool t_Project::m_bLoadFromFile(std::string_view manifest_path)
 
 bool t_Project::m_bSaveToFile() const
 {
-    std::string manifest_path = (fs::path(m_RootPath) / "project.raywaves").string();
-    std::ofstream file(manifest_path);
-    if (!file.is_open())
+    const fs::path manifest_path = fs::path(m_RootPath) / "project.raywaves";
+
+    std::ostringstream text_stream;
+    text_stream << "[project]\n";
+    text_stream << "name=" << m_Name << "\n";
+    text_stream << "version=" << m_Version << "\n";
+    text_stream << "engineVersion=" << m_EngineVersion << "\n";
+    text_stream << "sourceDir=" << m_SourceDir << "\n";
+    text_stream << "assetDir=" << m_AssetDir << "\n";
+    text_stream << "entryDll=" << m_EntryDll << "\n";
+    if (!m_IconPath.empty())
+        text_stream << "iconPath=" << m_IconPath << "\n";
+    text_stream << "\n";
+
+    text_stream << "[editor]\n";
+    text_stream << "cameraX=" << m_CameraX << "\n";
+    text_stream << "cameraY=" << m_CameraY << "\n";
+    text_stream << "lastMapId=" << m_LastMapId << "\n";
+    text_stream << "sceneWidth=" << m_SceneWidth << "\n";
+    text_stream << "sceneHeight=" << m_SceneHeight << "\n";
+    text_stream << "targetFPS=" << m_TargetFPS << "\n";
+
+    const std::string text = text_stream.str();
+
+    // Snapshot the previous manifest before the atomic swap. A missing manifest
+    // (first save) needs no backup.
+    std::error_code exists_error;
+    if (fs::exists(manifest_path, exists_error))
     {
-        Log::Error("Project", "Failed to create project manifest: " + manifest_path);
+        std::string backup_error;
+        if (!PlatformInfo::b_BackupFile(manifest_path, backup_error))
+        {
+            Log::Error("Project", "Failed to back up project manifest " + manifest_path.string() + ": " + backup_error);
+            return false;
+        }
+    }
+
+    std::string write_error;
+    if (!PlatformInfo::b_WriteFileAtomic(manifest_path, text, write_error))
+    {
+        Log::Error("Project", "Failed to save project manifest " + manifest_path.string() + ": " + write_error);
         return false;
     }
 
-    file << "[project]\n";
-    file << "name=" << m_Name << "\n";
-    file << "version=" << m_Version << "\n";
-    file << "engineVersion=" << m_EngineVersion << "\n";
-    file << "sourceDir=" << m_SourceDir << "\n";
-    file << "assetDir=" << m_AssetDir << "\n";
-    file << "entryDll=" << m_EntryDll << "\n";
-    if (!m_IconPath.empty())
-        file << "iconPath=" << m_IconPath << "\n";
-    file << "\n";
-
-    file << "[editor]\n";
-    file << "cameraX=" << m_CameraX << "\n";
-    file << "cameraY=" << m_CameraY << "\n";
-    file << "lastMapId=" << m_LastMapId << "\n";
-    file << "sceneWidth=" << m_SceneWidth << "\n";
-    file << "sceneHeight=" << m_SceneHeight << "\n";
-    file << "targetFPS=" << m_TargetFPS << "\n";
-
-    file.close();
-    Log::Debug("Project", "Saved project manifest to: " + manifest_path);
+    Log::Debug("Project", "Saved project manifest to: " + manifest_path.string());
     return true;
 }
 

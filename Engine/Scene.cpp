@@ -1,10 +1,13 @@
 #include "Scene.h"
 #include "AssetResolver.h"
+#include "Log.h"
+#include "PlatformInfo.h"
 #include <algorithm>
 #include <cctype>
 #include <charconv>
 #include <filesystem>
 #include <fstream>
+#include <sstream>
 
 namespace
 {
@@ -348,34 +351,51 @@ bool Scene::b_SaveToFile(std::string_view path)
         std::filesystem::create_directories(parent, error);
     }
 
-    std::ofstream file(file_path);
-    if (!file.is_open())
-    {
-        return false;
-    }
-
-    file << "[scene]\n";
-    file << "version=1\n";
+    std::ostringstream text_stream;
+    text_stream << "[scene]\n";
+    text_stream << "version=" << c_SCENE_VERSION << "\n";
 
     for (const t_SceneObject& object : m_Objects)
     {
-        file << "\n[object]\n";
-        file << "id=" << object.m_Id << "\n";
-        file << "name=" << object.m_Name << "\n";
-        file << "type=" << object.m_Type << "\n";
-        file << "texture=" << object.m_TexturePath << "\n";
-        file << "position=" << object.m_Position.x << "," << object.m_Position.y << "\n";
-        file << "rotation=" << object.m_Rotation << "\n";
-        file << "scale=" << object.m_Scale.x << "," << object.m_Scale.y << "\n";
-        file << "source=" << object.m_Source.x << "," << object.m_Source.y << "," << object.m_Source.width << ","
-             << object.m_Source.height << "\n";
-        file << "tint=" << static_cast<int>(object.m_Tint.r) << "," << static_cast<int>(object.m_Tint.g) << ","
-             << static_cast<int>(object.m_Tint.b) << "," << static_cast<int>(object.m_Tint.a) << "\n";
-        file << "layer=" << object.m_Layer << "\n";
-        file << "visible=" << (object.m_bVisible ? 1 : 0) << "\n";
+        text_stream << "\n[object]\n";
+        text_stream << "id=" << object.m_Id << "\n";
+        text_stream << "name=" << object.m_Name << "\n";
+        text_stream << "type=" << object.m_Type << "\n";
+        text_stream << "texture=" << object.m_TexturePath << "\n";
+        text_stream << "position=" << object.m_Position.x << "," << object.m_Position.y << "\n";
+        text_stream << "rotation=" << object.m_Rotation << "\n";
+        text_stream << "scale=" << object.m_Scale.x << "," << object.m_Scale.y << "\n";
+        text_stream << "source=" << object.m_Source.x << "," << object.m_Source.y << "," << object.m_Source.width << ","
+                    << object.m_Source.height << "\n";
+        text_stream << "tint=" << static_cast<int>(object.m_Tint.r) << "," << static_cast<int>(object.m_Tint.g) << ","
+                    << static_cast<int>(object.m_Tint.b) << "," << static_cast<int>(object.m_Tint.a) << "\n";
+        text_stream << "layer=" << object.m_Layer << "\n";
+        text_stream << "visible=" << (object.m_bVisible ? 1 : 0) << "\n";
     }
 
-    file.close();
+    const std::string text = text_stream.str();
+
+    // Keep the previous contents beside the scene before the atomic swap, so a
+    // crash mid-save still leaves a recoverable copy. A missing target simply
+    // means there is nothing to back up.
+    std::error_code exists_error;
+    if (std::filesystem::exists(file_path, exists_error))
+    {
+        std::string backup_error;
+        if (!PlatformInfo::b_BackupFile(file_path, backup_error))
+        {
+            Log::Error("Scene", "Failed to back up scene " + file_path.string() + ": " + backup_error);
+            return false;
+        }
+    }
+
+    std::string write_error;
+    if (!PlatformInfo::b_WriteFileAtomic(file_path, text, write_error))
+    {
+        Log::Error("Scene", "Failed to save scene " + file_path.string() + ": " + write_error);
+        return false;
+    }
+
     m_bDirty = false;
     return true;
 }
@@ -397,6 +417,8 @@ bool Scene::b_LoadFromFile(std::string_view path)
 
     t_SceneObject current;
     bool b_has_current = false;
+    bool b_in_scene_header = false;
+    int version = c_SCENE_VERSION;
 
     const auto flush = [this, &current, &b_has_current]()
     {
@@ -418,30 +440,62 @@ bool Scene::b_LoadFromFile(std::string_view path)
     while (std::getline(file, line))
     {
         const std::string_view view = Trim(line);
-        if (view.empty() || view == "[scene]")
+        if (view.empty())
         {
             continue;
         }
 
-        if (view == "[object]")
+        if (view.front() == '[' && view.back() == ']')
         {
-            flush();
-            b_has_current = true;
+            b_in_scene_header = view == "[scene]";
+            if (view == "[object]")
+            {
+                flush();
+                b_has_current = true;
+            }
             continue;
         }
 
         const size_t equal = view.find('=');
-        if (equal == std::string_view::npos || !b_has_current)
+        if (equal == std::string_view::npos)
         {
             continue;
         }
 
         const std::string_view key = Trim(view.substr(0, equal));
         const std::string_view value = Trim(view.substr(equal + 1));
+
+        if (b_in_scene_header)
+        {
+            if (key == "version")
+            {
+                version = ParseInt(value, c_SCENE_VERSION);
+            }
+            continue;
+        }
+
+        if (!b_has_current)
+        {
+            continue;
+        }
+
         ApplyKey(current, key, value);
     }
 
     flush();
+
+    // A newer writer may rely on fields this build would drop, so reject the
+    // file rather than load a lossy scene. An openable file always replaces the
+    // live object list, so the rejected scene stays empty.
+    if (version > c_SCENE_VERSION)
+    {
+        Log::Error("Scene",
+            "Scene " + std::string(path) + " uses format version " + std::to_string(version) +
+                "; this build supports up to " + std::to_string(c_SCENE_VERSION));
+        Clear();
+        return false;
+    }
+
     m_bDirty = false;
     return true;
 }

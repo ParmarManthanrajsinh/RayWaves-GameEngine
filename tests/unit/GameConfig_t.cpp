@@ -3,6 +3,17 @@
 #include "support/TempDir.h"
 #include <filesystem>
 #include <fstream>
+#include <iterator>
+#include <string>
+
+namespace
+{
+std::string s_ReadAll(const std::filesystem::path& path)
+{
+    std::ifstream file(path, std::ios::binary);
+    return std::string(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
+}
+} // namespace
 
 TEST_CASE("GameConfig: default values")
 {
@@ -58,6 +69,35 @@ TEST_CASE("GameConfig: save and load roundtrip")
     CHECK(fresh.GetWindowConfig().height == 600);
     CHECK(fresh.GetWindowConfig().scene_width == 400);
     CHECK(fresh.GetWindowConfig().scene_fps == 30);
+}
+
+TEST_CASE("GameConfig: saving twice keeps the previous config as a backup")
+{
+    auto& config = GameConfig::GetInstance();
+    config.GetWindowConfig() = t_WindowConfig{};
+    config.GetWindowConfig().width = 800;
+
+    TempDir temp_dir("raywaves_config_backup");
+    const std::filesystem::path path = temp_dir.Path() / "config.ini";
+    std::filesystem::path backup = path;
+    backup += ".bak";
+
+    REQUIRE(config.m_bSaveToFile(path.string()));
+    CHECK_FALSE(std::filesystem::exists(backup));
+
+    const std::string first_contents = s_ReadAll(path);
+    CHECK(first_contents.find("width=800") != std::string::npos);
+
+    config.GetWindowConfig().width = 1024;
+    REQUIRE(config.m_bSaveToFile(path.string()));
+
+    REQUIRE(std::filesystem::exists(backup));
+    CHECK(s_ReadAll(backup) == first_contents);
+    CHECK(first_contents.find("width=1024") == std::string::npos);
+
+    const std::string current_contents = s_ReadAll(path);
+    CHECK(current_contents.find("width=1024") != std::string::npos);
+    CHECK(current_contents != first_contents);
 }
 
 TEST_CASE("GameConfig: missing file returns false, keeps defaults")

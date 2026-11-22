@@ -1,6 +1,7 @@
 #include "MainMenuBar.h"
 #include "../../Engine/Profiler.h"
 #include "../../Engine/ProjectManager.h"
+#include "../Autosave.h"
 #include "../EditorUtils.h"
 #include "../FileAssociation.h"
 #include "../GameEditor.h"
@@ -35,6 +36,30 @@ void MainMenuBar::Draw(GameEditor* editor)
             {
                 editor->GetGameEngine().b_SaveActiveScene();
             }
+
+            bool b_has_autosave = false;
+            if (ProjectManager::b_HasOpenProject())
+            {
+                Autosave::FSnapshot snapshot;
+                b_has_autosave = Autosave::b_Query(ProjectManager::GetCurrent().m_RootPath, snapshot);
+            }
+            const bool b_can_restore_autosave = b_has_autosave && !editor->GetGameEngine().GetActiveSceneKey().empty();
+            if (ImGui::MenuItem(ICON_FA_ROTATE_LEFT " Restore Autosave", nullptr, false, b_can_restore_autosave))
+            {
+                editor->b_RestoreAutosave();
+            }
+            if (ImGui::MenuItem(ICON_FA_TRASH_CAN " Clear Autosave", nullptr, false, b_has_autosave))
+            {
+                if (Autosave::b_Clear(ProjectManager::GetCurrent().m_RootPath))
+                {
+                    editor->GetTerminal().add_text("Cleared autosave snapshot.", term::Severity::Debug);
+                }
+                else
+                {
+                    editor->GetTerminal().add_text("Failed to clear autosave snapshot.", term::Severity::Error);
+                }
+            }
+
             ImGui::Separator();
             if (ImGui::MenuItem(ICON_FA_FOLDER_OPEN " Switch Project..."))
             {

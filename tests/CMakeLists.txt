@@ -5,6 +5,7 @@ set(TEST_SUPPORT_SRC
 set(UNIT_TEST_SRC
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/AgentLock_t.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/AssetResolver_t.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/unit/Autosave_t.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/BuildDiagnostics_t.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/CommandStack_t.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/EditorAssets_t.cpp
@@ -67,6 +68,7 @@ function(raywaves_configure_test_target target)
 endfunction()
 
 add_executable(raywaves_tests_unit ${TEST_SUPPORT_SRC} ${UNIT_TEST_SRC}
+    ${CMAKE_SOURCE_DIR}/Editor/Autosave.cpp
     ${CMAKE_SOURCE_DIR}/Editor/CommandStack.cpp
     ${CMAKE_SOURCE_DIR}/Editor/EditorAssets.cpp)
 raywaves_configure_test_target(raywaves_tests_unit)

@@ -7,9 +7,17 @@
 #include "support/TempDir.h"
 #include <filesystem>
 #include <fstream>
+#include <iterator>
+#include <string>
 
 namespace
 {
+std::string s_ReadAll(const std::filesystem::path& path)
+{
+    std::ifstream file(path, std::ios::binary);
+    return std::string(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
+}
+
 class SceneTestMap : public GameMap
 {
 public:
@@ -144,6 +152,71 @@ TEST_CASE("Scene: save and load roundtrip")
     CHECK(copy.m_Tint.a == 40);
     CHECK(copy.m_Layer == 3);
     CHECK(!copy.m_bVisible);
+}
+
+TEST_CASE("Scene: saving twice keeps the previous file as a backup")
+{
+    TempDir temp_dir("raywaves_scene_backup");
+    const std::filesystem::path path = temp_dir.Path() / "Backup.scene";
+    std::filesystem::path backup = path;
+    backup += ".bak";
+
+    Scene scene;
+    scene.AddObject("First");
+    REQUIRE(scene.b_SaveToFile(path.string()));
+    CHECK_FALSE(std::filesystem::exists(backup));
+    const std::string first_contents = s_ReadAll(path);
+
+    scene.AddObject("Second");
+    REQUIRE(scene.b_SaveToFile(path.string()));
+
+    REQUIRE(std::filesystem::exists(backup));
+    CHECK(s_ReadAll(backup) == first_contents);
+    CHECK(first_contents.find("name=Second") == std::string::npos);
+
+    const std::string current_contents = s_ReadAll(path);
+    CHECK(current_contents.find("name=First") != std::string::npos);
+    CHECK(current_contents.find("name=Second") != std::string::npos);
+    CHECK(current_contents != first_contents);
+}
+
+TEST_CASE("Scene: newer format version is rejected without loading objects")
+{
+    TempDir temp_dir("raywaves_scene_version_new");
+    const std::filesystem::path path = temp_dir.Path() / "Future.scene";
+    {
+        std::ofstream file(path, std::ios::binary);
+        file << "[scene]\n";
+        file << "version=999\n";
+        file << "\n";
+        file << "[object]\n";
+        file << "name=Future\n";
+    }
+
+    Scene scene;
+    CHECK_FALSE(scene.b_LoadFromFile(path.string()));
+    CHECK(scene.GetObjects().empty());
+}
+
+TEST_CASE("Scene: current format version still loads")
+{
+    TempDir temp_dir("raywaves_scene_version_current");
+    const std::filesystem::path path = temp_dir.Path() / "Current.scene";
+    {
+        std::ofstream file(path, std::ios::binary);
+        file << "[scene]\n";
+        file << "version=1\n";
+        file << "\n";
+        file << "[object]\n";
+        file << "name=Spawn\n";
+        file << "type=spawn\n";
+    }
+
+    Scene scene;
+    REQUIRE(scene.b_LoadFromFile(path.string()));
+    REQUIRE(scene.GetObjects().size() == 1);
+    CHECK(scene.GetObjects().front().m_Name == "Spawn");
+    CHECK(scene.GetObjects().front().m_Type == "spawn");
 }
 
 TEST_CASE("Scene: malformed values keep defaults")

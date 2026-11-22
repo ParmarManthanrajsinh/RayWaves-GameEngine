@@ -1,5 +1,7 @@
 #include "GameConfig.h"
 #include "Log.h"
+#include "PlatformInfo.h"
+#include <filesystem>
 #include <fstream>
 #include <sstream>
 
@@ -106,29 +108,30 @@ bool GameConfig::m_bLoadFromFile(std::string_view config_path)
 
 bool GameConfig::m_bSaveToFile(std::string_view config_path) const
 {
-    std::string path_str(config_path);
-    std::ofstream file(path_str);
-    if (!file.is_open())
+    const std::filesystem::path file_path{ std::string(config_path) };
+    const std::string contents = GenerateConfigString();
+
+    // Keep the previous config beside the new one so a crash mid-save cannot
+    // lose the user's window settings. Missing target means nothing to copy.
+    std::error_code exists_error;
+    if (std::filesystem::exists(file_path, exists_error))
     {
-        Log::Error("GameConfig", "Failed to create config file: " + std::string(config_path));
+        std::string backup_error;
+        if (!PlatformInfo::b_BackupFile(file_path, backup_error))
+        {
+            Log::Error("GameConfig", "Failed to back up configuration " + file_path.string() + ": " + backup_error);
+            return false;
+        }
+    }
+
+    std::string write_error;
+    if (!PlatformInfo::b_WriteFileAtomic(file_path, contents, write_error))
+    {
+        Log::Error("GameConfig", "Failed to save configuration " + file_path.string() + ": " + write_error);
         return false;
     }
 
-    file << "# Game Configuration File" << "\n";
-    file << "# Window Settings" << "\n";
-    file << "width=" << m_WindowConfig.width << "\n";
-    file << "height=" << m_WindowConfig.height << "\n";
-    file << "b_Fullscreen=" << (m_WindowConfig.b_Fullscreen ? "true" : "false") << "\n";
-    file << "b_Resizable=" << (m_WindowConfig.b_Resizable ? "true" : "false") << "\n";
-    file << "b_Vsync=" << (m_WindowConfig.b_Vsync ? "true" : "false") << "\n";
-    file << "target_fps=" << m_WindowConfig.target_fps << "\n";
-    file << "title=" << m_WindowConfig.title << "\n";
-    file << "scene_width=" << m_WindowConfig.scene_width << "\n";
-    file << "scene_height=" << m_WindowConfig.scene_height << "\n";
-    file << "scene_fps=" << m_WindowConfig.scene_fps << "\n";
-
-    file.close();
-    Log::Info("GameConfig", "Saved configuration to: " + std::string(config_path));
+    Log::Info("GameConfig", "Saved configuration to: " + file_path.string());
     return true;
 }
 

@@ -4,7 +4,17 @@
 #include "support/TempDir.h"
 #include <filesystem>
 #include <fstream>
+#include <iterator>
 #include <string>
+
+namespace
+{
+std::string s_ReadAll(const std::filesystem::path& path)
+{
+    std::ifstream file(path, std::ios::binary);
+    return std::string(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
+}
+} // namespace
 
 TEST_CASE("t_Project: default values")
 {
@@ -53,6 +63,34 @@ TEST_CASE("t_Project: save and load roundtrip")
     CHECK(q.m_CameraX == doctest::Approx(100.0f));
     CHECK(q.m_CameraY == doctest::Approx(200.0f));
     CHECK(q.m_LastMapId == "level_1");
+}
+
+TEST_CASE("t_Project: saving twice keeps the previous manifest as a backup")
+{
+    TempDir tmp_dir("raywaves_project_backup");
+    const std::filesystem::path manifest = tmp_dir.Path() / "project.raywaves";
+    std::filesystem::path backup = manifest;
+    backup += ".bak";
+
+    t_Project p;
+    p.m_RootPath = tmp_dir.String();
+    p.m_Name = "FirstProject";
+    REQUIRE(p.m_bSaveToFile());
+    CHECK_FALSE(std::filesystem::exists(backup));
+
+    const std::string first_contents = s_ReadAll(manifest);
+    CHECK(first_contents.find("name=FirstProject") != std::string::npos);
+
+    p.m_Name = "SecondProject";
+    REQUIRE(p.m_bSaveToFile());
+
+    REQUIRE(std::filesystem::exists(backup));
+    CHECK(s_ReadAll(backup) == first_contents);
+    CHECK(first_contents.find("name=SecondProject") == std::string::npos);
+
+    const std::string current_contents = s_ReadAll(manifest);
+    CHECK(current_contents.find("name=SecondProject") != std::string::npos);
+    CHECK(current_contents != first_contents);
 }
 
 TEST_CASE("t_Project: resolves the host module suffix")

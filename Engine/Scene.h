@@ -5,6 +5,10 @@
 #include <string_view>
 #include <vector>
 
+// Current scene file format. Readers accept older and missing versions and
+// reject anything newer instead of silently dropping fields they do not know.
+inline constexpr int c_SCENE_VERSION = 1;
+
 // A single editor-authored sprite. The scene is deliberately a flat list of
 // plain values: no ECS, no reflection, no gameplay coupling. GameEngine draws
 // the list after the map draws, so existing game code never has to know it

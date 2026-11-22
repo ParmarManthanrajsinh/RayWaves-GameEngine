@@ -79,9 +79,13 @@ public:
     // Requests cancellation of the running build; the worker kills the
     // build's process tree and exits shortly after.
     void CancelBuild();
-    void OpenProject(std::string_view folderPath);
+    bool OpenProject(std::string_view folderPath);
     void CloseProject();
     void CleanupProject();
+
+    // Replaces the live scene with the project's autosave snapshot. Fails when
+    // the snapshot belongs to a different map so recovery never crosses maps.
+    bool b_RestoreAutosave();
     GameEngine& GetGameEngine() { return m_GameEngine; }
     MapManager* GetMapManager() { return m_LogicLoader.GetMapManager(); }
     GameLogicLoader& GetLogicLoader() { return m_LogicLoader; }
@@ -275,6 +279,10 @@ public:
 private:
     void Close();
 
+    // Sends a session failure to both the terminal and the message log so it
+    // stays visible after the terminal scrolls.
+    void LogSessionError(std::string_view message);
+
     GameEngine m_GameEngine;
     ImGuiViewport* m_Viewport;
 
@@ -295,4 +303,7 @@ private:
 
     bool m_bCloseRequested = false;
     std::shared_ptr<std::atomic<bool>> m_ThreadCancelFlag = std::make_shared<std::atomic<bool>>(false);
+
+    // Frame-time accumulator for periodic autosave. Editor-only, UI thread.
+    float m_AutoSaveElapsedSeconds = 0.0f;
 };

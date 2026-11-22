@@ -7,10 +7,12 @@
 #include "../Engine/Profiler.h"
 #include "../Engine/ProjectManager.h"
 #include "AgentLock.h"
+#include "Autosave.h"
 #include "DllLoader.h"
 #include "EditorUtils.h"
 #include "ProcessRunner.h"
 #include "ThemeService.h"
+#include <algorithm>
 #include <cstdio>
 #include <filesystem>
 #include <imgui/imgui_stdlib.h>
@@ -255,6 +257,7 @@ void GameEditor::RunBrowser()
     char newProjectLocation[512] = "";
     int selectedTemplateIdx = 0;
     std::vector<std::string> templates;
+    std::string browser_error;
 
     while (!WindowShouldClose())
     {
@@ -384,7 +387,13 @@ void GameEditor::RunBrowser()
                         "##recent_proj", false, exists ? 0 : ImGuiSelectableFlags_Disabled, ImVec2(rowW, rowHeight)))
                 {
                     if (exists)
-                        OpenProject(path);
+                    {
+                        browser_error.clear();
+                        if (!OpenProject(path))
+                        {
+                            browser_error = "Could not open project: " + path + " (see Terminal for details).";
+                        }
+                    }
                 }
 
                 // Folder icon
@@ -455,6 +464,7 @@ void GameEditor::RunBrowser()
         ImGui::PushStyleColor(ImGuiCol_ButtonActive, GetAccentActiveColor());
         if (ImGui::Button(ICON_FA_PLUS "  New Project", ImVec2(-1, 44.0f)))
         {
+            browser_error.clear();
             templates = ProjectManager::GetAvailableTemplates();
             selectedTemplateIdx = 0;
             for (int index = 0; index < static_cast<int>(templates.size()); ++index)
@@ -477,8 +487,22 @@ void GameEditor::RunBrowser()
             const char* path = tinyfd_selectFolderDialog("Open Project", nullptr);
             if (path != nullptr)
             {
-                OpenProject(path);
+                browser_error.clear();
+                if (!OpenProject(path))
+                {
+                    browser_error = std::string("Could not open project: ") + path + " (see Terminal for details).";
+                }
             }
+        }
+
+        if (!browser_error.empty())
+        {
+            ImGui::Spacing();
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.35f, 0.35f, 1.0f));
+            ImGui::PushTextWrapPos(0.0f);
+            ImGui::TextWrapped("%s", browser_error.c_str());
+            ImGui::PopTextWrapPos();
+            ImGui::PopStyleColor();
         }
 
         // GitHub / Docs — link-style third action
@@ -546,23 +570,54 @@ void GameEditor::RunBrowser()
             }
             else
             {
-                ImGui::TextColored(ImVec4(1, 0, 0, 1), "No templates found in dist/Templates/");
+                ImGui::TextColored(ImVec4(1, 0, 0, 1), "No templates found in templates/");
             }
 
             ImGui::Spacing();
             ImGui::Separator();
             ImGui::Spacing();
 
+            // Keep the wizard open on failure so the author can correct the
+            // name/location instead of retyping everything.
+            if (!browser_error.empty())
+            {
+                ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.35f, 0.35f, 1.0f));
+                ImGui::PushTextWrapPos(0.0f);
+                ImGui::TextWrapped("%s", browser_error.c_str());
+                ImGui::PopTextWrapPos();
+                ImGui::PopStyleColor();
+                ImGui::Spacing();
+            }
+
             if (ImGui::Button("Create", ImVec2(120, 0)))
             {
                 if (strlen(newProjectName) > 0 && strlen(newProjectLocation) > 0 && !templates.empty())
                 {
                     fs::path fullPath = fs::path(newProjectLocation) / newProjectName;
-                    if (ProjectManager::b_CreateProject(fullPath.string(), templates[selectedTemplateIdx]))
+                    std::string error;
+                    if (ProjectManager::b_CreateProject(fullPath.string(), templates[selectedTemplateIdx], error))
                     {
-                        OpenProject(fullPath.string());
-                        ImGui::CloseCurrentPopup();
+                        browser_error.clear();
+                        if (OpenProject(fullPath.string()))
+                        {
+                            ImGui::CloseCurrentPopup();
+                        }
+                        else
+                        {
+                            // Creation succeeded, so leave the folder in place and
+                            // report the open failure in the browser.
+                            browser_error = "Project created but could not be opened. See Terminal for details.";
+                            ImGui::CloseCurrentPopup();
+                        }
                     }
+                    else
+                    {
+                        browser_error = error.empty() ? "Failed to create project." : error;
+                    }
+                }
+                else
+                {
+                    browser_error = "Project name, location, and a template are required.";
                 }
             }
             ImGui::SetItemDefaultFocus();
@@ -588,8 +643,34 @@ void GameEditor::RunBrowser()
         UnloadTexture(logo);
 }
 
-void GameEditor::OpenProject(std::string_view folderPath)
+bool GameEditor::OpenProject(std::string_view folderPath)
 {
+    // Never swap the session out from under an export: the worker holds a
+    // project snapshot and paths that teardown would invalidate.
+    if (m_ExportState.m_bIsExporting.load())
+    {
+        LogSessionError("Cannot switch projects while an export is running.");
+        return false;
+    }
+
+    // Validate first so a bad folder leaves the current session and any
+    // in-flight build untouched.
+    t_Project validated_project;
+    std::string error;
+    if (!ProjectManager::b_ValidateProject(folderPath, validated_project, error))
+    {
+        LogSessionError("Cannot open project: " + error);
+        return false;
+    }
+
+    // A build worker captures the project root and DLL paths. Stop it before
+    // teardown so it cannot write into the old or new project.
+    CancelBuild();
+    if (m_BuildThread.joinable())
+    {
+        m_BuildThread.join();
+    }
+
     // 1. Unload old DLL and reset map state (single teardown path in the loader)
     m_GameEngine.UnloadScene();
     m_LogicLoader.Unload();
@@ -598,13 +679,21 @@ void GameEditor::OpenProject(std::string_view folderPath)
     m_LastActiveMap = nullptr;
     m_bHasSavedViewCamera = false;
     m_bWasPlaying = b_IsPlaying;
+    m_AutoSaveElapsedSeconds = 0.0f;
 
     // 2. StateBag is scoped to hot-reloads (local in the loader). Game state lives
     //    inside the DLL's MapManager, which was destroyed and unloaded in step 1.
 
     // 3. Open project metadata
-    if (!ProjectManager::b_OpenProject(folderPath))
-        return;
+    if (!ProjectManager::b_OpenProject(folderPath, true, error))
+    {
+        LogSessionError("Cannot open project: " + error);
+        // b_OpenProject flips the open flag before generating the project CMake
+        // files. Drop that half-open state so the editor does not run against a
+        // project whose setup never finished.
+        ProjectManager::CloseProject();
+        return false;
+    }
 
     CleanupStaleShadowCopies(folderPath);
 
@@ -658,6 +747,8 @@ void GameEditor::OpenProject(std::string_view folderPath)
         LoadEditorDefaultIni();
         ImGui::GetIO().IniFilename = s_LayoutPath.c_str();
     }
+
+    return true;
 }
 
 void GameEditor::CleanupProject()
@@ -673,6 +764,58 @@ void GameEditor::CleanupProject()
     m_EditorCamera3D.Invalidate();
     m_bEditorCamera3DReady = false;
     m_EditorCameraMapKey.clear();
+}
+
+void GameEditor::LogSessionError(std::string_view message)
+{
+    m_Terminal.add_text(message, term::Severity::Error);
+
+    FBuildMessage build_message;
+    build_message.Severity = FBuildMessage::ESeverity::Error;
+    build_message.Text = std::string(message);
+    std::scoped_lock lock(BuildMessagesMutex);
+    BuildMessages.push_back(std::move(build_message));
+}
+
+bool GameEditor::b_RestoreAutosave()
+{
+    if (!ProjectManager::b_HasOpenProject())
+    {
+        LogSessionError("Cannot restore autosave: no project is open.");
+        return false;
+    }
+
+    const std::filesystem::path project_root = ProjectManager::GetCurrent().m_RootPath;
+    Autosave::FSnapshot snapshot;
+    if (!Autosave::b_Query(project_root, snapshot))
+    {
+        LogSessionError("Cannot restore autosave: no snapshot exists for this project.");
+        return false;
+    }
+
+    // A snapshot from another map would silently replace unrelated content, so
+    // refuse instead of guessing which scene the author meant.
+    const std::string active_map_id = m_GameEngine.GetActiveSceneKey();
+    if (active_map_id != snapshot.m_MapId)
+    {
+        LogSessionError("Cannot restore autosave: snapshot belongs to map '" + snapshot.m_MapId +
+            "', current map is '" + active_map_id + "'.");
+        return false;
+    }
+
+    std::string error;
+    Autosave::FSnapshot loaded_snapshot;
+    if (!Autosave::b_Load(project_root, GetScene(), loaded_snapshot, error))
+    {
+        LogSessionError("Cannot restore autosave: " + (error.empty() ? std::string("unknown error") : error));
+        return false;
+    }
+
+    // Recovery is an unsaved edit: the author still has to commit it with Save.
+    GetScene().MarkDirty();
+    m_GameEngine.RefreshSceneObjects();
+    m_Terminal.add_text("Restored autosave for map '" + loaded_snapshot.m_MapId + "'.", term::Severity::Debug);
+    return true;
 }
 
 GameMap* GameEditor::GetActiveMap()
@@ -855,6 +998,21 @@ void GameEditor::InvalidateEditorEntities()
 
 void GameEditor::CloseProject()
 {
+    // The export worker reads project paths and the GameLogic DLL; tearing the
+    // session down first would leave it writing into a half-destroyed project.
+    if (m_ExportState.m_bIsExporting.load())
+    {
+        LogSessionError("Cannot close the project while an export is running.");
+        return;
+    }
+
+    CancelBuild();
+    if (m_BuildThread.joinable())
+    {
+        m_BuildThread.join();
+    }
+
+    m_AutoSaveElapsedSeconds = 0.0f;
     CleanupProject();
     ProjectManager::CloseProject();
     m_SceneSettings.m_SceneWidth = 1280;
@@ -908,6 +1066,35 @@ void GameEditor::Run()
         UpdatePerformanceMetrics();
 
         float delta_time = GetFrameTime();
+
+        // Periodic crash-recovery snapshot. Only unsaved, stopped edits are
+        // worth capturing; the snapshot never clears the dirty flag.
+        const t_EditorPreferences& preferences = EditorPreferences::GetInstance().GetPreferences();
+        const int auto_save_interval = std::clamp(preferences.AutoSaveIntervalSeconds, 10, 3600);
+        const bool b_can_autosave = preferences.AutoSaveEnabled && !b_IsPlaying && GetScene().b_IsDirty();
+        if (b_can_autosave)
+        {
+            m_AutoSaveElapsedSeconds += delta_time;
+            if (m_AutoSaveElapsedSeconds >= static_cast<float>(auto_save_interval))
+            {
+                m_AutoSaveElapsedSeconds = 0.0f;
+                const std::string active_map_id = m_GameEngine.GetActiveSceneKey();
+                if (!active_map_id.empty())
+                {
+                    std::string autosave_error;
+                    if (!Autosave::b_Save(
+                            ProjectManager::GetCurrent().m_RootPath, active_map_id, GetScene(), autosave_error))
+                    {
+                        m_Terminal.add_text("Autosave failed: " + autosave_error, term::Severity::Error);
+                    }
+                }
+            }
+        }
+        else
+        {
+            m_AutoSaveElapsedSeconds = 0.0f;
+        }
+
         m_GameEngine.SetViewportSize(m_SceneSettings.m_SceneWidth, m_SceneSettings.m_SceneHeight);
         UpdatePlayStateCamera();
         SyncEditorCamera3D();

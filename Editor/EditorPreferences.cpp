@@ -1,8 +1,9 @@
 #include "EditorPreferences.h"
+#include "Log.h"
 #include "PlatformInfo.h"
+#include <algorithm>
 #include <filesystem>
 #include <fstream>
-#include <iostream>
 #include <sstream>
 EditorPreferences& EditorPreferences::GetInstance()
 {
@@ -66,6 +67,27 @@ bool EditorPreferences::m_bLoadFromFile()
         {
             m_Preferences.FontFamily = value;
         }
+        else if (key == "AutoSaveEnabled")
+        {
+            if (value == "0")
+            {
+                m_Preferences.AutoSaveEnabled = false;
+            }
+            else if (value == "1")
+            {
+                m_Preferences.AutoSaveEnabled = true;
+            }
+        }
+        else if (key == "AutoSaveIntervalSeconds")
+        {
+            try
+            {
+                m_Preferences.AutoSaveIntervalSeconds = std::clamp(std::stoi(value), 10, 3600);
+            }
+            catch (...)
+            {
+            }
+        }
     }
 
     file.close();
@@ -84,18 +106,33 @@ bool EditorPreferences::m_bSaveToFile() const
         std::filesystem::create_directories(dir, ec);
     }
 
-    std::ofstream file(config_path);
-    if (!file.is_open())
+    std::ostringstream contents;
+    contents << "# Editor Preferences\n";
+    contents << "GuiScale=" << m_Preferences.GuiScale << "\n";
+    contents << "ThemeName=" << m_Preferences.ThemeName << "\n";
+    contents << "FontFamily=" << m_Preferences.FontFamily << "\n";
+    contents << "AutoSaveEnabled=" << (m_Preferences.AutoSaveEnabled ? 1 : 0) << "\n";
+    contents << "AutoSaveIntervalSeconds=" << std::clamp(m_Preferences.AutoSaveIntervalSeconds, 10, 3600) << "\n";
+
+    // Replace rather than truncate so a crash mid-write cannot leave a
+    // half-written preferences file behind.
+    std::error_code exists_error;
+    if (std::filesystem::exists(config_path, exists_error))
     {
-        std::cerr << "Failed to create editor preferences file: " << config_path << "\n";
+        std::string backup_error;
+        if (!PlatformInfo::b_BackupFile(config_path, backup_error))
+        {
+            Log::Error("EditorPreferences", "Failed to back up preferences: " + backup_error);
+            return false;
+        }
+    }
+
+    std::string error;
+    if (!PlatformInfo::b_WriteFileAtomic(config_path, contents.str(), error))
+    {
+        Log::Error("EditorPreferences", "Failed to save editor preferences: " + error);
         return false;
     }
 
-    file << "# Editor Preferences\n";
-    file << "GuiScale=" << m_Preferences.GuiScale << "\n";
-    file << "ThemeName=" << m_Preferences.ThemeName << "\n";
-    file << "FontFamily=" << m_Preferences.FontFamily << "\n";
-
-    file.close();
     return true;
 }

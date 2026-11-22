@@ -6,6 +6,8 @@ struct t_EditorPreferences
     float GuiScale = 1.0f;
     std::string ThemeName = "Charcoal";
     std::string FontFamily = "Roboto";
+    bool AutoSaveEnabled = true;
+    int AutoSaveIntervalSeconds = 60;
 };
 
 class EditorPreferences

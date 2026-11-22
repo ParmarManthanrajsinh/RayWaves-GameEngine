@@ -104,6 +104,11 @@ std::string SanitizeGameName(std::string_view name)
     return result;
 }
 
+bool b_IsTransientAssetFile(std::string_view filename)
+{
+    return filename.ends_with(".bak") || filename.find(".tmp.") != std::string_view::npos;
+}
+
 bool b_WriteGameConfig(
     const std::string& config_path, const FExportSettings& settings, int scene_width, int scene_height, int scene_fps)
 {
@@ -456,6 +461,28 @@ FExportResult RunExport(const FExportSettings& settings, const std::shared_ptr<s
         else
         {
             log("No Assets folder found - skipping asset copy");
+        }
+
+        // Atomic saves leave .bak files and temp siblings behind. Never ship
+        // editor-side backups in an exported build.
+        {
+            std::error_code cleanup_error;
+            const fs::path export_assets_dir = export_dir / "Assets";
+            if (fs::is_directory(export_assets_dir, cleanup_error))
+            {
+                for (const auto& ENTRY : fs::recursive_directory_iterator(export_assets_dir, cleanup_error))
+                {
+                    if (cleanup_error)
+                    {
+                        break;
+                    }
+                    if (ENTRY.is_regular_file(cleanup_error) &&
+                        b_IsTransientAssetFile(ENTRY.path().filename().string()))
+                    {
+                        fs::remove(ENTRY.path(), cleanup_error);
+                    }
+                }
+            }
         }
 
         fs::path icon_path = proj.m_IconPath;

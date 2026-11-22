@@ -45,6 +45,9 @@ std::string SanitizeGameName(std::string_view name);
 bool b_WriteGameConfig(
     const std::string& config_path, const FExportSettings& settings, int scene_width, int scene_height, int scene_fps);
 
+// True for editor-side backup/temp files that must never ship in an export.
+bool b_IsTransientAssetFile(std::string_view filename);
+
 // Check a finished export folder for the required files (unit-tested).
 bool b_ValidateExportFolder(std::string_view out_dir, LogSink log);
 

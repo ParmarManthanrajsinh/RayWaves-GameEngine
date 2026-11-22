@@ -92,6 +92,14 @@ TEST_CASE("ExportService: b_WriteGameConfig round-trips all keys")
     CHECK_FALSE(ExportService::b_WriteGameConfig((tmp / "nope" / "config.ini").string(), settings, 0, 0, 0));
 }
 
+TEST_CASE("ExportService: transient editor files are never exported")
+{
+    CHECK(ExportService::b_IsTransientAssetFile("Level.scene.bak"));
+    CHECK(ExportService::b_IsTransientAssetFile("player.png.tmp.123.456.0"));
+    CHECK_FALSE(ExportService::b_IsTransientAssetFile("player.png"));
+    CHECK_FALSE(ExportService::b_IsTransientAssetFile("Level.scene"));
+}
+
 TEST_CASE("ExportService: b_ValidateExportFolder detects missing and complete exports")
 {
     std::vector<std::string> logs;
