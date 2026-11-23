@@ -27,6 +27,14 @@ TEST_CASE("t_Project: default values")
     CHECK(p.m_SceneWidth == 1280);
     CHECK(p.m_SceneHeight == 720);
     CHECK(p.m_TargetFPS == 60);
+    CHECK(p.m_ExportName.empty());
+    CHECK(p.m_ExportPath == "export");
+    CHECK(p.m_ExportWidth == 1280);
+    CHECK(p.m_ExportHeight == 720);
+    CHECK(p.m_ExportFPS == 60);
+    CHECK_FALSE(p.m_bExportFullscreen);
+    CHECK(p.m_bExportResizable);
+    CHECK(p.m_bExportVSync);
 }
 
 TEST_CASE("t_Project: save and load roundtrip")
@@ -127,6 +135,109 @@ TEST_CASE("t_Project: missing [editor] section uses defaults")
     CHECK(p.m_SceneWidth == 1280);
     CHECK(p.m_SceneHeight == 720);
     CHECK(p.m_TargetFPS == 60);
+}
+
+TEST_CASE("t_Project: export settings round-trip through save and load")
+{
+    TempDir tmp_dir("raywaves_project_export");
+    std::string manifest = (tmp_dir.Path() / "project.raywaves").string();
+
+    t_Project p;
+    p.m_RootPath = tmp_dir.String();
+    p.m_Name = "ExportProject";
+    p.m_ExportName = "ShippedGame";
+    p.m_ExportPath = "dist/export";
+    p.m_ExportWidth = 1920;
+    p.m_ExportHeight = 1080;
+    p.m_ExportFPS = 144;
+    p.m_bExportFullscreen = true;
+    p.m_bExportResizable = false;
+    p.m_bExportVSync = false;
+
+    REQUIRE(p.m_bSaveToFile());
+
+    const std::string contents = s_ReadAll(tmp_dir.Path() / "project.raywaves");
+    CHECK(contents.find("[export]") != std::string::npos);
+    CHECK(contents.find("gameName=ShippedGame") != std::string::npos);
+    CHECK(contents.find("path=dist/export") != std::string::npos);
+    CHECK(contents.find("width=1920") != std::string::npos);
+    CHECK(contents.find("height=1080") != std::string::npos);
+    CHECK(contents.find("targetFPS=144") != std::string::npos);
+    CHECK(contents.find("fullscreen=1") != std::string::npos);
+    CHECK(contents.find("resizable=0") != std::string::npos);
+    CHECK(contents.find("vsync=0") != std::string::npos);
+
+    t_Project q;
+    REQUIRE(q.m_bLoadFromFile(manifest));
+    CHECK(q.m_ExportName == "ShippedGame");
+    CHECK(q.m_ExportPath == "dist/export");
+    CHECK(q.m_ExportWidth == 1920);
+    CHECK(q.m_ExportHeight == 1080);
+    CHECK(q.m_ExportFPS == 144);
+    CHECK(q.m_bExportFullscreen);
+    CHECK_FALSE(q.m_bExportResizable);
+    CHECK_FALSE(q.m_bExportVSync);
+}
+
+TEST_CASE("t_Project: missing [export] section keeps defaults")
+{
+    TempDir tmp_dir("raywaves_no_export");
+    std::string manifest = (tmp_dir.Path() / "project.raywaves").string();
+    {
+        std::ofstream f(manifest);
+        f << "[project]\n"
+             "name=NoExportProject\n"
+             "\n"
+             "[editor]\n"
+             "sceneWidth=800\n"
+             "sceneHeight=600\n"
+             "targetFPS=30\n";
+    }
+
+    t_Project p;
+    REQUIRE(p.m_bLoadFromFile(manifest));
+    CHECK(p.m_Name == "NoExportProject");
+    CHECK(p.m_ExportName.empty());
+    CHECK(p.m_ExportPath == "export");
+    CHECK(p.m_ExportWidth == 1280);
+    CHECK(p.m_ExportHeight == 720);
+    CHECK(p.m_ExportFPS == 60);
+    CHECK_FALSE(p.m_bExportFullscreen);
+    CHECK(p.m_bExportResizable);
+    CHECK(p.m_bExportVSync);
+}
+
+TEST_CASE("t_Project: malformed export values keep defaults")
+{
+    TempDir tmp_dir("raywaves_bad_export");
+    std::string manifest = (tmp_dir.Path() / "project.raywaves").string();
+    {
+        std::ofstream f(manifest);
+        f << "[project]\n"
+             "name=BadExportProject\n"
+             "\n"
+             "[export]\n"
+             "gameName=ManifestGame\n"
+             "path=custom/out\n"
+             "width=wide\n"
+             "height=720p\n"
+             "targetFPS=fast\n"
+             "fullscreen=maybe\n"
+             "resizable=sometimes\n"
+             "vsync=perhaps\n";
+    }
+
+    t_Project p;
+    REQUIRE(p.m_bLoadFromFile(manifest));
+    // String keys still parse; malformed numbers and booleans keep defaults.
+    CHECK(p.m_ExportName == "ManifestGame");
+    CHECK(p.m_ExportPath == "custom/out");
+    CHECK(p.m_ExportWidth == 1280);
+    CHECK(p.m_ExportHeight == 720);
+    CHECK(p.m_ExportFPS == 60);
+    CHECK_FALSE(p.m_bExportFullscreen);
+    CHECK(p.m_bExportResizable);
+    CHECK(p.m_bExportVSync);
 }
 
 TEST_CASE("t_Project: missing file returns false")

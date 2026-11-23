@@ -38,6 +38,31 @@ TEST_CASE("ExportService: ClampSettings keeps sane ranges")
     CHECK(sane.m_TargetFPS == 60);
 }
 
+TEST_CASE("ExportService: ClampSettings preserves already-valid defaults")
+{
+    const FExportSettings defaults;
+    FExportSettings settings;
+    ExportService::ClampSettings(settings);
+
+    CHECK(settings.m_GameName == defaults.m_GameName);
+    CHECK(settings.m_ExportPath == defaults.m_ExportPath);
+    CHECK(settings.m_WindowWidth == 1280);
+    CHECK(settings.m_WindowHeight == 720);
+    CHECK(settings.m_TargetFPS == 60);
+    CHECK(settings.m_bFullscreen == false);
+    CHECK(settings.m_bResizable == true);
+    CHECK(settings.m_bVSync == true);
+    CHECK(settings.m_bCleanOutput == false);
+
+    // Clamp only touches dimensions/fps; the clean flag and export name survive.
+    FExportSettings clean;
+    clean.m_bCleanOutput = true;
+    clean.m_ExportPath = "dist/game";
+    ExportService::ClampSettings(clean);
+    CHECK(clean.m_bCleanOutput == true);
+    CHECK(clean.m_ExportPath == "dist/game");
+}
+
 TEST_CASE("ExportService: SanitizeGameName rejects traversal and reserved names")
 {
     CHECK(ExportService::SanitizeGameName("MyGame") == "MyGame");
@@ -53,6 +78,8 @@ TEST_CASE("ExportService: ResolveExportDir anchors relatives at project root")
 {
     const fs::path project_root = fs::temp_directory_path() / "raywaves_export_project";
     CHECK(ExportService::ResolveExportDir("export", project_root.string()) == (project_root / "export").string());
+    CHECK(ExportService::ResolveExportDir((fs::path("build") / "game").string(), project_root.string()) ==
+        (project_root / "build" / "game").string());
 
     const fs::path absolute_output = fs::temp_directory_path() / "raywaves_export_out" / "Game";
     CHECK(ExportService::ResolveExportDir(absolute_output.string(), project_root.string()) == absolute_output.string());
@@ -161,6 +188,80 @@ TEST_CASE("ExportService: versioned raylib is not mistaken for the game executab
     std::vector<std::string> logs;
     CHECK_FALSE(ExportService::b_ValidateExportFolder(
         out.string(), [&logs](std::string_view line) { logs.emplace_back(line); }));
+}
+
+TEST_CASE("ExportService: legacy overload fails cleanly with no open project")
+{
+    ProjectManager::CloseProject();
+
+    FExportSettings settings;
+    settings.m_ExportPath = (fs::temp_directory_path() / "raywaves_export_no_project").string();
+    settings.m_GameName = "NoProject";
+
+    std::vector<std::string> logs;
+    const FExportResult result =
+        ExportService::RunExport(settings, nullptr, [&logs](std::string_view line) { logs.emplace_back(line); });
+
+    CHECK_FALSE(result.m_bSuccess);
+    CHECK(result.m_OutputPath.empty());
+
+    bool b_reported_missing_project = false;
+    for (const std::string& line : logs)
+    {
+        b_reported_missing_project =
+            b_reported_missing_project || line.find("No project is currently open") != std::string::npos;
+    }
+    CHECK(b_reported_missing_project);
+}
+
+TEST_CASE("ExportService: project overload rejects a project without a root path")
+{
+    ProjectManager::CloseProject();
+
+    const t_Project project;
+    FExportSettings settings;
+    settings.m_ExportPath = "export";
+
+    std::vector<std::string> logs;
+    const FExportResult result = ExportService::RunExport(
+        project, settings, nullptr, [&logs](std::string_view line) { logs.emplace_back(line); });
+
+    CHECK_FALSE(result.m_bSuccess);
+    CHECK(result.m_OutputPath.empty());
+    CHECK_FALSE(logs.empty());
+}
+
+TEST_CASE("ExportService: project overload uses the passed project, not the open one")
+{
+    ProjectManager::CloseProject();
+
+    TempDir temp_dir("raywaves_export_passed_project");
+    t_Project project;
+    project.m_RootPath = temp_dir.Path().string();
+
+    FExportSettings settings;
+    settings.m_ExportPath = "export";
+    settings.m_GameName = "PassedProject";
+
+    // The lock makes the run fail before any build, which is enough to prove
+    // the service reads the passed project instead of the singleton.
+    std::string lock_error;
+    REQUIRE(AgentLock::b_Acquire(temp_dir.Path(), "test export lock", lock_error));
+
+    std::vector<std::string> logs;
+    const FExportResult result = ExportService::RunExport(
+        project, settings, nullptr, [&logs](std::string_view line) { logs.emplace_back(line); });
+    AgentLock::Release(temp_dir.Path());
+
+    CHECK_FALSE(result.m_bSuccess);
+    CHECK(result.m_OutputPath == (temp_dir.Path() / "export").string());
+
+    bool b_reported_lock = false;
+    for (const std::string& line : logs)
+    {
+        b_reported_lock = b_reported_lock || line.find("locked") != std::string::npos;
+    }
+    CHECK(b_reported_lock);
 }
 
 TEST_CASE("ExportService: refuses to run while the project build lock is held")

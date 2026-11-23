@@ -4,13 +4,13 @@
 #include "../Engine/ProjectManager.h"
 #include "../Runtime/AgentLock.h"
 #include "../Runtime/DllLoader.h"
-#include "EditorUtils.h"
 #include "ProcessRunner.h"
 #include <algorithm>
 #include <cctype>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
+#include <utility>
 #include <vector>
 
 namespace fs = std::filesystem;
@@ -21,6 +21,64 @@ bool b_IsRaylibRuntimeName(const std::string& filename)
 {
     return filename == "libraylib.dll" || filename == "raylib.dll" || filename.rfind("libraylib.so", 0) == 0 ||
         filename.rfind("raylib.so", 0) == 0;
+}
+
+bool b_IsPathPrefix(const fs::path& prefix, const fs::path& path)
+{
+    auto prefix_it = prefix.begin();
+    auto path_it = path.begin();
+    for (; prefix_it != prefix.end(); ++prefix_it, ++path_it)
+    {
+        if (path_it == path.end() || *prefix_it != *path_it)
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+// Deleting the project itself (or one of its ancestors) on a clean export
+// would destroy the user's source. Only a path strictly below the project
+// root, or an unrelated path, is a valid clean target.
+bool b_IsSafeCleanTarget(const fs::path& target, const fs::path& project_root)
+{
+    if (target.empty())
+    {
+        return false;
+    }
+
+    std::error_code target_error;
+    const fs::path target_norm = fs::weakly_canonical(target, target_error);
+    if (target_error || target_norm.empty())
+    {
+        return false;
+    }
+
+    if (target_norm == target_norm.root_path())
+    {
+        return false;
+    }
+
+    std::error_code root_error;
+    const fs::path root_norm = fs::weakly_canonical(project_root, root_error);
+    if (root_error || root_norm.empty())
+    {
+        return true;
+    }
+
+    if (b_IsPathPrefix(target_norm, root_norm))
+    {
+        return false;
+    }
+
+    std::error_code equivalent_error;
+    if (fs::exists(target, equivalent_error) && !equivalent_error && fs::exists(project_root, equivalent_error) &&
+        !equivalent_error && fs::equivalent(target, project_root, equivalent_error) && !equivalent_error)
+    {
+        return false;
+    }
+
+    return true;
 }
 
 struct FLockGuard
@@ -229,9 +287,15 @@ bool b_ValidateExportFolder(std::string_view out_dir, LogSink log)
     return b_Ok;
 }
 
-FExportResult RunExport(const FExportSettings& settings, const std::shared_ptr<std::atomic<bool>>& cancel, LogSink log)
+FExportResult RunExport(const t_Project& project, const FExportSettings& settings,
+    const std::shared_ptr<std::atomic<bool>>& cancel, LogSink log, ProgressSink progress)
 {
     FExportResult result;
+
+    if (!log)
+    {
+        log = [](std::string_view) {};
+    }
 
     auto fail = [&](std::string_view message)
     {
@@ -242,35 +306,43 @@ FExportResult RunExport(const FExportSettings& settings, const std::shared_ptr<s
 
     auto is_cancelled = [&]() { return (cancel != nullptr) && cancel->load(); };
 
+    auto report = [&](float value, std::string_view stage)
+    {
+        if (progress)
+        {
+            progress(std::clamp(value, 0.0f, 1.0f), stage);
+        }
+    };
+
+    report(0.0f, "Preparing export");
+
     try
     {
-        if (!ProjectManager::b_HasOpenProject())
+        if (project.m_RootPath.empty())
         {
-            return fail("ERROR: No project is currently open!");
+            return fail("ERROR: Export project has no root path.");
         }
+
+        const fs::path export_dir = ResolveExportDir(settings.m_ExportPath, project.m_RootPath);
+        result.m_OutputPath = export_dir.string();
 
         if (is_cancelled())
             return result;
 
-        fs::create_directories(settings.m_ExportPath);
         log("Starting export process...");
 
         fs::path current_path = fs::current_path();
-        // Snapshot under the lock: the UI thread can keep editing the
-        // live project (icon, name, scene settings) while this worker
-        // runs, and the reference from GetCurrent() escapes that lock.
-        t_Project proj = ProjectManager::GetCurrentCopy();
 
         // Export builds the project and writes GameLogic next to the source,
         // exactly like an editor compile. Take the same lock so the two
         // processes cannot link the module at the same time.
         std::string lock_error;
-        if (!AgentLock::b_Acquire(proj.m_RootPath, "export", lock_error))
+        if (!AgentLock::b_Acquire(project.m_RootPath, "export", lock_error))
         {
             log("ERROR: " + lock_error);
             return result;
         }
-        FLockGuard lock_guard{ fs::path(proj.m_RootPath) };
+        FLockGuard lock_guard{ fs::path(project.m_RootPath) };
 
         // Resolve next to the running host first. Export must work from
         // zig-debug, zig-release, and packaged layouts without guessing a
@@ -323,9 +395,48 @@ FExportResult RunExport(const FExportSettings& settings, const std::shared_ptr<s
             return fail(std::string("ERROR: ") + rw::platform::c_RaylibRuntimeName + " not found!");
         }
 
+        // Clean before the build so a stale export never survives a cancelled
+        // or failed run, but after the host prerequisites resolve so a broken
+        // host setup does not delete a previously good export.
+        std::error_code exists_error;
+        const bool b_OutputExists = fs::is_directory(export_dir, exists_error) && !exists_error;
+        if (settings.m_bCleanOutput)
+        {
+            if (b_OutputExists)
+            {
+                if (!b_IsSafeCleanTarget(export_dir, fs::path(project.m_RootPath)))
+                {
+                    const std::string refusal = "ERROR: Refusing to clean output folder '" + export_dir.string() +
+                        "': it is the project root, an ancestor of it, or a filesystem root.";
+                    return fail(refusal);
+                }
+
+                log("Cleaning output folder: " + export_dir.string());
+                report(0.05f, "Cleaning output folder");
+                std::error_code remove_error;
+                fs::remove_all(export_dir, remove_error);
+                if (remove_error)
+                {
+                    const std::string clean_error = "ERROR: Could not clean output folder: " + remove_error.message();
+                    return fail(clean_error);
+                }
+            }
+        }
+        else if (b_OutputExists)
+        {
+            std::error_code scan_error;
+            const fs::directory_iterator first_entry(export_dir, scan_error);
+            const bool b_HasFiles = !scan_error && first_entry != fs::directory_iterator();
+            if (b_HasFiles)
+            {
+                log("Output folder already contains files - overwriting existing export.");
+            }
+        }
+
         // 1. Build the project GameLogic module using CMake.
         log("Building project GameLogic (Release)...");
-        const fs::path raywaves_dir = fs::path(proj.m_RootPath) / ".raywaves";
+        report(0.1f, "Configuring build");
+        const fs::path raywaves_dir = fs::path(project.m_RootPath) / ".raywaves";
         const fs::path build_dir = raywaves_dir / "build";
 
         auto forward_output = [&log](std::string_view line, bool)
@@ -361,7 +472,7 @@ FExportResult RunExport(const FExportSettings& settings, const std::shared_ptr<s
                 setup_argv = { "bash", (ProjectManager::GetToolsDirectory() / "setup_tools.sh").string(), "--skip-zig",
                     "--skip-rcedit", "--skip-ninja" };
             }
-            ProcessRunner::RunAndWaitCommand(setup_argv, proj.m_RootPath, forward_output, cancel);
+            ProcessRunner::RunAndWaitCommand(setup_argv, project.m_RootPath, forward_output, cancel);
             if (is_cancelled())
                 return result;
         }
@@ -369,17 +480,18 @@ FExportResult RunExport(const FExportSettings& settings, const std::shared_ptr<s
         // Blocking, but cancellable: the runner kills the whole build tree
         // when cancel is set, so Close() cannot hang on an export.
         bool b_configured = ProcessRunner::RunAndWaitCommand(
-            { cmake_exe.string(), "-G", "Ninja", raywaves_dir.string(), "-B", build_dir.string() }, proj.m_RootPath,
+            { cmake_exe.string(), "-G", "Ninja", raywaves_dir.string(), "-B", build_dir.string() }, project.m_RootPath,
             forward_output, cancel);
         if (!b_configured && !is_cancelled())
         {
             b_configured = ProcessRunner::RunAndWaitCommand(
                 { cmake_exe.string(), "--fresh", "-G", "Ninja", raywaves_dir.string(), "-B", build_dir.string() },
-                proj.m_RootPath, forward_output, cancel);
+                project.m_RootPath, forward_output, cancel);
         }
+        report(0.2f, "Building GameLogic");
         const bool b_BuildOk = b_configured &&
             ProcessRunner::RunAndWaitCommand(
-                { cmake_exe.string(), "--build", build_dir.string(), "--config", "Release" }, proj.m_RootPath,
+                { cmake_exe.string(), "--build", build_dir.string(), "--config", "Release" }, project.m_RootPath,
                 forward_output, cancel);
         if (is_cancelled())
             return result;
@@ -387,17 +499,18 @@ FExportResult RunExport(const FExportSettings& settings, const std::shared_ptr<s
         {
             return fail("ERROR: Build failed!");
         }
+        report(0.45f, "Collecting runtime files");
 
-        const fs::path game_logic_module = proj.m_DllPath;
+        const fs::path game_logic_module = project.m_DllPath;
         if (!fs::exists(game_logic_module))
         {
             return fail(
                 std::string("ERROR: ") + rw::platform::c_GameLogicModuleName + " was not produced by the build.");
         }
 
-        fs::path export_dir = ResolveExportDir(settings.m_ExportPath, proj.m_RootPath);
         fs::create_directories(export_dir);
 
+        report(0.5f, "Writing game executable");
         const std::string safe_game_name = SanitizeGameName(settings.m_GameName);
         const std::string game_exe_name = safe_game_name + rw::platform::c_ExecutableSuffix;
         log("Creating game executable: " + game_exe_name);
@@ -410,29 +523,37 @@ FExportResult RunExport(const FExportSettings& settings, const std::shared_ptr<s
                 permission_error);
         }
 
+        if (is_cancelled())
+            return result;
+
         log("Creating game configuration...");
+        report(0.55f, "Writing game configuration");
 
         FExportSettings safe_settings = settings;
         safe_settings.m_GameName = safe_game_name;
 
         fs::path config_path = export_dir / "config.ini";
         if (!b_WriteGameConfig(
-                config_path.string(), safe_settings, proj.m_SceneWidth, proj.m_SceneHeight, proj.m_TargetFPS))
+                config_path.string(), safe_settings, project.m_SceneWidth, project.m_SceneHeight, project.m_TargetFPS))
         {
             return fail("ERROR: Could not write game configuration.");
         }
 
         log(std::string("Copying ") + rw::platform::c_GameLogicModuleName + "...");
+        report(0.6f, "Copying GameLogic");
         fs::copy_file(
             game_logic_module, export_dir / rw::platform::c_GameLogicModuleName, fs::copy_options::overwrite_existing);
 
         for (const fs::path& raylib_file : raylib_files)
         {
+            if (is_cancelled())
+                return result;
             log(std::string("Copying ") + raylib_file.filename().string() + "...");
             fs::copy_file(raylib_file, export_dir / raylib_file.filename(), fs::copy_options::overwrite_existing);
         }
+        report(0.65f, "Copying assets");
 
-        fs::path assets_dir = proj.m_AssetPath;
+        fs::path assets_dir = project.m_AssetPath;
         if (fs::exists(assets_dir))
         {
             log("Copying project assets...");
@@ -440,8 +561,25 @@ FExportResult RunExport(const FExportSettings& settings, const std::shared_ptr<s
             fs::path export_assets_dir = export_dir / "Assets";
             fs::create_directories(export_assets_dir);
 
+            std::size_t total_entries = 0;
+            {
+                std::error_code count_error;
+                for (const auto& ENTRY : fs::directory_iterator(assets_dir, count_error))
+                {
+                    if (count_error)
+                    {
+                        break;
+                    }
+                    ++total_entries;
+                }
+            }
+
+            std::size_t copied_entries = 0;
             for (const auto& ENTRY : fs::directory_iterator(assets_dir))
             {
+                if (is_cancelled())
+                    return result;
+
                 if (ENTRY.is_directory())
                 {
                     fs::path dest = export_assets_dir / ENTRY.path().filename();
@@ -456,12 +594,22 @@ FExportResult RunExport(const FExportSettings& settings, const std::shared_ptr<s
 
                     log("Copied asset file: " + ENTRY.path().filename().string());
                 }
+
+                ++copied_entries;
+                const float asset_fraction =
+                    total_entries == 0 ? 1.0f : static_cast<float>(copied_entries) / static_cast<float>(total_entries);
+                report(0.65f + 0.2f * asset_fraction, "Copying assets");
             }
         }
         else
         {
             log("No Assets folder found - skipping asset copy");
         }
+
+        if (is_cancelled())
+            return result;
+
+        report(0.86f, "Pruning editor backups");
 
         // Atomic saves leave .bak files and temp siblings behind. Never ship
         // editor-side backups in an exported build.
@@ -472,7 +620,7 @@ FExportResult RunExport(const FExportSettings& settings, const std::shared_ptr<s
             {
                 for (const auto& ENTRY : fs::recursive_directory_iterator(export_assets_dir, cleanup_error))
                 {
-                    if (cleanup_error)
+                    if (cleanup_error || is_cancelled())
                     {
                         break;
                     }
@@ -485,7 +633,12 @@ FExportResult RunExport(const FExportSettings& settings, const std::shared_ptr<s
             }
         }
 
-        fs::path icon_path = proj.m_IconPath;
+        if (is_cancelled())
+            return result;
+
+        report(0.9f, "Embedding icon");
+
+        fs::path icon_path = project.m_IconPath;
         if (icon_path.empty())
         {
             fs::path root = ProjectManager::GetEngineRootDirectory();
@@ -496,7 +649,7 @@ FExportResult RunExport(const FExportSettings& settings, const std::shared_ptr<s
         }
         else if (icon_path.is_relative())
         {
-            icon_path = fs::path(proj.m_RootPath) / icon_path;
+            icon_path = fs::path(project.m_RootPath) / icon_path;
         }
 
         if (!rw::platform::b_IsWindows)
@@ -514,7 +667,7 @@ FExportResult RunExport(const FExportSettings& settings, const std::shared_ptr<s
                     const std::string exePath = (export_dir / game_exe_name).string();
                     const bool b_IconOk =
                         ProcessRunner::RunAndWaitCommand({ rceditExe.string(), exePath, "--set-icon", custom_icon },
-                            proj.m_RootPath, forward_output, cancel);
+                            project.m_RootPath, forward_output, cancel);
                     log(b_IconOk ? "rcedit: icon applied" : "rcedit: icon update failed");
                 }
                 else
@@ -530,6 +683,7 @@ FExportResult RunExport(const FExportSettings& settings, const std::shared_ptr<s
         }
 
         log(std::string("Process completed. Validating export folder: ") + export_dir.string());
+        report(0.95f, "Validating export");
 
         bool b_Ok = b_ValidateExportFolder(export_dir.string(), log);
         result.m_bSuccess = b_Ok;
@@ -541,6 +695,7 @@ FExportResult RunExport(const FExportSettings& settings, const std::shared_ptr<s
         else
         {
             log("Export completed successfully!");
+            report(1.0f, "Complete");
         }
     }
     catch (const std::exception& e)
@@ -549,5 +704,23 @@ FExportResult RunExport(const FExportSettings& settings, const std::shared_ptr<s
     }
 
     return result;
+}
+
+FExportResult RunExport(const FExportSettings& settings, const std::shared_ptr<std::atomic<bool>>& cancel, LogSink log,
+    ProgressSink progress)
+{
+    if (!ProjectManager::b_HasOpenProject())
+    {
+        if (log)
+        {
+            log("ERROR: No project is currently open!");
+        }
+        return FExportResult{};
+    }
+
+    // Snapshot under the lock: the UI thread can keep editing the live
+    // project (icon, name, scene settings) while this worker runs, and the
+    // reference from GetCurrent() escapes that lock.
+    return RunExport(ProjectManager::GetCurrentCopy(), settings, cancel, std::move(log), std::move(progress));
 }
 } // namespace ExportService

@@ -6,6 +6,8 @@
 #include <string>
 #include <string_view>
 
+struct t_Project;
+
 // Export settings snapshot. Copied by value onto the worker thread so the
 // panel's live m_ExportState can keep changing underneath it.
 struct FExportSettings
@@ -18,16 +20,25 @@ struct FExportSettings
     bool m_bFullscreen = false;
     bool m_bResizable = true;
     bool m_bVSync = true;
+    // Remove the resolved export directory before writing. The service refuses
+    // to clean an empty path, the project root, or an ancestor of it.
+    bool m_bCleanOutput = false;
 };
 
 struct FExportResult
 {
     bool m_bSuccess = false;
+    // Absolute export directory the run targeted. Empty only when the
+    // project had no usable root path.
+    std::string m_OutputPath;
 };
 
 namespace ExportService
 {
 using LogSink = std::function<void(std::string_view line)>;
+// Optional pipeline progress. `progress` is 0..1 and `stage` is a short
+// human-readable milestone ("Building GameLogic", "Copying assets", ...).
+using ProgressSink = std::function<void(float progress, std::string_view stage)>;
 
 // Clamp dimensions/fps to sane ranges (pure, unit-tested).
 void ClampSettings(FExportSettings& settings);
@@ -51,7 +62,15 @@ bool b_IsTransientAssetFile(std::string_view filename);
 // Check a finished export folder for the required files (unit-tested).
 bool b_ValidateExportFolder(std::string_view out_dir, LogSink log);
 
-// Full export on the caller's thread (the panel runs it on its worker
-// thread). Reads the open project via ProjectManager and honors cancel.
-FExportResult RunExport(const FExportSettings& settings, const std::shared_ptr<std::atomic<bool>>& cancel, LogSink log);
+// Full export on the caller's thread. Explicit project overload: rwcli and
+// other hosts pass a resolved snapshot so exporting never depends on the
+// open-project singleton. Honors cancel and reports progress when a sink is
+// provided.
+FExportResult RunExport(const t_Project& project, const FExportSettings& settings,
+    const std::shared_ptr<std::atomic<bool>>& cancel, LogSink log, ProgressSink progress = {});
+
+// Editor overload: resolves the open project via ProjectManager and fails
+// cleanly when no project is open.
+FExportResult RunExport(const FExportSettings& settings, const std::shared_ptr<std::atomic<bool>>& cancel, LogSink log,
+    ProgressSink progress = {});
 } // namespace ExportService

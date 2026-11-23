@@ -54,6 +54,25 @@ grep -q '"registrationAdded":true' "$TMP/new-level.json"
 "$RWCLI" build "$SCAFFOLD" --json > "$TMP/scaffold-build.json"
 grep -q '"ok":true' "$TMP/scaffold-build.json"
 
+echo "export (cli, scaffold)" >&2
+EXPORT_OUT="$TMP/export-out"
+"$RWCLI" export "$SCAFFOLD" --out "$EXPORT_OUT" --json > "$TMP/export.json"
+grep -q '"ok":true' "$TMP/export.json"
+[ -f "$EXPORT_OUT/GameLogic.so" ] || { echo "export is missing GameLogic.so" >&2; exit 1; }
+[ -f "$EXPORT_OUT/config.ini" ] || { echo "export is missing config.ini" >&2; exit 1; }
+export_exe_found=0
+for candidate in "$EXPORT_OUT"/*; do
+    [ -f "$candidate" ] || continue
+    case "$(basename "$candidate")" in
+        GameLogic.so|libraylib*|config.ini) continue ;;
+    esac
+    if [ -x "$candidate" ]; then
+        export_exe_found=1
+    fi
+done
+[ "$export_exe_found" -eq 1 ] || { echo "export produced no executable game binary" >&2; exit 1; }
+# The exported game opens a window; the smoke does not launch it headlessly.
+
 WRAPPER="$TMP/.raywaves/bin/rwcli"
 [ -x "$WRAPPER" ] || { echo "rwcli wrapper missing" >&2; exit 1; }
 

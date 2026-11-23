@@ -22,6 +22,30 @@ std::string NormalizeEntryModule(std::string value)
     entry.replace_extension();
     return entry.empty() ? std::string("GameLogic") : entry.string();
 }
+
+// Malformed values keep the caller's previous value instead of throwing the
+// whole manifest away.
+int ParseIntOr(const std::string& text, int fallback)
+{
+    try
+    {
+        return std::stoi(text);
+    }
+    catch (...)
+    {
+        return fallback;
+    }
+}
+
+// Manifests are written as 1/0; true/false is accepted for hand edits.
+bool ParseBoolOr(const std::string& text, bool fallback)
+{
+    if (text == "1" || text == "true")
+        return true;
+    if (text == "0" || text == "false")
+        return false;
+    return fallback;
+}
 } // namespace
 
 bool t_Project::m_bLoadFromFile(std::string_view manifest_path)
@@ -52,6 +76,15 @@ bool t_Project::m_bLoadFromFile(std::string_view manifest_path)
     m_SceneWidth = 1280;
     m_SceneHeight = 720;
     m_TargetFPS = 60;
+
+    m_ExportName = "";
+    m_ExportPath = "export";
+    m_ExportWidth = 1280;
+    m_ExportHeight = 720;
+    m_ExportFPS = 60;
+    m_bExportFullscreen = false;
+    m_bExportResizable = true;
+    m_bExportVSync = true;
 
     std::string line;
     std::string currentSection;
@@ -150,9 +183,32 @@ bool t_Project::m_bLoadFromFile(std::string_view manifest_path)
             else if (key == "targetFPS")
                 m_TargetFPS = safe_stoi(value, m_TargetFPS);
         }
+        else if (currentSection == "export")
+        {
+            if (key == "gameName")
+                m_ExportName = value;
+            else if (key == "path")
+                m_ExportPath = value;
+            else if (key == "width")
+                m_ExportWidth = ParseIntOr(value, m_ExportWidth);
+            else if (key == "height")
+                m_ExportHeight = ParseIntOr(value, m_ExportHeight);
+            else if (key == "targetFPS")
+                m_ExportFPS = ParseIntOr(value, m_ExportFPS);
+            else if (key == "fullscreen")
+                m_bExportFullscreen = ParseBoolOr(value, m_bExportFullscreen);
+            else if (key == "resizable")
+                m_bExportResizable = ParseBoolOr(value, m_bExportResizable);
+            else if (key == "vsync")
+                m_bExportVSync = ParseBoolOr(value, m_bExportVSync);
+        }
     }
 
     file.close();
+
+    // An explicitly blank path still means the default drop folder.
+    if (m_ExportPath.empty())
+        m_ExportPath = "export";
 
     // Resolve absolute paths. The manifest stores a logical stem; append the
     // host module suffix so Windows resolves .dll and Linux resolves .so.
@@ -190,6 +246,17 @@ bool t_Project::m_bSaveToFile() const
     text_stream << "sceneWidth=" << m_SceneWidth << "\n";
     text_stream << "sceneHeight=" << m_SceneHeight << "\n";
     text_stream << "targetFPS=" << m_TargetFPS << "\n";
+    text_stream << "\n";
+
+    text_stream << "[export]\n";
+    text_stream << "gameName=" << m_ExportName << "\n";
+    text_stream << "path=" << m_ExportPath << "\n";
+    text_stream << "width=" << m_ExportWidth << "\n";
+    text_stream << "height=" << m_ExportHeight << "\n";
+    text_stream << "targetFPS=" << m_ExportFPS << "\n";
+    text_stream << "fullscreen=" << (m_bExportFullscreen ? 1 : 0) << "\n";
+    text_stream << "resizable=" << (m_bExportResizable ? 1 : 0) << "\n";
+    text_stream << "vsync=" << (m_bExportVSync ? 1 : 0) << "\n";
 
     const std::string text = text_stream.str();
 

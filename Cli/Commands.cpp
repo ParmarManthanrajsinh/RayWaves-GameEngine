@@ -5,6 +5,7 @@
 #include "CliCommon.h"
 #include "DllLoader.h"
 #include "EngineVersion.h"
+#include "ExportCommand.h"
 #include "Json.h"
 #include "MapManager.h"
 #include "PlatformInfo.h"
@@ -1133,11 +1134,12 @@ void PrintGeneralHelp()
                  "  maps      map ids from the DLL or scene filenames\n"
                  "  validate  manifest, scene ids, textures, RW_GAME\n"
                  "  build     configure + build GameLogic\n"
+                 "  export    build a standalone game folder\n"
                  "  run       headless fixed-frame run + screenshot/state\n"
                  "  lsp       write .clangd/.vscode, compile_commands.json\n"
                  "  scene     list|add|set|remove|duplicate scene objects\n"
                  "  assets    list|import assets\n\n"
-                 "Options: --json, --force, --clean, --jobs N, --timeout S\n"
+                 "Options: --json, --force, --clean, --jobs N, --timeout S, --out DIR\n"
                  "From a project, use .\\.raywaves\\bin\\rwcli.cmd <command> . --json\n";
 }
 
@@ -1184,6 +1186,13 @@ void PrintCommandHelp(std::string_view command)
             << "rwcli build <project> [--clean] [--jobs N] [--timeout S] [--json]\n"
                "Builds in .raywaves/build-agent under .raywaves/agent.lock.\n"
                "Result: {\"ok\":bool,\"diagnostics\":[{file,line,column,severity,message}],\"rawTail\":\"...\"}\n";
+    }
+    else if (command == "export")
+    {
+        std::cout << "rwcli export <project> [--out DIR] [--json]\n"
+                     "Builds GameLogic and writes a runnable game folder (default <project>/export).\n"
+                     "Result: {\"ok\":bool,\"output\":\"dir\",\"error\":{code,message}?}\n"
+                     "Exit codes: 0 ok, 2 usage, 3 project error, 4 export failed.\n";
     }
     else if (command == "run")
     {
@@ -1393,9 +1402,14 @@ int Run(const FArgs& args)
     }
 
     if (command == "doctor" || command == "info" || command == "maps" || command == "validate" || command == "build" ||
-        command == "run" || command == "lsp" || command == "new-level")
+        command == "run" || command == "lsp" || command == "new-level" || command == "export")
     {
         const std::string project_path = args.m_Positional.size() > 1 ? args.m_Positional[1] : "";
+        if (command == "export" && project_path.empty())
+        {
+            PrintError(b_json, "usage", "export needs a project path: rwcli export <project> [--out DIR] [--json]");
+            return 2;
+        }
         FProjectContext project;
         std::string error;
         if (!b_ResolveProject(project_path, project, error))
@@ -1427,6 +1441,10 @@ int Run(const FArgs& args)
         if (command == "lsp")
         {
             return LspCommand(project, args, b_json);
+        }
+        if (command == "export")
+        {
+            return ExportCommand(project, args, b_json);
         }
         if (command == "new-level")
         {

@@ -90,6 +90,17 @@ try {
     $scaffoldBuildJson = (Invoke-RwCli @("build", $Scaffold, "--json")) | ConvertFrom-Json
     if (-not $scaffoldBuildJson.ok) { throw "scaffolded project build failed: $($scaffoldBuildJson.rawTail)" }
 
+    Write-Host "export (cli, scaffold)" -ForegroundColor Cyan
+    $ExportOut = Join-Path $Temp "export-out"
+    $export = Invoke-RwCli @("export", $Scaffold, "--out", $ExportOut, "--json")
+    $exportJson = $export | ConvertFrom-Json
+    if (-not $exportJson.ok) { throw "export failed: $export" }
+    if (-not (Test-Path (Join-Path $ExportOut "GameLogic.dll"))) { throw "export is missing GameLogic.dll" }
+    if (-not (Test-Path (Join-Path $ExportOut "config.ini"))) { throw "export is missing config.ini" }
+    $exportedExe = @(Get-ChildItem -Path $ExportOut -Filter *.exe -File)
+    if ($exportedExe.Count -lt 1) { throw "export produced no game executable" }
+    # The exported game opens a window; the smoke does not launch it headlessly.
+
     Write-Host "scene --type" -ForegroundColor Cyan
     $sceneJson = (Invoke-Wrapper @("scene", "add", $Temp, "--map", "SmokeMap", "--name", "Spawn", "--type", "spawn", "--json")) | ConvertFrom-Json
     if (-not $sceneJson.ok) { throw "scene add --type failed" }

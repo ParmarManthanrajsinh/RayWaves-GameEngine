@@ -4,9 +4,11 @@ add_executable(rwcli
     Cli/Args.cpp
     Cli/CliCommon.cpp
     Cli/Commands.cpp
+    Cli/ExportCommand.cpp
     Cli/RunWorker.cpp
     Cli/Scaffold.cpp
     Cli/main.cpp
+    Editor/ExportService.cpp
 )
 
 target_include_directories(rwcli PRIVATE
@@ -14,6 +16,7 @@ target_include_directories(rwcli PRIVATE
     ${CMAKE_SOURCE_DIR}/Engine
     ${CMAKE_SOURCE_DIR}/Runtime
     ${CMAKE_SOURCE_DIR}/Cli
+    ${CMAKE_SOURCE_DIR}/Editor
 )
 
 target_link_libraries(rwcli PRIVATE Engine RuntimeSupport Threads::Threads)

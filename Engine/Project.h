@@ -26,6 +26,17 @@ struct t_Project
     int m_SceneHeight = 720;
     int m_TargetFPS = 60;
 
+    // Export settings. An empty name falls back to the project name, and an
+    // empty path falls back to the "export" folder beside the manifest.
+    std::string m_ExportName;
+    std::string m_ExportPath = "export";
+    int m_ExportWidth = 1280;
+    int m_ExportHeight = 720;
+    int m_ExportFPS = 60;
+    bool m_bExportFullscreen = false;
+    bool m_bExportResizable = true;
+    bool m_bExportVSync = true;
+
     bool m_bLoadFromFile(std::string_view manifest_path);
     bool m_bSaveToFile() const;
     bool m_bIsValid() const;
