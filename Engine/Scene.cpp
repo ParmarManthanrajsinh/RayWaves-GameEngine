@@ -181,7 +181,7 @@ t_SceneObject& Scene::AddObject(std::string_view name)
     object.m_Id = m_NextId++;
     object.m_Name = name.empty() ? "Object" : std::string(name);
     m_Objects.push_back(std::move(object));
-    m_bDirty = true;
+    MarkDirty();
     return m_Objects.back();
 }
 
@@ -199,7 +199,7 @@ t_SceneObject* Scene::DuplicateObject(uint32_t object_id)
     copy.m_Texture = {};
     copy.m_bTextureMissing = false;
     m_Objects.push_back(std::move(copy));
-    m_bDirty = true;
+    MarkDirty();
     return &m_Objects.back();
 }
 
@@ -226,7 +226,7 @@ t_SceneObject& Scene::InsertObjectAt(std::size_t index, t_SceneObject object)
         index = m_Objects.size();
     }
     m_Objects.insert(m_Objects.begin() + static_cast<std::ptrdiff_t>(index), std::move(object));
-    m_bDirty = true;
+    MarkDirty();
     return m_Objects[index];
 }
 
@@ -253,7 +253,7 @@ bool Scene::b_RemoveObject(uint32_t object_id)
 
     UnloadTexture(*object_it);
     m_Objects.erase(object_it);
-    m_bDirty = true;
+    MarkDirty();
     return true;
 }
 
@@ -326,41 +326,70 @@ void Scene::ReloadTexture(uint32_t object_id)
     m_bDirty = true;
 }
 
-void Scene::Draw()
+void Scene::RebuildDrawOrder() const
 {
-    std::vector<t_SceneObject*> ordered;
-    ordered.reserve(m_Objects.size());
-    for (t_SceneObject& object : m_Objects)
+    m_DrawIndices.clear();
+    m_DrawIndices.reserve(m_Objects.size());
+    for (std::size_t index = 0; index < m_Objects.size(); ++index)
     {
-        if (object.m_bVisible)
+        if (m_Objects[index].m_bVisible)
         {
-            ordered.push_back(&object);
+            m_DrawIndices.push_back(static_cast<uint32_t>(index));
         }
     }
 
-    std::ranges::stable_sort(ordered, {}, [](const t_SceneObject* object) { return object->m_Layer; });
+    // Stable sort reproduces the old per-frame ordering: equal layers keep
+    // list order, so overlapping sprites never swap depth.
+    std::ranges::stable_sort(m_DrawIndices, {}, [this](uint32_t index) { return m_Objects[index].m_Layer; });
 
-    for (t_SceneObject* object : ordered)
+    m_DrawOrder.clear();
+    m_DrawOrder.reserve(m_DrawIndices.size());
+    for (const uint32_t index : m_DrawIndices)
     {
-        if (!b_EnsureTexture(*object))
+        m_DrawOrder.push_back(m_Objects[index].m_Id);
+    }
+
+    m_bDrawOrderDirty = false;
+}
+
+const std::vector<uint32_t>& Scene::GetDrawOrder() const
+{
+    if (m_bDrawOrderDirty)
+    {
+        RebuildDrawOrder();
+    }
+    return m_DrawOrder;
+}
+
+void Scene::Draw()
+{
+    if (m_bDrawOrderDirty)
+    {
+        RebuildDrawOrder();
+    }
+
+    for (const uint32_t index : m_DrawIndices)
+    {
+        t_SceneObject& object = m_Objects[index];
+        if (!b_EnsureTexture(object))
         {
             // No texture yet: keep the object visible while the user works on it.
-            const Rectangle placeholder{ object->m_Position.x, object->m_Position.y, 32.0f * object->m_Scale.x,
-                32.0f * object->m_Scale.y };
-            DrawRectangleRec(placeholder, Fade(object->m_Tint, 0.25f));
-            DrawRectangleLinesEx(placeholder, 1.0f, Fade(object->m_Tint, 0.9f));
+            const Rectangle placeholder{ object.m_Position.x, object.m_Position.y, 32.0f * object.m_Scale.x,
+                32.0f * object.m_Scale.y };
+            DrawRectangleRec(placeholder, Fade(object.m_Tint, 0.25f));
+            DrawRectangleLinesEx(placeholder, 1.0f, Fade(object.m_Tint, 0.9f));
             continue;
         }
 
-        const Rectangle source = (object->m_Source.width > 0.0f && object->m_Source.height > 0.0f)
-            ? object->m_Source
-            : Rectangle{ 0.0f, 0.0f, static_cast<float>(object->m_Texture.width),
-                  static_cast<float>(object->m_Texture.height) };
+        const Rectangle source = (object.m_Source.width > 0.0f && object.m_Source.height > 0.0f)
+            ? object.m_Source
+            : Rectangle{ 0.0f, 0.0f, static_cast<float>(object.m_Texture.width),
+                  static_cast<float>(object.m_Texture.height) };
 
-        const Rectangle destination{ object->m_Position.x, object->m_Position.y, source.width * object->m_Scale.x,
-            source.height * object->m_Scale.y };
+        const Rectangle destination{ object.m_Position.x, object.m_Position.y, source.width * object.m_Scale.x,
+            source.height * object.m_Scale.y };
 
-        DrawTexturePro(object->m_Texture, source, destination, { 0.0f, 0.0f }, object->m_Rotation, object->m_Tint);
+        DrawTexturePro(object.m_Texture, source, destination, { 0.0f, 0.0f }, object.m_Rotation, object.m_Tint);
     }
 }
 
@@ -371,6 +400,9 @@ void Scene::Clear()
         UnloadTexture(object);
     }
     m_Objects.clear();
+    m_DrawOrder.clear();
+    m_DrawIndices.clear();
+    m_bDrawOrderDirty = false;
     m_NextId = 1;
     m_bDirty = false;
 }
@@ -536,5 +568,6 @@ bool Scene::b_LoadFromFile(std::string_view path)
     }
 
     m_bDirty = false;
+    InvalidateDrawOrder();
     return true;
 }

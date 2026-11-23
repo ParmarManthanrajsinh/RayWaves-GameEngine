@@ -25,6 +25,41 @@ endif()
 set(RAYWAVES_EXE_DIR "${CMAKE_BINARY_DIR}")
 set(RAYWAVES_RAYLIB_STAGEDIR "${CMAKE_BINARY_DIR}/raylib")
 
+# Opt-in compiler cache for local engine builds: ccache when present, sccache as
+# the fallback. OFF by default so CI, packaging, and clean-checkout builds keep
+# using the compiler directly. Enable with -DRAYWAVES_USE_CCACHE=ON.
+#
+# The launchers are plain variables set here, before the target modules are
+# included, so every engine target picks them up. A script wrapper is refused:
+# cache tools spawn the real compiler, and the Windows Zig wrappers are .bat.
+option(RAYWAVES_USE_CCACHE "Route engine compiles through ccache/sccache when found" OFF)
+if(RAYWAVES_USE_CCACHE)
+    find_program(RAYWAVES_CCACHE_PROGRAM ccache)
+    find_program(RAYWAVES_SCCACHE_PROGRAM sccache)
+
+    if(RAYWAVES_CCACHE_PROGRAM)
+        set(RAYWAVES_COMPILER_CACHE "${RAYWAVES_CCACHE_PROGRAM}")
+    elseif(RAYWAVES_SCCACHE_PROGRAM)
+        set(RAYWAVES_COMPILER_CACHE "${RAYWAVES_SCCACHE_PROGRAM}")
+    endif()
+
+    if(NOT RAYWAVES_COMPILER_CACHE)
+        message(WARNING "RAYWAVES_USE_CCACHE=ON but neither ccache nor sccache was found; building without a cache.")
+    else()
+        # Windows wrappers can be upper- or lower-case; MATCHES is case-sensitive.
+        string(TOLOWER "${CMAKE_CXX_COMPILER}" RAYWAVES_COMPILER_LOWER)
+        if(RAYWAVES_COMPILER_LOWER MATCHES "\\.(bat|cmd)$")
+            message(WARNING
+                "RAYWAVES_USE_CCACHE=ON but ${CMAKE_CXX_COMPILER} is a wrapper script; "
+                "building without a cache. Configure a cache against a real compiler instead.")
+        elseif(NOT CMAKE_CXX_COMPILER_LAUNCHER)
+            set(CMAKE_C_COMPILER_LAUNCHER "${RAYWAVES_COMPILER_CACHE}")
+            set(CMAKE_CXX_COMPILER_LAUNCHER "${RAYWAVES_COMPILER_CACHE}")
+            message(STATUS "Compiler cache: ${RAYWAVES_COMPILER_CACHE}")
+        endif()
+    endif()
+endif()
+
 # Static engine code is linked into GameLogic.so on Linux; those objects must
 # be position independent.
 if(UNIX)

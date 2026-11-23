@@ -234,6 +234,43 @@ its `Initialize`/`Update`/`Draw` frame is still running. From your `rw::Game`
 object (outside level callbacks), `GoTo("Menu")` performs the swap immediately
 and returns `false` when the id is not registered.
 
+## Faster rebuilds
+
+A generated project builds `GameLogic` as `Release` by default. Three optional
+knobs shorten the edit/build/hot-reload loop; none is required and none changes
+the game you ship.
+
+- **Build configuration.** While iterating, open **Editor Preferences** and
+  pick `Debug` under **Build Configuration**; switch back to `Release` before
+  measuring frame times. The editor passes the choice to CMake as
+  `-DCMAKE_BUILD_TYPE=...`.
+- **Compiler cache.** When `ccache` or `sccache` is on `PATH`, the generated
+  build routes compilation through it automatically (ccache is preferred).
+  Nothing is downloaded, and a machine without either tool builds as before.
+  Cache tools have to launch the compiler themselves, so the launcher is not
+  applied when the compiler is a wrapper script such as the Windows Zig
+  `.bat` files. Turn it off with `-DRAYWAVES_PROJECT_COMPILER_CACHE=OFF`.
+- **Precompiled header.** On Linux, `rw.h` — raylib plus the STL that every
+  gameplay file already includes — is precompiled once per build with
+  `target_precompile_headers` for GCC/Clang. It is skipped on Windows because
+  the engine's Win32 sources intentionally control raylib's `Rectangle`/
+  `CloseWindow`/`ShowCursor` symbol order around `<windows.h>`. The artifact
+  lives in the build tree, not next to the engine headers. Turn it off with
+  `-DRAYWAVES_PROJECT_PCH=OFF`. ccache only caches the header itself when its
+  `pch_defines,time_macros` sloppiness is on; the objects built from it are
+  cached either way.
+
+Pass those `-D` overrides on a CMake configure for the project in `.raywaves/`.
+CMake remembers them in the project's cache under `.raywaves/build*/`, so one
+configure is enough. Do not edit the generated `.raywaves/CMakeLists.txt`: it is
+rewritten whenever the project is opened.
+
+Engine contributors can cache the engine build itself; it is off by default:
+
+```sh
+cmake --preset zig-release -DRAYWAVES_USE_CCACHE=ON
+```
+
 ## Agent workflow
 
 ```text

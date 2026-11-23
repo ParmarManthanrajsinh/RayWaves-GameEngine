@@ -70,6 +70,40 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
 endif()
 
+# ---------------------------------------------------------------------------
+# Build speed knobs. Both are optional and never required: the project must
+# configure and build on a machine that has neither a cache nor PCH support.
+# The cookbook's "Faster rebuilds" section documents them for users.
+# ---------------------------------------------------------------------------
+option(RAYWAVES_PROJECT_COMPILER_CACHE "Use ccache or sccache when available" ON)
+option(RAYWAVES_PROJECT_PCH "Precompile rw.h for the GameLogic module" ON)
+
+# Route the compiler through a cache only when one is already installed.
+# Cache tools spawn the real compiler, so a wrapper script (.bat/.cmd, e.g. the
+# Zig wrappers on Windows) is skipped instead of producing a broken build.
+if(RAYWAVES_PROJECT_COMPILER_CACHE)
+    find_program(RAYWAVES_CCACHE_PROGRAM ccache)
+    find_program(RAYWAVES_SCCACHE_PROGRAM sccache)
+
+    if(RAYWAVES_CCACHE_PROGRAM)
+        set(RAYWAVES_COMPILER_CACHE "${RAYWAVES_CCACHE_PROGRAM}")
+    elseif(RAYWAVES_SCCACHE_PROGRAM)
+        set(RAYWAVES_COMPILER_CACHE "${RAYWAVES_SCCACHE_PROGRAM}")
+    endif()
+
+    if(RAYWAVES_COMPILER_CACHE)
+        # Windows wrappers can be upper- or lower-case; MATCHES is case-sensitive.
+        string(TOLOWER "${CMAKE_CXX_COMPILER}" RAYWAVES_COMPILER_LOWER)
+        if(RAYWAVES_COMPILER_LOWER MATCHES "\\.(bat|cmd)$")
+            message(STATUS "Compiler cache skipped: ${CMAKE_CXX_COMPILER} is a wrapper script")
+        elseif(NOT CMAKE_CXX_COMPILER_LAUNCHER)
+            set(CMAKE_C_COMPILER_LAUNCHER "${RAYWAVES_COMPILER_CACHE}")
+            set(CMAKE_CXX_COMPILER_LAUNCHER "${RAYWAVES_COMPILER_CACHE}")
+            message(STATUS "GameLogic compiles through ${RAYWAVES_COMPILER_CACHE}")
+        endif()
+    endif()
+endif()
+
 find_package(Threads REQUIRED)
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     find_package(X11 REQUIRED)
@@ -108,6 +142,24 @@ target_include_directories(GameLogic PRIVATE
     "${ENGINE_DIR}/Runtime"
     "${RAYLIB_DIR}/include"
 )
+
+# rw.h pulls in raylib plus the STL and every gameplay translation unit includes
+# it, so compiling it once removes most of the repeated header parsing. CMake
+# builds the PCH inside the project's build tree, never next to the engine
+# headers, so a packaged/read-only engine directory still works. GCC and Clang
+# (the Zig wrappers report Clang) are the toolchains the presets use; anything
+# else is left alone rather than forced through an unsupported code path.
+# See "Faster rebuilds" in docs/game/cookbook.md.
+if(RAYWAVES_PROJECT_PCH)
+    # Windows engine sources include <windows.h> and rely on a specific raylib
+    # symbol order; force-including raylib through a PCH breaks that. Keep the
+    # PCH to the Linux toolchain, where the engine headers are collision-free.
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        target_precompile_headers(GameLogic PRIVATE "${ENGINE_DIR}/Engine/rw.h")
+    else()
+        message(STATUS "Precompiled header skipped on ${CMAKE_SYSTEM_NAME}/${CMAKE_CXX_COMPILER_ID}")
+    endif()
+endif()
 
 # Resolve the raylib library by path instead of relying on -l name matching.
 set(RAYLIB_IMPORT_LIB "")

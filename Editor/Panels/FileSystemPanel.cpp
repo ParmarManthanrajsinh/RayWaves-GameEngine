@@ -8,6 +8,7 @@
 #include "../GameEditor.h"
 #include <algorithm>
 #include <cctype>
+#include <cstddef>
 #include <cstdint>
 #include <imgui.h>
 #include <imgui_stdlib.h>
@@ -103,6 +104,15 @@ const char* const* ImageFileFilters()
 }
 
 constexpr int c_ImageFilterCount = 8;
+
+// Statting scene texture paths every frame is wasted work while a project sits
+// idle; a coarse rescan keeps the panel responsive to external file changes
+// without burning syscalls on each frame.
+constexpr uint64_t c_MissingScanIntervalFrames = 30;
+
+// A nested file change updates only its own directory's timestamp, never the
+// root's, so the recursive source listing needs a slow periodic safety net.
+constexpr uint64_t c_SourceCacheRefreshFrames = 120;
 } // namespace
 
 FileSystemPanel::~FileSystemPanel()
@@ -120,6 +130,56 @@ void FileSystemPanel::UnloadThumbnails()
         }
     }
     m_Thumbnails.clear();
+
+    // Every caller of this function just imported, renamed, deleted, or
+    // re-rooted an asset, so the directory snapshots and the missing-asset
+    // report are stale by construction.
+    InvalidateFileCaches();
+}
+
+void FileSystemPanel::InvalidateFileCaches()
+{
+    m_AssetFiles.m_bValid = false;
+    m_SourceFiles.m_bValid = false;
+    m_bMissingScanValid = false;
+}
+
+const std::vector<std::filesystem::path>& FileSystemPanel::GetCachedFiles(
+    FDirectoryCache& cache, const std::filesystem::path& directory, bool b_recursive, uint64_t max_age_frames)
+{
+    std::error_code error;
+    const auto write_time = std::filesystem::last_write_time(directory, error);
+
+    bool b_refresh = !cache.m_bValid || cache.m_Path != directory;
+    if (!b_refresh)
+    {
+        if (error)
+        {
+            // A root that vanished drops its stale listing; a root that is
+            // simply absent stays cached as an empty result.
+            b_refresh = cache.m_bExists || !cache.m_Files.empty();
+        }
+        else
+        {
+            b_refresh = !cache.m_bExists || cache.m_WriteTime != write_time;
+        }
+        if (!b_refresh && max_age_frames > 0)
+        {
+            b_refresh = (m_FrameCounter - cache.m_RefreshFrame) >= max_age_frames;
+        }
+    }
+
+    if (b_refresh)
+    {
+        cache.m_Path = directory;
+        cache.m_WriteTime = error ? std::filesystem::file_time_type{} : write_time;
+        cache.m_bExists = !error;
+        cache.m_Files = EditorAssets::ListFiles(directory, b_recursive);
+        cache.m_RefreshFrame = m_FrameCounter;
+        cache.m_bValid = true;
+    }
+
+    return cache.m_Files;
 }
 
 Texture2D* FileSystemPanel::GetThumbnail(const std::filesystem::path& path)
@@ -234,6 +294,7 @@ void FileSystemPanel::DrawLevels(GameEditor* editor, MapManager* manager, const 
                 {
                     std::error_code error;
                     std::filesystem::remove(scene_path, error);
+                    InvalidateFileCaches();
                     if (b_current)
                     {
                         editor->GetScene().Clear();
@@ -254,7 +315,7 @@ void FileSystemPanel::DrawLevels(GameEditor* editor, MapManager* manager, const 
     // Scene files with no matching registered map stay reachable from a
     // separate section instead of cluttering the level list.
     std::vector<std::filesystem::path> unmatched_scenes;
-    for (const std::filesystem::path& file : EditorAssets::ListFiles(asset_root, false))
+    for (const std::filesystem::path& file : GetCachedFiles(m_AssetFiles, asset_root, false))
     {
         if (!EditorAssets::b_IsScene(file.string()))
         {
@@ -303,6 +364,7 @@ void FileSystemPanel::DrawLevels(GameEditor* editor, MapManager* manager, const 
                         {
                             std::error_code error;
                             std::filesystem::remove(file, error);
+                            InvalidateFileCaches();
                         }
                     }
                     ImGui::EndPopup();
@@ -317,7 +379,7 @@ void FileSystemPanel::DrawAssets(GameEditor* editor, const std::filesystem::path
 {
     bool b_any = false;
 
-    for (const std::filesystem::path& file : EditorAssets::ListFiles(asset_root, false))
+    for (const std::filesystem::path& file : GetCachedFiles(m_AssetFiles, asset_root, false))
     {
         if (EditorAssets::b_IsScene(file.string()) || !b_MatchesFilter(file.filename().string(), m_Filter))
         {
@@ -521,40 +583,50 @@ void FileSystemPanel::CommitRename(GameEditor* editor, const std::filesystem::pa
     editor->GetTerminal().add_text(message, term::Severity::Warn);
 }
 
-void FileSystemPanel::DrawMissingAssets(GameEditor* editor, const std::filesystem::path& asset_root)
+void FileSystemPanel::RefreshMissingAssets(GameEditor* editor, const std::filesystem::path& asset_root)
 {
-    struct FMissingAsset
-    {
-        uint32_t m_ObjectId = 0;
-        std::string m_ObjectName;
-        std::string m_Path;
-    };
+    m_MissingAssets.clear();
+    m_MissingScanRoot = asset_root;
+    m_MissingScanFrame = m_FrameCounter;
+    m_bMissingScanValid = true;
 
-    std::vector<FMissingAsset> missing;
-    if (!asset_root.empty())
+    if (asset_root.empty())
     {
-        for (const t_SceneObject& object : editor->GetScene().GetObjects())
-        {
-            if (object.m_TexturePath.empty())
-            {
-                continue;
-            }
-
-            std::error_code error;
-            const std::filesystem::path candidate =
-                asset_root / std::filesystem::path(NormalizeAssetKey(object.m_TexturePath));
-            if (!std::filesystem::is_regular_file(candidate, error))
-            {
-                missing.push_back(
-                    { object.m_Id, object.m_Name.empty() ? ("Object " + std::to_string(object.m_Id)) : object.m_Name,
-                        object.m_TexturePath });
-            }
-        }
+        return;
     }
 
+    for (const t_SceneObject& object : editor->GetScene().GetObjects())
+    {
+        if (object.m_TexturePath.empty())
+        {
+            continue;
+        }
+
+        std::error_code error;
+        const std::filesystem::path candidate =
+            asset_root / std::filesystem::path(NormalizeAssetKey(object.m_TexturePath));
+        if (!std::filesystem::is_regular_file(candidate, error))
+        {
+            m_MissingAssets.push_back(
+                { object.m_Id, object.m_Name.empty() ? ("Object " + std::to_string(object.m_Id)) : object.m_Name,
+                    object.m_TexturePath });
+        }
+    }
+}
+
+void FileSystemPanel::DrawMissingAssets(GameEditor* editor, const std::filesystem::path& asset_root)
+{
+    if (!m_bMissingScanValid || m_MissingScanRoot != asset_root ||
+        m_FrameCounter - m_MissingScanFrame >= c_MissingScanIntervalFrames)
+    {
+        RefreshMissingAssets(editor, asset_root);
+    }
+
+    const size_t missing_count = m_MissingAssets.size();
     const std::string header = std::string(ICON_FA_TRIANGLE_EXCLAMATION) + " Missing Assets (" +
-        std::to_string(missing.size()) + ")###missing_assets";
-    const ImGuiTreeNodeFlags header_flags = missing.empty() ? ImGuiTreeNodeFlags_None : ImGuiTreeNodeFlags_DefaultOpen;
+        std::to_string(missing_count) + ")###missing_assets";
+    const ImGuiTreeNodeFlags header_flags =
+        missing_count == 0 ? ImGuiTreeNodeFlags_None : ImGuiTreeNodeFlags_DefaultOpen;
     if (!ImGui::CollapsingHeader(header.c_str(), header_flags))
     {
         return;
@@ -566,7 +638,7 @@ void FileSystemPanel::DrawMissingAssets(GameEditor* editor, const std::filesyste
         return;
     }
 
-    if (missing.empty())
+    if (missing_count == 0)
     {
         ImGui::TextDisabled("Every scene texture path resolves.");
         return;
@@ -578,8 +650,13 @@ void FileSystemPanel::DrawMissingAssets(GameEditor* editor, const std::filesyste
         EditorUtils::OpenInExplorer(asset_root);
     }
 
-    for (const FMissingAsset& entry : missing)
+    // A resolved entry is removed from the snapshot immediately so the row does
+    // not linger until the next periodic rescan. IDs are looked up fresh each
+    // action: a target that disappeared since the snapshot is skipped safely.
+    size_t resolved_index = m_MissingAssets.size();
+    for (size_t index = 0; index < m_MissingAssets.size(); ++index)
     {
+        const FMissingAssetEntry& entry = m_MissingAssets[index];
         ImGui::PushID(static_cast<int>(entry.m_ObjectId));
         ImGui::Text("%s: %s", entry.m_ObjectName.c_str(), entry.m_Path.c_str());
 
@@ -598,6 +675,7 @@ void FileSystemPanel::DrawMissingAssets(GameEditor* editor, const std::filesyste
                         editor->GetScene().ReloadTexture(object->m_Id);
                     }
                     UnloadThumbnails();
+                    resolved_index = index;
                 }
                 else
                 {
@@ -614,9 +692,15 @@ void FileSystemPanel::DrawMissingAssets(GameEditor* editor, const std::filesyste
             {
                 object->m_TexturePath.clear();
                 editor->GetScene().ReloadTexture(object->m_Id);
+                resolved_index = index;
             }
         }
         ImGui::PopID();
+    }
+
+    if (resolved_index < m_MissingAssets.size())
+    {
+        m_MissingAssets.erase(m_MissingAssets.begin() + static_cast<std::ptrdiff_t>(resolved_index));
     }
 }
 
@@ -697,7 +781,8 @@ void FileSystemPanel::HandleFileDrop(GameEditor* editor)
 void FileSystemPanel::DrawCode(const std::filesystem::path& source_root)
 {
     bool b_any = false;
-    for (const std::filesystem::path& file : EditorAssets::ListFiles(source_root, true))
+    for (const std::filesystem::path& file :
+        GetCachedFiles(m_SourceFiles, source_root, true, c_SourceCacheRefreshFrames))
     {
         std::error_code error;
         const std::filesystem::path relative = std::filesystem::relative(file, source_root, error);
@@ -743,6 +828,7 @@ void FileSystemPanel::DrawCode(const std::filesystem::path& source_root)
 void FileSystemPanel::Draw(GameEditor* editor)
 {
     SCOPED_TIMER("panel_file_system");
+    ++m_FrameCounter;
     if (!ImGui::Begin(ICON_FA_FOLDER_TREE " FileSystem", &editor->m_bShowFileSystem))
     {
         ImGui::End();

@@ -53,8 +53,16 @@ public:
     t_SceneObject* FindObject(uint32_t id);
     const t_SceneObject* FindObject(uint32_t id) const;
 
+    // Structural edits must go through the mutators above so the cached draw
+    // order is invalidated. After editing m_Layer or m_bVisible in place, call
+    // MarkDirty().
     std::vector<t_SceneObject>& GetObjects() { return m_Objects; }
     const std::vector<t_SceneObject>& GetObjects() const { return m_Objects; }
+
+    // Object ids in draw order: visible objects only, ascending layer, ties in
+    // list order. The order is cached and rebuilt lazily when the scene changes,
+    // so the reference stays valid until the next mutation.
+    const std::vector<uint32_t>& GetDrawOrder() const;
 
     void Draw();
     void Clear();
@@ -66,7 +74,11 @@ public:
     bool b_LoadFromFile(std::string_view path);
 
     bool b_IsDirty() const { return m_bDirty; }
-    void MarkDirty() { m_bDirty = true; }
+    void MarkDirty()
+    {
+        m_bDirty = true;
+        InvalidateDrawOrder();
+    }
     void ClearDirty() { m_bDirty = false; }
 
     // Map ids become file names under Assets/. Keep them path-safe so a map
@@ -77,7 +89,20 @@ private:
     static bool b_EnsureTexture(t_SceneObject& object);
     static void UnloadTexture(t_SceneObject& object);
 
+    void InvalidateDrawOrder() { m_bDrawOrderDirty = true; }
+    // Rebuilds m_DrawIndices and m_DrawOrder from m_Objects. Only dirty scenes
+    // pay the sort cost, and the vectors keep their capacity across rebuilds.
+    void RebuildDrawOrder() const;
+
     std::vector<t_SceneObject> m_Objects;
+
+    // Draw order cache. m_DrawIndices is what Draw iterates (indices into
+    // m_Objects); m_DrawOrder holds the matching ids for inspection and tests.
+    // Both are mutable so the const accessor can rebuild lazily.
+    mutable std::vector<uint32_t> m_DrawOrder;
+    mutable std::vector<uint32_t> m_DrawIndices;
+    mutable bool m_bDrawOrderDirty = true;
+
     uint32_t m_NextId = 1;
     bool m_bDirty = false;
 };

@@ -5,6 +5,7 @@
 #include "Engine/Scene.h"
 #include "doctest/doctest.h"
 #include "support/TempDir.h"
+#include <algorithm>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
@@ -306,6 +307,132 @@ TEST_CASE("Scene: duplicate and remove only dirty on success")
     scene.ClearDirty();
     CHECK(scene.b_RemoveObject(copy->m_Id));
     CHECK(scene.b_IsDirty());
+}
+
+TEST_CASE("Scene: draw order caches visible objects by layer")
+{
+    Scene scene;
+    const uint32_t back_id = scene.AddObject("Back").m_Id;
+    const uint32_t hidden_id = scene.AddObject("Hidden").m_Id;
+    const uint32_t mid_a_id = scene.AddObject("MidA").m_Id;
+    const uint32_t mid_b_id = scene.AddObject("MidB").m_Id;
+    const uint32_t front_id = scene.AddObject("Front").m_Id;
+
+    scene.FindObject(back_id)->m_Layer = -1;
+    scene.FindObject(hidden_id)->m_Layer = 0;
+    scene.FindObject(hidden_id)->m_bVisible = false;
+    scene.FindObject(mid_a_id)->m_Layer = 2;
+    scene.FindObject(mid_b_id)->m_Layer = 2;
+    scene.FindObject(front_id)->m_Layer = 9;
+    scene.MarkDirty();
+
+    const std::vector<uint32_t>& order = scene.GetDrawOrder();
+    REQUIRE(order.size() == 4);
+    CHECK(order[0] == back_id);
+    // Equal layers keep list order, so overlapping sprites stay stable.
+    CHECK(order[1] == mid_a_id);
+    CHECK(order[2] == mid_b_id);
+    CHECK(order[3] == front_id);
+    CHECK(std::ranges::find(order, hidden_id) == order.end());
+
+    // Repeated reads reuse the cache; no rebuild means the reference is stable.
+    CHECK(&scene.GetDrawOrder() == &order);
+}
+
+TEST_CASE("Scene: draw order rebuilds only after mark or structural edits")
+{
+    Scene scene;
+    const uint32_t a_id = scene.AddObject("A").m_Id;
+    const uint32_t b_id = scene.AddObject("B").m_Id;
+    const uint32_t c_id = scene.AddObject("C").m_Id;
+
+    scene.FindObject(a_id)->m_Layer = 0;
+    scene.FindObject(b_id)->m_Layer = 1;
+    scene.FindObject(c_id)->m_Layer = 2;
+    scene.MarkDirty();
+
+    const std::vector<uint32_t>& order = scene.GetDrawOrder();
+    REQUIRE(order.size() == 3);
+    CHECK(order[0] == a_id);
+    CHECK(order[1] == b_id);
+    CHECK(order[2] == c_id);
+
+    // Layer edits are in-place; only MarkDirty makes the cached order stale.
+    scene.FindObject(c_id)->m_Layer = -5;
+    CHECK(scene.GetDrawOrder()[2] == c_id);
+    scene.MarkDirty();
+    CHECK(scene.GetDrawOrder()[0] == c_id);
+
+    REQUIRE(scene.b_RemoveObject(a_id));
+    const std::vector<uint32_t>& after_remove = scene.GetDrawOrder();
+    REQUIRE(after_remove.size() == 2);
+    CHECK(after_remove[0] == c_id);
+    CHECK(after_remove[1] == b_id);
+
+    t_SceneObject* copy = scene.DuplicateObject(b_id);
+    REQUIRE(copy != nullptr);
+    const uint32_t copy_id = copy->m_Id;
+    const std::vector<uint32_t>& after_duplicate = scene.GetDrawOrder();
+    REQUIRE(after_duplicate.size() == 3);
+    CHECK(after_duplicate[0] == c_id);
+    CHECK(after_duplicate[1] == b_id);
+    CHECK(after_duplicate[2] == copy_id);
+
+    scene.FindObject(b_id)->m_bVisible = false;
+    scene.MarkDirty();
+    const std::vector<uint32_t>& after_hide = scene.GetDrawOrder();
+    REQUIRE(after_hide.size() == 2);
+    CHECK(after_hide[0] == c_id);
+    CHECK(after_hide[1] == copy_id);
+
+    scene.Clear();
+    CHECK(scene.GetDrawOrder().empty());
+}
+
+TEST_CASE("Scene: insert and load invalidate the cached draw order")
+{
+    Scene scene;
+    const uint32_t first_id = scene.AddObject("First").m_Id;
+    REQUIRE(scene.GetDrawOrder().size() == 1);
+
+    t_SceneObject inserted;
+    inserted.m_Id = 50;
+    inserted.m_Name = "Inserted";
+    inserted.m_Layer = -1;
+    const uint32_t inserted_id = scene.InsertObjectAt(0, inserted).m_Id;
+
+    const std::vector<uint32_t>& after_insert = scene.GetDrawOrder();
+    REQUIRE(after_insert.size() == 2);
+    CHECK(after_insert[0] == inserted_id);
+    CHECK(after_insert[1] == first_id);
+
+    TempDir temp_dir("raywaves_scene_draw_order");
+    const std::filesystem::path path = temp_dir.Path() / "DrawOrder.scene";
+    {
+        std::ofstream file(path);
+        file << "[scene]\n";
+        file << "version=1\n";
+        file << "[object]\n";
+        file << "id=7\n";
+        file << "name=LoadedBack\n";
+        file << "layer=-3\n";
+        file << "[object]\n";
+        file << "id=8\n";
+        file << "name=LoadedFront\n";
+        file << "layer=4\n";
+        file << "[object]\n";
+        file << "id=9\n";
+        file << "name=LoadedHidden\n";
+        file << "layer=5\n";
+        file << "visible=0\n";
+    }
+
+    REQUIRE(scene.b_LoadFromFile(path.string()));
+    const std::vector<uint32_t>& loaded_order = scene.GetDrawOrder();
+    REQUIRE(loaded_order.size() == 2);
+    CHECK(loaded_order[0] == 7);
+    CHECK(loaded_order[1] == 8);
+    CHECK(std::ranges::find(loaded_order, 9) == loaded_order.end());
 }
 
 TEST_CASE("Scene: empty paths are rejected")

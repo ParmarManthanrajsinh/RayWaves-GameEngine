@@ -56,6 +56,28 @@ generated editor/LSP files, and the project-local wrapper
 build → run → input → validate → lsp `--check`, using the generated wrapper
 after the first lsp call.
 
+## Sanitizers
+
+Linux CI runs a separate `sanitize` job (AddressSanitizer +
+UndefinedBehaviorSanitizer) in `.github/workflows/ci.yml`. It configures
+`build/asan` (Debug, Ninja), builds `raywaves_tests_unit` and
+`raywaves_tests_integration`, and runs the `unit` and `integration` CTest
+labels with `ASAN_OPTIONS=detect_leaks=0:abort_on_error=1` and
+`UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1`.
+
+Run the same gate locally:
+
+```sh
+chmod +x scripts/check-sanitize.sh   # once per checkout
+./scripts/check-sanitize.sh
+```
+
+The script reuses `build/asan` when it already exists; delete it with
+`rm -rf build/asan` to reconfigure from scratch. Leak detection is disabled
+because raylib/X11/GL teardown and forked child processes report allocator
+noise that is not ours to fix. Windows builds are not covered: the Zig
+toolchain path forces `-fno-sanitize=all` in `cmake/Platform.cmake`.
+
 ## Adding a test
 
 - Pure engine logic goes in `tests/unit/<Module>_t.cpp`.
