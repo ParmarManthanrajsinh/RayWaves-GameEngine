@@ -156,6 +156,14 @@ if(RAYWAVES_PROJECT_PCH)
     # PCH to the Linux toolchain, where the engine headers are collision-free.
     if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
         target_precompile_headers(GameLogic PRIVATE "${ENGINE_DIR}/Engine/rw.h")
+
+        # X11WindowType.cpp must stay isolated from raylib: raylib declares a
+        # global Font type, while Xlib's X.h typedefs XID Font. A forced rw.h
+        # PCH would make those two declarations collide.
+        set_source_files_properties(
+            "${ENGINE_DIR}/Engine/X11WindowType.cpp"
+            PROPERTIES SKIP_PRECOMPILE_HEADERS ON
+        )
     else()
         message(STATUS "Precompiled header skipped on ${CMAKE_SYSTEM_NAME}/${CMAKE_CXX_COMPILER_ID}")
     endif()

@@ -29,6 +29,8 @@ scripts were PowerShell-only. A Linux build needed the same editor, runtime,
   `.raywaves/bin/rwcli.cmd` and `.raywaves/bin/rwcli`.
 - Developer commands are native per OS (`.ps1`/`.sh`) but share CMake presets,
   targets, and the generated project recipe.
+- Linux generated projects precompile `rw.h`; `Engine/X11WindowType.cpp` is
+  exempt because raylib and Xlib both declare the global type name `Font`.
 
 ## Consequences
 

@@ -54,6 +54,12 @@ cmake --build build/zig-release
 Linux uses the system GCC/G++. `cmake --preset` and `cmake --build` are
 identical to the Windows commands; Windows keeps using the pinned Zig toolchain.
 
+Generated projects precompile `rw.h` for faster gameplay rebuilds. The X11
+window helper (`Engine/X11WindowType.cpp`) opts out of that PCH because it must
+include Xlib without raylib; both libraries declare a global `Font` type. Disable
+the optimization with `-DRAYWAVES_PROJECT_PCH=OFF` if a custom engine source
+needs the same isolation.
+
 ## Test
 
 ```sh

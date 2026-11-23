@@ -351,7 +351,9 @@ the game you ship.
   gameplay file already includes — is precompiled once per build with
   `target_precompile_headers` for GCC/Clang. It is skipped on Windows because
   the engine's Win32 sources intentionally control raylib's `Rectangle`/
-  `CloseWindow`/`ShowCursor` symbol order around `<windows.h>`. The artifact
+  `CloseWindow`/`ShowCursor` symbol order around `<windows.h>`. The X11 window
+  helper (`Engine/X11WindowType.cpp`) also opts out on Linux: it must include
+  Xlib without raylib, and both define the global name `Font`. The artifact
   lives in the build tree, not next to the engine headers. Turn it off with
   `-DRAYWAVES_PROJECT_PCH=OFF`. ccache only caches the header itself when its
   `pch_defines,time_macros` sloppiness is on; the objects built from it are

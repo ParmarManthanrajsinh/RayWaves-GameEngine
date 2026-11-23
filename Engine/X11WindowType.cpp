@@ -1,7 +1,8 @@
 #include "WindowUtils.h"
 
 // Kept in its own translation unit: raylib redefines Xlib's Font type, so this
-// must never include raylib headers.
+// must never include raylib headers. The generated-project CMake recipe also
+// opts this file out of the Linux PCH for the same reason.
 
 #if defined(__linux__)
 
