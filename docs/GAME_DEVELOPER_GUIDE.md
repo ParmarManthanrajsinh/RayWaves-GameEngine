@@ -137,6 +137,12 @@ What `rw` handles for you:
 | `Spawn(...)` | Stable entity storage, editor registration, selection outline, inspector fields. |
 | `Destroy(entity)` / `ClearEntities()` | Unregisters the entity and drops the pointer safely. |
 | `rw::Texture` | Resolves `Assets/` paths, unloads on destruction and on reload. |
+| `rw::Sound` / `rw::Music` / `rw::Font` | Move-only RAII handles; safe to reload in `OnStart`, inert without an audio device. |
+| `rw::ActionMap` | Named actions over replayable `rw::IsKey*` queries. |
+| `rw::MoveAndCollide` | Axis-separated AABB movement with hit and grounding flags. |
+| `rw::SpriteSheet` / `rw::Animator` | Uniform-grid sprite sheets and a GPU-free frame clock. |
+| `rw::Timer` / `rw::Tween` | Countdowns and eased float animation. |
+| `rw::UI` | Immediate-mode buttons, checkboxes, labels, and panels with completed-click semantics and replayable mouse input. |
 | `Cam()` | Follow, zoom, level bounds, viewport tracking, editor pan/zoom. |
 | `OnStart/OnUpdate/OnDraw` | The full `GameMap` lifecycle, including restart and hot reload. |
 | `SaveState/LoadState` | Entity transforms are carried across hot reloads automatically. |
@@ -152,6 +158,12 @@ Rules of thumb:
 - Need multiple levels? Derive from `rw::Game` instead, call
   `AddLevel<MyLevel>("play")`, `Start("play")`, and `GoTo("menu")` for
   transitions.
+- Group controls with `rw::ActionMap` instead of repeating key combinations.
+- Use `rw::MoveAndCollide` for platformer movement; it reports `b_Grounded` and
+  handles fast movement without tunnelling.
+- Load audio, fonts, and sprites in `OnStart`; the wrappers unload their old
+  handles when `OnStart` runs again after hot reload.
+- Prefer `rw::UI` for HUD/menu buttons so `rwcli run --input` can click them.
 - Want a sprite's hitbox to match its draw rect? Use `rw::Origin::Center` for
   centered entities; the editor uses the same rect for selection.
 

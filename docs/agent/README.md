@@ -140,14 +140,17 @@ One event per line. Frames are zero-based and match `--dt` steps.
 
 Names: `KEY_A`..`KEY_Z`, `KEY_0`..`KEY_9`, arrows, space, enter, escape, F1..F12,
 `MOUSE_LEFT`, `MOUSE_RIGHT`, `MOUSE_MIDDLE`. Numeric raylib key codes also work.
-Gameplay must call `rw::IsKeyDown` / `rw::IsKeyPressed` (not the raw raylib
-functions) for replay to apply.
+Gameplay must call `rw::IsKeyDown` / `rw::IsKeyPressed` / `rw::IsKeyReleased`
+(not the raw raylib functions) for replay to apply. `rw::ActionMap` and
+`rw::UI` already route through those input helpers, so named actions and
+buttons/checkboxes are replayable without extra work.
 
 ## Limits
 
 - Input replay only applies to projects that call `rw::IsKeyDown`,
-  `rw::IsKeyPressed`, `rw::IsMouseButtonDown`, or `rw::GetMousePosition`.
-  Raw raylib input still works but is not scriptable.
+  `rw::IsKeyPressed`, `rw::IsKeyReleased`, `rw::IsMouseButtonDown`,
+  `rw::IsMouseButtonPressed`, `rw::IsMouseButtonReleased`, or
+  `rw::GetMousePosition`. Raw raylib input still works but is not scriptable.
 - LSP configs are generated with absolute engine paths; rerun the wrapper
   `lsp . --force` after moving a project or updating the engine.
 - `lsp --check` needs `clangd` in `PATH` (Windows also checks

@@ -8,8 +8,11 @@ This reference guide covers the essential classes and methods you'll use to buil
 
 ## ⚡ rw — the simple API
 
-`Engine/rw.h` is the recommended starting point. It is header-only and sits on
-top of `GameMap`, so everything below still applies when you need it.
+`Engine/rw.h` is the recommended starting point. It is an umbrella header for
+flat subsystem headers (`rw_input.h`, `rw_core.h`, `rw_audio.h`,
+`rw_collision.h`, `rw_animation.h`, `rw_timer.h`, `rw_ui.h`), so existing
+`#include "rw.h"` code keeps working. Everything is header-only and sits on top
+of `GameMap`, so the lower-level API still applies when you need it.
 
 ```cpp
 #include "rw.h"
@@ -77,6 +80,91 @@ RW_GAME(MyLevel) // exports the DLL entry points
 | `rw::Camera::Begin()` / `rw::Camera::End()` | `BeginMode2D` / `EndMode2D` wrappers. |
 | `rw::DrawSprite(texture, entity, tint)` | `DrawTexturePro` using the entity rect/rotation. |
 | `rw::DrawEntityBox(entity, color)` | Outline the entity rect. |
+
+### Input actions
+
+```cpp
+rw::ActionMap actions;
+actions.Bind("left", { KEY_LEFT, KEY_A });
+actions.Bind("right", { KEY_RIGHT, KEY_D });
+actions.Bind("jump", KEY_SPACE);
+
+if (actions.b_Pressed("jump")) { /* ... */ }
+```
+
+`ActionMap` groups keys behind named actions. `b_Down`, `b_Pressed`, and
+`b_Released` route through the replay-aware `rw::IsKey*` functions, so
+`rwcli run --input` drives actions exactly like real input. `Unbind`, `Clear`,
+`b_IsBound`, and `BindingCount` are available for rebinding screens and tests.
+
+### Audio and fonts
+
+| API | Description |
+|-----|-------------|
+| `rw::Sound(path)` / `Load(path)` | RAII sound effect; resolves through `AssetResolver` and unloads on destruction/reload. |
+| `rw::Music(path)` / `Load(path)` | RAII music stream. Call `Update()` once per frame and `Play`/`Pause`/`Resume`/`Stop`. |
+| `rw::Font(path, size)` / `Load(path, size)` | RAII font handle; `Measure(text)` uses the loaded size. |
+| `rw::Sound::Play` / `Stop` / `SetVolume` | Safe no-ops when the device is closed or the handle is invalid. |
+
+All three are move-only and reload-safe: `Load` releases the previous handle
+first. They stay inert when the audio device is not ready, so hot reload and
+headless `rwcli` runs cannot touch a stale raylib handle.
+
+### Collision
+
+```cpp
+rw::MoveResult hit = rw::MoveAndCollide(body, velocity, dt, solids);
+if (hit.b_Grounded) { velocity.y = 0.0f; }
+```
+
+`rw::MoveAndCollide` resolves an X/Y axis-separated AABB sweep against a vector
+of solid rectangles. It clamps `body` to the nearest platform edge, reports
+`b_HitX`/`b_HitY`/`b_Grounded`, and skips solids that the body already overlaps
+so it can escape instead of snapping backwards. `rw::b_Overlaps` is a quick
+any-solid query.
+
+### Sprite animation
+
+```cpp
+rw::SpriteSheet sheet;
+sheet.Load("player.png", { 32.0f, 32.0f });
+
+rw::Animator animator;
+animator.AddClip("idle", 0, 4, 8.0f);
+animator.AddClip("run", 4, 6, 12.0f);
+animator.Play("run");
+```
+
+`Animator` is a GPU-free frame clock: call `Update(dt)` and use `FrameRect(sheet)`
+with `DrawTexturePro`. Clips can loop or hold their last frame; `FrameIndex()`
+returns an absolute sheet frame, so multiple clips can share one sheet.
+
+### Timers and tweens
+
+| API | Description |
+|-----|-------------|
+| `rw::Timer(duration, repeat)` | Countdown timer; `Update(dt)`, `b_IsDone`, `Remaining`, `Progress`, `Restart`, `Stop`. |
+| `rw::Tween(&value, from, to, duration, easing, loop)` | Drives one float through an easing curve; `Update(dt)` writes the target. |
+| `rw::Tween::Ease(easing, t)` | Shared easing functions: `Linear`, `EaseIn`, `EaseOut`, `EaseInOut`, `SmoothStep`. |
+
+A one-shot timer stays done until restarted. A repeating timer wraps and keeps
+running. The tween target must outlive the tween; use one tween per float and
+keep the pointer stable.
+
+### Replayable UI
+
+```cpp
+rw::UI ui;
+if (ui.Button("Play", { 40.0f, 40.0f, 160.0f, 44.0f })) { StartGame(); }
+ui.Checkbox("Mute", { 40.0f, 100.0f }, m_bMuted);
+```
+
+`rw::UI` is a small immediate-mode overlay helper. Button and checkbox input go
+through the replay-aware `rw::GetMousePosition` and `rw::IsMouseButton*`
+functions, so the same widgets work under `rwcli run --input`. A click requires
+press and release on the same widget; releasing elsewhere cancels it. The only
+retained state is the active press id. `b_HitTest` and `b_CompletedClick` are
+pure helpers for custom widgets.
 
 ### rw::Game (multiple levels)
 
@@ -448,10 +536,16 @@ class UIMap : public GameMap
 Since RayWaves is built on Raylib, you have access to all standard Raylib functions. Here are the most common ones:
 
 ### Input
-- `IsKeyDown(KEY_SPACE)` - True if key is held
-- `IsKeyPressed(KEY_SPACE)` - True once when pressed
-- `GetMousePosition()` - Returns Vector2 mouse coordinates
-- `IsMouseButtonPressed(MOUSE_LEFT_BUTTON)` - True on click
+
+Prefer the replay-aware `rw` wrappers for gameplay; raw raylib input still works
+but is not scriptable by `rwcli run --input`.
+
+- `rw::IsKeyDown(KEY_SPACE)` - True if key is held
+- `rw::IsKeyPressed(KEY_SPACE)` - True once when pressed
+- `rw::GetMousePosition()` - Returns Vector2 mouse coordinates
+- `rw::IsMouseButtonPressed(MOUSE_BUTTON_LEFT)` - True on click down
+- `rw::ActionMap` - Groups keys behind named actions
+- `rw::UI` - Replayable buttons and checkboxes
 
 ### Drawing
 - `DrawTexture(tex, x, y, WHITE)` - Draw a loaded texture
@@ -460,9 +554,13 @@ Since RayWaves is built on Raylib, you have access to all standard Raylib functi
 - `DrawCircle(x, y, r, BLUE)` - Draw a circle
 
 ### Audio
-- `PlaySound(sound)` - Play a sound effect
-- `PlayMusicStream(music)` - Play background music
-- `UpdateMusicStream(music)` - Must call this every frame for music!
+
+Prefer `rw::Sound`, `rw::Music`, and `rw::Font`; they resolve asset paths and
+unload on hot reload. Raw raylib audio remains available.
+
+- `rw::Sound::Play()` - Play a sound effect
+- `rw::Music::Play()` / `Update()` - Start music and pump it every frame
+- `rw::Music::SetVolume()` - Adjust music volume
 
 ---
 

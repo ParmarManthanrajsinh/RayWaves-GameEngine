@@ -24,7 +24,13 @@ set(UNIT_TEST_SRC
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/ProjectManager_t.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/Project_t.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/ReloadRoundtrip_t.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/unit/rw_animation_t.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/unit/rw_audio_t.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/unit/rw_collision_t.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/unit/rw_input_t.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/rw_t.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/unit/rw_timer_t.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/unit/rw_ui_t.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/Scene_t.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/SceneCommands_t.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/StateBag_t.cpp

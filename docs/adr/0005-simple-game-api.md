@@ -49,3 +49,8 @@ The header stays flat in `Engine/` because the distribution package copies
   non-deterministic `OnStart` loses that alignment.
 - `RW_GAME` defines global `extern "C"` exports, so it can appear only once per
   game module.
+
+The facade later grew beyond drawing primitives; see
+[0011 — Split and extend the `rw` game-facing API](0011-rw-facade-headers.md)
+for the flat subsystem headers and the input, audio, collision, animation,
+timer, and UI additions.

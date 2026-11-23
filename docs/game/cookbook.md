@@ -60,50 +60,26 @@ RW_GAME(PlayLevel)
 ## Axis-separated AABB movement
 
 ```cpp
-struct MoveResult
+struct Player
 {
-    bool b_HitX = false;
-    bool b_HitY = false;
+    Rectangle body{ 100.0f, 100.0f, 32.0f, 48.0f };
+    Vector2 velocity{};
     bool b_Grounded = false;
 };
 
-MoveResult MoveAndCollide(Rectangle& body, Vector2 velocity, float delta_time, const std::vector<Rectangle>& solids)
+void Step(Player& player, float dt, const std::vector<Rectangle>& solids)
 {
-    MoveResult result;
-    body.x += velocity.x * delta_time;
-    for (const Rectangle& solid : solids)
-    {
-        if (!CheckCollisionRecs(body, solid))
-        {
-            continue;
-        }
-        body.x = (velocity.x > 0.0f) ? solid.x - body.width : solid.x + solid.width;
-        result.b_HitX = true;
-        break;
-    }
-
-    body.y += velocity.y * delta_time;
-    for (const Rectangle& solid : solids)
-    {
-        if (!CheckCollisionRecs(body, solid))
-        {
-            continue;
-        }
-        if (velocity.y > 0.0f)
-        {
-            body.y = solid.y - body.height;
-            result.b_Grounded = true;
-        }
-        else
-        {
-            body.y = solid.y + solid.height;
-        }
-        result.b_HitY = true;
-        break;
-    }
-    return result;
+    const rw::MoveResult hit = rw::MoveAndCollide(player.body, player.velocity, dt, solids);
+    if (hit.b_HitX) { player.velocity.x = 0.0f; }
+    if (hit.b_HitY) { player.velocity.y = 0.0f; }
+    player.b_Grounded = hit.b_Grounded;
 }
 ```
+
+`rw::MoveAndCollide` is the engine version of the hand-rolled loop: it resolves
+X before Y, clamps to the nearest edge, reports grounding, and skips solids the
+body already overlaps. Keep the returned flags and zero the velocity components
+yourself; the helper does not mutate the input velocity.
 
 ## Scene markers as spawn points
 
@@ -162,18 +138,42 @@ Values survive hot reloads through `StateBag`; they reset on app restart. Call
 ## Named actions instead of key combos
 
 ```cpp
+class PlayLevel : public rw::Level
+{
+protected:
+    void OnStart() override
+    {
+        m_Actions.Bind("left", { KEY_LEFT, KEY_A });
+        m_Actions.Bind("right", { KEY_RIGHT, KEY_D });
+        m_Actions.Bind("jump", { KEY_SPACE, KEY_W });
+    }
+
+    void OnUpdate(float dt) override
+    {
+        if (m_Actions.b_Down("left")) { m_Player->position.x -= 160.0f * dt; }
+        if (m_Actions.b_Pressed("jump")) { m_JumpRequested = true; }
+    }
+
+private:
+    rw::ActionMap m_Actions;
+};
+
+// Or define the bindings once in a small shared helper:
 struct Actions
 {
-    static bool b_Left() { return rw::IsKeyDown(KEY_LEFT) || rw::IsKeyDown(KEY_A); }
-    static bool b_Right() { return rw::IsKeyDown(KEY_RIGHT) || rw::IsKeyDown(KEY_D); }
-    static bool b_Jump() { return rw::IsKeyPressed(KEY_SPACE) || rw::IsKeyPressed(KEY_W); }
+    static rw::ActionMap& Map()
+    {
+        static rw::ActionMap map{};
+        return map;
+    }
 };
 ```
 
-Use `rw::IsKeyDown` / `rw::IsKeyPressed` / `rw::IsMouseButtonPressed` instead
-of the raylib globals so `rwcli run --input` can replay the game.
+`ActionMap` queries route through `rw::IsKeyDown` / `IsKeyPressed` /
+`IsKeyReleased`, so named actions work under `rwcli run --input`. Raw raylib key
+globals are not replayed.
 
-## Audio with reload-safe lifetime
+## Audio and fonts with reload-safe lifetime
 
 ```cpp
 class PlayLevel : public rw::Level
@@ -181,27 +181,124 @@ class PlayLevel : public rw::Level
 protected:
     void OnStart() override
     {
-        UnloadAudio();
-        m_Jump = LoadSound(AssetResolver::Resolve("jump.wav").c_str());
+        m_Jump.Load("jump.wav");
+        m_Music.Load("music/theme.ogg");
+        m_Music.Play();
+        m_Font.Load("fonts/ui.ttf", 24);
     }
 
-    ~PlayLevel() override { UnloadAudio(); }
+    void OnUpdate(float dt) override
+    {
+        m_Music.Update(); // pump the stream every frame
+        m_ScoreTimer.Update(dt);
+        if (m_ScoreTimer.b_IsDone()) { m_ScoreTimer.Start(1.0f); }
+    }
+
+    void OnDrawUI() override
+    {
+        DrawTextEx(m_Font.Get(), TextFormat("Score: %d", m_Score), { 20.0f, 20.0f },
+            static_cast<float>(m_Font.Size()), 1.0f, WHITE);
+    }
 
 private:
-    void UnloadAudio()
-    {
-        if (IsSoundValid(m_Jump))
-        {
-            UnloadSound(m_Jump);
-        }
-        m_Jump = {};
-    }
-
-    Sound m_Jump{};
+    rw::Sound m_Jump;
+    rw::Music m_Music;
+    rw::Font m_Font;
+    rw::Timer m_ScoreTimer{ 1.0f };
+    int m_Score = 0;
 };
 ```
 
-`OnStart` runs again on restart and hot reload, so reload assets there.
+`rw::Sound`, `rw::Music`, and `rw::Font` are move-only RAII wrappers. They
+resolve paths through `AssetResolver`, unload the previous handle on `Load`, and
+unload again in the destructor. `OnStart` runs on restart and hot reload, so
+reload assets there. Audio wrappers stay inert when the device is not ready.
+
+## Sprite animation
+
+```cpp
+class Player
+{
+public:
+    void Start()
+    {
+        m_Sheet.Load("player.png", { 32.0f, 32.0f });
+        m_Animator.AddClip("idle", 0, 4, 8.0f);
+        m_Animator.AddClip("run", 4, 6, 12.0f);
+    }
+
+    void Update(float dt)
+    {
+        m_Animator.Play(b_Moving() ? "run" : "idle");
+        m_Animator.Update(dt);
+    }
+
+    void Draw()
+    {
+        const Rectangle src = m_Animator.FrameRect(m_Sheet);
+        DrawTexturePro(m_Sheet.GetTexture().Get(), src, m_Dest, { 0.0f, 0.0f }, 0.0f, WHITE);
+    }
+
+private:
+    rw::SpriteSheet m_Sheet;
+    rw::Animator m_Animator;
+    Rectangle m_Dest{ 100.0f, 100.0f, 64.0f, 64.0f };
+};
+```
+
+`Animator` only does frame timing, so you can use it in a menu, a cutscene, or a
+headless test. Frames are numbered left to right, top to bottom. A non-looping
+clip holds its last frame and stops; `Play("same")` keeps progress, while
+switching clips restarts the clock.
+
+## Timers and tweens
+
+```cpp
+class Spawner : public rw::Level
+{
+protected:
+    void OnUpdate(float dt) override
+    {
+        m_SpawnTimer.Update(dt);
+        if (m_SpawnTimer.b_IsDone()) { SpawnEnemy(); }
+
+        m_FadeTween.Update(dt);
+    }
+
+private:
+    rw::Timer m_SpawnTimer{ 0.5f, true };
+    float m_Fade = 1.0f;
+    rw::Tween m_FadeTween{ &m_Fade, 1.0f, 0.0f, 0.4f, rw::Easing::SmoothStep };
+};
+```
+
+A one-shot `Timer` stays done; a repeating timer wraps and keeps running.
+`Tween` drives one float and is complete when it reaches the target. The float
+must outlive the tween. Use multiple tweens for a `Vector2` or a color.
+
+## Replayable menu widgets
+
+```cpp
+class MenuLevel : public rw::Level
+{
+protected:
+    void OnDrawUI() override
+    {
+        m_UI.Panel({ 20.0f, 20.0f, 260.0f, 180.0f });
+        if (m_UI.Button("Play", { 40.0f, 50.0f, 220.0f, 44.0f })) { RequestGotoMap("Play"); }
+        m_UI.Checkbox("Mute", { 40.0f, 110.0f }, m_bMuted);
+    }
+
+private:
+    rw::UI m_UI;
+    bool m_bMuted = false;
+};
+```
+
+`rw::UI` reads the mouse through `rw::GetMousePosition` and `rw::IsMouseButton*`,
+so buttons and checkboxes work in `rwcli run --input` without a human. A click
+requires press and release on the same widget; dragging out before releasing
+cancels it.
 
 ## Keep state across hot reload
 
