@@ -84,6 +84,31 @@ xvfb-run -a ./scripts/agent-smoke.sh
 LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a ./scripts/agent-smoke.sh
 ```
 
+Debug the suites with sanitizers (ASan + UBSan, mirrors the Linux CI gate):
+
+```sh
+./scripts/check-sanitize.sh
+```
+
+Or instrument the whole build tree with any sanitizer list:
+
+```sh
+cmake --preset zig-debug -DRAYWAVES_SANITIZE=address,undefined
+cmake --build build/zig-debug
+```
+
+`RAYWAVES_SANITIZE` is Linux-only; Windows builds force `-fno-sanitize=all`
+and reject the option with an explicit error.
+
+Or run a suite under Valgrind memcheck (`sudo apt install valgrind`):
+
+```sh
+./scripts/check-valgrind.sh              # unit suite (default)
+./scripts/check-valgrind.sh --suite all  # every suite, slow
+```
+
+See [testing.md](testing.md) for the sanitizer and Valgrind options in detail.
+
 ## Run a project
 
 ```sh

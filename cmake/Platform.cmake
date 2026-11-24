@@ -60,6 +60,25 @@ if(RAYWAVES_USE_CCACHE)
     endif()
 endif()
 
+# Sanitizer instrumentation for the whole build tree (engine, tests, editor,
+# runtime, CLI, and the raylib fetched in cmake/Dependencies.cmake). Off by
+# default. Linux-only: the Windows/Zig path forces -fno-sanitize=all above, so
+# a Windows sanitizer build cannot work and is rejected explicitly.
+# Enable with e.g.: cmake --preset zig-debug -DRAYWAVES_SANITIZE=address,undefined
+set(RAYWAVES_SANITIZE "" CACHE STRING "Sanitizers to enable, comma separated (Linux only, e.g. address,undefined)")
+if(RAYWAVES_SANITIZE)
+    if(NOT CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        message(FATAL_ERROR
+            "RAYWAVES_SANITIZE=${RAYWAVES_SANITIZE} is Linux-only. "
+            "Windows builds force -fno-sanitize=all in cmake/Platform.cmake.")
+    endif()
+    message(STATUS "Sanitizers: ${RAYWAVES_SANITIZE}")
+    # -fno-omit-frame-pointer keeps sanitizer/valgrind backtraces readable;
+    # -g gives symbolized frames even in RelWithDebInfo-style builds.
+    add_compile_options(-fsanitize=${RAYWAVES_SANITIZE} -fno-omit-frame-pointer -g)
+    add_link_options(-fsanitize=${RAYWAVES_SANITIZE})
+endif()
+
 # Static engine code is linked into GameLogic.so on Linux; those objects must
 # be position independent.
 if(UNIX)

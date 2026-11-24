@@ -192,9 +192,12 @@ TEST_CASE("GameMap: editor entity registration")
     entities.front().m_Position->x = 99.0f;
     CHECK(position.x == doctest::Approx(99.0f));
 
-    CHECK(map.UnregisterEditorEntity(entity->m_Id));
+    // UnregisterEditorEntity erases the list node behind entity, so capture
+    // the id before the first call instead of reading through the pointer.
+    const uint32_t entity_id = entity->m_Id;
+    CHECK(map.UnregisterEditorEntity(entity_id));
     CHECK(map.GetEditorEntities().empty());
-    CHECK(!map.UnregisterEditorEntity(entity->m_Id));
+    CHECK(!map.UnregisterEditorEntity(entity_id));
 }
 
 TEST_CASE("GameMap: editor entity rejects null position")

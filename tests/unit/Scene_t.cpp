@@ -99,10 +99,13 @@ TEST_CASE("Scene: duplicate keeps values but not GPU handles")
     source.m_TexturePath = "crate.png";
     source.m_Position = { 10.0f, 20.0f };
     source.m_Layer = 4;
+    // DuplicateObject appends and can reallocate the vector, so capture the
+    // id before it runs instead of reading through source afterwards.
+    const uint32_t source_id = source.m_Id;
 
-    t_SceneObject* copy = scene.DuplicateObject(source.m_Id);
+    t_SceneObject* copy = scene.DuplicateObject(source_id);
     REQUIRE(copy != nullptr);
-    CHECK(copy->m_Id != source.m_Id);
+    CHECK(copy->m_Id != source_id);
     CHECK(copy->m_Name == "Crate");
     CHECK(copy->m_TexturePath == "crate.png");
     CHECK(copy->m_Texture.id == 0);

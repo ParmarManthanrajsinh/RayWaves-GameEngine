@@ -89,8 +89,10 @@ TEST_CASE("Reload round-trip: MapManager SaveState/LoadState across swap")
 
     {
         MapManager old_manager;
-        ReloadTestMap* map = new ReloadTestMap();
-        map->SaveState(reload_state);
+        // Stack instance: RegisterMap below builds its own factory-owned map,
+        // so the SaveState scratch object only needs to outlive this call.
+        ReloadTestMap old_map;
+        old_map.SaveState(reload_state);
         old_manager.RegisterMap<ReloadTestMap>("ReloadTestMap");
         old_manager.b_GotoMap("ReloadTestMap");
     }

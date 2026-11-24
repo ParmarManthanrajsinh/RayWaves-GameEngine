@@ -92,6 +92,43 @@ scripts/package.ps1 -IncludeCompiler -Zip
 ./scripts/package.sh --archive
 ```
 
+## Linux: sanitizers and Valgrind
+
+Run the test suites under AddressSanitizer + UndefinedBehaviorSanitizer — the
+same gate Linux CI runs:
+
+```sh
+./scripts/check-sanitize.sh
+```
+
+Instrument every binary in the build tree (editor, runtime, `rwcli`, tests,
+and the fetched raylib) with any comma-separated GCC/Clang sanitizer list:
+
+```sh
+cmake --preset zig-debug -DRAYWAVES_SANITIZE=address,undefined
+cmake --build build/zig-debug
+./build/zig-debug/RayWaves
+ASAN_OPTIONS=detect_leaks=0 ./build/zig-debug/rwcli run <project> --frames 60
+```
+
+`detect_leaks=0` mirrors the CI gate: raylib/X11/GL teardown reports allocator
+noise that is not engine-owned — drop it when hunting leaks. The option is
+Linux-only; Windows builds force `-fno-sanitize=all`, so configuring it there
+fails with an explicit error.
+
+Run the test suites under Valgrind memcheck:
+
+```sh
+./scripts/check-valgrind.sh                 # unit suite (default)
+./scripts/check-valgrind.sh --suite all     # every suite, slow
+
+valgrind --leak-check=full --error-exitcode=99 \
+  ./build/zig-debug/rwcli run <project> --frames 60
+```
+
+Definite leaks fail the Valgrind gate; still-reachable noise from raylib/X11
+teardown does not. Install Valgrind with `sudo apt install valgrind`.
+
 ## Repository map
 
 | Path | Purpose |
@@ -122,6 +159,8 @@ scripts/package.ps1 -IncludeCompiler -Zip
 | All tests | `scripts/test.ps1` | `./scripts/test.sh` |
 | Benchmarks | `scripts/bench.ps1` | `./scripts/bench.sh` |
 | Formatting + tests | `scripts/check.ps1` | `./scripts/check.sh` |
+| Sanitizer tests (Linux only) | — | `./scripts/check-sanitize.sh` |
+| Valgrind tests (Linux only) | — | `./scripts/check-valgrind.sh` |
 | Distribution | `scripts/package.ps1` | `./scripts/package.sh` |
 
 ## Documentation

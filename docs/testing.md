@@ -78,6 +78,47 @@ because raylib/X11/GL teardown and forked child processes report allocator
 noise that is not ours to fix. Windows builds are not covered: the Zig
 toolchain path forces `-fno-sanitize=all` in `cmake/Platform.cmake`.
 
+To instrument the whole build tree instead of just the CI gate — editor,
+runtime, `rwcli`, tests, and the fetched raylib — configure with
+`RAYWAVES_SANITIZE` (Linux only; a Windows configure fails explicitly):
+
+```sh
+cmake --preset zig-debug -DRAYWAVES_SANITIZE=address,undefined
+cmake --build build/zig-debug
+```
+
+Any comma-separated GCC/Clang sanitizer list works (`address`, `undefined`,
+`thread`, `leak`, ...). The flag applies compile and link options to every
+target, so backtraces carry `-fno-omit-frame-pointer` and `-g`.
+
+## Valgrind
+
+Valgrind memcheck is the non-instrumented counterpart: run the normal Debug
+binaries under it when ASan's shadow memory or a `thread` sanitizer would get
+in the way of the bug you are chasing.
+
+```sh
+chmod +x scripts/check-valgrind.sh   # once per checkout
+./scripts/check-valgrind.sh                    # unit suite (default)
+./scripts/check-valgrind.sh --suite all        # every suite, slow
+```
+
+The script configures `build/valgrind` (Debug, Ninja, no sanitizers), builds
+the requested suite, and runs each binary under
+`valgrind --leak-check=full --track-origins=yes`. Definite leaks and any
+invalid access fail the run (`--error-exitcode=99`); still-reachable raylib/
+X11 teardown noise does not. Child processes such as the `cmake`/`ninja`
+subprocesses spawned by the integration and smoke suites stay outside
+Valgrind (`--trace-children=no`). Suites run under `xvfb-run -a` when Xvfb is
+installed. Install Valgrind with `sudo apt install valgrind`.
+
+Any single binary works the same way:
+
+```sh
+valgrind --leak-check=full --error-exitcode=99 \
+  ./build/zig-debug/rwcli run <project> --frames 60
+```
+
 ## Adding a test
 
 - Pure engine logic goes in `tests/unit/<Module>_t.cpp`.

@@ -232,20 +232,27 @@ TEST_CASE("SceneCommands: field edits apply and revert")
 TEST_CASE("SceneCommands: multi-object transform is one reversible command")
 {
     Scene scene;
-    t_SceneObject& first = scene.AddObject("First");
-    t_SceneObject& second = scene.AddObject("Second");
-    first.m_Position = { 1.0f, 2.0f };
-    second.m_Position = { 3.0f, 4.0f };
+    // Capture ids first: AddObject reallocates the vector, so references
+    // taken before the second call would dangle (see the remove test above).
+    const uint32_t first_id = scene.AddObject("First").m_Id;
+    const uint32_t second_id = scene.AddObject("Second").m_Id;
+
+    t_SceneObject* first = scene.FindObject(first_id);
+    t_SceneObject* second = scene.FindObject(second_id);
+    REQUIRE(first != nullptr);
+    REQUIRE(second != nullptr);
+    first->m_Position = { 1.0f, 2.0f };
+    second->m_Position = { 3.0f, 4.0f };
 
     SceneCommands::FSceneObjectTransformEntry first_entry;
-    first_entry.m_Id = first.m_Id;
-    first_entry.m_Before = SceneCommands::ReadTransform(first);
+    first_entry.m_Id = first_id;
+    first_entry.m_Before = SceneCommands::ReadTransform(*first);
     first_entry.m_After = first_entry.m_Before;
     first_entry.m_After.m_Position = { 11.0f, 12.0f };
 
     SceneCommands::FSceneObjectTransformEntry second_entry;
-    second_entry.m_Id = second.m_Id;
-    second_entry.m_Before = SceneCommands::ReadTransform(second);
+    second_entry.m_Id = second_id;
+    second_entry.m_Before = SceneCommands::ReadTransform(*second);
     second_entry.m_After = second_entry.m_Before;
     second_entry.m_After.m_Position = { 13.0f, 14.0f };
 
@@ -253,34 +260,34 @@ TEST_CASE("SceneCommands: multi-object transform is one reversible command")
     stack.Push(std::make_unique<SceneCommands::SceneObjectsTransformCommand>(
         scene, std::vector{ first_entry, second_entry }, "Move Objects"));
 
-    CHECK(scene.FindObject(first.m_Id)->m_Position.x == doctest::Approx(11.0f));
-    CHECK(scene.FindObject(second.m_Id)->m_Position.y == doctest::Approx(14.0f));
+    CHECK(scene.FindObject(first_id)->m_Position.x == doctest::Approx(11.0f));
+    CHECK(scene.FindObject(second_id)->m_Position.y == doctest::Approx(14.0f));
 
     REQUIRE(stack.Undo());
-    CHECK(scene.FindObject(first.m_Id)->m_Position.x == doctest::Approx(1.0f));
-    CHECK(scene.FindObject(second.m_Id)->m_Position.y == doctest::Approx(4.0f));
+    CHECK(scene.FindObject(first_id)->m_Position.x == doctest::Approx(1.0f));
+    CHECK(scene.FindObject(second_id)->m_Position.y == doctest::Approx(4.0f));
 
     REQUIRE(stack.Redo());
-    CHECK(scene.FindObject(first.m_Id)->m_Position.x == doctest::Approx(11.0f));
+    CHECK(scene.FindObject(first_id)->m_Position.x == doctest::Approx(11.0f));
 }
 
 TEST_CASE("SceneCommands: visibility command applies to a set and reverts each value")
 {
     Scene scene;
-    t_SceneObject& first = scene.AddObject("First");
-    t_SceneObject& second = scene.AddObject("Second");
-    second.m_bVisible = false;
+    const uint32_t first_id = scene.AddObject("First").m_Id;
+    const uint32_t second_id = scene.AddObject("Second").m_Id;
+    scene.FindObject(second_id)->m_bVisible = false;
 
     CommandStack stack;
     stack.Push(std::make_unique<SceneCommands::SceneObjectsVisibleCommand>(
-        scene, std::vector<uint32_t>{ first.m_Id, second.m_Id }, true));
+        scene, std::vector<uint32_t>{ first_id, second_id }, true));
 
-    CHECK(scene.FindObject(first.m_Id)->m_bVisible);
-    CHECK(scene.FindObject(second.m_Id)->m_bVisible);
+    CHECK(scene.FindObject(first_id)->m_bVisible);
+    CHECK(scene.FindObject(second_id)->m_bVisible);
 
     REQUIRE(stack.Undo());
-    CHECK(scene.FindObject(first.m_Id)->m_bVisible);
-    CHECK_FALSE(scene.FindObject(second.m_Id)->m_bVisible);
+    CHECK(scene.FindObject(first_id)->m_bVisible);
+    CHECK_FALSE(scene.FindObject(second_id)->m_bVisible);
 }
 
 TEST_CASE("SceneCommands: entity transform command writes only its pointers and reverts")

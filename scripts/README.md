@@ -13,6 +13,8 @@ targets.
 | Package | `package.ps1` | `package.sh` | Build an engine distribution |
 | Agent smoke | `agent-smoke.ps1` | `agent-smoke.sh` | Build + run a template through `rwcli` |
 | Check | `check.ps1` | `check.sh` | Format check + docs check + tests |
+| Sanitize (Linux only) | — | `check-sanitize.sh` | Run the suites under ASan + UBSan |
+| Valgrind (Linux only) | — | `check-valgrind.sh` | Run a suite under Valgrind memcheck |
 | Docs check | `check-docs.ps1` | `check-docs.sh` | Stale tokens, fences, relative links |
 | Clean | `clean.ps1` | `clean.sh` | Remove a build directory (host switch) |
 
